@@ -51,11 +51,13 @@
 #include "config/the_isa.hh"
 #include "cpu/base.hh"
 #include "cpu/checker/cpu.hh"
+#include "cpu/checker/htm_checker.hh"
 #include "cpu/exetrace.hh"
 #include "cpu/o3/cpu.hh"
 #include "cpu/o3/dyn_inst.hh"
 #include "cpu/o3/limits.hh"
 #include "cpu/o3/thread_state.hh"
+#include "cpu/o3/lsq_unit.hh"
 #include "cpu/timebuf.hh"
 #include "debug/Activity.hh"
 #include "debug/Commit.hh"
@@ -63,6 +65,7 @@
 #include "debug/Drain.hh"
 #include "debug/ExecFaulting.hh"
 #include "debug/HtmCpu.hh"
+#include "debug/HtmCpuInst.hh"
 #include "debug/O3PipeView.hh"
 #include "params/O3CPU.hh"
 #include "sim/faults.hh"
@@ -429,6 +432,13 @@ Commit::executingHtmTransaction(ThreadID tid) const
         return false;
     else
         return (htmStarts[tid] > htmStops[tid]);
+}
+
+bool
+Commit::committedHtmTransaction(ThreadID tid, uint64_t tuid) const
+{
+    assert(executingHtmTransaction(tid));
+    return iewStage->getLastCommittedHtmUid(tid) == tuid;
 }
 
 void
@@ -974,10 +984,52 @@ Commit::commitInsts()
         if (interrupt != NoFault) {
             // If inside a transaction, postpone interrupts
             if (executingHtmTransaction(commit_thread)) {
-                cpu->clearInterrupts(0);
-                toIEW->commitInfo[0].clearInterrupt = true;
-                interrupt = NoFault;
-                avoidQuiesceLiveLock = true;
+                DPRINTF(HtmCpu,
+                        "Interrupt detected within transaction\n");
+                if (cpu->system->getHTM()->params().delay_interrupts) {
+                    cpu->clearInterrupts(0);
+                    toIEW->commitInfo[0].clearInterrupt = true;
+                    interrupt = NoFault;
+                    avoidQuiesceLiveLock = true;
+                } else if (rob->isEmpty(commit_thread)){
+                    DPRINTF(HtmCpu,
+                            "Interrupt detected within transaction"
+                            " while ROB is empty, postponing "
+                            " until ROB not empty\n");
+                    break;
+                } else {
+                    head_inst = rob->readHeadInst(commit_thread);
+                    Fault inst_fault = head_inst->getFault();
+                    if (!head_inst->isExecuted() ||
+                        head_inst->isSquashed()) {
+                        DPRINTF(HtmCpu,
+                                "Interrupt detected within transaction,"
+                                " head inst %s\n",
+                                (head_inst->isSquashed() ? "squashed" :
+                                 "not yet executed"));
+                    } else if (!head_inst->inHtmTransactionalState()) {
+                        DPRINTF(HtmCpu,
+                                "Interrupt detected within transaction,"
+                                " head inst not from transaction\n");
+                    } else if (committedHtmTransaction(commit_thread,
+                                head_inst->getHtmTransactionUid())) {
+                        DPRINTF(HtmCpu,
+                                "Interrupt detected within transaction"
+                                " already committed in cache \n");
+                    } else if (inst_fault == NoFault) {
+                        head_inst->fault =
+                            std::make_shared<GenericHtmFailureFault>
+                            (head_inst->getHtmTransactionUid(),
+                             HtmFailureFaultCause::INTERRUPT);
+                        DPRINTF(HtmCpu,
+                                "Interrupt detected within transaction,"
+                                " generating fault to trigger abort\n");
+                    } else {
+                        DPRINTF(HtmCpu,
+                                "Interrupt detected but transaction"
+                                " has already faulted\n");
+                    }
+                }
             } else {
                 handleInterrupt();
             }
@@ -1027,20 +1079,66 @@ Commit::commitInsts()
                 // hardware transactional memory
 
                 // update nesting depth
-                if (head_inst->isHtmStart())
+                if (head_inst->isHtmStart()) {
                     htmStarts[tid]++;
-
+                }
                 // sanity check
-                if (head_inst->inHtmTransactionalState()) {
+                if (head_inst->inHtmTransactionalState() &&
+                    cpu->system->getHTM()->params().htm_model_umu &&
+                    head_inst->isLoad() &&
+#if 0 // TODO
+                    !head_inst->isStoreToLoadForwarding() &&
+#endif
+                    !head_inst->isHtmCmd() &&
+                    !head_inst->isDataPrefetch()) {
+                    // Isolate transactional loads upon retirement for
+                    // precise tracking of read-set. Default behaviour
+                    // is to isolate when load execute (may result in
+                    // blocks being marked as transactional even when
+                    // no transaction is executed.
+                    // NOTE: HTM_ISOLATE are always be sent, even if
+                    // precise_read_set_tracking disabled, since Ruby
+                    // uses them to profile the "retired read set"
+
+                    // "HTM_ISOLATE" requests are only supported by
+                    // TransactionalSequencer, not HTMSequencer
+
+                    // Sanity checks
                     assert(executingHtmTransaction(tid));
-                } else {
-                    assert(!executingHtmTransaction(tid));
+                    // Data prefetches may silently fault and not have
+                    // a valid eff addr when they retire...
+                    assert(head_inst->effAddrValid());
+                    unsigned int cacheBlockMask = ~(cpu->cacheLineSize() - 1);
+                    Addr blockAddr = head_inst->physEffAddr & cacheBlockMask;
+                    DPRINTF(HtmCpuInst,
+                            "Sending HTM_ISOLATE signal for block addr %#x\n",
+                            blockAddr);
+                    uint64_t tuid = head_inst->getHtmTransactionUid();
+                    cpu->htmSendSignal(tid, tuid,
+                                       blockAddr,
+                                       Request::HTM_ISOLATE);
+#if 0 // TODO
+                    if (head_inst->physEffAddrSplit != Addr(0)) {
+                        Addr blockAddrSplit =
+                            head_inst->physEffAddrSplit & cacheBlockMask;
+                        DPRINTF(HtmCpuInst,
+                                "Sending HTM_ISOLATE signal for block addr %#x"
+                                " (split)\n",
+                                blockAddrSplit);
+                        cpu->htmSendSignal(tid, tuid,
+                                           blockAddrSplit,
+                                           Request::HTM_ISOLATE);
+                    }
+#endif
                 }
 
                 // update nesting depth
-                if (head_inst->isHtmStop())
+                if (head_inst->isHtmStop()) {
                     htmStops[tid]++;
-
+                    if (!executingHtmTransaction(tid)) {
+                        cpu->htmChecker->commit(0);
+                    }
+                }
                 changedROBNumEntries[tid] = true;
 
                 // Set the doneSeqNum to the youngest committed instruction.
@@ -1195,20 +1293,60 @@ Commit::commitHead(const DynInstPtr &head_inst, unsigned inst_num)
     Fault inst_fault = head_inst->getFault();
 
     // hardware transactional memory
+    // Handle protocol "nacks": failed cache accesses may occur also
+    // for non-transactional instructions
+    if (inst_fault != NoFault) {
+      if (std::dynamic_pointer_cast<HtmFailedCacheAccess>(inst_fault)) {
+          DPRINTF(HtmCpu,
+                  "%s - fault (%s) - converting to ReExec fault "
+                  " - will attempt to retry nacked memory access \n",
+                  head_inst->staticInst->getName(), inst_fault->name());
+          inst_fault = std::make_shared<ReExec>();
+      }
     // if a fault occurred within a HTM transaction
     // ensure that the transaction aborts
-    if (inst_fault != NoFault && head_inst->inHtmTransactionalState()) {
+      else if (head_inst->inHtmTransactionalState()) {
         // There exists a generic HTM fault common to all ISAs
         if (!std::dynamic_pointer_cast<GenericHtmFailureFault>(inst_fault)) {
-            DPRINTF(HtmCpu, "%s - fault (%s) encountered within transaction"
-                            " - converting to GenericHtmFailureFault\n",
-            head_inst->staticInst->getName(), inst_fault->name());
-            inst_fault = std::make_shared<GenericHtmFailureFault>(
-                head_inst->getHtmTransactionUid(),
-                HtmFailureFaultCause::EXCEPTION);
+            if (std::dynamic_pointer_cast<ReExec>(inst_fault)) {
+                // ReExec faults should not make the transaction fail,
+                // as they are not real (architectural) faults but
+                // signal flush/replays
+                DPRINTF(HtmCpu, "%s - ReExec fault within transaction"
+                        " - no transaction failure required\n",
+                        head_inst->staticInst->getName());
+            } else if (std::dynamic_pointer_cast<HtmLoadReExec>(inst_fault)) {
+                assert(cpu->system->getHTM()->params().reload_if_stale);
+                DPRINTF(HtmCpu,
+                        "%s - fault (%s) - converting to ReExec fault "
+                        " - no transaction failure required\n",
+                        head_inst->staticInst->getName(), inst_fault->name());
+                inst_fault = std::make_shared<ReExec>();
+            } else {
+                DPRINTF(HtmCpu,
+                        "%s - fault (%s) encountered within transaction"
+                        " - converting to GenericHtmFailureFault\n",
+                        head_inst->staticInst->getName(), inst_fault->name());
+                inst_fault = std::make_shared<GenericHtmFailureFault>(
+                             head_inst->getHtmTransactionUid(),
+                             HtmFailureFaultCause::EXCEPTION);
+            }
         }
         // If this point is reached and the fault inherits from the HTM fault,
         // then there is no need to raise a new fault
+      }
+    }
+    if (head_inst->inHtmTransactionalState() &&
+        head_inst->isSyscall()) {
+        warn("Syscall within transaction at PC %s"
+             " (generating GenericHtmFailureFault)\n",
+             head_inst->pcState());
+        DPRINTF(HtmCpu, "Syscall within transaction at PC %s"
+             " (generating GenericHtmFailureFault)\n",
+             head_inst->pcState());
+        inst_fault = std::make_shared<GenericHtmFailureFault>(
+                head_inst->getHtmTransactionUid(),
+                HtmFailureFaultCause::EXCEPTION);
     }
 
     // Stores mark themselves as completed.
@@ -1286,6 +1424,12 @@ Commit::commitHead(const DynInstPtr &head_inst, unsigned inst_num)
     DPRINTF(Commit,
             "[tid:%i] [sn:%llu] Committing instruction with PC %s\n",
             tid, head_inst->seqNum, head_inst->pcState());
+    // HTM checker (record/replay): send trace data through fifo
+    // before it gets deallocated
+    cpu->retireInst(head_inst->isMemRef(),
+                    head_inst->inHtmTransactionalState(),
+                    head_inst->traceData);
+
     if (head_inst->traceData) {
         head_inst->traceData->setFetchSeq(head_inst->seqNum);
         head_inst->traceData->setCPSeq(thread[tid]->numOp);

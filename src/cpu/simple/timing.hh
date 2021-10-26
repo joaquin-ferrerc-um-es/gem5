@@ -150,6 +150,7 @@ class TimingSimpleCPU : public BaseSimpleCPU
             uint8_t *data, bool read);
 
     bool handleReadPacket(PacketPtr pkt);
+    void handleReadPacketTransactional(PacketPtr pkt);
     // This function always implicitly uses dcache_pkt.
     bool handleWritePacket();
 
@@ -328,6 +329,13 @@ class TimingSimpleCPU : public BaseSimpleCPU
     Fault initiateHtmCmd(Request::Flags flags) override;
 
     void htmSendAbortSignal(HtmFailureFaultCause) override;
+    void htmSendSignal(Addr addr, const Request::Flags flags);
+
+    bool retryDataAccess(PacketPtr pkt);
+    bool handleNackedAccess(PacketPtr pkt);
+    void isolateTransactionLoad(PacketPtr pkt);
+    void checkForConflictingSnoops(PacketPtr pkt);
+    void checkSnoop(PacketPtr pkt);
 
   private:
 

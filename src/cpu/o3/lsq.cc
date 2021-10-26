@@ -54,6 +54,7 @@
 #include "debug/Drain.hh"
 #include "debug/Fetch.hh"
 #include "debug/HtmCpu.hh"
+#include "debug/HtmCpuInst.hh"
 #include "debug/LSQ.hh"
 #include "debug/Writeback.hh"
 #include "params/O3CPU.hh"
@@ -387,6 +388,14 @@ LSQ::setLastRetiredHtmUid(ThreadID tid, uint64_t htmUid)
     if (tid != InvalidThreadID)
         thread[tid].setLastRetiredHtmUid(htmUid);
 }
+
+uint64_t
+LSQ::getLastCommittedHtmUid(ThreadID tid) const
+{
+    assert(tid != InvalidThreadID);
+    return thread[tid].getLastCommittedHtmUid();
+}
+
 
 void
 LSQ::recvReqRetry()
@@ -922,6 +931,24 @@ LSQ::SplitDataRequest::finish(const Fault &fault, const RequestPtr &req,
                     mainReq->setExtraData(*_res);
                 }
                 if (i == _fault.size()) {
+                    if (_inst->inHtmTransactionalState() &&
+                        _inst->getCpuPtr()->
+                        system->getHTM()->params().htm_model_umu) {
+                        panic("Split transactional access not implemented!");
+#if 0 
+                        // Dyn inst tracks up to two physEffAddr in
+                        // order to isolate split trans loads.
+                        // inst->physEffAddr tracks first split request .
+                        // Now save physEffAddr second split request
+                        _inst->physEffAddrSplit =
+                            request(1)->getPaddr();
+                        // Sanity checks
+                        if (i > 2) {
+                            panic("Only 2-way split transactional"
+                                  " accesses supported!");
+                        }
+#endif
+                    }
                     _inst->fault = NoFault;
                     setState(State::Request);
                 } else {
@@ -1125,7 +1152,10 @@ LSQ::SingleDataRequest::recvTimingResp(PacketPtr pkt)
 {
     assert(_numOutstandingPackets == 1);
     auto state = dynamic_cast<LSQSenderState*>(pkt->senderState);
-    flags.set(Flag::Complete);
+    assert(!flags.isSet(Flag::Complete));
+    if (!pkt->isHtmAccessFailedInCache()) {
+        flags.set(Flag::Complete);
+    }
     state->outstanding--;
     assert(pkt == _packets.front());
     _port.completeDataAccess(pkt);
@@ -1143,7 +1173,13 @@ LSQ::SplitDataRequest::recvTimingResp(PacketPtr pkt)
     numReceivedPackets++;
     state->outstanding--;
     if (numReceivedPackets == _packets.size()) {
-        flags.set(Flag::Complete);
+        bool htmAccessFailed = false;
+        uint32_t i;
+        for (i = 0; i < _packets.size(); ++i) {
+            if (_packets[i]->isHtmAccessFailedInCache()) {
+                htmAccessFailed = true;
+            }
+        }
         /* Assemble packets. */
         PacketPtr resp = isLoad()
             ? Packet::createRead(mainReq)
@@ -1153,6 +1189,11 @@ LSQ::SplitDataRequest::recvTimingResp(PacketPtr pkt)
         else
             resp->dataStatic(_data);
         resp->senderState = _senderState;
+        if (!htmAccessFailed) {
+            flags.set(Flag::Complete);
+        } else {
+            resp->setHtmAccessFailedInCache(true);
+        }
         _port.completeDataAccess(resp);
         delete resp;
     }
@@ -1179,7 +1220,7 @@ LSQ::SingleDataRequest::buildPackets()
             _packets.back()->setHtmTransactional(
                 _inst->getHtmTransactionUid());
 
-            DPRINTF(HtmCpu,
+            DPRINTF(HtmCpuInst,
               "HTM %s pc=0x%lx - vaddr=0x%lx - paddr=0x%lx - htmUid=%u\n",
               isLoad() ? "LD" : "ST",
               _inst->instAddr(),
@@ -1187,6 +1228,9 @@ LSQ::SingleDataRequest::buildPackets()
                   _packets.back()->req->getVaddr() : 0lu,
               _packets.back()->getAddr(),
               _inst->getHtmTransactionUid());
+        }
+        if (_inst->seqNum == _port.getLoadHeadSeqNum()) {
+            _packets.back()->setAtLSQHead(true);
         }
     }
     assert(_packets.size() == 1);
@@ -1210,7 +1254,7 @@ LSQ::SplitDataRequest::buildPackets()
             if (_inst->inHtmTransactionalState()) {
                 _mainPacket->setHtmTransactional(
                     _inst->getHtmTransactionUid());
-                DPRINTF(HtmCpu,
+                DPRINTF(HtmCpuInst,
                   "HTM LD.0 pc=0x%lx-vaddr=0x%lx-paddr=0x%lx-htmUid=%u\n",
                   _inst->instAddr(),
                   _mainPacket->req->hasVaddr() ?
@@ -1234,6 +1278,9 @@ LSQ::SplitDataRequest::buildPackets()
                 pkt->dataDynamic(req_data);
             }
             pkt->senderState = _senderState;
+            if (_inst->seqNum == _port.getLoadHeadSeqNum()) {
+                pkt->setAtLSQHead(true);
+            }
             _packets.push_back(pkt);
 
             // hardware transactional memory
@@ -1242,7 +1289,7 @@ LSQ::SplitDataRequest::buildPackets()
             if (_inst->inHtmTransactionalState()) {
                 _packets.back()->setHtmTransactional(
                     _inst->getHtmTransactionUid());
-                DPRINTF(HtmCpu,
+                DPRINTF(HtmCpuInst,
                   "HTM %s.%d pc=0x%lx-vaddr=0x%lx-paddr=0x%lx-htmUid=%u\n",
                   isLoad() ? "LD" : "ST",
                   i+1,

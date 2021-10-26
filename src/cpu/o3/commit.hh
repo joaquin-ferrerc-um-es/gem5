@@ -199,6 +199,9 @@ class Commit
     /** Is the CPU currently processing a HTM transaction? */
     bool executingHtmTransaction(ThreadID) const;
 
+    /** Has the CPU already committed this htmUid in memory? */
+    bool committedHtmTransaction(ThreadID, uint64_t ) const;
+
     /* Reset HTM tracking, e.g. after an abort */
     void resetHtmStartsStops(ThreadID);
 

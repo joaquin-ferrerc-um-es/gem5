@@ -61,6 +61,7 @@
 #include "cpu/o3/lsq.hh"
 #include "cpu/timebuf.hh"
 #include "debug/HtmCpu.hh"
+#include "debug/HtmCpuInst.hh"
 #include "debug/LSQUnit.hh"
 #include "mem/packet.hh"
 #include "mem/port.hh"
@@ -256,6 +257,9 @@ class LSQUnit
     Fault checkViolations(typename LoadQueue::iterator& loadIt,
             const DynInstPtr& inst);
 
+    void checkTransactionalConflict(DynInstPtr ld_inst,
+                                    LSQRequest *req,
+                                    Addr invalidate_addr);
     /** Check if an incoming invalidate hits in the lsq on a load
      * that might have issued out of order wrt another load beacuse
      * of the intermediate invalidate.
@@ -318,6 +322,10 @@ class LSQUnit
         assert(htm_uid >= lastRetiredHtmUid);
         lastRetiredHtmUid = htm_uid;
     }
+    uint64_t getLastCommittedHtmUid() const
+    {
+        return lastCommittedHtmUid;
+    }
 
     /** Returns if either the LQ or SQ is full. */
     bool isFull() { return lqFull() || sqFull(); }
@@ -370,6 +378,9 @@ class LSQUnit
 
     /** Try to finish a previously blocked write back attempt */
     void writebackBlockedStore();
+
+    /** Handle nacked store, prepare it for retrying its writeback */
+    void completeNackedStore(typename StoreQueue::iterator store_idx);
 
     /** Completes the store at the specified index. */
     void completeStore(typename StoreQueue::iterator store_idx);
@@ -509,6 +520,7 @@ class LSQUnit
     int htmStops;
     // sanity checks and debugging
     uint64_t lastRetiredHtmUid;
+    uint64_t lastCommittedHtmUid;
 
     /** The index of the first instruction that may be ready to be
      * written back, and has not yet been written back.

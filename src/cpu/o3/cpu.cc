@@ -1740,7 +1740,10 @@ CPU::htmSendAbortSignal(ThreadID tid, uint64_t htm_uid,
     req->taskId(taskId());
     req->setContext(thread[tid]->contextId());
     req->setHtmAbortCause(cause);
-
+    // Sanity checks
+    if (cause == HtmFailureFaultCause::LSQ) {
+        assert(system->getHTM()->params().htm_model_umu);
+    }
     assert(req->isHTMAbort());
 
     PacketPtr abort_pkt = Packet::createRead(req);
@@ -1752,6 +1755,35 @@ CPU::htmSendAbortSignal(ThreadID tid, uint64_t htm_uid,
     // TODO include correct error handling here
     if (!iew.ldstQueue.getDataPort().sendTimingReq(abort_pkt)) {
         panic("HTM abort signal was not sent to the memory subsystem.");
+    }
+}
+void
+CPU::htmSendSignal(ThreadID tid, uint64_t htm_uid,
+                   Addr addr, const Request::Flags flags)
+{
+    if (!system->getHTM()->params().htm_model_umu) return;
+    // Using UMU HTM model
+
+    const int size = 8;
+
+    // notify l1 d-cache (ruby) that core has aborted transaction
+    RequestPtr req =
+        std::make_shared<Request>(addr, size, flags, _dataRequestorId);
+
+    req->taskId(taskId());
+    req->setContext(this->thread[tid]->contextId());
+
+    assert(req->isHTMCmd());
+
+    PacketPtr pkt = Packet::createRead(req);
+    uint8_t *memData = new uint8_t[8];
+    assert(memData);
+    pkt->dataStatic(memData);
+    pkt->setHtmTransactional(htm_uid);
+
+    // TODO include correct error handling here
+    if (!this->iew.ldstQueue.getDataPort().sendTimingReq(pkt)) {
+        panic("HTM signal was not sent to the memory subsystem.");
     }
 }
 

@@ -235,6 +235,15 @@ class IEW
     {
         ldstQueue.setLastRetiredHtmUid(tid, htmUid);
     }
+    // Interrupts taken when reitiring htmstop instruction may lead to
+    // spurious faults generated after transaction has committed. To
+    // prevent generating faults when the memory subsystem has already
+    // committed the transaction, we update committedHtmUid every time
+    // we send an HTM_Commit request to memory
+    uint64_t getLastCommittedHtmUid(ThreadID tid)
+    {
+        return ldstQueue.getLastCommittedHtmUid(tid);
+    }
 
   private:
     /** Sends commit proper information for a squash due to a branch

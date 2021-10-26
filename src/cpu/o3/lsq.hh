@@ -542,6 +542,11 @@ class LSQ
         {
             return flags.isSet(Flag::Sent);
         }
+        bool
+        isRetry()
+        {
+            return flags.isSet(Flag::Retry);
+        }
 
         bool
         isPartialFault()
@@ -886,6 +891,7 @@ class LSQ
     void resetHtmStartsStops(ThreadID tid);
     uint64_t getLatestHtmUid(ThreadID tid) const;
     void setLastRetiredHtmUid(ThreadID tid, uint64_t htmUid);
+    uint64_t getLastCommittedHtmUid(ThreadID tid) const;
 
     /** Returns the number of free load entries. */
     unsigned numFreeLoadEntries();

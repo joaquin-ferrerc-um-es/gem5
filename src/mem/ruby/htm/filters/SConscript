@@ -1,0 +1,8 @@
+# -*- mode:python -*-
+
+Import('*')
+
+if env['PROTOCOL'] == 'None':
+    Return()
+
+Source('BulkBloomFilter.cc')

@@ -193,7 +193,8 @@ class Sequencer : public RubyPort
 
   private:
     void issueRequest(PacketPtr pkt, RubyRequestType type);
-
+  protected:
+    virtual
     void hitCallback(SequencerRequest* srequest, DataBlock& data,
                      bool llscSuccess,
                      const MachineType mach, const bool externalHit,
@@ -201,6 +202,7 @@ class Sequencer : public RubyPort
                      const Cycles forwardRequestTime,
                      const Cycles firstResponseTime,
                      const bool was_coalesced);
+  private:
 
     void recordMissLatency(SequencerRequest* srequest, bool llscSuccess,
                            const MachineType respondingMach,

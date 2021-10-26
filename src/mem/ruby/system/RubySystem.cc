@@ -52,6 +52,8 @@
 #include "debug/RubyCacheTrace.hh"
 #include "debug/RubySystem.hh"
 #include "mem/ruby/common/Address.hh"
+#include "mem/ruby/htm/TransactionInterfaceManager.hh"
+#include "mem/ruby/htm/XactValueChecker.hh"
 #include "mem/ruby/network/Network.hh"
 #include "mem/ruby/system/DMASequencer.hh"
 #include "mem/ruby/system/Sequencer.hh"
@@ -75,9 +77,12 @@ bool RubySystem::m_warmup_enabled = false;
 // of RubySystems that need to be warmed up on checkpoint restore.
 unsigned RubySystem::m_systems_to_warmup = 0;
 bool RubySystem::m_cooldown_enabled = false;
+string RubySystem::m_protocol;
+bool RubySystem::m_l0_downgrade_on_l1_gets = false;
 
 RubySystem::RubySystem(const Params &p)
     : ClockedObject(p), m_access_backing_store(p.access_backing_store),
+      m_xactValueChecker(NULL),
       m_cache_recorder(NULL)
 {
     m_randomization = p.randomization;
@@ -89,12 +94,20 @@ RubySystem::RubySystem(const Params &p)
 
     // Resize to the size of different machine types
     m_abstract_controls.resize(MachineType_NUM);
+    // Globally accessible pointer to this object to any Ruby class
+    g_system_ptr = this;
+    m_htm = params().system->getHTM();
 
     // Collate the statistics before they are printed.
     statistics::registerDumpCallback([this]() { collateStats(); });
     // Create the profiler
     m_profiler = new Profiler(p, this);
     m_phys_mem = p.phys_mem;
+    m_protocol = p.protocol;
+    if (m_htm != nullptr) {
+        m_l0_downgrade_on_l1_gets  = m_htm->params().l0_downgrade_on_l1_gets;
+        m_xactValueChecker = new XactValueChecker();
+    }
 }
 
 void
@@ -110,6 +123,33 @@ RubySystem::registerAbstractController(AbstractController* cntrl)
 
     MachineID id = cntrl->getMachineID();
     m_abstract_controls[id.getType()][id.getNum()] = cntrl;
+}
+
+void
+RubySystem::
+registerTransactionInterfaceManager(TransactionInterfaceManager* mgr)
+{
+  int version = mgr->getVersion();
+  if (version >= m_xact_mgr_vec.size()) {
+      m_xact_mgr_vec.resize(version+1);
+  }
+  m_xact_mgr_vec[version] = mgr;
+}
+
+TransactionInterfaceManager*
+RubySystem::getTransactionInterfaceManager(int version)
+
+{
+    assert(version < m_xact_mgr_vec.size());
+    assert(m_xact_mgr_vec[version]->getVersion() == version);
+    return m_xact_mgr_vec[version];
+}
+
+std::vector<TransactionInterfaceManager*>
+RubySystem::getTransactionInterfaceManagers()
+
+{
+  return m_xact_mgr_vec;
 }
 
 void
@@ -474,6 +514,7 @@ void
 RubySystem::resetStats()
 {
     m_start_cycle = curCycle();
+    m_profiler->resetStats();
     for (auto& network : m_networks) {
         network->resetStats();
     }

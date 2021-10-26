@@ -45,6 +45,7 @@
 #include "base/logging.hh"
 #include "base/str.hh"
 #include "cpu/testers/rubytest/RubyTester.hh"
+#include "debug/HtmMem.hh"
 #include "debug/LLSC.hh"
 #include "debug/MemoryAccess.hh"
 #include "debug/ProtocolTrace.hh"
@@ -311,12 +312,30 @@ Sequencer::insertRequest(PacketPtr pkt, RubyRequestType primary_type,
     Addr line_addr = makeLineAddress(pkt->getAddr());
     // Check if there is any outstanding request for the same cache line.
     auto &seq_req_list = m_RequestTable[line_addr];
+    if (pkt->isHtmTransactional() &&
+        seq_req_list.size() > 0) {
+        // Transactional request aliased with outstanding request
+        SequencerRequest &seq_req = seq_req_list.back();
+        if (!seq_req.pkt->isHtmTransactional()) {
+            // A transactional request cannot be merged with an
+            // outstanding non-transactional request, as the former
+            // must go through protocol in order to set the SR/SM bits
+            // used for read/write set tracking
+            DPRINTF(HtmMem,
+                    "Cannot issue trans req due to outstanding"
+                    " non-trans req paddr: 0x%x\n", pkt->getAddr());
+            return RequestStatus_AliasedNotIssued;
+        }
+    }
     // Create a default entry
     seq_req_list.emplace_back(pkt, primary_type,
         secondary_type, curCycle());
     m_outstanding_count++;
 
     if (seq_req_list.size() > 1) {
+        // Aliased request must match transactional status
+        assert(pkt->isHtmTransactional() ==
+               seq_req_list.back().pkt->isHtmTransactional());
         return RequestStatus_Aliased;
     }
 
@@ -784,6 +803,11 @@ Sequencer::issueRequest(PacketPtr pkt, RubyRequestType secondary_type)
         pc = pkt->req->getPC();
     }
 
+    Addr vaddr = 0;
+    if (pkt->req->hasVaddr()) {
+        vaddr = pkt->req->getVaddr();
+    }
+
     // check if the packet has data as for example prefetch and flush
     // requests do not
     std::shared_ptr<RubyRequest> msg =
@@ -792,10 +816,14 @@ Sequencer::issueRequest(PacketPtr pkt, RubyRequestType secondary_type)
                                       RubyAccessMode_Supervisor, pkt,
                                       PrefetchBit_No, proc_id, core_id);
 
-    DPRINTFR(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s %#x %s\n",
-            curTick(), m_version, "Seq", "Begin", "", "",
-            printAddress(msg->getPhysicalAddress()),
-            RubyRequestType_to_string(secondary_type));
+    DPRINTFR(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s %#x %s %s %s %s %#x\n",
+             curTick(), m_version, "Seq", "Begin", "", "",
+             printAddress(msg->getPhysicalAddress()),
+             RubyRequestType_to_string(secondary_type),
+             pkt->isHtmTransactional() ? "Trans" : "",
+             pkt->req->isPriv() ? "Priv" : "",
+             pkt->req->hasVaddr() ? "Vaddr" : "PhysAddr",
+             vaddr);
 
     // hardware transactional memory
     // If the request originates in a transaction,

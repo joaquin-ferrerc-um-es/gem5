@@ -219,6 +219,8 @@ MemCmd::commandInfo[] =
     { {IsRead, IsRequest, NeedsResponse}, HTMReqResp, "HTMReq" },
     { {IsRead, IsResponse}, InvalidCmd, "HTMReqResp" },
     { {IsRead, IsRequest}, InvalidCmd, "HTMAbort" },
+    { {IsRead, IsRequest}, InvalidCmd, "HTMIsolate" },
+
 };
 
 AddrRange
@@ -535,6 +537,30 @@ Packet::getHtmTransactionUid() const
 {
     assert(flags.isSet(FROM_TRANSACTION));
     return htmTransactionUid;
+}
+
+void
+Packet::setHtmAccessFailedInCache(bool val)
+{
+    htmAccessFailed = val;
+}
+
+bool
+Packet::isHtmAccessFailedInCache()
+{
+    return htmAccessFailed;
+}
+
+void
+Packet::setAtLSQHead(bool val)
+{
+    atLSQHead = val;
+}
+
+bool
+Packet::isAtLSQHead()
+{
+    return atLSQHead;
 }
 
 } // namespace gem5

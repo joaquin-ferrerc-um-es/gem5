@@ -61,6 +61,7 @@ enumeration(CoherenceClass, desc="...") {
   DATA_EXCLUSIVE, desc="Data block for L1 cache in M/E state";
   ACK, desc="Generic invalidate ack";
   NAK, desc="Used by L0 to tell L1 that it cannot provide the latest value";
+  NACK, desc="Generic negative acknowledgment message (htm_model_umu)";
 
   // This is a special case in which the L1 cache lost permissions to the
   // shared block before it got the data. So the L0 cache can use the data
@@ -80,6 +81,9 @@ structure(CoherenceMsg, desc="...", interface="Message") {
   bool Dirty, default="false",  desc="Dirty bit";
   PrefetchBit Prefetch,         desc="Is this a prefetch request";
 
+  bool Transactional, default="false", desc="Is this a transactional request";
+  MachineID OriginalRequestor,  desc="What component sent this message";
+  Cycles Timestamp, default="Cycles(0)",desc="Timestamp";
   bool functionalRead(Packet *pkt) {
     // Only PUTX messages contains the data block
     if (Class == CoherenceClass:PUTX) {

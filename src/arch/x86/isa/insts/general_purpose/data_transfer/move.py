@@ -370,6 +370,11 @@ def macroop MOVD_P_XMM {
     stfp xmml, seg, riprel, disp, dataSize=dsz
 };
 
+def macroop XEND {
+    mfence
+    xend
+};
+
 '''
 #let {{
 #    class MOVD(Inst):

@@ -47,6 +47,7 @@ from m5.objects.SimpleMemory import *
 
 class MemoryMode(Enum): vals = ['invalid', 'atomic', 'timing',
                                 'atomic_noncaching']
+class LockStepMode(Enum): vals = ['record', 'replay', 'disabled']
 
 if buildEnv['TARGET_ISA'] in ('sparc', 'power'):
     default_byte_order = 'big'
@@ -63,6 +64,7 @@ class System(SimObject):
     cxx_exports = [
         PyBindMethod("getMemoryMode"),
         PyBindMethod("setMemoryMode"),
+        PyBindMethod("setupLockstepManager"),
     ]
 
     memories = VectorParam.AbstractMemory(Self.all,
@@ -135,6 +137,14 @@ class System(SimObject):
         0xffff0000 if buildEnv['TARGET_ISA'] == 'x86' else 0,
         "Base of the 64KiB PA range used for memory-mapped m5ops. Set to 0 "
         "to disable.")
+
+    # Lockstep record/replay simulation support: debugging facility
+    # for parallel simulations, checking instructions and values
+    # observed/produced by each critical section. A "replayer"
+    # simulation (supposedly correct) compares its execution against
+    # the output of a recorder configuration (buggy, under test)
+    lockstep_mode = Param.LockStepMode('disabled', "Lockstep record/replay)")
+    lockstep_fifopath = Param.String('/tmp/gem5-lockstep_mode', "")
 
     if buildEnv['USE_KVM']:
         kvm_vm = Param.KvmVM(NULL, 'KVM VM (i.e., shared memory domain)')

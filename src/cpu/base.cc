@@ -54,10 +54,12 @@
 #include "base/output.hh"
 #include "base/trace.hh"
 #include "cpu/checker/cpu.hh"
+#include "cpu/checker/htm_checker.hh"
 #include "cpu/thread_context.hh"
 #include "debug/Mwait.hh"
 #include "debug/SyscallVerbose.hh"
 #include "debug/Thread.hh"
+#include "enums/LockStepMode.hh"
 #include "mem/page_table.hh"
 #include "params/BaseCPU.hh"
 #include "sim/clocked_object.hh"
@@ -177,6 +179,11 @@ BaseCPU::BaseCPU(const Params &p, bool is_checker)
     if (params().isa.size() != numThreads) {
         fatal("Number of ISAs (%i) assigned to the CPU does not equal number "
               "of threads (%i).\n", params().isa.size(), numThreads);
+    }
+    if (system->getLockstepMode() != enums::disabled) {
+        htmChecker = new HTMChecker(name() + ".htmchecker", this);
+    } else {
+        htmChecker = new BaseHTMChecker(name() + ".htmchecker", this);
     }
 }
 
@@ -729,6 +736,30 @@ BaseCPU::traceFunctionsInternal(Addr pc)
 }
 
 
+void
+BaseCPU::retireInst(bool isMemRef, bool isCriticalRegion,
+                    Trace::InstRecord *traceData)
+{
+    if (traceData == NULL) return;
+
+    if (system->getLockstepMode() != enums::disabled) {
+        htmChecker->retireInst(isMemRef, isCriticalRegion, traceData);
+    }
+}
+// HTM checker support: called from python scripts
+void
+BaseCPU::createLockstepChecker()
+{
+    htmChecker->create();
+}
+
+void
+BaseCPU::openLockstepChecker()
+{
+    htmChecker->open();
+}
+
+
 BaseCPU::GlobalStats::GlobalStats(statistics::Group *parent)
     : statistics::Group(parent),
     ADD_STAT(simInsts, statistics::units::Count::get(),
@@ -767,5 +798,6 @@ BaseCPU::GlobalStats::GlobalStats(statistics::Group *parent)
     hostInstRate = simInsts / hostSeconds;
     hostOpRate = simOps / hostSeconds;
 }
+
 
 } // namespace gem5

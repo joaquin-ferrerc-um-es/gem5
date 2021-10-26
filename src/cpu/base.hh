@@ -68,6 +68,7 @@ namespace gem5
 class BaseCPU;
 struct BaseCPUParams;
 class CheckerCPU;
+class BaseHTMChecker;
 class ThreadContext;
 
 struct AddressMonitor
@@ -560,6 +561,9 @@ class BaseCPU : public ClockedObject
     static std::vector<BaseCPU *> cpuList;   //!< Static global cpu list
 
   public:
+    /** Pointer to the HTM checker */
+    BaseHTMChecker *htmChecker;
+
     void traceFunctions(Addr pc)
     {
         if (functionTracingEnabled)
@@ -611,6 +615,11 @@ class BaseCPU : public ClockedObject
         assert(tid < numThreads);
         return &addressMonitor[tid];
     }
+
+    void retireInst(bool isMemRef, bool isCriticalRegion,
+                    Trace::InstRecord *traceData);
+    void createLockstepChecker();
+    void openLockstepChecker();
 
     Cycles syscallRetryLatency;
 

@@ -1,4 +1,7 @@
 /*
+ * Copyright (C) 2016-2021 Rubén Titos <rtitos@um.es>
+ * Universidad de Murcia
+ *
  * Copyright (c) 2020 ARM Limited
  * All rights reserved
  *
@@ -36,9 +39,23 @@
  */
 
 #include "mem/htm.hh"
+#include "mem/ruby/profiler/Profiler.hh"
+#include "mem/ruby/profiler/XactProfiler.hh"
+#include "mem/ruby/system/RubySystem.hh"
 
 namespace gem5
 {
+
+const std::string HtmPolicyStrings::requester_wins = "requester_wins";
+const std::string HtmPolicyStrings::committer_wins = "committer_wins";
+const std::string HtmPolicyStrings::requester_stalls = "requester_stalls";
+const std::string HtmPolicyStrings::magic = "magic";
+const std::string HtmPolicyStrings::requester_stalls_cda_base =
+                                   "requester_stalls_cda_base";
+const std::string HtmPolicyStrings::requester_stalls_cda_base_ntx =
+                                   "requester_stalls_cda_base_ntx";
+const std::string HtmPolicyStrings::requester_stalls_cda_hybrid =
+                                   "requester_stalls_cda_hybrid";
 
 std::string
 htmFailureToStr(HtmFailureFaultCause cause)
@@ -48,7 +65,20 @@ htmFailureToStr(HtmFailureFaultCause cause)
         { HtmFailureFaultCause::NEST, "nesting_limit" },
         { HtmFailureFaultCause::SIZE, "transaction_size" },
         { HtmFailureFaultCause::EXCEPTION, "exception" },
+        { HtmFailureFaultCause::INTERRUPT, "interrupt" },
+        { HtmFailureFaultCause::DISABLED, "htm_disabled" },
         { HtmFailureFaultCause::MEMORY, "memory_conflict" },
+        { HtmFailureFaultCause::LSQ, "lsq_conflict" },
+        { HtmFailureFaultCause::SIZE_RSET, "transaction_size_rset" },
+        { HtmFailureFaultCause::SIZE_WSET, "transaction_size_wset" },
+        { HtmFailureFaultCause::SIZE_LLC, "transaction_size_llc" },
+        { HtmFailureFaultCause::SIZE_L1PRIV, "transaction_size_l1priv" },
+        { HtmFailureFaultCause::SIZE_WRONG_CACHE, "transaction_size_wrongcache" },
+        { HtmFailureFaultCause::EXPLICIT_FALLBACKLOCK, "explicit_fallbacklock" },
+        { HtmFailureFaultCause::MEMORY_FALLBACKLOCK,
+          "memory_conflict_fallbacklock" },
+        { HtmFailureFaultCause::MEMORY_STALEDATA,
+          "memory_conflict_staledata" },
         { HtmFailureFaultCause::OTHER, "other" }
     };
 
@@ -68,6 +98,28 @@ htmFailureToStr(HtmCacheFailure rc)
 
     auto it = rc_to_str.find(rc);
     return it == rc_to_str.end() ? "Unrecognized Failure" : it->second;
+}
+
+
+HTM::HTM(const Params &p)
+    : ClockedObject(p),
+      _params(p),
+      m_fallbackLockPhysicalAddress(0),
+      m_fallbackLockVirtualAddress(0)
+{
+    if (p.fallbacklock_addr != "") {
+        try {
+            m_fallbackLockVirtualAddress =
+                std::stol(p.fallbacklock_addr, NULL, 0);
+        }
+        catch (const std::invalid_argument& ia) {
+            panic("Illegal fallback lock address %s\n",
+                  p.fallbacklock_addr);
+            m_fallbackLockVirtualAddress = 0;
+        }
+    } else {
+        warn("Fallback lock address not specified!\n");
+    }
 }
 
 } // namespace gem5

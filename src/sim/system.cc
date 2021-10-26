@@ -215,6 +215,7 @@ System::System(const Params &p)
       lockstepManager(nullptr),
       lockstepMode(p.lockstep_mode),
       thermalModel(p.thermal_model),
+      htm(p.htm),
       _m5opRange(p.m5ops_base ?
                  RangeSize(p.m5ops_base, 0x10000) :
                  AddrRange(1, 0)), // Create an empty range if disabled

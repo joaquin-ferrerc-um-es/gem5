@@ -1,4 +1,7 @@
 /*
+ * Copyright (C) 2016-2021 Rubén Titos <rtitos@um.es>
+ * Universidad de Murcia
+ *
  * Copyright (c) 2020 ARM Limited
  * All rights reserved
  *
@@ -41,6 +44,9 @@
 #include <map>
 #include <string>
 
+#include "params/HTM.hh"
+#include "sim/clocked_object.hh"
+
 namespace gem5
 {
 
@@ -51,14 +57,29 @@ enum class HtmFailureFaultCause : int
     NEST,
     SIZE,
     EXCEPTION,
+    INTERRUPT,
+    DISABLED,
     MEMORY,
+    /* LSQ: conflicting snoop seen by CPU for trans load not yet in
+       Rset, caused either by remote requests or local replacements */
+    LSQ,
     OTHER,
+    /* Precise abort cause, set by xact mgr based on abortcause */
+    SIZE_RSET,
+    SIZE_WSET,
+    SIZE_L1PRIV,
+    SIZE_LLC,
+    SIZE_WRONG_CACHE,
+    EXPLICIT_FALLBACKLOCK,
+    MEMORY_FALLBACKLOCK,
+    MEMORY_STALEDATA,
     NUM_CAUSES
 };
 
 enum class HtmCacheFailure
 {
     NO_FAIL,     // no failure in cache
+    NO_FAIL_RETRY, // no failure in cache, must retry
     FAIL_SELF,   // failed due local cache's replacement policy
     FAIL_REMOTE, // failed due remote invalidation
     FAIL_OTHER,  // failed due other circumstances
@@ -69,6 +90,39 @@ std::string htmFailureToStr(HtmFailureFaultCause cause);
 
 /** Convert enum into string to be used for debug purposes */
 std::string htmFailureToStr(HtmCacheFailure rc);
+
+class HtmPolicyStrings {
+public:
+  static const std::string requester_wins;
+  static const std::string committer_wins;
+  static const std::string requester_stalls;
+  static const std::string magic;
+  static const std::string requester_stalls_cda_base;
+  static const std::string requester_stalls_cda_base_ntx;
+  static const std::string requester_stalls_cda_hybrid;
+};
+
+class HTM : public ClockedObject
+{
+  public:
+    const HTMParams &_params;
+    Addr m_fallbackLockPhysicalAddress;
+    Addr m_fallbackLockVirtualAddress;
+
+    PARAMS(HTM);
+    HTM(const Params &p);
+    Addr getFallbackLockPAddr() { return m_fallbackLockPhysicalAddress; }
+    void setFallbackLockPAddr(Addr addr) {
+        if (m_fallbackLockPhysicalAddress == Addr(0)) {
+            m_fallbackLockPhysicalAddress = addr;
+        } else {
+            assert(m_fallbackLockPhysicalAddress == addr);
+        }
+    }
+    Addr getFallbackLockVAddr() { return m_fallbackLockVirtualAddress; }
+    virtual void notifyPseudoInst() {};
+    virtual void notifyPseudoInstWork(bool begin, int cpuId, uint64_t workid) {};
+};
 
 } // namespace gem5
 

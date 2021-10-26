@@ -421,6 +421,8 @@ class System : public SimObject, public PCEventScope
      */
     ThermalModel * getThermalModel() const { return thermalModel; }
 
+    HTM * getHTM() const { return htm; }
+
   protected:
 
     KvmVM *const kvmVM = nullptr;
@@ -450,6 +452,7 @@ class System : public SimObject, public PCEventScope
     std::vector<RequestorInfo> requestors;
 
     ThermalModel * thermalModel;
+    HTM * htm;
 
   protected:
     /**

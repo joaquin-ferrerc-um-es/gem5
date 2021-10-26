@@ -1,0 +1,122 @@
+from m5.objects.ClockedObject import ClockedObject
+from m5.params import *
+from m5.proxy import *
+from m5.objects.System import System
+
+class HTM(ClockedObject):
+    type = 'HTM'
+    cxx_header = "mem/htm.hh"
+    cxx_class = 'gem5::HTM'
+
+    # Hardware transactional memory model from University of Murcia.
+    # Replaces memory-side implementation of gem5-20.1 with an
+    # alternative, more flexible, less protocol-dependent
+    # implementation. Inspired by HTM support in GEMS, compatible with
+    # gem5-20 CPU API, replaces each HTMSequencer with a
+    # TransactionalSecuencer object, whose associated HTM manager
+    # (TransactionalInterfaceManager) is passed as argument to the
+    # L0/L1 cache controller. The xact mgr acts as interface to the
+    # different classes that provide the various mechanisms for HTM.
+    # NOTE: This option is "fixed" for each HTM protocol and set from
+    # the Python scripts in configs/ruby/*HTM*.py
+    htm_model_umu = Param.Bool(False, "Use HTM model from Univ. of Murcia")
+
+    # Disable HTM support by forcing abort upon htm start instruction,
+    # useful to run "single-global-lock" simulations using unmodified
+    # HTM binaries
+    disable_speculation = Param.Bool(False, "Disable HTM speculation")
+
+    # General HTM system configuration options
+
+    # Supported version management policies: eager (log-based) or lazy
+    # (cache as write buffer).
+    lazy_vm = Param.Bool(False, "Lazy version management")
+    # Supported conflict detection policies: eager (on each mem.ref)
+    # or lazy (on commit).
+    eager_cd = Param.Bool(False, "Has eager conflict detection")
+    # Supported conflict resolution policies.
+    conflict_resolution = Param.String("requester_wins",
+        "Set conflict resolution policy")
+    # Commit arbitration scheme used by systems with lazy conflict
+    # detection.  The 'lazy_validated_conf_res' parameter
+    # determines how conflicts are resolved by a committing (already
+    # validated) transaction)
+    lazy_arbitration = Param.String("magic",
+        "Lazy validation policy")
+    # Conflict resolution for validated transactions in lazy_cd
+    lazy_validated_conf_res = Param.String("committer_wins",
+        "Conflict resolution for lazy validated transactions")
+    # Whether the L0 cache cache allows evictions of cache blocks in
+    # the read-set of the transaction. If set, 3-level protocol allows
+    # silent L0 replacements of Rset blocks but L1 local invalidations
+    # are still nacked to force L1 to keep forwarding traffic to L0
+    # for conlict detection.
+    allow_read_set_l0_cache_evictions = Param.Bool(False,
+        "Allow read set evictions from the L0 cache")
+    # Whether the L1 cache allows evictions of cache blocks in the
+    # read-set of the transaction. If set, 3-level protocols allow L1
+    # invalidations of Rset blocks using "sticky-S" L2 directory
+    # states to keep receiving traffic. For 2-level protocols, this
+    # option equals allow_read_set_lower_private_cache_evictions
+    allow_read_set_l1_cache_evictions = Param.Bool(False,
+        "Allow read set evictions from the L1 cache")
+    # Whether speculatively-read cache block are added to the read-set
+    # upon load access (imprecise) or load retirement  (precise)
+    precise_read_set_tracking = Param.Bool(False,
+        "Loads added to read set when load retires"
+        " (default: when load executes)")
+    # Whether the replacement policy favours read-write sets blocks
+    # in detriment of non-transactional blocks, so that the latter are
+    # always chosen as victims over the former.
+    replace_nontrans_preferred = Param.Bool(False,
+        "Replacement policy always chooses non-transactional blocks"
+        " over transactional blocks as candidates for victimization")
+    # In protocols with two levels of private cache, whether the L0
+    # can nack L1 replacements of cache blocks in the read-write sets
+    nack_l1_local_evictions = Param.Bool(False,
+        "Allow L0 cache to nack L1 evictions of read-write set blocks")
+    # To prevent conflicts to trigger an abort, transactional load
+    # can be delayed in the cpu until the trasaction is finished
+    # or there is no room in the lsq or rob.
+    allow_load_delaying = Param.Bool(False,
+        "Allow loads to stay more time in the rob without commiting"
+        " to prevent certaing aborts")
+
+    # L0 downgrades from E/M to S when L1 receives remote
+    # transactional GETS request (otherwise: invalidate L0 copy)
+    l0_downgrade_on_l1_gets = Param.Bool(False,
+        "L0 downgrades from E/M to S when L1 receives GETS"
+        " (default: L1 requests L0 invalidation (conflict)")
+
+    # Re-execute loads that 1) have not yet been retired from the
+    # processor, 2) have not added the block to the read set, and 3)
+    # observe a conflicting invalidation. precise_read_set_tracking
+    # required, as otherwise the CPU cannot tell if this was the first
+    # load to the block
+    reload_if_stale = Param.Bool(False, "Re-execute trans. loads that may"
+    " have obtained stale data (False: abort transaction)")
+    delay_interrupts = Param.Bool(False, "Delay interrupts that occur "
+    " during transaction until its end (False: abort transaction)")
+
+
+    # Debugging/profiling facilities
+
+    # Address of the fallback lock, generated by HTM library during
+    # initialization and written to file 'fallback_lock'.
+    # gem5_path/benchmarks/benchmarks-htm/libs/handlers/abort_handlers.c
+    # This option is required for the proper collection of detailed
+    # statistic as well as facilities such as lockstep execution
+    fallbacklock_addr = Param.String("",
+        "Address of the fallback lock used by transactions")
+    # Basic value-based sanity checks to ensure consistency of
+    # read/written values produced/consumed by transactions
+    value_checker = Param.Bool(False, "Enable value checker")
+    # Thread text-based visualization facility, showing state for each
+    # thread at each give tick in the simulation
+    visualizer = Param.Bool(False,
+        "Generate visual trace of transactional execution")
+    visualizer_filename = Param.String("htm_visualizer",
+                                       "Filename where visualizer output "
+                                       "dumped to, stderr if not specified")
+    profiler = Param.Bool(True,
+                          "Profiling of transactional events")

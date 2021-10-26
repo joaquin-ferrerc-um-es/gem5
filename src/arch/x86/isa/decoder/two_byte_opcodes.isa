@@ -91,6 +91,8 @@
                     0x3: decode MODRM_RM {
                         0x0: xgetbv();
                         0x1: xsetbv();
+                        0x5: Inst::XEND();
+                        0x6: XtestInst::xtest();
                     }
                     default: decode MODE_SUBMODE {
                         0x0: Inst::LGDT(M);

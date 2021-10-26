@@ -156,6 +156,8 @@ let {{
             self.control_direct = True
         def control_indirect(self):
             self.control_indirect = True
+        def system_call(self):
+            self.system_call = True
 
         def __init__(self, name):
             super(X86Macroop, self).__init__(name)
@@ -167,6 +169,7 @@ let {{
                 "serialize_after" : self.serializeAfter,
                 "function_call" : self.function_call,
                 "function_return" : self.function_return,
+                "system_call" : self.system_call,
                 "control_direct" : self.control_direct,
                 "control_indirect" : self.control_indirect
             }
@@ -189,6 +192,7 @@ let {{
             self.function_return = False
             self.control_direct = False
             self.control_indirect = False
+            self.system_call = False
 
         def getAllocator(self, env):
             return "new x86_macroop::%s(machInst, %s)" % \
@@ -219,6 +223,9 @@ let {{
                 flags = ["IsMicroop"]
                 if micropc == 0:
                     flags.append("IsFirstMicroop")
+                    if self.system_call:
+                        flags.append("IsSyscall")
+
 
                     if self.serialize_before:
                         flags.append("IsSerializing")

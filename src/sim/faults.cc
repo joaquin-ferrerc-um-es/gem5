@@ -132,4 +132,18 @@ void GenericHtmFailureFault::invoke(ThreadContext *tc,
     tc->htmAbortTransaction(htmUid, cause);
 }
 
+// These type of faults should be replaced with ReExec
+void
+HtmLoadReExec::invoke(ThreadContext *tc, const StaticInstPtr &inst)
+{
+    panic("Should never invoke HtmLoadReExec faults!\n");
+}
+
+void
+HtmFailedCacheAccess::invoke(ThreadContext *tc, const StaticInstPtr &inst)
+{
+    panic("Should neverinvoke HtmFailedCacheAccess faults!\n");
+}
+
+
 } // namespace gem5

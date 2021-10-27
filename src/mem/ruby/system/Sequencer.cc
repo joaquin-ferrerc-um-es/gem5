@@ -623,6 +623,23 @@ Sequencer::hitCallback(SequencerRequest* srequest, DataBlock& data,
             pkt->setData(
                 data.getData(getOffset(request_address), pkt->getSize()));
             DPRINTF(RubySequencer, "read data %s\n", data);
+        } else if (pkt->cmd == MemCmd::SwapReq) {
+            if (pkt->isAtomicOp()) {
+                // RISCV AMO support
+                assert(system->getArch() == Arch::RiscvISA);
+                // Command is swap but req doesn't have swap flag set (
+                assert(!pkt->req->isSwap());
+                // extract data from cache and save it into the data field in
+                // the packet as a return value from this atomic op
+                uint8_t *blk_data =
+                    data.getDataMod(getOffset(request_address));
+                pkt->setData(blk_data);
+                // execute AMO operation
+                (*(pkt->getAtomicOp()))(blk_data);
+                DPRINTF(RubySequencer, "swap: set data %s\n", data);
+            } else {
+                panic("Non-atomic SwapReq command not implemented\n");
+            }
         } else if (pkt->req->isSwap()) {
             assert(!pkt->isMaskedWrite());
             std::vector<uint8_t> overwrite_val(pkt->getSize());

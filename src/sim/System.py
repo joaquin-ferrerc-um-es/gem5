@@ -138,6 +138,9 @@ class System(SimObject):
         "Base of the 64KiB PA range used for memory-mapped m5ops. Set to 0 "
         "to disable.")
 
+    # HTM related/specific options
+    htm = Param.HTM(NULL, "")
+
     # Lockstep record/replay simulation support: debugging facility
     # for parallel simulations, checking instructions and values
     # observed/produced by each critical section. A "replayer"

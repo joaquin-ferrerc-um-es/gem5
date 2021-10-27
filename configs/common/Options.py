@@ -412,6 +412,13 @@ def addCommonOptions(parser):
         "that are present under any of the roots. If not given, dump all "
         "stats. ")
 
+    # Lockstep record/replay testing/debugging facility
+    parser.add_argument("--lockstep-mode", default="disabled",
+                        choices=["disabled","record","replay"],
+                        help="Enable lockstep transactional execution ")
+    parser.add_argument("--lockstep-fifopath", action="store", type=str,
+        default=None,
+        help="Path of FIFO used in lockstep to pass commit order and values ")
 
 def addSEOptions(parser):
     # Benchmark options

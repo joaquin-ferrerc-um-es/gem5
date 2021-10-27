@@ -553,6 +553,12 @@ class System : public SimObject, public PCEventScope
         return ++workItemsBegin;
     }
 
+    uint64_t
+    getWorkItemsBegin()
+    {
+        return workItemsBegin;
+    }
+
     /**
      * Called by pseudo_inst to track the number of work items completed by
      * this system.
@@ -562,6 +568,12 @@ class System : public SimObject, public PCEventScope
     {
         return ++workItemsEnd;
     }
+
+    bool workItemShowProgress() const
+    {
+        return params().work_item_show_progress;
+    }
+
 
     /**
      * Called by pseudo_inst to mark the cpus actively executing work items.

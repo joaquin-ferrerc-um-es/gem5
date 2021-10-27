@@ -118,6 +118,8 @@ class System(SimObject):
         "exit simulation when work items end count value is reached")
     work_cpus_ckpt_count = Param.Counter(0,
         "create checkpoint when active cpu count value is reached")
+    work_item_show_progress = Param.Bool(True,
+            "Show progress for completed work items via stdout ")
 
     workload = Param.Workload(NULL, "Workload to run on this system")
     init_param = Param.UInt64(0, "numerical value to pass into simulator")

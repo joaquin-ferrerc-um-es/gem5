@@ -60,6 +60,7 @@
 #include "debug/WorkItems.hh"
 #include "dev/net/dist_iface.hh"
 #include "params/BaseCPU.hh"
+#include "sim/full_system.hh"
 #include "sim/process.hh"
 #include "sim/serialize.hh"
 #include "sim/sim_events.hh"
@@ -476,6 +477,11 @@ triggerWorkloadEvent(ThreadContext *tc)
 void
 workbegin(ThreadContext *tc, uint64_t workid, uint64_t threadid)
 {
+    HTM *htm = tc->getSystemPtr()->getHTM();
+    if (htm != nullptr && htm->params().profiler) {
+            htm->notifyPseudoInstWork(true, tc->getCpuPtr()->cpuId(),
+                                      workid);
+    }
     DPRINTF(PseudoInst, "pseudo_inst::workbegin(%i, %i)\n", workid, threadid);
     System *sys = tc->getSystemPtr();
     const System::Params &params = sys->params();
@@ -490,6 +496,15 @@ workbegin(ThreadContext *tc, uint64_t workid, uint64_t threadid)
     tc->getCpuPtr()->workItemBegin();
     sys->workItemBegin(threadid, workid);
 
+    if (sys->workItemShowProgress()) {
+        // Show progress: print one dot for every work item begun
+        std::cout << "." << std::flush;
+        uint64_t count = sys->getWorkItemsBegin();
+        if ((count > 0) && (count & 0x3f) == 0) {
+            // print count+endl every 64 work items
+            std::cout << count << std::endl;
+        }
+    }
     //
     // If specified, determine if this is the specific work item the user
     // identified
@@ -539,6 +554,11 @@ workbegin(ThreadContext *tc, uint64_t workid, uint64_t threadid)
 void
 workend(ThreadContext *tc, uint64_t workid, uint64_t threadid)
 {
+    HTM *htm = tc->getSystemPtr()->getHTM();
+    if (htm != nullptr && htm->params().profiler) {
+        notifyPseudoInstWork(false, tc->getCpuPtr()->cpuId(),
+                             workid);
+    }
     DPRINTF(PseudoInst, "pseudo_inst::workend(%i, %i)\n", workid, threadid);
     System *sys = tc->getSystemPtr();
     const System::Params &params = sys->params();

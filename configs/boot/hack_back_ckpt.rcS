@@ -33,6 +33,8 @@ fi
 
 # Checkpoint the first execution
 echo "Checkpointing simulation..."
+sync
+sleep 10
 /sbin/m5 checkpoint
 
 # Test if we previously okayed ourselves to run this script
@@ -46,7 +48,7 @@ then
 	echo "Loading new script..."
 	/sbin/m5 readfile > /tmp/runscript
 	chmod 755 /tmp/runscript
-
+        cat  /tmp/runscript
 	# Execute the new runscript
 	if [ -s /tmp/runscript ]
 	then
@@ -58,5 +60,5 @@ then
 
 fi
 
-echo "Fell through script. Exiting..."
+echo "hack_back_ckpt script done. Exiting..."
 /sbin/m5 exit

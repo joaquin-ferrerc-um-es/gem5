@@ -7,7 +7,6 @@ gem5root  = os.path.abspath(os.path.dirname(os.path.realpath(__file__)) + '/../.
 gem5path_dirname = 'gem5_path'
 gem5path = os.path.join(gem5root, gem5path_dirname)
 
-
 # System List [HTM system options, cache options]
 system_list = []
 
@@ -55,7 +54,9 @@ simulation_list = []
 # Simulation infrastructure options 
 #############################################################
 arch_name = "x86_64" # "{aarch64,x86_64}"
-arch = "X86"
+arch = "X86" # "{X86,ARM}
+kernel='vmlinux-5.4.49'  # vmlinux.arm64
+os_disk_image='ubuntu-18-04.img' # aarch64-ubuntu-trusty-headless.img'
 
 # Root directory where benchmarks are located in the disk image, must
 # be kept in sync with IMAGE_DESTINATION_DIR in upload-to-image.sh

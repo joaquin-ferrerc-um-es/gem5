@@ -79,21 +79,29 @@ then
     fi
 fi
 
-# if [ ${ARCH_NAME} == "x86_64" ] ; then
-#     # Check if we can use KVM
-#     if [ $(cat /proc/sys/kernel/perf_event_paranoid) -gt 1 ] ; then
-#         echo "
-# ERROR: Use of kvmcpu requires access to perf events, but you may not have permission to collect stats.
-# Consider tweaking /proc/sys/kernel/perf_event_paranoid:
-#  -1 - Not paranoid at all
-#   0 - Disallow raw tracepoint access for unpriv
-#   1 - Disallow cpu events for unpriv
-#   2 - Disallow kernel profiling for unpriv
-# Running the following command should do it:
-# sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'
-# "
-#     fi
-# fi
+if [[ ${ENABLE_KVM} == 1 ]]
+then
+    if [[ ${ARCH_NAME} != "x86_64" ]]
+    then
+        echo "No KVM support for ${ARCH_NAME}!"
+        echo "Disable KVM support or use x86_64 as target arch."
+        exit
+    fi
+
+    # Check if we can use KVM
+    if [ $(cat /proc/sys/kernel/perf_event_paranoid) -gt 1 ] ; then
+        echo "
+ERROR: Use of kvmcpu requires access to perf events, but you may not have permission to collect stats.
+Consider tweaking /proc/sys/kernel/perf_event_paranoid:
+ -1 - Not paranoid at all
+  0 - Disallow raw tracepoint access for unpriv
+  1 - Disallow cpu events for unpriv
+  2 - Disallow kernel profiling for unpriv
+Running the following command should do it:
+sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'
+"
+    fi
+fi
 
 ROOT_DEVICE="/dev/${FILESYSTEM_PREFIX}a1"
 CHECKPOINT_BOOT_DIR="${CHECKPOINT_BOOT_ROOT_DIR}/${PROCESSORS}_cores"
@@ -126,6 +134,8 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
     DEBUG_STRING=""
     if [[ ${CHECKPOINT_RESTORE_NUM} -eq 1 ]]
     then
+        GEM5_EXECUTABLE_PATH="${GEM5_EXEC_PATH_INITCKPT}"
+        # No need for Ruby
         CHECKPOINT_PATH="${RESULTS_DIR}/${CHECKPOINT_INIT_SUBDIR}"
         CHECKPOINT_FOUND=0 #  If checkpoint subdir contains valid checkpoint, do not create
         if [ -d "$CHECKPOINT_PATH" ]; then
@@ -135,7 +145,7 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
             then
                 echo "### Found 'init' checkpoint! ###"
                 find "$CHECKPOINT_PATH"  -type f -name m5.cpt
-                echo "### Reusing existing 'init' checkpoint (assuming your executable has NOT changed) ###"
+                echo "### Reusing existing 'init' checkpoint (assuming your executable and launch script have NOT changed) ###"
                 CHECKPOINT_DIR=${CHECKPOINT_PATH}
                 continue
             else
@@ -155,8 +165,12 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
         cd ${OUT_DIR}
         rm sim{err,out} system*${TERMINAL_SUFFIX} 2> /dev/null || true
         ln -s ${CHECKPOINT_BOOT_PATH} || true
-        #CPU_TYPE="AtomicSimpleCPU"
-        CPU_TYPE="X86KvmCPU"
+        if [[ ${ENABLE_KVM} == 1 ]]
+        then
+            CPU_TYPE="X86KvmCPU"
+        else
+            CPU_TYPE="AtomicSimpleCPU"
+        fi
         # Do not use Ruby to create init checkpoint
         # (checkpointing not supported by
         # src/mem/ruby/protocol/MESI_Three_Level_HTM-L0cache.sm)
@@ -170,6 +184,7 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
         echo "#### Creating init checkpoint using ${CPU_TYPE}..."
     elif [[ ${CHECKPOINT_RESTORE_NUM} -eq 2 ]]
     then
+        GEM5_EXECUTABLE_PATH="${GEM5_EXEC_PATH}"
         OUT_DIR=${RESULTS_DIR}
         mkdir -p ${OUT_DIR}
         cd ${OUT_DIR}
@@ -262,7 +277,7 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
     if [[ $LOCKSTEP_MODE == 0 || ${CHECKPOINT_RESTORE_NUM} != 2 ]]
     then
         GEM5_COMMAND="${GDB_STRING} \
-                ${GEM5_EXEC_PATH} \
+                ${GEM5_EXECUTABLE_PATH} \
                 ${DEBUG_STRING} \
                 ${SIMINFO_STRING} \
                 --outdir=${OUT_DIR} \
@@ -276,17 +291,21 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
         then
             if grep -q "because checkpoint" "${CHECKPOINT_DIR}/simout" ; then
                 echo "#### Init checkpoint created   ####"
+                FAILED=0
             else
                 echo "#### Failed to create init checkpoint   ####"
-                exit
+                FAILED=1
             fi
         else
             if grep -q "because m5_exit instruction encountered" "${OUT_DIR}/simout" ; then
                 echo "#### Simulation completed (m5 exit)  ####"
+                FAILED=0
             elif grep -q "because work items exit count reached" "${OUT_DIR}/simout" ; then
                 echo "#### Simulation completed (end of ROI)   ####"
+                FAILED=0
             else
                 echo "#### Simulation failed   ####"
+                FAILED=1
             fi
         fi
 
@@ -295,7 +314,11 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
         echo "${TERMINAL_FILES}"
         echo "##################################"
         cat $TERMINAL_FILES
+        echo
         echo "#### Simulated terminal End   ####"
+        if [[ ${FAILED} -eq 1 ]] ; then
+                exit
+        fi
     else
         ############################ LOCKSTEP MODE #########################
 

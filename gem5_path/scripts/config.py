@@ -41,7 +41,8 @@ detailed_simulation_cpu_model_list.append('DerivO3CPU')
 # benchmark name, input name, arguments, bench dir, binary name, binary suffix, total work items
 
 benchmark_groups = []
-benchmark_groups.append('stamp-small')
+benchmark_groups.append('test-progs-caps-small')
+#benchmark_groups.append('stamp-small')
 #benchmark_groups.append('stamp-medium')
 #benchmark_groups.append('splash3-small')
 
@@ -57,6 +58,7 @@ arch_name = "x86_64" # "{aarch64,x86_64}"
 arch = "X86" # "{X86,ARM}
 kernel='vmlinux-5.4.49'  # vmlinux.arm64
 os_disk_image='ubuntu-18-04.img' # aarch64-ubuntu-trusty-headless.img'
+enable_kvm=1
 
 # Root directory where benchmarks are located in the disk image, must
 # be kept in sync with IMAGE_DESTINATION_DIR in upload-to-image.sh
@@ -87,7 +89,7 @@ memory_type='DDR3_1600_8x8' # 'DDR3_200cycles'
 memory_size='3GB'
 run_gdb = 0
 exit_at_roi_end = 1
-copy_gem5_binary_tmp_dir = 1 # Copy gem5 binary to tmp dir for simulation
+copy_gem5_binary_tmp_dir = 0 # Copy gem5 binary to tmp dir for simulation
 run_pdb = 0
 debug_flags = "" # "Exec,O3CPUAll,O3HTM,RubyHTM,ProtocolTrace"
 debug_time=0

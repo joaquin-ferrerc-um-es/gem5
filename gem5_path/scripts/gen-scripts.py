@@ -257,58 +257,59 @@ for random_seed in seed_list:
     if not os.path.exists(results_dir_base):
       os.makedirs(results_dir_base)
 
-    ########### Boot-script generation #########
-    bootscript_filename = "bootscript_%s_%s_%s_%02dp.rcS" % \
-                      (binary_suffix, benchmark_name, arg_prefix, processors)
-    bootscript_path = "%s/%s" % (results_dir_base, bootscript_filename)
-    if True: # not os.path.exists(bootscript_path):
-      bootscript_file = open("%s" % (bootscript_path), "w")
-
-      bootscript_file.write("#!/bin/bash\n\n")
-      bootscript_file.write("PROCESSORS=%d\n" % processors)
-      bootscript_file.write("BENCHMARK_DIR=%s\n" % benchmark_subdir)
-      bootscript_file.write("BINARY_SUFFIX=%s\n" % binary_suffix)
-
-      bootscript_file.write("BINARY_FILENAME=%s\n" % binary_filename)
-      bootscript_file.write("BENCHMARK_ARG_STRING='%s'\n" % arg_string)
-      bootscript_file.write("\n")
-      bootscript_file.write("mkdir %s\n" % benchmarks.benchmark_disk_image_mountpoint)
-      if config.arch_name == 'x86_64':
-        filesystem_prefix = 'hd'
-      elif config.arch_name == 'aarch64':
-        filesystem_prefix = 'sd'
-      else:
-        print "Unknown architecture name %s" % config.arch_name
-        sys.exit(2)
-
-      bootscript_file.write("mount /dev/%sb1  %s\n" %
-                            (filesystem_prefix,
-                             benchmarks.benchmark_disk_image_mountpoint))
-
-      # M5_SIMULATOR env var used to detect when running inside simulator
-      bootscript_file.write("export M5_SIMULATOR=1\n")
-      # Maximum number of retries before fallback lock acquired passed
-      # to abort handler via environment
-
-      benchmark_suite_root_dir = os.path.join(benchmarks.benchmark_disk_image_mountpoint,
-                                              benchmarks.benchmark_suites[benchmark_suite])
-
-      bootscript_file.write("##sleep 0.0 # Generate variability via random seed \n")
-      bootscript_file.write("cd %s/%s\n" % ( benchmark_suite_root_dir, benchmark_subdir))
-      bootscript_file.write("export LD_PRELOAD=%s\n" % (config.preload));
-      bootscript_file.write("/sbin/m5 resetstats\n")
-      bootscript_file.write("./${BINARY_FILENAME}${BINARY_SUFFIX} %s${PROCESSORS} ${BENCHMARK_ARG_STRING}\n" % (processors_opt))
-
-      bootscript_file.write("echo 'Fell through boot-script. Exiting simulation...(m5 exit)'\n")
-      bootscript_file.write("sleep 2\n")
-      bootscript_file.write("sync\n")
-      bootscript_file.write("/sbin/m5 exit\n")
-      bootscript_file.close()
-
-
     results_dir = os.path.join(results_dir_base, str(random_seed))
     if not os.path.exists(results_dir):
       os.makedirs(results_dir)
+
+    ########### Boot-script generation #########
+    bootscript_filename = "bootscript_%s_%s_%s_%02dp.rcS" % \
+                      (binary_suffix, benchmark_name, arg_prefix, processors)
+    bootscript_path = "%s/%s" % (results_dir, bootscript_filename)
+    bootscript_file = open("%s" % (bootscript_path), "w")
+
+    bootscript_file.write("#!/bin/bash\n")
+    bootscript_file.write("### @launchscript@ ###\n\n")
+    bootscript_file.write("PROCESSORS=%d\n" % processors)
+    bootscript_file.write("BENCHMARK_DIR=%s\n" % benchmark_subdir)
+    bootscript_file.write("BINARY_SUFFIX=%s\n" % binary_suffix)
+
+    bootscript_file.write("BINARY_FILENAME=%s\n" % binary_filename)
+    bootscript_file.write("BENCHMARK_ARG_STRING='%s'\n" % arg_string)
+    bootscript_file.write("RANDOM_SEED='%d'\n" % random_seed)
+    bootscript_file.write("\n")
+    bootscript_file.write("sync\n") # For tty to show "Welcome to Ubuntu.."
+    bootscript_file.write("mkdir %s\n" % benchmarks.benchmark_disk_image_mountpoint)
+    if config.arch_name == 'x86_64':
+      filesystem_prefix = 'hd'
+    elif config.arch_name == 'aarch64':
+      filesystem_prefix = 'sd'
+    else:
+      print "Unknown architecture name %s" % config.arch_name
+      sys.exit(2)
+
+    bootscript_file.write("mount /dev/%sb1  %s\n" %
+                          (filesystem_prefix,
+                           benchmarks.benchmark_disk_image_mountpoint))
+
+    # Must set M5_SIMULATOR=1 in order to enable m5 ops. Otherwise,
+    # benchmarks typically suppress m5 ops by mmap'ing m5_mem to a
+    # zero-filled region of memory instead of /dev/mem.
+    bootscript_file.write("export M5_SIMULATOR=1\n")
+
+    benchmark_suite_root_dir = os.path.join(benchmarks.benchmark_disk_image_mountpoint,
+                                            benchmarks.benchmark_suites[benchmark_suite])
+    # Variability is only needed if we are not using KVM..
+    if not config.enable_kvm:
+      bootscript_file.write("sleep 0.${RANDOM_SEED} # Generate variability via random seed \n")
+    bootscript_file.write("cd %s/%s\n" % ( benchmark_suite_root_dir, benchmark_subdir))
+    bootscript_file.write("export LD_PRELOAD=%s\n" % (config.preload));
+    bootscript_file.write("/sbin/m5 resetstats\n")
+    bootscript_file.write("./${BINARY_FILENAME}${BINARY_SUFFIX} %s${PROCESSORS} ${BENCHMARK_ARG_STRING}\n" % (processors_opt))
+    # In case binary not found, give some time to tty to print error message
+    bootscript_file.write("echo 'Launch script done. Exiting simulation...(m5 exit)'\n")
+    bootscript_file.write("sync; sleep 2\n")
+    bootscript_file.write("/sbin/m5 exit\n")
+    bootscript_file.close()
 
     ########### Simulation info  #########
     siminfo_filename = config.sim_info_filename;
@@ -364,10 +365,13 @@ for random_seed in seed_list:
     script_file.write("RUN_GDB=%d\n" % config.run_gdb)
     script_file.write("RUN_PDB=%d\n" % config.run_pdb)
     script_file.write("EXIT_AT_ROI_END=%d\n" % config.exit_at_roi_end)
+    script_file.write("ENABLE_KVM=%d\n" % config.enable_kvm)
 
     script_file.write("EXTRA_DETAILED_ARGS=\" %s \"\n" % config.extra_detailed_args)
 
     script_file.write("\n### System configuration ### \n")
+    script_file.write("KERNEL_FILENAME=%s\n" % config.kernel)
+    script_file.write("DISK_IMAGE_FILENAME=%s\n" % config.os_disk_image)
     script_file.write("ARCH_NAME=%s\n" % config.arch_name)
     script_file.write("PROCESSORS=%d\n" % processors)
     script_file.write("BENCHMARK=%s\n" % benchmark)
@@ -417,10 +421,16 @@ for random_seed in seed_list:
 
     script_file.write("\n### Cache configuration ### \n")
 
-    script_file.write("\n### Location of 'gem5' executable in tmp dir  ### \n") 
+    # Binary to be used during initialization (no Ruby protocol, possibly KVM)
+    script_file.write("\n### Location of 'gem5' executable for creating init checkpoint  ### \n")
+    script_file.write('GEM5_EXEC_PATH_INITCKPT="${GEM5_ROOT}/build/${ARCH}/gem5.${BUILD_TYPE}"\n')
+
+    # Binary to be used during detailed simulation
     if config.copy_gem5_binary_tmp_dir:
+      script_file.write("\n### Location of 'gem5' executable in tmp dir  ### \n")
       script_file.write("GEM5_EXEC_PATH=%s\n" % gem5_executable_filepath)
     else:
+      script_file.write("\n### Location of 'gem5' executable   ### \n")
       script_file.write('GEM5_EXEC_PATH="${GEM5_ROOT}/build/${ARCH}_${PROTOCOL}/gem5.${BUILD_TYPE}"\n')
 
     script_file.write("\n### Submit mode (SLURM)  ### \n")

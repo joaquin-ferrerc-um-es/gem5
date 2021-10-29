@@ -8,25 +8,16 @@ fi
 test -d "$M5_PATH" || { echo "M5_PATH=«$M5_PATH» no existe" ; exit 1 ; }
 
 SCONS_THREADS="$(echo -e "1\n"$(($(grep -c ^processor /proc/cpuinfo) - 2))"" | sort -nr | head -n1)"
-
 DISK_IMAGE_BENCHMARKS="${M5_PATH}/disks/${ARCH_NAME}-benchmarks.img"
-DISK_IMAGE_BENCHMARKS_SIZE_MBYTES=4096
-DISK_IMAGE_BENCHMARKS_MOUNT_POINT="${M5_PATH}/mnt"
-# Directory inside benchmarks disk image 
-DISK_IMAGE_BENCHMARKS_HTM_PREFIX_DIR="benchmarks-htm"
-DISK_IMAGE_BENCHMARKS_ROOT_PREFIX="benchmarks"
+KERNEL_PATH="${M5_PATH}/binaries/${KERNEL_FILENAME}"
+DISK_IMAGE_PATH="${M5_PATH}/disks/${DISK_IMAGE_FILENAME}"
+
 
 if [ ${ARCH_NAME} == "x86_64" ] ; then
-    ARCH=X86
-    KERNEL="${M5_PATH}/binaries/linux-4.9.4"
-    DISK_IMAGE="${M5_PATH}/disks/ubuntu_16_04.img"
     FILESYSTEM_PREFIX="hd"
     ARCH_SPECIFIC_STRING=""
 elif [ ${ARCH_NAME} == "aarch64" ] ; then
-    ARCH=ARM
-    DISK_IMAGE="${M5_PATH}/disks/aarch64-ubuntu-trusty-headless.img"
     FILESYSTEM_PREFIX="sd"
-    KERNEL="${M5_PATH}/binaries/vmlinux.arm64"
     ARCH_SPECIFIC_STRING=" --machine-type=VExpress_GEM5_V2 "
 else
     echo "Unknown architecture: ${ARCH_NAME}. Choices are: x86_64, aarch64"
@@ -88,21 +79,29 @@ then
     fi
 fi
 
-# if [ ${ARCH_NAME} == "x86_64" ] ; then
-#     # Check if we can use KVM
-#     if [ $(cat /proc/sys/kernel/perf_event_paranoid) -gt 1 ] ; then
-#         echo "
-# ERROR: Use of kvmcpu requires access to perf events, but you may not have permission to collect stats.
-# Consider tweaking /proc/sys/kernel/perf_event_paranoid:
-#  -1 - Not paranoid at all
-#   0 - Disallow raw tracepoint access for unpriv
-#   1 - Disallow cpu events for unpriv
-#   2 - Disallow kernel profiling for unpriv
-# Running the following command should do it:
-# sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'
-# "
-#     fi
-# fi
+if [[ ${ENABLE_KVM} == 1 ]]
+then
+    if [[ ${ARCH_NAME} != "x86_64" ]]
+    then
+        echo "No KVM support for ${ARCH_NAME}!"
+        echo "Disable KVM support or use x86_64 as target arch."
+        exit
+    fi
+
+    # Check if we can use KVM
+    if [ $(cat /proc/sys/kernel/perf_event_paranoid) -gt 1 ] ; then
+        echo "
+ERROR: Use of kvmcpu requires access to perf events, but you may not have permission to collect stats.
+Consider tweaking /proc/sys/kernel/perf_event_paranoid:
+ -1 - Not paranoid at all
+  0 - Disallow raw tracepoint access for unpriv
+  1 - Disallow cpu events for unpriv
+  2 - Disallow kernel profiling for unpriv
+Running the following command should do it:
+sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'
+"
+    fi
+fi
 
 ROOT_DEVICE="/dev/${FILESYSTEM_PREFIX}a1"
 CHECKPOINT_BOOT_DIR="${CHECKPOINT_BOOT_ROOT_DIR}/${PROCESSORS}_cores"
@@ -116,8 +115,8 @@ CHECKPOINT_BOOT_PATH=$(find . -name "cpt*" | xargs readlink -f)
 echo "**** Running full system mode ****"
 echo "Run configuration:"
 echo "Arch=${ARCH}" 
-echo "Image=${DISK_IMAGE}"
-echo "Kernel=${KERNEL}"
+echo "Disk-image=${DISK_IMAGE_FILENAME}"
+echo "Kernel=${KERNEL_FILENAME}"
 echo "Protocol=${PROTOCOL}"
 if [ $LOCKSTEP_MODE -eq 1 ]
 then
@@ -135,6 +134,8 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
     DEBUG_STRING=""
     if [[ ${CHECKPOINT_RESTORE_NUM} -eq 1 ]]
     then
+        GEM5_EXECUTABLE_PATH="${GEM5_EXEC_PATH_INITCKPT}"
+        # No need for Ruby
         CHECKPOINT_PATH="${RESULTS_DIR}/${CHECKPOINT_INIT_SUBDIR}"
         CHECKPOINT_FOUND=0 #  If checkpoint subdir contains valid checkpoint, do not create
         if [ -d "$CHECKPOINT_PATH" ]; then
@@ -144,7 +145,7 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
             then
                 echo "### Found 'init' checkpoint! ###"
                 find "$CHECKPOINT_PATH"  -type f -name m5.cpt
-                echo "### Reusing existing 'init' checkpoint (assuming your executable has NOT changed) ###"
+                echo "### Reusing existing 'init' checkpoint (assuming your executable and launch script have NOT changed) ###"
                 CHECKPOINT_DIR=${CHECKPOINT_PATH}
                 continue
             else
@@ -161,12 +162,15 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
         LAUNCH_SCRIPT="${OUT_DIR}/launchscript.rcS"
         cp ${BOOT_SCRIPT} ${LAUNCH_SCRIPT}
         SLEEP_TIME=$(printf "%02d" ${RANDOM_SEED})
-        sed -i 's|##sleep 0.0|sleep 0.'"${SLEEP_TIME}"'|g' ${LAUNCH_SCRIPT}
         cd ${OUT_DIR}
         rm sim{err,out} system*${TERMINAL_SUFFIX} 2> /dev/null || true
         ln -s ${CHECKPOINT_BOOT_PATH} || true
-        CPU_TYPE="AtomicSimpleCPU"
-        #CPU_TYPE="X86KvmCPU"
+        if [[ ${ENABLE_KVM} == 1 ]]
+        then
+            CPU_TYPE="X86KvmCPU"
+        else
+            CPU_TYPE="AtomicSimpleCPU"
+        fi
         # Do not use Ruby to create init checkpoint
         # (checkpointing not supported by
         # src/mem/ruby/protocol/MESI_Three_Level_HTM-L0cache.sm)
@@ -180,6 +184,7 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
         echo "#### Creating init checkpoint using ${CPU_TYPE}..."
     elif [[ ${CHECKPOINT_RESTORE_NUM} -eq 2 ]]
     then
+        GEM5_EXECUTABLE_PATH="${GEM5_EXEC_PATH}"
         OUT_DIR=${RESULTS_DIR}
         mkdir -p ${OUT_DIR}
         cd ${OUT_DIR}
@@ -219,7 +224,7 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
             fi
         fi
         PROC_MAPS_STRING=" --proc-maps-file=${PROC_MAPS_FILE}"
-        EXTRA_ARGS+="${PROC_MAPS_STRING}"
+        #EXTRA_ARGS+="${PROC_MAPS_STRING}"
 	
 	EXTRA_ARGS+=" --mem-type=${MEMORY_TYPE}"
 	EXTRA_ARGS+=" --network=${NETWORK_MODEL}"
@@ -264,21 +269,21 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
         --mem-size=${MEMORY_SIZE} \
         --checkpoint-dir=${CHECKPOINT_DIR} \
         -r ${CHECKPOINT_RESTORE_NUM} \
-        --kernel=${KERNEL} \
-        --disk-image=${DISK_IMAGE} \
+        --kernel=${KERNEL_PATH} \
+        --disk-image=${DISK_IMAGE_PATH} \
         --root-device=${ROOT_DEVICE} \
         --disk-image=${DISK_IMAGE_BENCHMARKS} \
         ${EXTRA_ARGS}"
     if [[ $LOCKSTEP_MODE == 0 || ${CHECKPOINT_RESTORE_NUM} != 2 ]]
     then
         GEM5_COMMAND="${GDB_STRING} \
-                ${GEM5_EXEC_PATH} \
+                ${GEM5_EXECUTABLE_PATH} \
                 ${DEBUG_STRING} \
                 ${SIMINFO_STRING} \
                 --outdir=${OUT_DIR} \
                 --redirect-stdout --redirect-stderr \
                 ${GEM5_ROOT}/configs/example/fs.py"
-        GEM5_COMMAND=${GEM5_COMMAND}" --cpu-type=${CPU_TYPE} "
+        GEM5_COMMAND=${GEM5_COMMAND}" --restore-with-cpu=${CPU_TYPE} --cpu-type=${CPU_TYPE} "
 	${GEM5_COMMAND} ${GEM5_COMMAND_ARGS}
 
         # NOTE: Keep the following strings (starting with ####) in sync with check_simulations-r.sh
@@ -286,16 +291,21 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
         then
             if grep -q "because checkpoint" "${CHECKPOINT_DIR}/simout" ; then
                 echo "#### Init checkpoint created   ####"
+                FAILED=0
             else
                 echo "#### Failed to create init checkpoint   ####"
+                FAILED=1
             fi
         else
             if grep -q "because m5_exit instruction encountered" "${OUT_DIR}/simout" ; then
                 echo "#### Simulation completed (m5 exit)  ####"
+                FAILED=0
             elif grep -q "because work items exit count reached" "${OUT_DIR}/simout" ; then
                 echo "#### Simulation completed (end of ROI)   ####"
+                FAILED=0
             else
                 echo "#### Simulation failed   ####"
+                FAILED=1
             fi
         fi
 
@@ -304,7 +314,11 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
         echo "${TERMINAL_FILES}"
         echo "##################################"
         cat $TERMINAL_FILES
+        echo
         echo "#### Simulated terminal End   ####"
+        if [[ ${FAILED} -eq 1 ]] ; then
+                exit
+        fi
     else
         ############################ LOCKSTEP MODE #########################
 

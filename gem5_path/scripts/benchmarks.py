@@ -14,9 +14,9 @@ benchmark_suites["splash3"] = "benchmarks-htm/Splash-3"
 def getBenchmarks(benchmark_groups):
     benchmark_list = []
 
-    # benchmark_suite, benchmark, arg_prefix, processors_opt, arg_string, benchmark_subdir, binary_filename
     if 'test-progs-caps-small' in benchmark_groups:
-        benchmark_list.append(("test-progs-caps", "sumarray",    "small", "-t", "-a1000",             "sumarray",   "bin/x86/sumarray"))
+        #                       suite,             bench-name,   inputname,  nthreads opt, args_string,     benchmark_subdir,  binary_filename
+        benchmark_list.append(("test-progs-caps", "simpletest",    "small",      "-t",       "-a1048576",     "sumarray",       "bin/x86/sumarray"))
 
     if 'stamp-small' in benchmark_groups:
         #benchmark_list.append(("stamp", "intruder",  "small", "-t", " -a10 -l4 -n2048 -s1"  ,         "intruder", "intruder"))

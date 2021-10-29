@@ -187,8 +187,6 @@ for random_seed in seed_list:
     benchmark_name = benchmark
     binary_suffix = htm_config[htm.htm_binary_suffix]
 
-    #import pdb
-    #pdb.set_trace()
     htm_options_str = ''
     htm_config_description = ''
     for option in htm.htm_config_options:
@@ -211,9 +209,11 @@ for random_seed in seed_list:
             assert((type(opt_value) is str) or
                    (type(opt_value) is int))
             htm_options_str += ' --htm-'+option.gem5opt+'='+opt_value
-      if option.descr: # Append abbrev name to description, if any
+      elif option.descr: # Append abbrev name to description, if any
         if opt_value in htm.htm_option_str_abbreviations:
           option_descr = htm.htm_option_str_abbreviations[opt_value]
+        elif type(htm_config[option]) is bool:
+          option_descr = ''
         else:
           option_descr = opt_value
         htm_config_description += option.abbrev+ \

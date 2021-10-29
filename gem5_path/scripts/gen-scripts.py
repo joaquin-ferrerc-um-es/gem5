@@ -215,7 +215,7 @@ for random_seed in seed_list:
         elif type(htm_config[option]) is bool:
           option_descr = ''
         else:
-          option_descr = opt_value
+          option_descr = str(opt_value)
         htm_config_description += option.abbrev+ \
                                   option_descr+"_"
 
@@ -244,8 +244,8 @@ for random_seed in seed_list:
     # Remove ending "_"
     htm_config_description = htm_config_description[:-1]
 
-    results_bench_config = "%s/%s/%s/%s/%s/%dp/%s-%s/%s" %  \
-                  (cvsroot_results, cpu_model, protocol,
+    results_bench_config = "%s/%s/%s/%s/%dp/%s-%s/%s" %  \
+                  (cvsroot_results, cpu_model,
                    htm_config_description, cache_config_description,
                    processors, benchmark_suite,
                    arg_prefix, benchmark_name)

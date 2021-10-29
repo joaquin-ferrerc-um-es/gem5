@@ -8,9 +8,9 @@ fallback_lock_file = "ckpt/fallback_lock"
 # HTM config options:              config name, abbrev, gem5 option name,               bool, description)
 HtmOption = collections.namedtuple('HtmOption', ['name','abbrev','gem5opt','isbool','descr', 'siminfo'])
 # HTM config options:                       config name,                         abbrev,    gem5 option name,                 is bool, descr, simInfo
-htm_disable_speculation        = HtmOption("htm_disable_speculation",           "NoSpec",   "disable-speculation",               True,  False, True )
-htm_protocol_name              = HtmOption("htm_protocol_name",                 "Prot",     None,                                False, False, True  )
-htm_binary_suffix              = HtmOption("htm_binary_suffix",                 "BinSfx",   None,                               False, True,  True  )
+htm_disable_speculation        = HtmOption("htm_disable_speculation",           "NoSpec",   "disable-speculation",               True,  False, True  )
+htm_protocol_name              = HtmOption("htm_protocol_name",                 "Prot",     None,                                False, True,  True  )
+htm_binary_suffix              = HtmOption("htm_binary_suffix",                 "BinSfx",   None,                                False, True,  True  )
 
 htm_config_options = []
 htm_config_options.append(htm_disable_speculation)

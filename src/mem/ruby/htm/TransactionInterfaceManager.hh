@@ -8,7 +8,6 @@
 #ifndef __MEM_RUBY_HTM_TRANSACTIONINTERFACEMANAGER_HH__
 #define __MEM_RUBY_HTM_TRANSACTIONINTERFACEMANAGER_HH__
 
-#include "cpu/htm_stats.hh"
 #include "mem/htm.hh"
 #include "mem/packet.hh"
 #include "mem/request.hh"

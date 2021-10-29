@@ -10,7 +10,6 @@
 #include <cassert>
 #include <cstdlib>
 
-#include "cpu/htm_stats.hh"
 #include "debug/RubyHTM.hh"
 #include "mem/ruby/htm/LazyTransactionCommitArbiter.hh"
 #include "mem/ruby/htm/TransactionInterfaceManager.hh"

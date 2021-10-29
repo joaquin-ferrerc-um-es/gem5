@@ -556,7 +556,7 @@ workend(ThreadContext *tc, uint64_t workid, uint64_t threadid)
 {
     HTM *htm = tc->getSystemPtr()->getHTM();
     if (htm != nullptr && htm->params().profiler) {
-        notifyPseudoInstWork(false, tc->getCpuPtr()->cpuId(),
+        htm->notifyPseudoInstWork(false, tc->getCpuPtr()->cpuId(),
                              workid);
     }
     DPRINTF(PseudoInst, "pseudo_inst::workend(%i, %i)\n", workid, threadid);

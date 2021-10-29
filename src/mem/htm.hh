@@ -41,6 +41,7 @@
 #ifndef __MEM_HTM_HH__
 #define __MEM_HTM_HH__
 
+#include <cassert>
 #include <map>
 #include <string>
 
@@ -49,6 +50,86 @@
 
 namespace gem5
 {
+
+class HTMStats
+{
+public:
+    enum AbortCause
+    {
+        Conflict = 0,
+        L0Capacity,
+        L1Capacity,
+        L2Capacity,
+        PageFault,
+        Syscall,
+        Interrupt,
+        Explicit,
+        FallbackLock,
+        ExplicitFallbackLock,
+        WrongL0,
+        ConflictStale,
+        Undefined,
+        NumAbortCauses
+    };
+
+    enum XBeginArgsType
+    {
+        Xid,
+        NumRetries,
+        NumXBeginArgsTypes
+    };
+
+    static int MaxXidStats;
+    static const int MaxLogFilterSize = 8; // Max log filter addresses
+
+    static int to_stats_xid(int xid) {
+      // Set the xid in m_stats according to the maximum number of xid
+      // passed as command line option to the simulator. By default:
+      // per-xid statistics subsumed into a single xid (0)
+        if (xid < HTMStats::MaxXidStats)
+            return xid;
+        else {
+            return HTMStats::MaxXidStats - 1;
+        }
+    }
+    static const std::string AbortCause_to_string(AbortCause cause) {
+        switch(cause) {
+        case Conflict:
+            return "Conflict";
+        case L0Capacity:
+            return "L0Capacity";
+        case L1Capacity:
+            return "L1Capacity";
+        case L2Capacity:
+            return "L2Capacity";
+        case PageFault:
+            return "PageFault";
+        case Syscall:
+            return "Syscall";
+        case Interrupt:
+            return "Interrupt";
+        case Explicit:
+            return "Explicit";
+        case FallbackLock:
+            return "FallbackLock";
+        case ExplicitFallbackLock:
+            return "ExplicitFallbackLock";
+        case WrongL0:
+            return "WrongL0";
+        case ConflictStale:
+            return "ConflictStale";
+        case Undefined:
+            return "Undefined";
+        case NumAbortCauses:
+        default:
+            {
+            assert(0);
+            return "Error";
+            }
+        }
+    }
+};
+
 
 enum class HtmFailureFaultCause : int
 {

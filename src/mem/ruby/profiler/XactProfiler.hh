@@ -15,7 +15,6 @@
 
 #include "base/callback.hh"
 #include "base/statistics.hh"
-#include "cpu/htm_stats.hh"
 #include "mem/ruby/profiler/annotated_regions.h"
 #include "mem/ruby/profiler/XactVisualizer.hh"
 #include "mem/ruby/system/RubySystem.hh"

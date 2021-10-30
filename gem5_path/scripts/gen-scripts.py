@@ -396,7 +396,7 @@ for random_seed in seed_list:
     script_file.write('HTM_OPTIONS_STRING="%s"\n' % htm_options_str)
 
     # File containing fallback lock address
-    script_file.write("FALLBACK_LOCK_FILE=%s\n" % os.path.join(results_dir,htm.fallback_lock_file))
+    script_file.write("FALLBACK_LOCK_FILE=None\n")
     script_file.write("SIM_INFO_FILENAME=%s\n" % os.path.join(results_dir,config.sim_info_filename))
     script_file.write("REPOSITORY_REVISION_ID=%s\n" % repository_revision)
 

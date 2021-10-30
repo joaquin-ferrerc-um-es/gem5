@@ -802,6 +802,7 @@ LSQ::pushRequest(const DynInstPtr& inst, bool isLoad, uint8_t *data,
         if (htm_cmd) {
             assert(addr == 0x0lu);
             assert(size == 8);
+            assert(byte_enable.size() == 0);
             req = new HtmCmdRequest(&thread[tid], inst, flags);
         } else if (needs_burst) {
             req = new SplitDataRequest(&thread[tid], inst, isLoad, addr,
@@ -1375,8 +1376,10 @@ LSQ::HtmCmdRequest::HtmCmdRequest(LSQUnit* port, const DynInstPtr& inst,
         nullptr, nullptr, nullptr)
 {
     assert(_requests.size() == 0);
-
-    addRequest(_addr, _size, _byteEnable);
+    assert(_byteEnable.size() == 0);
+    // Pass dummy byteEnable as it is expected by addRequest
+    std::vector<bool> dummyByteEnable = std::vector<bool>(_size, true);
+    addRequest(_addr, _size, dummyByteEnable);
 
     if (_requests.size() > 0) {
         _requests.back()->setReqInstSeqNum(_inst->seqNum);

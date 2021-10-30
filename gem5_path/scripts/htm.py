@@ -26,8 +26,8 @@ htm_l0_downgrade_on_l1_gets    = HtmOption("htm_l0_downgrade_on_l1_gets",       
 htm_value_checker              = HtmOption("htm_value_checker",                 "ValChk",   "value-checker",                     True,  False, False )
 htm_visualizer                 = HtmOption("htm_visualizer",                    "Visual",   "visualizer",                        True,  False, False )
 # HTM library options
-htm_max_retries                = HtmOption("htm_max_retries",                   "Retr",      None,                               False, False, True  )
-htm_heap_prefault              = HtmOption("htm_heap_prefault",                 "Pflt",      None,                               True,  False, True  )
+htm_max_retries                = HtmOption("htm_max_retries",                   "Rtry",      None,                               False, True, True  )
+htm_heap_prefault              = HtmOption("htm_heap_prefault",                 "Pflt",      None,                               True,  True, True  )
 
 htm_config_options = []
 htm_config_options.append(htm_disable_speculation)

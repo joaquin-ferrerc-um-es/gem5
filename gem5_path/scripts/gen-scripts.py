@@ -297,6 +297,13 @@ for random_seed in seed_list:
     # zero-filled region of memory instead of /dev/mem.
     bootscript_file.write("export M5_SIMULATOR=1\n")
 
+    #### HTM library configuration options (HTM_umu-specific)
+    if htm_config:
+      # Maximum number of retries before fallback lock acquired passed
+      # to abort handler via environment
+      bootscript_file.write("export HTM_MAX_RETRIES=%d\n" % htm_config[htm.htm_max_retries])
+      bootscript_file.write("export HTM_HEAP_PREFAULT=%d\n" % htm_config[htm.htm_heap_prefault])
+
     benchmark_suite_root_dir = os.path.join(benchmarks.benchmark_disk_image_mountpoint,
                                             benchmarks.benchmark_suites[benchmark_suite])
     # Variability is only needed if we are not using KVM..

@@ -123,7 +123,9 @@ void GenericHtmFailureFault::invoke(ThreadContext *tc,
     assert(checkpoint);
     assert(checkpoint->valid());
 
-    checkpoint->restore(tc, getHtmFailureFaultCause());
+    // Restore with ISA visible cause, but keep precise cause when
+    // sending abort packet to Ruby
+    checkpoint->restore(tc, getIsaVisibleHtmFailureCause(cause));
 
     // reset the global monitor
     TheISA::globalClearExclusive(tc);

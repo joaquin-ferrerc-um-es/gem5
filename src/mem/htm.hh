@@ -138,13 +138,16 @@ enum class HtmFailureFaultCause : int
     NEST,
     SIZE,
     EXCEPTION,
-    INTERRUPT,
-    DISABLED,
     MEMORY,
+    OTHER,
+    DISABLED, // htm speculation disabled: lockstep debugging facility
+    // The following causes are not visible to the ISA, only used for
+    // statistics collection. Each must fall in one of the above
+    // categories
+    INTERRUPT,
     /* LSQ: conflicting snoop seen by CPU for trans load not yet in
        Rset, caused either by remote requests or local replacements */
     LSQ,
-    OTHER,
     /* Precise abort cause, set by xact mgr based on abortcause */
     SIZE_RSET,
     SIZE_WSET,
@@ -165,6 +168,10 @@ enum class HtmCacheFailure
     FAIL_REMOTE, // failed due remote invalidation
     FAIL_OTHER,  // failed due other circumstances
 };
+
+/** Convert precise failure cause (stats) to ISA visible cause  */
+HtmFailureFaultCause
+getIsaVisibleHtmFailureCause(HtmFailureFaultCause cause);
 
 /** Convert enum into string to be used for debug purposes */
 std::string htmFailureToStr(HtmFailureFaultCause cause);

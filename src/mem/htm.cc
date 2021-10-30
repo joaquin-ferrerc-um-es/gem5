@@ -57,6 +57,44 @@ const std::string HtmPolicyStrings::requester_stalls_cda_base_ntx =
 const std::string HtmPolicyStrings::requester_stalls_cda_hybrid =
                                    "requester_stalls_cda_hybrid";
 
+HtmFailureFaultCause
+getIsaVisibleHtmFailureCause(HtmFailureFaultCause cause)
+{
+    HtmFailureFaultCause isaVisibleCause = cause;
+    switch(cause) {
+    case HtmFailureFaultCause::EXPLICIT:
+    case HtmFailureFaultCause::NEST:
+    case HtmFailureFaultCause::SIZE:
+    case HtmFailureFaultCause::EXCEPTION:
+    case HtmFailureFaultCause::MEMORY:
+    case HtmFailureFaultCause::OTHER:
+    case HtmFailureFaultCause::DISABLED:
+        break;
+    case HtmFailureFaultCause::INTERRUPT:
+        isaVisibleCause = HtmFailureFaultCause::OTHER;
+        break;
+    case HtmFailureFaultCause::LSQ:
+    case HtmFailureFaultCause::MEMORY_FALLBACKLOCK:
+    case HtmFailureFaultCause::MEMORY_STALEDATA:
+        isaVisibleCause = HtmFailureFaultCause::MEMORY;
+        break;
+    case HtmFailureFaultCause::SIZE_RSET:
+    case HtmFailureFaultCause::SIZE_WSET:
+    case HtmFailureFaultCause::SIZE_L1PRIV:
+    case HtmFailureFaultCause::SIZE_LLC:
+        isaVisibleCause = HtmFailureFaultCause::SIZE;
+        break;
+    case HtmFailureFaultCause::SIZE_WRONG_CACHE:
+        isaVisibleCause = HtmFailureFaultCause::OTHER;
+        break;
+    default:
+        panic("Unexpected HtmFailureFault cause %s\n",
+              htmFailureToStr(cause));
+    }
+    return isaVisibleCause;
+};
+
+
 std::string
 htmFailureToStr(HtmFailureFaultCause cause)
 {

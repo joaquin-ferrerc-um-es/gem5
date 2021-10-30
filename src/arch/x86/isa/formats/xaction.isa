@@ -79,13 +79,6 @@ def template XbeginCompleteAcc {{
                 assert(x86cpt != nullptr);
 
                 x86cpt->save(tc);
-
-                if (tc->forceHtmDisabled()) {
-                   // Speculation disabled/lockstep mode replay
-                   fault = std::make_shared<GenericHtmFailureFault>(
-                                           xc->getHtmTransactionUid(),
-                                           HtmFailureFaultCause::DISABLED);
-                }
             }
 
             uint64_t final_val = Dest64;
@@ -191,17 +184,9 @@ def template XabortCompleteAcc {{
         uint64_t abortCode = xc->tcBase()->readIntReg(INTREG_RDI);
         rtm_checkpoint->setAbortReason(abortCode);
 
-        Fault fault;
-        if (abortCode == 0xff) {
-           // Convention: code 0xff indicates fallback lock acquired
-           fault = std::make_shared<GenericHtmFailureFault>(
-              xc->getHtmTransactionUid(),
-              HtmFailureFaultCause::EXPLICIT_FALLBACKLOCK);
-        } else {
-           fault = std::make_shared<GenericHtmFailureFault>(
+        Fault fault = std::make_shared<GenericHtmFailureFault>(
               xc->getHtmTransactionUid(),
               HtmFailureFaultCause::EXPLICIT);
-        }
         return fault;
     }
 }};

@@ -51,7 +51,6 @@ X86ISA::HTMCheckpoint::restore(ThreadContext *tc, HtmFailureFaultCause cause)
     uint64_t error_code = 0;
     switch (cause) {
       case HtmFailureFaultCause::EXPLICIT:
-      case HtmFailureFaultCause::EXPLICIT_FALLBACKLOCK:
         replaceBits(error_code, 31, 24, abortReason);
         replaceBits(error_code, 0, 1);
         break;
@@ -65,10 +64,10 @@ X86ISA::HTMCheckpoint::restore(ThreadContext *tc, HtmFailureFaultCause cause)
         break;
       case HtmFailureFaultCause::EXCEPTION:
         break;
+        /*
       case HtmFailureFaultCause::INTERRUPT:
         retry = true;
         break;
-        /*
       case HtmFailureFaultCause::DEBUG:
         replaceBits(error_code, 4, 1);
         break;
@@ -78,16 +77,6 @@ X86ISA::HTMCheckpoint::restore(ThreadContext *tc, HtmFailureFaultCause cause)
       case HtmFailureFaultCause::OTHER:
         break;
         */
-      case HtmFailureFaultCause::DISABLED:
-        replaceBits(error_code, 6, 1);
-        assert(tc->forceHtmDisabled());
-        if (tc->forceHtmRetryStatusBit()) {
-            // Lockstep support: Abort handler must spin on the
-            // htm_start instruction when bit 6 in the abort status is
-            // set, until the retry bit is unset (then acquire lock)
-            retry = true;
-        }
-        break;
       default:
         panic("Unknown HTM failure reason\n");
     }

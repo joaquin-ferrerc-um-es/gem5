@@ -1,6 +1,6 @@
 #!/usr/bin/python
 import string, datetime, os, sys, time, config, pdb, getopt, socket, tempfile, subprocess, math, shutil, popen2, collections
-import caches, benchmarks, htm
+import caches, benchmarks
 #from config import *
 
 g_default_search_path = os.environ["PATH"]
@@ -110,7 +110,6 @@ repository_revision = str(subprocess.check_output(['git', 'describe', '--dirty',
 
 if submit_mode:
   print "Submitting jobs..."
-  config.htm_xact_visualizer = 0  # Disable visualizer if submitting to queue
   config.run_gdb = 0  # No gdb when submitting
   config.copy_gem5_binary_tmp_dir = 1 # Copy binary to tmp dir to prevent overwriting it
 
@@ -129,8 +128,7 @@ cvsroot_results = os.path.join(config.gem5root, "results", results_prefix)
 gem5_binary_exec_path = {}
 
 # Copy gem5 binaries to tmp dirs, set path to gem5 binary for each protocol
-for htm_config, cache_config in config.system_list:
-  protocol = htm_config[htm.htm_protocol_name]
+for protocol, cache_config in config.system_list:
   # Locate gem5 executable
   gem5_exec_path = "%s/build/%s_%s/gem5.%s" % (config.gem5root, config.arch,
                                                protocol,
@@ -164,9 +162,8 @@ for htm_config, cache_config in config.system_list:
 scripts = {}
 for random_seed in seed_list:
   for (processors, benchmark_config, cpu_model,
-       htm_config, cache_config) in config.simulation_list:
+       protocol, cache_config) in config.simulation_list:
     benchmark_suite, benchmark, arg_prefix, processors_opt, arg_string, benchmark_subdir, binary_filename = benchmark_config
-    protocol = htm_config[htm.htm_protocol_name]
 
     if protocol not in gem5_binary_exec_path:
       print "Could not find gem5 executable path for protocol %s, build type %s" % (protocol, config.build_type)
@@ -185,39 +182,7 @@ for random_seed in seed_list:
       nodelist = "--nodelist=" + hostname
 
     benchmark_name = benchmark
-    binary_suffix = htm_config[htm.htm_binary_suffix]
-
-    htm_options_str = ''
-    htm_config_description = ''
-    for option in htm.htm_config_options:
-      # For sanity, all available htm config options must have been
-      # set in htm_config
-      if option not in htm_config:
-        print "HTM option htm_%s not specified!" % option.gem5opt
-        sys.exit(2)
-      opt_value = htm_config[option]
-      if option.gem5opt != None:  # None: HTM parameter is not gem5 option
-          if htm_config[option] is None:
-            continue
-          elif type(htm_config[option]) is bool:
-            assert(option.isbool)
-            if htm_config[option] is True:
-              htm_options_str += ' --htm-'+option.gem5opt
-              if option.descr: # Append abbrev name to description
-                htm_config_description += option.abbrev+"_"
-          else:
-            assert((type(opt_value) is str) or
-                   (type(opt_value) is int))
-            htm_options_str += ' --htm-'+option.gem5opt+'='+opt_value
-      elif option.descr: # Append abbrev name to description, if any
-        if opt_value in htm.htm_option_str_abbreviations:
-          option_descr = htm.htm_option_str_abbreviations[opt_value]
-        elif type(htm_config[option]) is bool:
-          option_descr = ''
-        else:
-          option_descr = str(opt_value)
-        htm_config_description += option.abbrev+ \
-                                  option_descr+"_"
+    binary_suffix = config.binary_suffix
 
     cache_config_description="Unknown"
     cache_options_str = ''
@@ -240,13 +205,9 @@ for random_seed in seed_list:
          else:
            cache_options_str += ' --'+prototype.gem5opt+'='+str(option)
 
-    # Generate protocol option string representing htm options enabled
-    # Remove ending "_"
-    htm_config_description = htm_config_description[:-1]
-
     results_bench_config = "%s/%s/%s/%s/%dp/%s-%s/%s" %  \
                   (cvsroot_results, cpu_model,
-                   htm_config_description, cache_config_description,
+                   protocol, cache_config_description,
                    processors, benchmark_suite,
                    arg_prefix, benchmark_name)
 
@@ -324,19 +285,6 @@ for random_seed in seed_list:
     siminfo_file.write("benchmark_size=%s\n" % arg_prefix)
     siminfo_file.write("random_seed=%d\n" % random_seed)
     siminfo_file.write("git_revision=%s\n" % repository_revision)
-    for option in htm.htm_config_options:
-      assert(option in htm_config)
-      if option.siminfo:
-        siminfo_file.write("%s=" % (option.name))
-        if htm_config[option] is not None:
-          if type(htm_config[option]) is int:
-            siminfo_file.write("%d" % (htm_config[option]))
-          else:
-            opt_value = htm_config[option]
-            assert((type(opt_value) is str) or
-                   (type(opt_value) is bool))
-            siminfo_file.write("%s" % (htm_config[option]))
-        siminfo_file.write("\n")
     siminfo_file.close()
 
     ########### Simulation script generation #########
@@ -383,7 +331,6 @@ for random_seed in seed_list:
     script_file.write("WORKLOAD=%s_%s\n" % (benchmark, arg_prefix)) # Need "_" instead of "-" to find bootscript
     script_file.write("ARCH=%s\n" % config.arch)
     script_file.write("PROTOCOL=%s\n" % protocol)
-    script_file.write("HTM_CONFIG_DESCRIPTION=%s\n" % htm_config_description)
     script_file.write("RESULTS_DIR=%s\n" % results_dir)
     script_file.write("RANDOM_SEED=%d\n" % random_seed)
     script_file.write("NETWORK_MODEL=%s\n" % config.network_model)
@@ -391,12 +338,6 @@ for random_seed in seed_list:
     script_file.write("MEMORY_SIZE=%s\n" % config.memory_size)
     script_file.write('CACHE_OPTIONS_STRING="%s"\n' % cache_options_str)
 
-    # HTM configuration options
-    script_file.write("\n### HTM configuration ### \n")
-    script_file.write('HTM_OPTIONS_STRING="%s"\n' % htm_options_str)
-
-    # File containing fallback lock address
-    script_file.write("FALLBACK_LOCK_FILE=None\n")
     script_file.write("SIM_INFO_FILENAME=%s\n" % os.path.join(results_dir,config.sim_info_filename))
     script_file.write("REPOSITORY_REVISION_ID=%s\n" % repository_revision)
 
@@ -450,7 +391,7 @@ for random_seed in seed_list:
         sys.exit(-1)
     else:
       scripts[script_path] =  (processors, benchmark_config, cpu_model,
-                               protocol, htm_config, cache_config)
+                               protocol, cache_config)
 
     if (submit_mode == 1):
       ## ######################################################

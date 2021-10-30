@@ -1,6 +1,6 @@
 #!/usr/bin/python
 import string, os, sys, time, datetime, pdb, collections
-import benchmarks, caches, htm
+import benchmarks, caches
 
 gem5root  = os.path.abspath(os.path.dirname(os.path.realpath(__file__)) + '/../..')
 
@@ -15,9 +15,7 @@ system_list = []
 #####################################################################
 
 # Baseline
-system_list.append([htm.config_baseline, caches.cache_baseline])
-#system_list.append([htm.config_another, caches.cache_baseline])
-
+system_list.append(["MESI_Three_Level", caches.cache_baseline])
 
 processor_list = []
 
@@ -42,9 +40,6 @@ detailed_simulation_cpu_model_list.append('DerivO3CPU')
 
 benchmark_groups = []
 benchmark_groups.append('test-progs-caps-small')
-#benchmark_groups.append('stamp-small')
-#benchmark_groups.append('stamp-medium')
-#benchmark_groups.append('splash3-small')
 
 benchmark_list = benchmarks.getBenchmarks(benchmark_groups)
 
@@ -58,7 +53,7 @@ arch_name = "x86_64" # "{aarch64,x86_64}"
 arch = "X86" # "{X86,ARM}
 kernel='vmlinux-5.4.49'  # vmlinux.arm64
 os_disk_image='ubuntu-18-04.img' # aarch64-ubuntu-trusty-headless.img'
-enable_kvm=1
+enable_kvm=0
 
 # Root directory where benchmarks are located in the disk image, must
 # be kept in sync with IMAGE_DESTINATION_DIR in upload-to-image.sh
@@ -75,6 +70,8 @@ checkpoint_subdir="ckpt"
 run_script_filename="simulate.sh"
 # Name of generated config file with simulation configuration
 sim_info_filename = 'simulate.info'
+# In case we have different flavours of the benchmark binary
+binary_suffix = ''
 # simulate.sh template
 template_script_path = os.path.join(gem5path, "scripts/simulate.sh.common")
 # Directory where gem5 binaries are copied to for batch jobs
@@ -88,7 +85,7 @@ network_model = 'simple' # 'garnet2.0'
 memory_type='DDR3_1600_8x8' # 'DDR3_200cycles'
 memory_size='3GB'
 run_gdb = 0
-exit_at_roi_end = 1
+exit_at_roi_end = 0
 copy_gem5_binary_tmp_dir = 0 # Copy gem5 binary to tmp dir for simulation
 run_pdb = 0
 debug_flags = "" # "Exec,O3CPUAll,O3HTM,RubyHTM,ProtocolTrace"
@@ -104,13 +101,13 @@ results_subdir="tests" #load-delay" #splash" #tests" # The subdirectory inside "
                              # for simulation scripts and results
 
 for processors in processor_list :
-    for (htm_config, cache_config) in system_list:
+    for (protocol, cache_config) in system_list:
         for benchmark_config in benchmark_list :
             for detailed_simulation_cpu_model in detailed_simulation_cpu_model_list:
                 benchmark_suite, benchmark, arg_prefix, processors_opt, arg_string, benchmark_subdir, binary_filename  = benchmark_config
                 
                 configuration = (processors, benchmark_config,
                                  detailed_simulation_cpu_model,
-                                 htm_config, cache_config)
+                                 protocol, cache_config)
                 simulation_list.append(configuration)
 

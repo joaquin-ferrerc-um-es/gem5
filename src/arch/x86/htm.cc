@@ -64,17 +64,15 @@ X86ISA::HTMCheckpoint::restore(ThreadContext *tc, HtmFailureFaultCause cause)
         break;
       case HtmFailureFaultCause::EXCEPTION:
         break;
-        /*
-      case HtmFailureFaultCause::INTERRUPT:
+      case HtmFailureFaultCause::OTHER:
         retry = true;
         break;
+        /*
       case HtmFailureFaultCause::DEBUG:
         replaceBits(error_code, 4, 1);
         break;
       case HtmFailureFaultCause::NEST:
         replaceBits(error_code, 5, 1);
-        break;
-      case HtmFailureFaultCause::OTHER:
         break;
         */
       default:

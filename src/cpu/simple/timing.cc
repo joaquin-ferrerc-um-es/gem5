@@ -1524,8 +1524,8 @@ TimingSimpleCPU::handleNackedAccess(PacketPtr pkt)
 void
 TimingSimpleCPU::isolateTransactionLoad(PacketPtr pkt)
 {
+    if (system->getHTM() == nullptr) return;
     assert(system->getHTM()->params().htm_model_umu);
-
     assert(pkt->isHtmTransactional());
 
     // Ignore HTM commands (HTM_START, etc.) in transactional packets

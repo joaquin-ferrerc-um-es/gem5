@@ -41,7 +41,8 @@ detailed_simulation_cpu_model_list.append('DerivO3CPU')
 # benchmark name, input name, arguments, bench dir, binary name, binary suffix, total work items
 
 benchmark_groups = []
-benchmark_groups.append('test-progs-caps-small')
+#benchmark_groups.append('test-progs-caps-small')
+benchmark_groups.append('stamp-small')
 
 benchmark_list = benchmarks.getBenchmarks(benchmark_groups)
 
@@ -72,8 +73,12 @@ checkpoint_subdir="ckpt"
 run_script_filename="simulate.sh"
 # Name of generated config file with simulation configuration
 sim_info_filename = 'simulate.info'
-# In case we have different flavours of the benchmark binary
-binary_suffix = ''
+
+# For simulations that have htm_config (HTM_umu protocols), the binary
+# suffix is set as an option in the htm_config dict. For the remaining
+# cases (including the HTM protocol from gem5), this is the suffix that
+# gets appended to the binary.
+binary_suffix = '.htm.fallbacklock'  # Use same binaries as HTM_umu configs
 # simulate.sh template
 template_script_path = os.path.join(gem5path, "scripts/simulate.sh.common")
 # Directory where gem5 binaries are copied to for batch jobs

@@ -1117,7 +1117,6 @@ Commit::commitInsts()
                     cpu->htmSendSignal(tid, tuid,
                                        blockAddr,
                                        Request::HTM_ISOLATE);
-#if 0 // TODO
                     if (head_inst->physEffAddrSplit != Addr(0)) {
                         Addr blockAddrSplit =
                             head_inst->physEffAddrSplit & cacheBlockMask;
@@ -1129,7 +1128,6 @@ Commit::commitInsts()
                                            blockAddrSplit,
                                            Request::HTM_ISOLATE);
                     }
-#endif
                 }
 
                 // update nesting depth

@@ -377,6 +377,9 @@ class DynInst : public ExecContext, public RefCounted
     /** The effective physical address. */
     Addr physEffAddr = 0;
 
+    /** Split-access 2nd effective physical address (HTM umu model). */
+    Addr physEffAddrSplit = 0;
+
     /** The memory request flags (from translation). */
     unsigned memReqFlags = 0;
 

@@ -934,9 +934,9 @@ LSQ::SplitDataRequest::finish(const Fault &fault, const RequestPtr &req,
                 if (i == _fault.size()) {
                     if (_inst->inHtmTransactionalState() &&
                         _inst->getCpuPtr()->
+                        system->getHTM() != nullptr &&
+                        _inst->getCpuPtr()->
                         system->getHTM()->params().htm_model_umu) {
-                        panic("Split transactional access not implemented!");
-#if 0 
                         // Dyn inst tracks up to two physEffAddr in
                         // order to isolate split trans loads.
                         // inst->physEffAddr tracks first split request .
@@ -948,7 +948,6 @@ LSQ::SplitDataRequest::finish(const Fault &fault, const RequestPtr &req,
                             panic("Only 2-way split transactional"
                                   " accesses supported!");
                         }
-#endif
                     }
                     _inst->fault = NoFault;
                     setState(State::Request);

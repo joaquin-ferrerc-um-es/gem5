@@ -1740,10 +1740,6 @@ CPU::htmSendAbortSignal(ThreadID tid, uint64_t htm_uid,
     req->taskId(taskId());
     req->setContext(thread[tid]->contextId());
     req->setHtmAbortCause(cause);
-    // Sanity checks
-    if (cause == HtmFailureFaultCause::LSQ) {
-        assert(system->getHTM()->params().htm_model_umu);
-    }
     assert(req->isHTMAbort());
 
     PacketPtr abort_pkt = Packet::createRead(req);

@@ -274,12 +274,15 @@ ThreadContext::forceHtmDisabled() {
     // transaction has aborted ("Disabled" cause). May be used to
     // disable speculation from the simulator side, to run HTM
     // workloads reling exclusively on the fallback lock
-    if (!getSystemPtr()->getHTM() ||
-        getSystemPtr()->getHTM()->params().disable_speculation) {
-        assert(getSystemPtr()->getLockstepMode() == enums::disabled);
+
+    // This functionality is required by lockstep HTM debugging in
+    // order to "stall" replayer simulation on a transaction until
+    // commit granted by recorder
+    if (getSystemPtr()->getLockstepMode() == enums::replay) {
+        assert(getSystemPtr()->getHTM() != nullptr);
         return true;
-    } else if (getSystemPtr()->getLockstepMode() == enums::replay) {
-        return true;
+    } else if (getSystemPtr()->getHTM() != nullptr) {
+        return getSystemPtr()->getHTM()->params().disable_speculation;
     } else {
         return false;
     }

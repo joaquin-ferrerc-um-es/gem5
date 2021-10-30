@@ -51,7 +51,6 @@ X86ISA::HTMCheckpoint::restore(ThreadContext *tc, HtmFailureFaultCause cause)
     uint64_t error_code = 0;
     switch (cause) {
       case HtmFailureFaultCause::EXPLICIT:
-      case HtmFailureFaultCause::EXPLICIT_FALLBACKLOCK:
         replaceBits(error_code, 31, 24, abortReason);
         replaceBits(error_code, 0, 1);
         break;
@@ -65,7 +64,7 @@ X86ISA::HTMCheckpoint::restore(ThreadContext *tc, HtmFailureFaultCause cause)
         break;
       case HtmFailureFaultCause::EXCEPTION:
         break;
-      case HtmFailureFaultCause::INTERRUPT:
+      case HtmFailureFaultCause::OTHER:
         retry = true;
         break;
         /*
@@ -74,8 +73,6 @@ X86ISA::HTMCheckpoint::restore(ThreadContext *tc, HtmFailureFaultCause cause)
         break;
       case HtmFailureFaultCause::NEST:
         replaceBits(error_code, 5, 1);
-        break;
-      case HtmFailureFaultCause::OTHER:
         break;
         */
       case HtmFailureFaultCause::DISABLED:

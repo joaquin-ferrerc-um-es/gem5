@@ -1757,7 +1757,7 @@ void
 CPU::htmSendSignal(ThreadID tid, uint64_t htm_uid,
                    Addr addr, const Request::Flags flags)
 {
-    if (!system->getHTM()->params().htm_model_umu) return;
+    if (system->getHTM() == nullptr) return;
     // Using UMU HTM model
 
     const int size = 8;

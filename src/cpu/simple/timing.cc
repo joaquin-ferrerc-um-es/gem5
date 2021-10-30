@@ -263,12 +263,13 @@ TimingSimpleCPU::suspendContext(ThreadID thread_num)
 void
 TimingSimpleCPU::handleReadPacketTransactional(PacketPtr pkt)
 {
+    if (system->getHTM() == nullptr) return;
+
     if (!system->getHTM()->params().precise_read_set_tracking) {
         // Loads isolated when sent to cache by
         // TransactionalSequencer::insertRequest
         return;
     }
-    assert (system->getHTM()->params().htm_model_umu);
 
     // Using UMU HTM model
     const RequestPtr &req = pkt->req;
@@ -1143,7 +1144,6 @@ TimingSimpleCPU::completeDataAccess(PacketPtr pkt)
                 HtmFailureFaultCause::LSQ);
         } else if (htm_rc == HtmCacheFailure::NO_FAIL_RETRY) {
             assert(pkt->req->isHTMCommit());
-            assert(system->getHTM()->params().htm_model_umu);
             assert(!system->getHTM()->params().eager_cd);
             // Lazy HTMs require additional actions at commit time, so
             // commit is not instantaneous: re-execute until memory
@@ -1416,7 +1416,7 @@ TimingSimpleCPU::htmSendAbortSignal(HtmFailureFaultCause cause)
     req->setHtmAbortCause(cause);
     // Sanity checks
     if (cause == HtmFailureFaultCause::LSQ) {
-        assert(system->getHTM()->params().htm_model_umu);
+        assert(system->getHTM() != nullptr);
         assert(conflictingSnoopSeen[0] ||
                conflictingSnoopSeen[1]);
         // Reset
@@ -1437,7 +1437,7 @@ TimingSimpleCPU::htmSendAbortSignal(HtmFailureFaultCause cause)
 void
 TimingSimpleCPU::htmSendSignal(Addr addr, const Request::Flags flags)
 {
-    assert(system->getHTM()->params().htm_model_umu);
+    assert(system->getHTM() != nullptr); // htm_model_umu
 
     SimpleExecContext& t_info = *threadInfo[curThread];
     SimpleThread* thread = t_info.thread;
@@ -1525,7 +1525,6 @@ void
 TimingSimpleCPU::isolateTransactionLoad(PacketPtr pkt)
 {
     if (system->getHTM() == nullptr) return;
-    assert(system->getHTM()->params().htm_model_umu);
     assert(pkt->isHtmTransactional());
 
     // Ignore HTM commands (HTM_START, etc.) in transactional packets
@@ -1571,7 +1570,6 @@ TimingSimpleCPU::checkSnoop(PacketPtr pkt)
         // Loads isolated when sent to cache
         return;
     }
-    assert(system->getHTM()->params().htm_model_umu);
 
     /* There's a time gap between the call to RubyPort::hitCallback
      * and TimingSimpleCPU::completeDataAccess, during which an
@@ -1610,7 +1608,6 @@ TimingSimpleCPU::checkForConflictingSnoops(PacketPtr pkt)
         // Loads isolated when sent to cache
         return;
     }
-    assert(system->getHTM()->params().htm_model_umu);
     // Using UMU HTM model
 
     // Checks the conflictingSnoopSeen flag for each completed

@@ -986,7 +986,8 @@ Commit::commitInsts()
             if (executingHtmTransaction(commit_thread)) {
                 DPRINTF(HtmCpu,
                         "Interrupt detected within transaction\n");
-                if (cpu->system->getHTM()->params().delay_interrupts) {
+                if (cpu->system->getHTM() != nullptr &&
+                    cpu->system->getHTM()->params().delay_interrupts) {
                     cpu->clearInterrupts(0);
                     toIEW->commitInfo[0].clearInterrupt = true;
                     interrupt = NoFault;
@@ -1084,7 +1085,7 @@ Commit::commitInsts()
                 }
                 // sanity check
                 if (head_inst->inHtmTransactionalState() &&
-                    cpu->system->getHTM()->params().htm_model_umu &&
+                    cpu->system->getHTM() != nullptr &&
                     head_inst->isLoad() &&
 #if 0 // TODO
                     !head_inst->isStoreToLoadForwarding() &&

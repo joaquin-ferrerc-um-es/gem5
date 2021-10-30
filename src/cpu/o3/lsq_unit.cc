@@ -144,7 +144,6 @@ LSQUnit::completeDataAccess(PacketPtr pkt)
                 pkt->getHtmTransactionUid());
         } else if (pkt->req->isHTMCommit() &&
                    htm_rc == HtmCacheFailure::NO_FAIL_RETRY) {
-            assert(cpu->system->getHTM()->params().htm_model_umu);
             assert(!cpu->system->getHTM()->params().eager_cd);
             // Lazy HTMs require additional actions at commit
             // time, so commit is not instantaneous: Fault and
@@ -471,10 +470,7 @@ LSQUnit::checkTransactionalConflict(DynInstPtr ld_inst,
      * seen for blocks in IS/IM. See transition({IS, IM}, InvElse)
      * Thus, there is no need to check snoops against pending loads.
      */
-    if (!cpu->system->getHTM() ||
-        !cpu->system->getHTM()->params().htm_model_umu) {
-        return;
-    }
+    if (cpu->system->getHTM() == nullptr) return;
 
     // Precise read set tracking / reload if stale support:
 
@@ -1340,7 +1336,7 @@ LSQUnit::completeStore(typename StoreQueue::iterator store_idx)
          * was not performed in cache due to conflicts with remote
          * transaction(s))
          */
-        assert(cpu->system->getHTM()->params().htm_model_umu);
+        assert(cpu->system->getHTM()); // htm_model_umu
         completeNackedStore(store_idx);
         return;
     }

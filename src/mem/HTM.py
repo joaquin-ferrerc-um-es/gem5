@@ -17,9 +17,6 @@ class HTM(ClockedObject):
     # (TransactionalInterfaceManager) is passed as argument to the
     # L0/L1 cache controller. The xact mgr acts as interface to the
     # different classes that provide the various mechanisms for HTM.
-    # NOTE: This option is "fixed" for each HTM protocol and set from
-    # the Python scripts in configs/ruby/*HTM*.py
-    htm_model_umu = Param.Bool(False, "Use HTM model from Univ. of Murcia")
 
     # Disable HTM support by forcing abort upon htm start instruction,
     # useful to run "single-global-lock" simulations using unmodified

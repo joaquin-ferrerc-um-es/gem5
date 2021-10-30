@@ -934,9 +934,7 @@ LSQ::SplitDataRequest::finish(const Fault &fault, const RequestPtr &req,
                 if (i == _fault.size()) {
                     if (_inst->inHtmTransactionalState() &&
                         _inst->getCpuPtr()->
-                        system->getHTM() != nullptr &&
-                        _inst->getCpuPtr()->
-                        system->getHTM()->params().htm_model_umu) {
+                        system->getHTM() != nullptr) {
                         // Dyn inst tracks up to two physEffAddr in
                         // order to isolate split trans loads.
                         // inst->physEffAddr tracks first split request .

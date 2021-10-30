@@ -1,0 +1,162 @@
+#ifndef ANNOTATED_REGIONS_H
+#define ANNOTATED_REGIONS_H
+
+#include <stdbool.h>
+#include <assert.h>
+
+typedef enum AnnotatedRegion {
+    AnnotatedRegion_FIRST = 0, // Default region
+    AnnotatedRegion_DEFAULT = AnnotatedRegion_FIRST, // Default region
+    AnnotatedRegion_BARRIER,
+    AnnotatedRegion_TRANSACTIONAL, // For visualization only, stats split into aborted vs committed
+    AnnotatedRegion_TRANSACTIONAL_COMMITTED,
+    AnnotatedRegion_TRANSACTIONAL_ABORTED,
+    AnnotatedRegion_COMMITTING,
+    AnnotatedRegion_ABORTING,
+    AnnotatedRegion_ABORT_HANDLER_HASLOCK,
+    AnnotatedRegion_ABORT_HANDLER,
+    AnnotatedRegion_ABORT_HANDLER_WAITFORRETRY_THRESHOLD,
+    AnnotatedRegion_ABORT_HANDLER_WAITFORRETRY_EXCEPTION,
+    AnnotatedRegion_ABORT_HANDLER_WAITFORRETRY_SIZE,
+    AnnotatedRegion_KERNEL,
+    AnnotatedRegion_KERNEL_HASLOCK,
+    AnnotatedRegion_STALLED, // For visualization only
+    AnnotatedRegion_STALLED_COMMITTED,
+    AnnotatedRegion_STALLED_ABORTED,
+    AnnotatedRegion_STALLED_NONTRANS,
+    AnnotatedRegion_INVALID,
+    AnnotatedRegion_NUM
+} AnnotatedRegion_t;
+
+// Annotated regions reuse the m5_work_begin/end calls, but use a
+// special tag in the workid to skip work-unit functionality
+#define ANNOTATED_REGION_WORKID_TAG (0xc0deUL) // cOde
+#define ANNOTATED_REGION_WORKID_BITMASK (0xffffUL)
+#define ANNOTATED_REGION_WORKID_SHIFT_BITS (32)
+
+
+static inline
+bool
+AnnotatedRegion_isValidRegion(uint64_t val) {
+    return ((val >> ANNOTATED_REGION_WORKID_SHIFT_BITS) &
+            ANNOTATED_REGION_WORKID_BITMASK) == ANNOTATED_REGION_WORKID_TAG;
+}
+
+static inline
+AnnotatedRegion_t
+AnnotatedRegion_getRegion(uint64_t val) {
+    assert(AnnotatedRegion_isValidRegion(val));
+    uint64_t region = (val & ((1UL << ANNOTATED_REGION_WORKID_SHIFT_BITS)-1) );
+    assert(region < (1UL << ANNOTATED_REGION_WORKID_SHIFT_BITS));
+    return (AnnotatedRegion_t)region;
+
+}
+
+static inline
+uint64_t
+AnnotatedRegion_regionToWorkId(AnnotatedRegion_t region) {
+    assert(region < (1UL << ANNOTATED_REGION_WORKID_SHIFT_BITS));
+    return region |
+        (ANNOTATED_REGION_WORKID_TAG << ANNOTATED_REGION_WORKID_SHIFT_BITS);
+}
+
+static inline
+bool
+AnnotatedRegion_hasDualOutcome(AnnotatedRegion_t region) {
+    switch (region) {
+    case AnnotatedRegion_TRANSACTIONAL:
+    case AnnotatedRegion_STALLED:
+        return true;
+    default: 
+        return false;
+    }
+}
+
+static inline
+AnnotatedRegion_t
+AnnotatedRegion_getOutcome(AnnotatedRegion_t region, 
+                           bool commit,
+                           bool hasCycles) {
+    switch (region) {
+    case AnnotatedRegion_TRANSACTIONAL:
+        assert(AnnotatedRegion_hasDualOutcome(region));
+        return commit ? AnnotatedRegion_TRANSACTIONAL_COMMITTED :
+            AnnotatedRegion_TRANSACTIONAL_ABORTED;
+    case AnnotatedRegion_STALLED:
+        assert(AnnotatedRegion_hasDualOutcome(region));
+        return commit ? AnnotatedRegion_STALLED_COMMITTED :
+            AnnotatedRegion_STALLED_ABORTED;
+    case AnnotatedRegion_COMMITTING:
+    case AnnotatedRegion_ABORTING:
+        assert(!AnnotatedRegion_hasDualOutcome(region));
+        return region;
+    case AnnotatedRegion_ABORT_HANDLER_HASLOCK:
+    case AnnotatedRegion_ABORT_HANDLER:
+    case AnnotatedRegion_ABORT_HANDLER_WAITFORRETRY_THRESHOLD:
+    case AnnotatedRegion_ABORT_HANDLER_WAITFORRETRY_EXCEPTION:
+    case AnnotatedRegion_ABORT_HANDLER_WAITFORRETRY_SIZE:
+        assert(!hasCycles);
+    default:
+        assert(!AnnotatedRegion_hasDualOutcome(region));
+        return region;
+    }
+}
+
+static inline
+bool
+AnnotatedRegion_isHardwareTransaction(AnnotatedRegion_t region)
+{
+    switch (region) {
+    case AnnotatedRegion_TRANSACTIONAL:
+    case AnnotatedRegion_COMMITTING:
+    case AnnotatedRegion_ABORTING:
+        return true;
+    default:
+        return false;
+    }
+}
+
+static inline
+bool
+AnnotatedRegion_isAbortHandlerRegion(AnnotatedRegion_t region)
+{
+    switch (region) {
+    case AnnotatedRegion_ABORT_HANDLER:
+    case AnnotatedRegion_ABORT_HANDLER_WAITFORRETRY_THRESHOLD:
+    case AnnotatedRegion_ABORT_HANDLER_WAITFORRETRY_EXCEPTION:
+    case AnnotatedRegion_ABORT_HANDLER_WAITFORRETRY_SIZE:
+        return true;
+    default:
+        return false;
+    }
+}
+
+static inline const char* AnnotatedRegion_to_string(AnnotatedRegion_t region)
+{
+    switch(region) {
+    case AnnotatedRegion_DEFAULT: return "DEFAULT";
+    case AnnotatedRegion_BARRIER: return "BARRIER";
+    case AnnotatedRegion_TRANSACTIONAL: return "TRANSACTIONAL";
+    case AnnotatedRegion_TRANSACTIONAL_COMMITTED: return "TRANSACTIONAL_COMMITTED";
+    case AnnotatedRegion_TRANSACTIONAL_ABORTED: return "TRANSACTIONAL_ABORTED";
+    case AnnotatedRegion_COMMITTING: return "COMMITTING";
+    case AnnotatedRegion_ABORTING: return "ABORTING";
+    case AnnotatedRegion_ABORT_HANDLER_HASLOCK: return "HASLOCK";
+    case AnnotatedRegion_ABORT_HANDLER: return "ABORT_HANDLER";
+    case AnnotatedRegion_ABORT_HANDLER_WAITFORRETRY_THRESHOLD:
+        return "WAITFORRETRY_THRESHOLD";
+    case AnnotatedRegion_ABORT_HANDLER_WAITFORRETRY_EXCEPTION:
+        return "WAITFORRETRY_EXCEPTION";
+    case AnnotatedRegion_ABORT_HANDLER_WAITFORRETRY_SIZE:
+        return "WAITFORRETRY_SIZE";
+    case AnnotatedRegion_KERNEL: return "KERNEL";
+    case AnnotatedRegion_KERNEL_HASLOCK: return "KERNEL_HASLOCK";
+    case AnnotatedRegion_STALLED: return "STALLED";
+    case AnnotatedRegion_STALLED_COMMITTED: return "STALLED_COMMITTED";
+    case AnnotatedRegion_STALLED_ABORTED: return "STALLED_ABORTED";
+    case AnnotatedRegion_STALLED_NONTRANS: return "STALLED_NONTRANS";
+    default: assert(0);
+    }
+    return NULL;
+}
+#endif

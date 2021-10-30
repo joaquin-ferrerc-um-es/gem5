@@ -1,0 +1,251 @@
+// Abort handlers
+#define _GNU_SOURCE             /* See feature_test_macros(7) */
+
+#include <assert.h>
+#include <fcntl.h>
+#include <pthread.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+
+#include "abort_codes.h"
+#include "abort_handlers.h"
+#include "defs.h"
+#include "env_globals.h"
+#include "htm.h"
+#include "spinlock.h"
+#include "util.h"
+#include "annotated_regions.h"
+
+#define FALLBACKLOCKADDR_FILENAME ("fallback_lock")
+
+// global array of thread contexts
+_tm_thread_context_t     *thread_contexts       = NULL;
+
+void
+init_m5_mem()
+{
+    if (inSimulator()) {
+        map_m5_mem();
+    } else {
+        // When running in real hardware, point m5_mem to a region of
+        // memory filled with zeros, no need to mmap /dev/mem
+        m5_mem = calloc( 0x10000, sizeof(char));
+    }
+}
+
+//Initialization. Called from STAMP to initialize common variables
+void initGlobals(int nthreads)
+{
+    spinlock_init();
+
+    setEnvGlobals(nthreads);
+
+    init_m5_mem();
+#ifdef ANNOTATE_FALLBACKLOCK_ADDR
+    if (inSimulator()) {
+        long fallBackLockAddr = (long)spinlock_getAddress();
+        // Max fallback lock filename length is 63 characters
+        char fallbackLockAddrFilename[CACHE_LINE_SIZE_BYTES]
+            __attribute__ ((aligned (CACHE_LINE_SIZE_BYTES))) =
+            FALLBACKLOCKADDR_FILENAME;
+        dumpValueToHostFileSystem(fallBackLockAddr,
+                                  fallbackLockAddrFilename);
+    }
+#endif
+#ifdef ANNOTATE_PROC_MAPS
+    if (inSimulator())
+        catProcMaps("proc_maps");
+#endif
+
+    /*Set up thread contexts */
+    thread_contexts = initThreadContexts(nthreads, inSimulator());
+}
+
+// Call at the end of the workload, outside parallel section
+void deleteGlobals () {
+}
+
+// "Touch" function in STAMPs memory allocator
+extern void memory_touch (long threadId, size_t numByte);
+#define PREFAULT_TOUCH_BYTES (5000) /* Estimated number of bytes malloc'ed next */
+
+void handleHeapPrefault(int threadId) {
+    if (useHeapPrefault()) {
+        if (threadId < 0) return;
+      /* Force the memory allocator to touch the memory locations that
+         will be returned by subsequent calls to TM_MALLOC/P_MALLOC
+         (memory_get) before the transaction starts
+      */
+      //SimAnnotateRegionEntry(threadId, AnnotatedRegion_HEAP_TOUCH_PREFAULT);
+      memory_touch (threadId, PREFAULT_TOUCH_BYTES);
+      //SimAnnotateRegionExit(threadId, AnnotatedRegion_HEAP_TOUCH_PREFAULT);
+  }
+}
+
+#if defined(HANDLER_FALLBACKLOCK)
+
+static inline
+void beginTransaction_fallbackLock(long tag,
+                                   _tm_thread_context_t *ctx) {
+    u_int64_t ret, retryWithLock = 0;
+    int nretries = 0;
+    u_int64_t flags = 0; //M5_XBEGIN_TAG_ENCODE(tag);
+    int tid = ctx->info.threadId;
+
+    handleHeapPrefault(tid);
+    do {
+        ++nretries;
+        ret = htm_start(flags);
+
+        if (htm_started(ret)) {
+            if (!spinlock_isLocked()) return; /* Start transaction */
+            else { /* started transaction but someone has grabbed lock */
+                htm_cancel_lock_acquired();
+            }
+        }
+
+        if (htm_abort_cause_conflict(ret) &&
+            spinlock_isLocked()) {
+            /* Heuristic: If conflict-induced abort and lock held,
+               likely this was a fallbacklock-induced abort, so we do
+               not count it as a retry, to avoid the lemming effect
+            */
+            --nretries;
+        }
+        /* Wait until lock is free */
+        spinlock_whileIsLocked();
+
+        /* Grab lock on one these conditions:
+         * a) Too many retries
+         * b) Transaction cannot succeed on retry (e.g. page fault or
+         * capacity abort)
+         */
+
+        bool explicit = htm_abort_cause_explicit(ret);
+        if (explicit) {
+            if (htm_abort_code_is_lock_acquired
+                (htm_abort_cause_explicit_code(ret))) {
+                // Explicit aborts because of fallback lock acquired
+                --nretries; // Not counted towards max retries
+            } else {
+                // TODO: Check that abort code is properly returned by
+                // simulator when application explicitly aborts a
+                // transaction using cancelTransaction (see below)
+                assert(false);
+            }
+        }
+        else if (htm_abort_cause_disabled(ret)) {
+            // Support for lockstep debugging: replayer spins on
+            // xbegin until recorder grants permission to begin the
+            // next transaction
+            if (htm_may_succeed_on_retry(ret)) {
+                /* Simulator-only: Abort was due to HTM speculation
+                   disabled. Keep retrying transaction (spinning) until
+                   retry bit unset (lockstep replay support)
+                */
+                --nretries;
+                assert((nretries < env.config.htm_max_retries) &&
+                       (nretries >= 0));
+            } else {
+                // Lockstep replayer will acquire lock below and
+                // execute the transaction non-speculatively
+            }
+        }
+
+        if (!explicit && // Ignore retry bit for explicit aborts
+            !htm_may_succeed_on_retry(ret)) {
+            // Transaction may not succeed on retry
+            retryWithLock=1;
+        } else if (nretries >= env.config.htm_max_retries) {
+            /* Grab the lock  */
+            retryWithLock=1;   /* Execute non-speculatively */
+        }
+#if defined(HANDLER_FALLBACKLOCK_2PHASE)
+        /* Wait until nobody is trying to acquire the fallback lock: do
+           not retry if another thread will shortly acquire the fallback
+           lock. This avoids repeated fallback-lock-induced aborts that
+           may trigger the lemming effect */
+        while (spinlock_prefb_isLocked())_mm_pause();
+#endif
+    } while (retryWithLock == 0);
+
+#if defined(HANDLER_FALLBACKLOCK_2PHASE)
+    /* Acquire "pre-fallback lock" to signal "retrying threads" that
+       another thread is trying to acquire the lock (stop them from
+       fruitlessly retrying and exhaust their max number of attempts)
+    */
+    spinlock_prefb_lock();
+    spinlock_lock();
+    /* Release "pre-fallback lock" after fallback lock has been
+       acquired: if any "retrying thread" observes a free
+       preFallbackLock before another "acquiring thread" locks it, it
+       may retry speculation but when subscribing to the fallback lock
+       it will necessarily see that is locked, and then explicitly abort
+       (and it will not increment nretries -> no lemming effect)
+    */
+    spinlock_prefb_unlock();
+#else
+    spinlock_lock();
+#endif
+    annotateCodeRegionBegin(AnnotatedRegion_ABORT_HANDLER_HASLOCK);
+}
+
+
+static inline
+void commitTransaction_fallbackLock(long tag, _tm_thread_context_t *ctx)
+{
+    if (spinlock_isLocked()){
+        /* unlock */
+        spinlock_unlock();
+        annotateCodeRegionEnd(AnnotatedRegion_ABORT_HANDLER_HASLOCK);
+    }
+    else {
+        htm_commit(tag);
+    }
+}
+
+#endif
+
+// Interface to STAMP benchmarks (see lib/tm.h)
+void beginTransaction(long tag, _tm_thread_context_t *ctx) {
+#if defined(HANDLER_FALLBACKLOCK)
+    beginTransaction_fallbackLock(tag, ctx);
+#elif defined(HANDLER_EMPTY)
+    // No synchronization
+#elif defined(HANDLER_SGL)
+    // Single global lock
+    spinlock_lock();
+#else
+#error "Undefined abort handler. Must set CFLAGS Makefile"
+#endif
+}
+
+
+void commitTransaction(long tag, _tm_thread_context_t *ctx) {
+#if defined(HANDLER_FALLBACKLOCK)
+    commitTransaction_fallbackLock(tag, ctx);
+#elif defined(HANDLER_EMPTY)
+    // No synchronization
+#elif defined(HANDLER_SGL)
+    // Single global lock
+    spinlock_unlock();
+#else
+#error "Undefined abort handler. Must set CFLAGS Makefile"
+#endif
+}
+
+
+void cancelTransaction(long code) {
+    htm_cancel(code);
+}
+
+void annotateBarrierRegionBegin() {
+    annotateCodeRegionBegin(AnnotatedRegion_BARRIER);
+}
+void annotateBarrierRegionEnd() {
+    annotateCodeRegionEnd(AnnotatedRegion_BARRIER);
+}

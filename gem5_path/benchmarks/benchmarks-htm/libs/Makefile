@@ -1,0 +1,9 @@
+TOPTARGETS := all clean
+
+SUBDIRS := handlers
+
+$(TOPTARGETS): $(SUBDIRS)
+$(SUBDIRS):
+	$(MAKE) -C $@ $(MAKECMDGOALS) -f Makefile
+
+.PHONY: $(TOPTARGETS) $(SUBDIRS)

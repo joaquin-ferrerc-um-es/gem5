@@ -74,6 +74,7 @@ getIsaVisibleHtmFailureCause(HtmFailureFaultCause cause)
         isaVisibleCause = HtmFailureFaultCause::OTHER;
         break;
     case HtmFailureFaultCause::LSQ:
+    case HtmFailureFaultCause::EXPLICIT_FALLBACKLOCK:
     case HtmFailureFaultCause::MEMORY_FALLBACKLOCK:
     case HtmFailureFaultCause::MEMORY_STALEDATA:
         isaVisibleCause = HtmFailureFaultCause::MEMORY;

@@ -73,8 +73,6 @@ def create_system(options, full_system, system, dma_ports, bootmem,
     if buildEnv['PROTOCOL'] != 'MESI_Three_Level_HTM_umu':
         fatal("This script requires the MESI_Three_Level protocol to be\
                built.")
-    # This protocol requires HTM model from University of Murcia
-    system.htm.htm_model_umu = True
 
     cpu_sequencers = []
 

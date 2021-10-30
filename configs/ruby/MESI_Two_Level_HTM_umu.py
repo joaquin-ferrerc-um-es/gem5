@@ -60,8 +60,6 @@ def create_system(options, full_system, system, dma_ports, bootmem,
     if buildEnv['PROTOCOL'] != 'MESI_Two_Level_HTM_umu':
         fatal("This script requires MESI_Two_Level_HTM_umu protocol to be built.")
 
-    # This protocol requires HTM model from University of Murcia
-    system.htm.htm_model_umu = True
     assert options.htm_allow_read_set_l0_cache_evictions is False
     assert options.htm_l0_downgrade_on_l1_gets is False
     assert options.htm_nack_l1_local_evictions is False

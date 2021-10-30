@@ -186,7 +186,9 @@ def create_system(options, full_system, system, piobus = None, dma_ports = [],
     ruby = system.ruby
     if buildEnv['PROTOCOL'] == 'MESI_Three_Level_HTM_umu' or \
        buildEnv['PROTOCOL'] == 'MESI_Two_Level_HTM':
-        # Hardware transactional memory configuration options
+        # Flexible HTM support from University of Murcia: For
+        # supported protocols (*HTM_umu), create object that maintains
+        # HTM config options.
         system.htm = HTM()
         HTMOptions.setHTMOptions(system.htm, options)
 

@@ -42,7 +42,6 @@ else
     ### Lockstep mode configuration
     LOCKSTEP_MODE=0
     LOCKSTEP_USE_XTERM=0
-    "${HTM_OPTIONS_STRING}"
     # Set common/varying HTM config options here
     LOCKSTEP_COMMON_HTM_OPTIONS_STRING="${HTM_OPTIONS_STRING}"
     LOCKSTEP_COMMON_CACHE_OPTIONS_STRING="${CACHE_OPTIONS_STRING}"

@@ -164,9 +164,8 @@ for htm_config, cache_config in config.system_list:
 scripts = {}
 for random_seed in seed_list:
   for (processors, benchmark_config, cpu_model,
-       htm_config, cache_config) in config.simulation_list:
+       protocol, htm_config, cache_config) in config.simulation_list:
     benchmark_suite, benchmark, arg_prefix, processors_opt, arg_string, benchmark_subdir, binary_filename = benchmark_config
-    protocol = htm_config[htm.htm_protocol_name]
 
     if protocol not in gem5_binary_exec_path:
       print "Could not find gem5 executable path for protocol %s, build type %s" % (protocol, config.build_type)
@@ -220,8 +219,6 @@ for random_seed in seed_list:
             option_descr = str(opt_value)
           htm_config_description += option.abbrev+ \
                                     option_descr+"_"
-    else:
-      htm_config_description=protocol+"_"
     cache_config_description="Unknown"
     cache_options_str = ''
     # Create a copy of config to change cache_l2_caches option only
@@ -243,13 +240,9 @@ for random_seed in seed_list:
          else:
            cache_options_str += ' --'+prototype.gem5opt+'='+str(option)
 
-    # Generate protocol option string representing htm options enabled
-    # Remove ending "_"
-    htm_config_description = htm_config_description[:-1]
-
     results_bench_config = "%s/%s/%s/%s/%dp/%s-%s/%s" %  \
                   (cvsroot_results, cpu_model,
-                   htm_config_description, cache_config_description,
+                   protocol, htm_config_description, cache_config_description,
                    processors, benchmark_suite,
                    arg_prefix, benchmark_name)
 
@@ -398,15 +391,12 @@ for random_seed in seed_list:
     script_file.write('CACHE_OPTIONS_STRING="%s"\n' % cache_options_str)
 
     # HTM configuration options
-    script_file.write("\n### HTM configuration ### \n")
-    script_file.write('HTM_OPTIONS_STRING="%s"\n' % htm_options_str)
-
-    # File containing fallback lock address
     if protocol == 'MESI_Three_Level_HTM_umu' or \
        protocol == 'MESI_Two_Level_HTM_umu':
+      script_file.write("\n### HTM configuration ### \n")
+      script_file.write('HTM_OPTIONS_STRING="%s"\n' % htm_options_str)
+      # File containing fallback lock address
       script_file.write("FALLBACK_LOCK_FILE=%s\n" % os.path.join(results_dir,htm.fallback_lock_file))
-    else:
-      script_file.write("FALLBACK_LOCK_FILE=None\n")
     script_file.write("SIM_INFO_FILENAME=%s\n" % os.path.join(results_dir,config.sim_info_filename))
     script_file.write("REPOSITORY_REVISION_ID=%s\n" % repository_revision)
 

@@ -189,36 +189,39 @@ for random_seed in seed_list:
 
     htm_options_str = ''
     htm_config_description = ''
-    for option in htm.htm_config_options:
-      # For sanity, all available htm config options must have been
-      # set in htm_config
-      if option not in htm_config:
-        print "HTM option htm_%s not specified!" % option.gem5opt
-        sys.exit(2)
-      opt_value = htm_config[option]
-      if option.gem5opt != None:  # None: HTM parameter is not gem5 option
-          if htm_config[option] is None:
-            continue
+    if protocol == 'MESI_Three_Level_HTM_umu' or \
+       protocol == 'MESI_Two_Level_HTM_umu':
+      for option in htm.htm_config_options:
+        # For sanity, all available htm config options must have been
+        # set in htm_config
+        if option not in htm_config:
+          print "HTM option htm_%s not specified!" % option.gem5opt
+          sys.exit(2)
+        opt_value = htm_config[option]
+        if option.gem5opt != None:  # None: HTM parameter is not gem5 option
+            if htm_config[option] is None:
+              continue
+            elif type(htm_config[option]) is bool:
+              assert(option.isbool)
+              if htm_config[option] is True:
+                htm_options_str += ' --htm-'+option.gem5opt
+                if option.descr: # Append abbrev name to description
+                  htm_config_description += option.abbrev+"_"
+            else:
+              assert((type(opt_value) is str) or
+                     (type(opt_value) is int))
+              htm_options_str += ' --htm-'+option.gem5opt+'='+opt_value
+        elif option.descr: # Append abbrev name to description, if any
+          if opt_value in htm.htm_option_str_abbreviations:
+            option_descr = htm.htm_option_str_abbreviations[opt_value]
           elif type(htm_config[option]) is bool:
-            assert(option.isbool)
-            if htm_config[option] is True:
-              htm_options_str += ' --htm-'+option.gem5opt
-              if option.descr: # Append abbrev name to description
-                htm_config_description += option.abbrev+"_"
+            option_descr = ''
           else:
-            assert((type(opt_value) is str) or
-                   (type(opt_value) is int))
-            htm_options_str += ' --htm-'+option.gem5opt+'='+opt_value
-      elif option.descr: # Append abbrev name to description, if any
-        if opt_value in htm.htm_option_str_abbreviations:
-          option_descr = htm.htm_option_str_abbreviations[opt_value]
-        elif type(htm_config[option]) is bool:
-          option_descr = ''
-        else:
-          option_descr = str(opt_value)
-        htm_config_description += option.abbrev+ \
-                                  option_descr+"_"
-
+            option_descr = str(opt_value)
+          htm_config_description += option.abbrev+ \
+                                    option_descr+"_"
+    else:
+      htm_config_description=protocol+"_"
     cache_config_description="Unknown"
     cache_options_str = ''
     # Create a copy of config to change cache_l2_caches option only
@@ -324,19 +327,22 @@ for random_seed in seed_list:
     siminfo_file.write("benchmark_size=%s\n" % arg_prefix)
     siminfo_file.write("random_seed=%d\n" % random_seed)
     siminfo_file.write("git_revision=%s\n" % repository_revision)
-    for option in htm.htm_config_options:
-      assert(option in htm_config)
-      if option.siminfo:
-        siminfo_file.write("%s=" % (option.name))
-        if htm_config[option] is not None:
-          if type(htm_config[option]) is int:
-            siminfo_file.write("%d" % (htm_config[option]))
-          else:
-            opt_value = htm_config[option]
-            assert((type(opt_value) is str) or
-                   (type(opt_value) is bool))
-            siminfo_file.write("%s" % (htm_config[option]))
-        siminfo_file.write("\n")
+
+    if protocol == 'MESI_Three_Level_HTM_umu' or \
+       protocol == 'MESI_Two_Level_HTM_umu':
+      for option in htm.htm_config_options:
+        assert(option in htm_config)
+        if option.siminfo:
+          siminfo_file.write("%s=" % (option.name))
+          if htm_config[option] is not None:
+            if type(htm_config[option]) is int:
+              siminfo_file.write("%d" % (htm_config[option]))
+            else:
+              opt_value = htm_config[option]
+              assert((type(opt_value) is str) or
+                     (type(opt_value) is bool))
+              siminfo_file.write("%s" % (htm_config[option]))
+          siminfo_file.write("\n")
     siminfo_file.close()
 
     ########### Simulation script generation #########
@@ -396,7 +402,11 @@ for random_seed in seed_list:
     script_file.write('HTM_OPTIONS_STRING="%s"\n' % htm_options_str)
 
     # File containing fallback lock address
-    script_file.write("FALLBACK_LOCK_FILE=%s\n" % os.path.join(results_dir,htm.fallback_lock_file))
+    if protocol == 'MESI_Three_Level_HTM_umu' or \
+       protocol == 'MESI_Two_Level_HTM_umu':
+      script_file.write("FALLBACK_LOCK_FILE=%s\n" % os.path.join(results_dir,htm.fallback_lock_file))
+    else:
+      script_file.write("FALLBACK_LOCK_FILE=None\n")
     script_file.write("SIM_INFO_FILENAME=%s\n" % os.path.join(results_dir,config.sim_info_filename))
     script_file.write("REPOSITORY_REVISION_ID=%s\n" % repository_revision)
 

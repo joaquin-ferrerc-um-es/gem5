@@ -1,0 +1,15 @@
+@(listingName: String, listing: model.Listing, secIndex: model.Listing.SectionIndex,
+  message:String = "", debug: String = "")(implicit request: javax.servlet.http.HttpServletRequest, vm: app.ViewMethods)
+
+@main(s"$listingName/${listing.sectionIndexToString(secIndex)}") {
+  @if(message != "") { 
+    <div class="alert alert-info" role="alert">
+      @message
+    </div>
+  }
+
+  <h1>@{listingName}</h1>
+
+  @listingSection(listingName, listing, secIndex)
+}
+

@@ -1,0 +1,266 @@
+@(listingName:String, listing: model.Listing,
+  showSectionIndex: Boolean = true, showSections: Boolean = true,
+  message: String = "", edit: Boolean = false)(implicit request: javax.servlet.http.HttpServletRequest, vm: app.ViewMethods)
+
+@import language.postfixOps
+@import collection.immutable.ListMap
+@import collection.immutable.TreeMap
+@import model._
+@import util.misc._
+@import org.scalatra.forms.views._
+@import vm._
+@import model._
+@import model.Listing.IndexColumn._
+@import model.Listing.ResultColumn
+@import widgets._
+@import repscr.gem5.Gem5Coords._
+
+
+@main(s"$listingName listing") {
+  @if(message != "") {
+    @for(m <- message.split("\n").filter(!_.isEmpty())) {
+      <p class="alert alert-info" role="alert">@m</p>
+    }
+  }
+
+  <div class="hover-show-div dropdown">
+    <h1>@{listingName}
+      @if(edit) {
+        <div class="btn-group dropdown">
+          <button type="button" class="btn btn-primary btn-sm dropdown-toggle hover-show" data-bs-toggle="dropdown">
+            <span class="caret"></span>
+          </button>
+          <ul class="dropdown-menu p-2" role="menu" style="width:35em">
+            <li>
+              <form action="@vm.urlReportSaveListing(listingName)" method="POST" role="form" class="container-fluid">
+                <div class="row mb-1">@textInput("name", "Save as", listingName)</div>
+                <div class="row">@submitButton("Save")</div>
+              </form>
+            </li>
+            <hr/>
+            <li><a href="@vm.urlViewReport(edit)">Return to index</a></li>
+          </ul>
+        </div>
+      }
+      @if(report.isDirty(listingName)) {
+        <small><small>&nbsp;&nbsp;<span class="badge bg-warning text-dark">(modificado)</span></small></small>
+      }
+    </h1>
+  </div>
+  @if(edit) {
+    <div class="hover-show-div">
+      <form action="@vm.urlReportEditListingChangeSource(listingName)" method="POST" role="form" class="container-fluid">
+        <div class="form-group row">
+          @selectInput("name",
+                       label = "Data source: ",
+                       optionMap = (ListMap.empty[String,Boolean] ++ (Listing.sources.available map {c => c.toString -> (c == listing.source)})))
+          <span class="hover-show col-4">@submitButton("Change source")</span>
+        </div>
+      </form>
+    </div>
+  } else {
+    <div>
+      <label class="control-label">Data source: </label> @{listing.source}
+    </div>
+  }
+  <br>
+  <table class="table table-bordered table-hover table-sm">
+    <thead>
+      <tr>
+        <th scope="col">Index column</th>
+        <th scope="col">Use</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for((i, ipos) <- listing.indexes.zipWithIndex) {
+        <tr class="hover-show-div">
+          <td>@{i}   (@{listing.filteredValues(i.coord).size} / @{listing.unfilteredValuesCount(i.coord).size})</td>
+          <td>
+            @{i.use match { case XColumn => "X" case SerieColumn => "Serie" case Section => "Section" case FilterOnly => "Hide"} }&nbsp;
+            @if(edit) {
+              <div class="dropdown">
+                <button type="button" class="btn btn-primary btn-sm dropdown-toggle hover-show" data-bs-toggle="dropdown"></button>
+                <div class="dropdown-menu dropdown-menu-right" role="menu" style="width:20em">
+                  <ul class="list-group">
+                    <li class="list-group-item">@postButton(vm.urlReportEditListingIndexSetUse(listingName, i.coord.name, "XColumn"), buttonClasses="btn btn-outline-primary btn-sm") { X — Use as X axis }</li>
+                    <li class="list-group-item">@postButton(vm.urlReportEditListingIndexSetUse(listingName, i.coord.name, "SerieColumn"), buttonClasses="btn btn-outline-primary btn-sm") { Serie — Use as series index }</li>
+                    <li class="list-group-item">@postButton(vm.urlReportEditListingIndexSetUse(listingName, i.coord.name, "Section"), buttonClasses="btn btn-outline-primary btn-sm") { Section — Use for grouping by sections }</li>
+                    <li class="list-group-item">@postButton(vm.urlReportEditListingIndexSetUse(listingName, i.coord.name, "FilterOnly"), buttonClasses="btn btn-outline-primary btn-sm") { Hide — Use only for filtering }</li>
+                  </ul>
+                </div>
+              </div>
+            }
+          </td>
+          @if(edit) {
+            <td><span class="hover-show">
+              <div class="dropdown">
+                <button class="btn btn-primary btn-sm dropdown-toggle" id="dropdownFilter" data-bs-toggle="dropdown">@glyphicon("filter")</button>
+                <ul class="dropdown-menu dropdown-menu-right p-2" role="menu" aria-labelledby="dropdownFilter" style="width:25em">
+                  <li role="presentation">
+                    <div class="container-fluid">
+                      <form action="@vm.urlReportEditListingIndexSetFilteringSomeValues(listingName, i.coord.name)" method="POST" role="form">
+                        <div class="row mb-1">@selectInput("values",
+                                                      isMultiple = true,
+                                                      optionMap = (listing.unfilteredValuesCount(i.coord) map { case (v, c) => s"$v   ($c)" -> (i.filtering match { case SomeValues(vs) if vs contains v => true case _ => false }) }),
+                                                      size = 10)</div>
+                        <div class="row mb-1">@submitButton("Show only selected values")</div>
+                      </form>
+                      <div class="row">@postButton(vm.urlReportEditListingIndexSetFilteringAllValues(listingName, i.coord.name)) { Show all values }</div>
+                  </li>
+                </ul>
+              </div>
+              @postButton(vm.urlReportEditListingRemoveIndex(listingName, i.coord.name)) { @glyphicon("trash") }
+              @postButton(vm.urlReportEditListingIndexSetPosition(listingName, i.coord.name, ipos - 1)) { @glyphicon("arrow-up") }
+              @postButton(vm.urlReportEditListingIndexSetPosition(listingName, i.coord.name, ipos + 1)) { @glyphicon("arrow-down") }
+            </span></td>
+          }
+        </tr>
+      }
+      @if(edit) {
+        <tr class="hover-show-div">
+          <td>
+            <form action="@vm.urlReportEditListingAddIndex(listingName)" method="POST" role="form" class="row">
+                  @selectInput("name",
+                          isMultiple = false,
+                          placeholder = "Add index column…",
+                          optionMap = (TreeMap.empty[String,Boolean] ++ (report.configVariations.keys map {c => c.name -> false})).view.filterKeys { c => !listing.indexes.map(_.coord.name).contains(c) })
+                <div class="hover-show col-3"><button type="submit" class="btn btn-primary btn-sm">Add index column</button></div>
+            </form>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+
+  <ul>
+    <li>Items per row, row count: @{show((listing.rows.values map (_.size)).countItemsSorted)}</li>
+    @defining(listing.rows.values.filter(_.size > 1)){ multiItemRows =>
+      @if(!multiItemRows.isEmpty){
+        <li>Config variations per row:<br/>
+          <table class="configTable">
+            <tbody>
+              @for((c,vs) <- (multiItemRows.flatMap(Report.configVariations)
+                                           .groupBy (_._1)
+                                           .view.mapValues(_.flatMap(_._2.toSeq)
+                                                        .groupBy(_._1)
+                                                        .view.mapValues (_.map(_._2).sum)))) {
+                <tr>
+                  <td>@{c}:</td>
+                  <td>@{vs.map(show(_)).mkString(",")}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          @if(false) {
+          @for(mr <- multiItemRows) {
+            <table class="configTable">
+              <tbody>
+                @for((c,vs) <- Report.configVariations(mr)) {
+                <tr>
+                    <td>@{c}:</td>
+                    <td>@{vs.map(show(_)).mkString(",")}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }}
+        </li>
+      }
+  }
+  </ul>
+
+  <table class="table table-bordered table-hover table-sm">
+    <thead>
+      <tr>
+        <th scope="col">Result column</th>
+        <th scope="col">Options</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for((i, ipos) <- listing.results.zipWithIndex) {
+        <tr class="hover-show-div">
+          <td>@{i}</td>
+          <td>
+            @{i.optionsToString}
+            @if(edit) {
+              <div class="dropdown">
+                <button type="button" class="btn btn-primary btn-sm dropdown-toggle hover-show" id="dropdownPlots" data-bs-toggle="dropdown"></button>
+                <ul class="dropdown-menu dropdown-menu-right p-2" role="menu" aria-labelledby="dropdownPlots" style="width:25em">
+                  <li role="presentation">
+                    <form action="@vm.urlReportEditListingResultSetOptions(listingName, i.coord.name)" method="POST" role="form" class="container-fluid">
+                      <div class="row mb-1">@selectInput("style",
+                                   label = "Style:",
+                                   isMultiple = false,
+                                   optionMap = Map("Bars" -> (i.plotStyle == ResultColumn.BarsStyle), "Lines" -> (i.plotStyle == ResultColumn.LinesStyle)))</div>
+                      <div class="row mb-1"><div class="col-sm-4 col-md-3"></div>@checkBox("normalized", label = "Normalize", defaultValue = i.normalize)</div>
+                      <div class="row">@submitButton("Update")</div>
+                    </form>
+                  </li>
+                </ul>
+              </div>
+            }
+          </td>
+          @if(edit) {
+            <td><span class="hover-show">
+              @postButton(vm.urlReportEditListingRemoveResult(listingName, i.coord.name)) { @glyphicon("trash") }
+              @postButton(vm.urlReportEditListingResultSetPosition(listingName, i.coord.name, ipos - 1)) { @glyphicon("arrow-up") }
+              @postButton(vm.urlReportEditListingResultSetPosition(listingName, i.coord.name, ipos + 1)) { @glyphicon("arrow-down") }
+            </span></td>
+          }
+        </tr>
+      }
+      @if(edit) {
+       <tr class="hover-show-div">
+          <td>
+            <form action="@vm.urlReportEditListingAddResult(listingName)" method="POST" role="form" class="row">
+              @selectInput("name",
+                          isMultiple = false,
+                          placeholder = "Add result column…",
+                          optionMap = (TreeMap.empty[String,Boolean] ++ (allCoords.values.filter { c => !c.isConfig && !listing.results.map(_.coord).contains(c) } map { c => c.name -> false })))
+              <span class="hover-show col-3">@submitButton("Add result column")</span>
+            </form>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+
+  <a class="btn btn-primary" href="@vm.urlViewListingTSV(listingName)">Data in TSV</a><br>
+
+  @if(showSectionIndex) {
+    <br>
+    <h2>Sections index</h2>
+    <table class="table table-bordered table-hover table-sm">
+      <thead>
+        <tr>
+          @for(si <- listing.sectionIndexColumns) {
+            <th scope="col">@{si.coord}</th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for(((si, rows), secid) <- listing.sectionRows.iterator.zipWithIndex) {
+          <tr>
+            @for(v <- si) {
+              <td>
+                <a href="@vm.urlViewListingSection(listingName, listing.sectionIndexToString(si))">
+                  @v
+                </a>
+              </td>
+            }
+            <td>
+              <a href="@vm.urlViewListingSection(listingName, listing.sectionIndexToString(si))">@{rows.size}</a> <a class="btn btn-primary btn-sm" href="@vm.urlViewListingSectionTSV(listingName, listing.sectionIndexToString(si))">Data</a>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+
+  @if(showSections) {
+    <h2>Sections</h2>
+    @for(((si, _), secid) <- listing.sectionRows.iterator.zipWithIndex) {
+      @listingSection(listingName, listing, si, secid)
+    }
+  }
+}

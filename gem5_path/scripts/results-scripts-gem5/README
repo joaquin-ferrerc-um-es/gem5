@@ -1,0 +1,6 @@
+Ejecutar «./results-scripts» y abrir un navegador a http://127.0.0.1:9000/.
+
+./results-scripts --port=XX para usar el puerto XX
+./results-scripts --script=XX para ejecutar el script XX
+
+Require que sbt esté instalado (https://www.scala-sbt.org/download.html).

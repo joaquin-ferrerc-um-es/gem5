@@ -1,0 +1,91 @@
+@(message: String = "", edit: Boolean = false)(implicit request: javax.servlet.http.HttpServletRequest, vm: app.ViewMethods)
+
+@import model._
+@import util.misc._
+@import org.scalatra.forms.views._
+@import vm._
+@import widgets._
+
+@main("View ") {
+  @if(message != "") {
+    @for(m <- message.split("\n").filter(!_.isEmpty())) {
+      <p class="alert alert-info" role="alert">@m</p>
+    }
+  }
+
+  @if(edit) {
+    <form action="@vm.urlNewReport(edit)" method="POST" class="container-fluid">
+      <div class="row mb-1">@textInput("listingsDirectory", "Listings directory: ", report.listingsDir)</div>
+      <div class="row mb-1">@textInput("inputsDirectory", "Inputs directory: ", report.inDirs.mkString(","))</div>
+      <div class="row mb-1"><div class="col-sm-4 col-md-3"></div>@checkBox("removeOutliers", "Remove outliers", report.removeOutliers)</div>
+      <div class="row">@submitButton("Reload")</div>
+    </form>
+  } else {
+    <ul>
+      <li><label class="control-label">Listings directory: </label> @{report.listingsDir}</li> 
+      <li>@for(d <- report.inDirs) { <label class="control-label">Simulations directory: </label> @d }</li>
+    </ul>
+  }
+  <h1>Summary</h1>
+  <ul>
+    <li>Simulations: @{report.simulations.size} (<a href="@vm.urlRawViewListAll("sims")">raw</a>)</li>
+
+    <li>Mixed simulations: @{report.mixes.size} (<a href="@vm.urlRawViewListAll("mixes")">raw</a>)</li>
+
+    <li>Removed outliers: @{report.removed_outliers_count} (<a href="@vm.urlViewOutliersLog">log</a>)</li>
+    @if(!report.simulations.isEmpty) {
+      <li>Constant configuration:<br>
+        <table class="configTable">
+          <tbody>
+            @for((k, v) <- report.configConstants) {
+            <tr>
+              <td>@{k.name}:</td>
+              <td>@{show(v)}</td>
+            </tr>
+            }
+          </tbody>
+        </table>
+      </li>
+
+      <li>Varying configuration:<br>
+        <table class="configTable">
+          <tbody>
+            @for((k, v) <- report.configVariations) {
+            <tr>
+              <td>@{k.name}:</td>
+              <td>@{v.map(show(_)).mkString(",")}</td>
+            </tr>
+            }
+          </tbody>
+        </table>
+      </li>
+    }
+
+    <li><a href="@vm.urlViewAvailableCoords">Available coordinates</a>: @{repscr.gem5.Gem5Coords.allCoords.size}.</li>
+  </ul>
+  <h1>Listings</h1>
+  <table class="table">
+    <tbody>
+      @for((name, listing) <- report.listings) {
+      <tr>
+        <td><a href="@vm.urlViewListing(name, edit)">@{name}</a></td>
+        <td>@{listing}</td>
+        @if(report.isDirty(name)) {
+          <td>
+            @if(report.isDirty(name)) {
+              <small>&nbsp;&nbsp;<span class="badge bg-warning text-dark">(modificado)</span></small>
+            }
+          </td>
+        }
+      </tr>
+      }
+    </tbody>
+  </table>
+  <hr>
+  @if(edit) {
+    <a href="@vm.urlViewReport(false)">View without edit controls</a>
+  } else {
+    <a href="@vm.urlViewReport(true)">View with edit controls</a>
+  }
+}
+  

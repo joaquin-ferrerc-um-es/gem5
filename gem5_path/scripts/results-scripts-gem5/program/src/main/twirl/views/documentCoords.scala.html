@@ -1,0 +1,26 @@
+@(message:String = "", debug: String = "")
+
+@import repscr.gem5.Gem5Coords._
+
+@main("Available plot coordinates") {
+  @if(message != "") { 
+    <div class="alert alert-info" role="alert">
+      @message
+    </div>
+  }
+
+  <h1>Available plot coordinates</h1>
+
+  <h2>Configs</h2>
+  <ul>
+    @for((_, c) <- allCoords.filter { case (_, c) => c.isConfig }.toSeq.sorted) {
+      <li><b>@{c}</b>: @{c.help}</li>
+    }
+  </ul>
+  <h2>Results</h2>
+  <ul>
+    @for((_, c) <- allCoords.filter { case (_, c) => !c.isConfig }.toSeq.sorted) {
+      <li><b>@{c}</b>: @{c.help}</li>
+    }
+  </ul>
+}

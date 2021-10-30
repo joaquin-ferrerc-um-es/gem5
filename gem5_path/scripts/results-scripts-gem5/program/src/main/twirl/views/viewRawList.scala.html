@@ -1,0 +1,19 @@
+@(sims: Iterable[repscr.points.DataPoint], message:String = "", debug: String = "")
+
+@main("Raw view") {
+  @if(message != "") { 
+    @for(m <- message.split("\n").filter(!_.isEmpty())) {
+      <p class="alert alert-info" role="alert">@m</p>
+    }
+  }
+
+  <table class="listing table table-bordered table-hover">
+    <tbody>
+      @for(s <- sims) {
+        <tr>
+          <td><pre>@{s}</pre></td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

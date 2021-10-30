@@ -1,0 +1,17 @@
+@(name: String, optionMap: Iterable[(String, Boolean)], label: String = "", placeholder: String = "", isMultiple: Boolean = false, size: Int = 5)(implicit request: javax.servlet.http.HttpServletRequest)
+
+@import org.scalatra.forms.views._
+
+    @if(label != ""){<label class="col-sm-3 col-md-2 col-form-label" for="@name">@label</label>}
+    <div class="col">
+        <select name="@if(isMultiple) {@{name}[]} else {@name}"
+                class="form-select"
+                @if(isMultiple) {size=@size}
+                @if(isMultiple) {multiple="multiple"}>
+            @if(!isMultiple && placeholder != "") {<option class="blank" value="">@placeholder</option>}
+            @for((optionName, isSelected) <- optionMap) {
+              <option id="@optionName" value="@optionName" @if(isSelected) {selected}>@optionName</option>
+            }
+        </select>
+        <span class="error">@error(name)</span>
+    </div>

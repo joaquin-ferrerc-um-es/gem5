@@ -1,0 +1,8 @@
+@(name: String, label: String, defaultValue: String = "")(implicit request: javax.servlet.http.HttpServletRequest)
+
+@import org.scalatra.forms.views._
+
+    <label class="col-sm-3 col-md-2 col-form-label" for="@name">@label</label>
+    <div class="col">
+        <input type="text" name="@name" value="@defaultValue" class="form-control"><span class="error">@error(name)</span>
+    </div>

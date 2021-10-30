@@ -1,0 +1,32 @@
+body {
+    margin: 0.5rem;
+}
+
+.configTable td {
+    border: 1pt solid black;
+    padding: 3pt;
+}
+
+.hover-show {
+    visibility: hidden;
+}
+
+.hover-show-div:hover .hover-show {
+    visibility: visible;
+}
+
+.buttons-cell {
+    padding: 0pt !important;
+}
+
+.buttons-cell form, div {
+    display: inline;
+}
+
+table form {
+    display: inline;
+}
+
+.dropdown-menu {
+    box-shadow: 12px 10px 9px rgba(0, 0, 0, .3)
+}

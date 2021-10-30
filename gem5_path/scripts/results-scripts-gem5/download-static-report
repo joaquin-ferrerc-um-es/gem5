@@ -1,0 +1,35 @@
+#!/bin/bash
+
+SCRIPTS_DIR="$(dirname $(readlink -f "$0"))"
+
+test -z "$1" && { echo "Faltan argumentos."; exit 1; }
+
+DEST_DIR="$1"
+LISTINGS="$(readlink -f "${2:-listings/default}")"
+INS="$(readlink -f "${3:-ins}")"
+HOST="${4:-127.0.0.1:9000}"
+FORCE_RELOAD="yes"
+
+test -e "$DEST_DIR" && { echo "El directorio de destino «$DEST_DIR» ya existe."; exit 1; }
+test -d "$LISTINGS" || { echo "El directorio de listados «$LISTINGS» no existe."; exit 1; }
+test -d "$INS" || { echo "El directorio de entrada «$INS» no existe."; exit 1; }
+
+COOKIES_FILE="$(mktemp)"
+test -n "$COOKIES_FILE" -a -f "$COOKIES_FILE" || { echo "No se pudo crear un fichero temporal."; exit 1; }
+
+{
+    echo -e "${HOST}\tFALSE\t/\tFALSE\t0\treportGenerator_gem5_listingsDir\t\"${LISTINGS}\"" 
+    echo -e "${HOST}\tFALSE\t/\tFALSE\t0\treportGenerator_gem5_insDir\t\"${INS}\""
+} > "$COOKIES_FILE"
+
+{ mkdir "$DEST_DIR" && cd "${DEST_DIR}" ; } || { echo "No se ha podido crear «${DEST_DIR}»" ; exit 1 ; }
+
+urlencode() { echo -n "$1" | od -An -tx1 | tr ' ' % | xargs printf "%s" ; }
+
+if [ "$FORCE_RELOAD" == "yes" ] ; then 
+    wget -o/dev/null --load-cookies "$COOKIES_FILE" --save-cookies "$COOKIES_FILE" --keep-session-cookies --post-data "listingsDirectory=$(urlencode "$LISTINGS")&inputsDirectory=$(urlencode "$INS")" http://${HOST}/newReport
+fi
+wget -r -p -l100 -nH -k --restrict-file-names=windows --reject-regex='.+edit=true$' --load-cookies "$COOKIES_FILE"  "http://${HOST}/viewReport"
+ln -s viewReport index.html
+
+rm "$COOKIES_FILE"

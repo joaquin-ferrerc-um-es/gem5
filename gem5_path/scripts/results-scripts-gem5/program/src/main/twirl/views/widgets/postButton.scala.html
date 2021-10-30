@@ -1,0 +1,5 @@
+@(url: String, buttonClasses: String = "btn btn-primary btn-sm")(content: Html)
+
+<form action="@url" method="POST">
+  <button type="submit" class="@buttonClasses">@content</button>
+</form>

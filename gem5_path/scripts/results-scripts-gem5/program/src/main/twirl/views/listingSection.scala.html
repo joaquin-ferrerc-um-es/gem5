@@ -1,0 +1,80 @@
+@(listingName: String, listing: model.Listing, secIndex: model.Listing.SectionIndex, secSeqNum: Int = 1, enableHTMLResultTable: Boolean = false)(implicit request: javax.servlet.http.HttpServletRequest, vm: app.ViewMethods)
+
+@import language.postfixOps
+@import collection.immutable.TreeMap
+@import model._
+@import model.Listing.IndexColumn._
+@import util.misc._
+@import widgets._
+@import vm._
+
+<h2>
+  @if(enableHTMLResultTable){
+    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="collapse"
+            data-bs-target="#plots-clp@{secSeqNum}">
+      @glyphicon("mountain")
+    </button>
+    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="collapse"
+            data-bs-target="#table-clp@{secSeqNum}">
+      @glyphicon("list")
+    </button>
+  }
+  @{((listing.sectionIndexColumns zip secIndex) map { case (i, v) => s"${i.coord} = $v" }) mkString ", "}
+</h2>
+<div id="plots-clp@{secSeqNum}" class="collapse show">
+  <ul style="list-style-type: '- '">
+    <li><b>Series format</b>: @{listing.indexes.filter(_.use == SerieColumn).map(_.coord) mkString ", "}</li>
+    <li><b>X axis format</b>: @{listing.indexes.filter(_.use == XColumn).map(_.coord) mkString ", "}</li>
+  </ul>
+  <ul class="list-unstyled">
+    @for(col <- listing.results) {
+    <li>
+      <div class="hover-show-div">
+        <ul>
+          <li style="list-style-type: disc"><label><b>@col.coord.name</b> @col.optionsToString</label><span class="hover-show">
+        <small>
+          &nbsp;<a href="@vm.urlViewListingPlot(listingName, listing.sectionIndexToString(secIndex), col.coord.name, "pdf")" class="hover-show-div">@glyphicon("download")<small>pdf</small></a>
+          &nbsp;<a href="@vm.urlViewListingPlot(listingName, listing.sectionIndexToString(secIndex), col.coord.name, "tsv")" class="hover-show-div">@glyphicon("download")<small>tsv</small></a>
+          &nbsp;<a href="@vm.urlViewListingPlot(listingName, listing.sectionIndexToString(secIndex), col.coord.name, "py")" class="hover-show-div">@glyphicon("download")<small>py</small></a>
+        </small></span><br>
+          <p style="margin-left: 1em;margin-bottom: 0px">@{col.coord.help}</p></li>
+        </ul>
+        <a href="@vm.urlViewListingPlot(listingName, listing.sectionIndexToString(secIndex), col.coord.name, "png")">
+            <img class="img-fluid" alt="Plot @{col.coord} @{col.optionsToString}" src="@vm.urlViewListingPlot(listingName, listing.sectionIndexToString(secIndex), col.coord.name, "png")">
+        </a>
+      </div>
+    </li>
+    }
+  </ul>
+</div>
+@if(enableHTMLResultTable){
+  <div id="table-clp@{secSeqNum}" class="collapse">
+    <table class="listing table table-bordered table-hover">
+      <thead>
+        <tr>
+          @for(j <- listing.indexes filter { _.use == SerieColumn }) {
+            <th>@{j.coord}</th>
+          }
+          @for(j <- listing.indexes filter { _.use == XColumn }) {
+            <th>@{j.coord}</th>
+          }
+          @for(j <- listing.results) {
+            <th>@{j}</th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for((_, vs) <- listing.sectionRows(secIndex)) {
+          <tr>
+            @for(j <- listing.indexes filter { i => i.use == XColumn || i.use == SerieColumn}) {
+              <td>@{vs map { v => show(j.coord.fn(v)) } mkString ", "}</td>
+            }
+            @for(j <- listing.results) {
+              <td>@{vs map { v => show(j.coord.fn(v)) } mkString ", "}</td>
+            }
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}

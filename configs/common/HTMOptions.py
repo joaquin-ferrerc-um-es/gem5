@@ -62,19 +62,18 @@ def addHTMOptions(parser):
                       help="Lazy version management")
     parser.add_argument("--htm-eager-cd", action="store_true", default=None,
                       help="Eager conflict detection")
-    parser.add_argument("--htm-conflict-resolution", type="choice",
-                      default="requester_wins",
+    parser.add_argument("--htm-conflict-resolution", default="requester_wins",
                       choices=["requester_wins",
                                "requester_stalls_cda_hybrid",
                                "requester_stalls_cda_base_ntx",
                                "requester_stalls_cda_base"
                       ],
                       help = "Conflict resolution policy")
-    parser.add_argument("--htm-lazy-arbitration", type="choice",
+    parser.add_argument("--htm-lazy-arbitration",
                       default="magic",
                       choices=["magic"],
                       help = "Lazy arbitration policy")
-    parser.add_argument("--htm-lazy-validated-conf-res", type="choice",
+    parser.add_argument("--htm-lazy-validated-conf-res",
                       default="requester_wins",
                       choices=["committer_wins", "requester_wins"],
                       help = "Conf. res for lazy validated transactions")

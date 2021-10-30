@@ -34,6 +34,7 @@ from m5.defines import buildEnv
 from .Ruby import create_topology, create_directories
 from .Ruby import send_evicts
 from common import FileSystemConfig
+from common import HTMOptions
 
 #
 # Declare caches used by the protocol
@@ -50,6 +51,7 @@ class L2Cache(RubyCache):
     pass
 
 def define_options(parser):
+    HTMOptions.addHTMOptions(parser)
     parser.add_argument("--num-clusters", type=int, default=1,
         help = "number of clusters in a design in which there are shared\
         caches private to clusters")

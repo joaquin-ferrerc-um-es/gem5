@@ -57,7 +57,7 @@ htm_config_options.append(htm_heap_prefault)
 # to eager CD and lazy VM (no logging)
 config_baseline = collections.OrderedDict()
 config_baseline[htm_disable_speculation]=False
-config_baseline[htm_protocol_name]="MESI_Three_Level_HTM"
+config_baseline[htm_protocol_name]="MESI_Three_Level_HTM_umu"
 config_baseline[htm_binary_suffix]='.htm.fallbacklock'
 config_baseline[htm_lazy_vm]=True
 config_baseline[htm_eager_cd]=True
@@ -77,6 +77,11 @@ config_baseline[htm_visualizer]=True
 config_baseline[htm_max_retries]=6
 config_baseline[htm_heap_prefault]=True
 
+
+config_gem5_htm = collections.OrderedDict()
+config_gem5_htm[htm_disable_speculation]=False
+config_gem5_htm[htm_protocol_name]="MESI_Three_Level_HTM"
+config_gem5_htm[htm_binary_suffix]='.htm.fallbacklock'
 
 
 ## Abbreviations used for HTM options string values, to generate more

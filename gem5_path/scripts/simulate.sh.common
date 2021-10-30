@@ -32,25 +32,33 @@ else
     TERMINAL_SUFFIX="com_1.device"
 fi
 
-### Lockstep mode configuration
+# Lockstep mode global switch
 LOCKSTEP_MODE=0
-LOCKSTEP_USE_XTERM=0
-# Set common/varying HTM config options here
-LOCKSTEP_COMMON_HTM_OPTIONS_STRING="${HTM_OPTIONS_STRING}"
-LOCKSTEP_COMMON_CACHE_OPTIONS_STRING="${CACHE_OPTIONS_STRING}"
-LOCKSTEP_RECORD_HTM_OPTIONS_STRING+=""
-LOCKSTEP_REPLAY_HTM_OPTIONS_STRING+=""
-LOCKSTEP_RECORD_CACHE_OPTIONS_STRING+=""
-LOCKSTEP_REPLAY_CACHE_OPTIONS_STRING+=""
-# Set here your record/replay protocol and CPU type By
-# default, compare timing vs o3 CPU using same protocol, but
-# it should be possible to use the lockstep facility to debug
-# different protocols
-LOCKSTEP_RECORD_CPU_TYPE=DerivO3CPU
-LOCKSTEP_REPLAY_CPU_TYPE=TimingSimpleCPU
-LOCKSTEP_RECORD_PROTOCOL=${PROTOCOL}
-LOCKSTEP_REPLAY_PROTOCOL=${PROTOCOL}
 
+if [ -z ${HTM_OPTIONS_STRING+x} ]
+then
+    echo "HTM config options are disabled";
+else
+    ### Lockstep mode configuration
+    LOCKSTEP_MODE=0
+    LOCKSTEP_USE_XTERM=0
+    "${HTM_OPTIONS_STRING}"
+    # Set common/varying HTM config options here
+    LOCKSTEP_COMMON_HTM_OPTIONS_STRING="${HTM_OPTIONS_STRING}"
+    LOCKSTEP_COMMON_CACHE_OPTIONS_STRING="${CACHE_OPTIONS_STRING}"
+    LOCKSTEP_RECORD_HTM_OPTIONS_STRING+=""
+    LOCKSTEP_REPLAY_HTM_OPTIONS_STRING+=""
+    LOCKSTEP_RECORD_CACHE_OPTIONS_STRING+=""
+    LOCKSTEP_REPLAY_CACHE_OPTIONS_STRING+=""
+    # Set here your record/replay protocol and CPU type By
+    # default, compare timing vs o3 CPU using same protocol, but
+    # it should be possible to use the lockstep facility to debug
+    # different protocols
+    LOCKSTEP_RECORD_CPU_TYPE=DerivO3CPU
+    LOCKSTEP_REPLAY_CPU_TYPE=TimingSimpleCPU
+    LOCKSTEP_RECORD_PROTOCOL=${PROTOCOL}
+    LOCKSTEP_REPLAY_PROTOCOL=${PROTOCOL}
+fi
 
 if ldd ${GEM5_EXEC_PATH} | grep "not found" | grep -q "GLIBCXX"
 then
@@ -251,11 +259,16 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
             EXTRA_ARGS+=" ${LOCKSTEP_COMMON_HTM_OPTIONS_STRING}"
 	    EXTRA_ARGS+=" ${LOCKSTEP_COMMON_CACHE_OPTIONS_STRING}"
         else
-            if [ -f ${FALLBACK_LOCK_FILE} ] && [ $(cat  ${FALLBACK_LOCK_FILE} | wc -l) -eq 1 ]
+            if [ -z ${HTM_OPTIONS_STRING+x} ]
             then
-                HTM_OPTIONS_STRING+=" --htm-fallbacklock-addr=$(cat ${FALLBACK_LOCK_FILE}) "
+                echo -n
+            else
+                if [ -f ${FALLBACK_LOCK_FILE} ] && [ $(cat  ${FALLBACK_LOCK_FILE} | wc -l) -eq 1 ]
+                then
+                    HTM_OPTIONS_STRING+=" --htm-fallbacklock-addr=$(cat ${FALLBACK_LOCK_FILE}) "
+                fi
+                EXTRA_ARGS+=" ${HTM_OPTIONS_STRING}"
             fi
-            EXTRA_ARGS+=" ${HTM_OPTIONS_STRING}"
         fi
         echo "#### Simulating from init checkpoint using ${CPU_TYPE} + Ruby protocol ${PROTOCOL}..."
     else

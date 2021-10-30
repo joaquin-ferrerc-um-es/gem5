@@ -129,8 +129,7 @@ cvsroot_results = os.path.join(config.gem5root, "results", results_prefix)
 gem5_binary_exec_path = {}
 
 # Copy gem5 binaries to tmp dirs, set path to gem5 binary for each protocol
-for htm_config, cache_config in config.system_list:
-  protocol = htm_config[htm.htm_protocol_name]
+for protocol, htm_config, cache_config in config.system_list:
   # Locate gem5 executable
   gem5_exec_path = "%s/build/%s_%s/gem5.%s" % (config.gem5root, config.arch,
                                                protocol,
@@ -184,7 +183,10 @@ for random_seed in seed_list:
       nodelist = "--nodelist=" + hostname
 
     benchmark_name = benchmark
-    binary_suffix = htm_config[htm.htm_binary_suffix]
+    if htm_config:
+      binary_suffix = htm_config[htm.htm_binary_suffix]
+    else:
+      binary_suffix = config.binary_suffix
 
     htm_options_str = ''
     htm_config_description = ''
@@ -240,11 +242,14 @@ for random_seed in seed_list:
          else:
            cache_options_str += ' --'+prototype.gem5opt+'='+str(option)
 
-    results_bench_config = "%s/%s/%s/%s/%dp/%s-%s/%s" %  \
-                  (cvsroot_results, cpu_model,
-                   protocol, htm_config_description, cache_config_description,
-                   processors, benchmark_suite,
-                   arg_prefix, benchmark_name)
+    results_bench_config = "%s/%s/%s" %  \
+                  (cvsroot_results, cpu_model, protocol)
+    if htm_config:
+      results_bench_config += "/%s" %  htm_config_description
+    results_bench_config += "/%s/%dp/%s-%s/%s" %  \
+                            (cache_config_description, \
+                            processors, benchmark_suite, \
+                            arg_prefix, benchmark_name)
 
     # Checkpoint reuse disabled by default
     reuse_ckpt_path = None

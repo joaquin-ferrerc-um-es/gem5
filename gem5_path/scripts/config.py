@@ -1,6 +1,6 @@
 #!/usr/bin/python
 import string, os, sys, time, datetime, pdb, collections
-import benchmarks, caches
+import benchmarks, htm, caches
 
 gem5root  = os.path.abspath(os.path.dirname(os.path.realpath(__file__)) + '/../..')
 
@@ -15,7 +15,9 @@ system_list = []
 #####################################################################
 
 # Baseline
-system_list.append(["MESI_Three_Level", caches.cache_baseline])
+#system_list.append(["MESI_Three_Level", htm.config_baseline, caches.cache_baseline])
+system_list.append(["MESI_Three_Level_HTM", htm.config_empty, caches.cache_baseline])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.config_baseline, caches.cache_baseline])
 
 processor_list = []
 
@@ -101,13 +103,13 @@ results_subdir="tests" #load-delay" #splash" #tests" # The subdirectory inside "
                              # for simulation scripts and results
 
 for processors in processor_list :
-    for (protocol, cache_config) in system_list:
+    for (protocol, htm_config, cache_config) in system_list:
         for benchmark_config in benchmark_list :
             for detailed_simulation_cpu_model in detailed_simulation_cpu_model_list:
                 benchmark_suite, benchmark, arg_prefix, processors_opt, arg_string, benchmark_subdir, binary_filename  = benchmark_config
                 
                 configuration = (processors, benchmark_config,
                                  detailed_simulation_cpu_model,
-                                 protocol, cache_config)
+                                 protocol, htm_config, cache_config)
                 simulation_list.append(configuration)
 

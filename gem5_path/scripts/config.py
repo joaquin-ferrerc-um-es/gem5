@@ -53,7 +53,7 @@ arch_name = "x86_64" # "{aarch64,x86_64}"
 arch = "X86" # "{X86,ARM}
 kernel='vmlinux-5.4.49'  # vmlinux.arm64
 os_disk_image='ubuntu-18-04.img' # aarch64-ubuntu-trusty-headless.img'
-enable_kvm=0
+enable_kvm=1
 
 # Root directory where benchmarks are located in the disk image, must
 # be kept in sync with IMAGE_DESTINATION_DIR in upload-to-image.sh

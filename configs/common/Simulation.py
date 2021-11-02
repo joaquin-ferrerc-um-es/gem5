@@ -116,6 +116,8 @@ def setWorkCountOptions(system, options):
             system.lockstep_mode = options.lockstep_mode
             if options.lockstep_fifopath != None:
                 system.lockstep_fifopath = options.lockstep_fifopath
+    if options.checkpoint_m5sum_kvm_hack != None:
+        system.checkpoint_m5sum_kvm_hack = options.checkpoint_m5sum_kvm_hack
 
 def findCptDir(options, cptdir, testsys):
     """Figures out the directory from which the checkpointed state is read.

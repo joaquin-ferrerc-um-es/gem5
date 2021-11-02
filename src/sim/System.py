@@ -143,6 +143,20 @@ class System(SimObject):
     # HTM related/specific options
     htm = Param.HTM(NULL, "")
 
+    # When using KVM to fast forward simulation, checkpoiting does not
+    # take place at the expected location (m5_work_begin) since the
+    # required drain to write the checkpoint cannot happen
+    # immediately: The vCPUs continue executing for thousands of
+    # instructions after the point in the program where the m5 op
+    # initiates the drain, and the state written by the checkpoint
+    # corresponds to a random point much later in program execution.
+    # To deal with this, benchmarks should include a "dummy loop"
+    # based on the value returned by the m5_sum op, so that this
+    # parameter can control whether the execution is allowed to exit
+    # the dummy loop (no fast-forward with KVM).
+    checkpoint_m5sum_kvm_hack = Param.Bool(False,
+        "Hack to stall fast-forward simulations for correct checkpointing")
+
     # Lockstep record/replay simulation support: debugging facility
     # for parallel simulations, checking instructions and values
     # observed/produced by each critical section. A "replayer"

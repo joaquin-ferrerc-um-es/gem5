@@ -144,6 +144,8 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
         if [[ ${ENABLE_KVM} == 1 ]]
         then
             CPU_TYPE="X86KvmCPU"
+            # Hack required for correct checkpointing when using KVM
+            EXTRA_ARGS+=" --checkpoint-m5sum-kvm-hack"
         else
             CPU_TYPE="AtomicSimpleCPU"
         fi

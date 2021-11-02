@@ -110,6 +110,8 @@ def setWorkCountOptions(system, options):
         system.work_begin_ckpt_count = options.work_begin_checkpoint_count
     if options.work_cpus_checkpoint_count != None:
         system.work_cpus_ckpt_count = options.work_cpus_checkpoint_count
+    if options.checkpoint_m5sum_kvm_hack != None:
+        system.checkpoint_m5sum_kvm_hack = options.checkpoint_m5sum_kvm_hack
 
 def findCptDir(options, cptdir, testsys):
     """Figures out the directory from which the checkpointed state is read.

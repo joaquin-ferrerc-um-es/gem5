@@ -189,6 +189,37 @@ m5sum(ThreadContext *tc, uint64_t a, uint64_t b, uint64_t c,
 {
     DPRINTF(PseudoInst, "pseudo_inst::m5sum(%#x, %#x, %#x, %#x, %#x, %#x)\n",
             a, b, c, d, e, f);
+
+    //////////////// checkpoint_m5sum_kvm_hack ////////////////
+    // See documentation in src/sim/System.py
+    // When --checkpoint-m5sum-kvm-hack provided and the 6 args passed
+    // to m5_sum match the HEXSPEAK values above, m5sum returns 0
+    // instead of the sum of all arguments.  This is used to cause the
+    // simulated benchmark to enter an endless loop immediately after
+    // a call to m5_checkpoint (directly or indirectly via
+    // work_begin). The expected use is to exit this KVM simulation
+    // after writing the checkpoint (while in the endless loop). The
+    // benchmark will be able to continue execution once the
+    // checkpoint is restored simply by not passing the
+    // --checkpoint-m5sum-kvm-hack option
+    // Keep the following HEXSPEAK values in sync with your benchmark
+    // instrumentation code as correct checkpointing when using KVM to
+    // fast-forward simulation depends on this hacky tweak to m5sum
+    if ((a == 0xCAFE) && (b == 0xBEEF) && (c == 0xDEAD) &&
+        (d == 0xBABE) && (e == 0xBAAD) && (f == 0xC0DE)) {
+        if (tc->getCpuPtr()->system->params().checkpoint_m5sum_kvm_hack) {
+            DPRINTF(PseudoInst, "m5sum kvm hack detected, returning 0\n");
+            return 0;
+        } else {
+            DPRINTF(PseudoInst,
+                    "pseudo_inst::m5sum found dummy m5sum loop values but"
+                    "--checkpoint-m5sum-kvm-hack not specified\n");
+            warn("pseudo_inst::m5sum found dummy m5sum loop values but"
+                 "--checkpoint-m5sum-kvm-hack not specified. Continuing..\n");
+        }
+    }
+    //////////////// checkpoint_m5sum_kvm_hack end ////////////////
+
     return a + b + c + d + e + f;
 }
 

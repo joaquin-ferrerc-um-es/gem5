@@ -353,6 +353,9 @@ def addCommonOptions(parser):
     parser.add_argument("--checkpoint-at-end", action="store_true",
                         help="take a checkpoint at end of run")
     parser.add_argument(
+        "--checkpoint-m5sum-kvm-hack", action="store_true",
+        help="Hack m5_sum in order to stall vCPUs until checkpoint written")
+    parser.add_argument(
         "--work-begin-checkpoint-count", action="store", type=int,
         help="checkpoint at specified work begin count")
     parser.add_argument(

@@ -213,6 +213,14 @@ int main (int argc, char** argv)
     // In order to run same binary in real hardware (prevent
     // segmentation fault caused by m5_xxx_addr)
     m5_work_begin_addr(0,0);
+
+    // Hack to stall vCPUs for correct checkpoint after fast-forward
+    // Required if using KVM to fast-forward until beginning of ROI
+    if (m5_sum_addr(1,2,3,4,5,6)) {
+        while (m5_sum_addr(0xCAFE,0xBEEF, 0xDEAD,
+                           0xBABE, 0xBAAD, 0xC0DE) == 0);
+    }
+
 #endif
 
     sumArray((void*)0);

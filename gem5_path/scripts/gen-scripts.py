@@ -300,8 +300,8 @@ for random_seed in seed_list:
     if htm_config:
       # Maximum number of retries before fallback lock acquired passed
       # to abort handler via environment
-      bootscript_file.write("export HTM_MAX_RETRIES=%d\n" % htm_config[htm.htm_max_retries])
-      bootscript_file.write("export HTM_HEAP_PREFAULT=%d\n" % htm_config[htm.htm_heap_prefault])
+      launchscript_file.write("export HTM_MAX_RETRIES=%d\n" % htm_config[htm.htm_max_retries])
+      launchscript_file.write("export HTM_HEAP_PREFAULT=%d\n" % htm_config[htm.htm_heap_prefault])
 
     benchmark_suite_root_dir = os.path.join(benchmarks.benchmark_disk_image_mountpoint,
                                             benchmarks.benchmark_suites[benchmark_suite])

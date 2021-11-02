@@ -31,10 +31,7 @@ from m5.objects import *
 from m5.defines import buildEnv
 from .Ruby import create_topology, create_directories
 from .Ruby import send_evicts
-from m5.util import addToPath, fatal
-
-addToPath('../')
-
+from common import FileSystemConfig
 from common import HTMOptions
 
 #
@@ -50,26 +47,30 @@ class L2Cache(RubyCache):
 
 def define_options(parser):
     HTMOptions.addHTMOptions(parser)
-    parser.add_option("--enable-prefetch", action="store_true", default=False,\
-                        help="Enable Ruby hardware prefetcher")
+    parser.add_argument("--l1_transitions_per_cycle", type=int, default=32)
+    parser.add_argument("--l2_transitions_per_cycle", type=int, default=4)
+    parser.add_argument(
+        "--enable-prefetch", action="store_true", default=False,
+        help="Enable Ruby hardware prefetcher")
     return
 
 def create_system(options, full_system, system, dma_ports, bootmem,
-                  ruby_system):
+                  ruby_system, cpus):
 
     if buildEnv['PROTOCOL'] != 'MESI_Two_Level_HTM_umu':
         fatal("This script requires MESI_Two_Level_HTM_umu protocol to be built.")
 
-    assert options.htm_allow_read_set_l0_cache_evictions is False
-    assert options.htm_l0_downgrade_on_l1_gets is False
-    assert options.htm_nack_l1_local_evictions is False
+    #assert options.htm_allow_read_set_l0_cache_evictions is False
+    #assert options.htm_l0_downgrade_on_l1_gets is False
+    #assert options.htm_nack_l1_local_evictions is False
 
     cpu_sequencers = []
 
     #
     # The ruby network creation expects the list of nodes in the system to be
-    # consistent with the NetDest list.  Therefore the l1 controller nodes must be
-    # listed before the directory nodes and directory nodes before dma nodes, etc.
+    # consistent with the NetDest list.  Therefore the l1 controller nodes
+    # must be listed before the directory nodes and directory nodes before
+    # dma nodes, etc.
     #
     l1_cntrl_nodes = []
     l2_cntrl_nodes = []
@@ -86,47 +87,49 @@ def create_system(options, full_system, system, dma_ports, bootmem,
         #
         # First create the Ruby objects associated with this cpu
         #
-        l1i_cache = L1Cache(size = options.l1i_size,
-                            assoc = options.l1i_assoc,
-                            start_index_bit = block_size_bits,
-                            replacement_policy = LRURP(),
-                            is_icache = True)
-        l1d_cache = L1Cache(size = options.l1d_size,
-                            assoc = options.l1d_assoc,
-                            start_index_bit = block_size_bits,
-                            replacement_policy = LRURP(),
-                            is_icache = False)
 
-        prefetcher = RubyPrefetcher()
+        l1i_cache = L1Cache(size = options.l1i_size,
+            assoc = options.l1i_assoc,
+            is_icache = True,
+            start_index_bit = block_size_bits,
+            replacement_policy = LRURP())
+
+        l1d_cache = L1Cache(size = options.l1d_size,
+            assoc = options.l1d_assoc,
+            is_icache = False,
+            start_index_bit = block_size_bits,
+            replacement_policy = LRURP())
+
+        clk_domain = cpus[i].clk_domain
+
+        # Ruby prefetcher
+        prefetcher = RubyPrefetcher(
+            num_streams=16,
+            unit_filter = 256,
+            nonunit_filter = 256,
+            train_misses = 5,
+            num_startup_pfs = 4,
+            cross_page = True
+        )
+
         xact_manager = RubyTransactionInterfaceManager.TransactionInterfaceManager()
 
-        # the ruby random tester reuses num_cpus to specify the
-        # number of cpu ports connected to the tester object, which
-        # is stored in system.cpu. because there is only ever one
-        # tester object, num_cpus is not necessarily equal to the
-        # size of system.cpu; therefore if len(system.cpu) == 1
-        # we use system.cpu[0] to set the clk_domain, thereby ensuring
-        # we don't index off the end of the cpu list.
-        if len(system.cpu) == 1:
-            clk_domain = system.cpu[0].clk_domain
-        else:
-            clk_domain = system.cpu[i].clk_domain
+        l1_cntrl = L1Cache_Controller(
+               version = i,
+               L1Icache = l1i_cache, L1Dcache = l1d_cache,
+               l2_select_num_bits = l2_bits,
+               transitions_per_cycle = options.l1_transitions_per_cycle,
+               prefetcher = prefetcher,
+               xact_mgr = xact_manager,
+               enable_prefetch = options.enable_prefetch,
+               send_evictions = send_evicts(options),
+               clk_domain = clk_domain,
+               ruby_system = ruby_system)
 
-        l1_cntrl = L1Cache_Controller(version = i, L1Icache = l1i_cache,
-                                      L1Dcache = l1d_cache,
-                                      l2_select_num_bits = l2_bits,
-                                      send_evictions = send_evicts(options),
-                                      prefetcher = prefetcher,
-                                      xact_mgr = xact_manager,
-                                      ruby_system = ruby_system,
-                                      clk_domain = clk_domain,
-                                      transitions_per_cycle = options.ports,
-                                      enable_prefetch = False)
-
-        cpu_seq = RubyTransactionalSequencer(version = i, icache = l1i_cache,
-                                             dcache = l1d_cache,
-                                             clk_domain = clk_domain,
-                                             ruby_system = ruby_system)
+        cpu_seq = RubyTransactionalSequencer(version = i,
+                                   clk_domain = clk_domain,
+                                   dcache = l1d_cache,
+                                   ruby_system = ruby_system)
 
         l1_cntrl.sequencer = cpu_seq
         xact_manager.sequencer = cpu_seq
@@ -168,7 +171,8 @@ def create_system(options, full_system, system, dma_ports, bootmem,
 
         l2_cntrl = L2Cache_Controller(version = i,
                                       L2cache = l2_cache,
-                                      transitions_per_cycle = options.ports,
+                                      transitions_per_cycle =\
+                                       options.l2_transitions_per_cycle,
                                       ruby_system = ruby_system)
 
         exec("ruby_system.l2_cntrl%d = l2_cntrl" % i)
@@ -194,8 +198,7 @@ def create_system(options, full_system, system, dma_ports, bootmem,
     # the ruby system
     # clk_divider value is a fix to pass regression.
     ruby_system.memctrl_clk_domain = DerivedClockDomain(
-                                          clk_domain = ruby_system.clk_domain,
-                                          clk_divider = 3)
+            clk_domain = ruby_system.clk_domain, clk_divider = 3)
 
     mem_dir_cntrl_nodes, rom_dir_cntrl_node = create_directories(
         options, bootmem, ruby_system, system)
@@ -213,17 +216,19 @@ def create_system(options, full_system, system, dma_ports, bootmem,
         dir_cntrl.requestToMemory = MessageBuffer()
         dir_cntrl.responseFromMemory = MessageBuffer()
 
-
     for i, dma_port in enumerate(dma_ports):
+        #
         # Create the Ruby objects associated with the dma controller
-        dma_seq = DMASequencer(version = i, ruby_system = ruby_system,
-                               slave = dma_port)
+        #
+        dma_seq = DMASequencer(version = i, ruby_system = ruby_system)
 
-        dma_cntrl = DMA_Controller(version = i, dma_sequencer = dma_seq,
+        dma_cntrl = DMA_Controller(version = i,
+                                   dma_sequencer = dma_seq,
                                    transitions_per_cycle = options.ports,
                                    ruby_system = ruby_system)
 
         exec("ruby_system.dma_cntrl%d = dma_cntrl" % i)
+        exec("ruby_system.dma_cntrl%d.dma_sequencer.slave = dma_port" % i)
         dma_cntrl_nodes.append(dma_cntrl)
 
         # Connect the dma controller to the network
@@ -240,8 +245,7 @@ def create_system(options, full_system, system, dma_ports, bootmem,
 
     # Create the io controller and the sequencer
     if full_system:
-        io_seq = DMASequencer(version = len(dma_ports),
-                              ruby_system = ruby_system)
+        io_seq = DMASequencer(version=len(dma_ports), ruby_system=ruby_system)
         ruby_system._io_port = io_seq
         io_controller = DMA_Controller(version = len(dma_ports),
                                        dma_sequencer = io_seq,
@@ -256,6 +260,10 @@ def create_system(options, full_system, system, dma_ports, bootmem,
         io_controller.requestToDir.master = ruby_system.network.slave
 
         all_cntrls = all_cntrls + [io_controller]
+    else:
+        fatal("MESI_Two_Level_HTM requires full_system, \
+               FileSystemConfig unset)!")
+
 
     ruby_system.network.number_of_virtual_networks = 3
     topology = create_topology(all_cntrls, options)

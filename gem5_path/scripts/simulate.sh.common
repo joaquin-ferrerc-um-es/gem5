@@ -110,9 +110,9 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
     DEBUG_STRING=""
     if [[ ${CHECKPOINT_RESTORE_NUM} -eq 1 ]]
     then
-        GEM5_EXECUTABLE_PATH="${GEM5_EXEC_PATH_INITCKPT}"
         # No need for Ruby
         CHECKPOINT_PATH="${RESULTS_DIR}/${CHECKPOINT_INIT_SUBDIR}"
+        STATS_STRING=" --stats-file=/dev/null "
         CHECKPOINT_FOUND=0 #  If checkpoint subdir contains valid checkpoint, do not create
         if [ -d "$CHECKPOINT_PATH" ]; then
             # If no regular files, no checkpoint exists
@@ -121,7 +121,7 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
             then
                 echo "### Found 'init' checkpoint! ###"
                 find "$CHECKPOINT_PATH"  -type f -name m5.cpt
-                echo "### Reusing existing 'init' checkpoint (assuming your executable and launch script have NOT changed) ###"
+                echo "### Reusing existing 'init' checkpoint (assuming your benchmark executable and launch script have NOT changed) ###"
                 CHECKPOINT_DIR=${CHECKPOINT_PATH}
                 continue
             else
@@ -160,7 +160,6 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
         echo "#### Creating init checkpoint using ${CPU_TYPE}..."
     elif [[ ${CHECKPOINT_RESTORE_NUM} -eq 2 ]]
     then
-        GEM5_EXECUTABLE_PATH="${GEM5_EXEC_PATH}"
         OUT_DIR=${RESULTS_DIR}
         mkdir -p ${OUT_DIR}
         cd ${OUT_DIR}
@@ -222,9 +221,10 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
     if [[ 1 ]]
     then
         GEM5_COMMAND="${GDB_STRING} \
-                ${GEM5_EXECUTABLE_PATH} \
+                ${GEM5_EXEC_PATH} \
                 ${DEBUG_STRING} \
                 ${SIMINFO_STRING} \
+                ${STATS_STRING} \
                 --outdir=${OUT_DIR} \
                 --redirect-stdout --redirect-stderr \
                 ${GEM5_ROOT}/configs/example/fs.py"

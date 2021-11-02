@@ -264,7 +264,6 @@ for random_seed in seed_list:
       bootscript_file.write("sleep 0.${RANDOM_SEED} # Generate variability via random seed \n")
     bootscript_file.write("cd %s/%s\n" % ( benchmark_suite_root_dir, benchmark_subdir))
     bootscript_file.write("export LD_PRELOAD=%s\n" % (config.preload));
-    bootscript_file.write("/sbin/m5 resetstats\n")
     bootscript_file.write("./${BINARY_FILENAME}${BINARY_SUFFIX} %s${PROCESSORS} ${BENCHMARK_ARG_STRING}\n" % (processors_opt))
     # In case binary not found, give some time to tty to print error message
     bootscript_file.write("echo 'Launch script done. Exiting simulation...(m5 exit)'\n")
@@ -362,11 +361,7 @@ for random_seed in seed_list:
 
     script_file.write("\n### Cache configuration ### \n")
 
-    # Binary to be used during initialization (no Ruby protocol, possibly KVM)
-    script_file.write("\n### Location of 'gem5' executable for creating init checkpoint  ### \n")
-    script_file.write('GEM5_EXEC_PATH_INITCKPT="${GEM5_ROOT}/build/${ARCH}/gem5.${BUILD_TYPE}"\n')
-
-    # Binary to be used during detailed simulation
+    # gem5 binary
     if config.copy_gem5_binary_tmp_dir:
       script_file.write("\n### Location of 'gem5' executable in tmp dir  ### \n")
       script_file.write("GEM5_EXEC_PATH=%s\n" % gem5_executable_filepath)

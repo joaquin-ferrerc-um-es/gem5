@@ -139,11 +139,12 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
     EXTRA_ARGS=""
     GDB_STRING=""
     DEBUG_STRING=""
+    STATS_STRING=""
     if [[ ${CHECKPOINT_RESTORE_NUM} -eq 1 ]]
     then
-        GEM5_EXECUTABLE_PATH="${GEM5_EXEC_PATH_INITCKPT}"
         # No need for Ruby
         CHECKPOINT_PATH="${RESULTS_DIR}/${CHECKPOINT_INIT_SUBDIR}"
+        STATS_STRING=" --stats-file=/dev/null "
         CHECKPOINT_FOUND=0 #  If checkpoint subdir contains valid checkpoint, do not create
         if [ -d "$CHECKPOINT_PATH" ]; then
             # If no regular files, no checkpoint exists
@@ -152,7 +153,7 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
             then
                 echo "### Found 'init' checkpoint! ###"
                 find "$CHECKPOINT_PATH"  -type f -name m5.cpt
-                echo "### Reusing existing 'init' checkpoint (assuming your executable and launch script have NOT changed) ###"
+                echo "### Reusing existing 'init' checkpoint (assuming your benchmark executable and launch script have NOT changed) ###"
                 CHECKPOINT_DIR=${CHECKPOINT_PATH}
                 continue
             else
@@ -166,9 +167,6 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
         mkdir -p ${OUT_DIR}
         # Copy bootscript template and place a variable-time sleep based on
         # a random seed to produce variability (slightly different executions)
-        LAUNCH_SCRIPT="${OUT_DIR}/launchscript.rcS"
-        cp ${BOOT_SCRIPT} ${LAUNCH_SCRIPT}
-        SLEEP_TIME=$(printf "%02d" ${RANDOM_SEED})
         cd ${OUT_DIR}
         rm sim{err,out} system*${TERMINAL_SUFFIX} 2> /dev/null || true
         ln -s ${CHECKPOINT_BOOT_PATH} || true
@@ -193,7 +191,6 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
         echo "#### Creating init checkpoint using ${CPU_TYPE}..."
     elif [[ ${CHECKPOINT_RESTORE_NUM} -eq 2 ]]
     then
-        GEM5_EXECUTABLE_PATH="${GEM5_EXEC_PATH}"
         OUT_DIR=${RESULTS_DIR}
         mkdir -p ${OUT_DIR}
         cd ${OUT_DIR}
@@ -291,9 +288,10 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
     if [[ $LOCKSTEP_MODE == 0 || ${CHECKPOINT_RESTORE_NUM} != 2 ]]
     then
         GEM5_COMMAND="${GDB_STRING} \
-                ${GEM5_EXECUTABLE_PATH} \
+                ${GEM5_EXEC_PATH} \
                 ${DEBUG_STRING} \
                 ${SIMINFO_STRING} \
+                ${STATS_STRING} \
                 --outdir=${OUT_DIR} \
                 --redirect-stdout --redirect-stderr \
                 ${GEM5_ROOT}/configs/example/fs.py"

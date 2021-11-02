@@ -73,6 +73,7 @@ checkpoint_subdir="ckpt"
 run_script_filename="simulate.sh"
 # Name of generated config file with simulation configuration
 sim_info_filename = 'simulate.info'
+launchscript_filename = 'launch_script.rcS'
 
 # For simulations that have htm_config (HTM_umu protocols), the binary
 # suffix is set as an option in the htm_config dict. For the remaining

@@ -223,23 +223,22 @@ for random_seed in seed_list:
       os.makedirs(results_dir)
 
     ########### Boot-script generation #########
-    bootscript_filename = "bootscript_%s_%s_%s_%02dp.rcS" % \
-                      (binary_suffix, benchmark_name, arg_prefix, processors)
-    bootscript_path = "%s/%s" % (results_dir, bootscript_filename)
-    bootscript_file = open("%s" % (bootscript_path), "w")
+    launchscript_path = os.path.join(results_dir,
+                                   config.launchscript_filename)
+    launchscript_file = open("%s" % (launchscript_path), "w")
 
-    bootscript_file.write("#!/bin/bash\n")
-    bootscript_file.write("### @launchscript@ ###\n\n")
-    bootscript_file.write("PROCESSORS=%d\n" % processors)
-    bootscript_file.write("BENCHMARK_DIR=%s\n" % benchmark_subdir)
-    bootscript_file.write("BINARY_SUFFIX=%s\n" % binary_suffix)
+    launchscript_file.write("#!/bin/bash\n")
+    launchscript_file.write("### @launchscript@ ###\n\n")
+    launchscript_file.write("PROCESSORS=%d\n" % processors)
+    launchscript_file.write("BENCHMARK_DIR=%s\n" % benchmark_subdir)
+    launchscript_file.write("BINARY_SUFFIX=%s\n" % binary_suffix)
 
-    bootscript_file.write("BINARY_FILENAME=%s\n" % binary_filename)
-    bootscript_file.write("BENCHMARK_ARG_STRING='%s'\n" % arg_string)
-    bootscript_file.write("RANDOM_SEED='%d'\n" % random_seed)
-    bootscript_file.write("\n")
-    bootscript_file.write("sync\n") # For tty to show "Welcome to Ubuntu.."
-    bootscript_file.write("mkdir %s\n" % benchmarks.benchmark_disk_image_mountpoint)
+    launchscript_file.write("BINARY_FILENAME=%s\n" % binary_filename)
+    launchscript_file.write("BENCHMARK_ARG_STRING='%s'\n" % arg_string)
+    launchscript_file.write("RANDOM_SEED='%d'\n" % random_seed)
+    launchscript_file.write("\n")
+    launchscript_file.write("sync\n") # For tty to show "Welcome to Ubuntu.."
+    launchscript_file.write("mkdir %s\n" % benchmarks.benchmark_disk_image_mountpoint)
     if config.arch_name == 'x86_64':
       filesystem_prefix = 'hd'
     elif config.arch_name == 'aarch64':
@@ -248,28 +247,28 @@ for random_seed in seed_list:
       print "Unknown architecture name %s" % config.arch_name
       sys.exit(2)
 
-    bootscript_file.write("mount /dev/%sb1  %s\n" %
+    launchscript_file.write("mount /dev/%sb1  %s\n" %
                           (filesystem_prefix,
                            benchmarks.benchmark_disk_image_mountpoint))
 
     # Must set M5_SIMULATOR=1 in order to enable m5 ops. Otherwise,
     # benchmarks typically suppress m5 ops by mmap'ing m5_mem to a
     # zero-filled region of memory instead of /dev/mem.
-    bootscript_file.write("export M5_SIMULATOR=1\n")
+    launchscript_file.write("export M5_SIMULATOR=1\n")
 
     benchmark_suite_root_dir = os.path.join(benchmarks.benchmark_disk_image_mountpoint,
                                             benchmarks.benchmark_suites[benchmark_suite])
     # Variability is only needed if we are not using KVM..
     if not config.enable_kvm:
-      bootscript_file.write("sleep 0.${RANDOM_SEED} # Generate variability via random seed \n")
-    bootscript_file.write("cd %s/%s\n" % ( benchmark_suite_root_dir, benchmark_subdir))
-    bootscript_file.write("export LD_PRELOAD=%s\n" % (config.preload));
-    bootscript_file.write("./${BINARY_FILENAME}${BINARY_SUFFIX} %s${PROCESSORS} ${BENCHMARK_ARG_STRING}\n" % (processors_opt))
+      launchscript_file.write("sleep 0.${RANDOM_SEED} # Generate variability via random seed \n")
+    launchscript_file.write("cd %s/%s\n" % ( benchmark_suite_root_dir, benchmark_subdir))
+    launchscript_file.write("export LD_PRELOAD=%s\n" % (config.preload));
+    launchscript_file.write("./${BINARY_FILENAME}${BINARY_SUFFIX} %s${PROCESSORS} ${BENCHMARK_ARG_STRING}\n" % (processors_opt))
     # In case binary not found, give some time to tty to print error message
-    bootscript_file.write("echo 'Launch script done. Exiting simulation...(m5 exit)'\n")
-    bootscript_file.write("sync; sleep 2\n")
-    bootscript_file.write("/sbin/m5 exit\n")
-    bootscript_file.close()
+    launchscript_file.write("echo 'Launch script done. Exiting simulation...(m5 exit)'\n")
+    launchscript_file.write("sync; sleep 2\n")
+    launchscript_file.write("/sbin/m5 exit\n")
+    launchscript_file.close()
 
     ########### Simulation info  #########
     siminfo_filename = config.sim_info_filename;
@@ -327,7 +326,7 @@ for random_seed in seed_list:
     script_file.write("BINARY_SUFFIX=%s\n" % binary_suffix)
     script_file.write("BENCHMARK_ARG_PREFIX=%s\n" % arg_prefix)
     script_file.write("BENCHMARK_ARG_STRING='%s'\n" % arg_string)
-    script_file.write("WORKLOAD=%s_%s\n" % (benchmark, arg_prefix)) # Need "_" instead of "-" to find bootscript
+    script_file.write("WORKLOAD=%s_%s\n" % (benchmark, arg_prefix))
     script_file.write("ARCH=%s\n" % config.arch)
     script_file.write("PROTOCOL=%s\n" % protocol)
     script_file.write("RESULTS_DIR=%s\n" % results_dir)
@@ -340,10 +339,7 @@ for random_seed in seed_list:
     script_file.write("SIM_INFO_FILENAME=%s\n" % os.path.join(results_dir,config.sim_info_filename))
     script_file.write("REPOSITORY_REVISION_ID=%s\n" % repository_revision)
 
-    bootscript_filename = "bootscript_%s_%s_%s_%02dp.rcS" % \
-                          (binary_suffix, benchmark_name, arg_prefix,
-                           processors)
-    script_file.write("BOOT_SCRIPT=%s\n" % bootscript_path)
+    script_file.write("LAUNCH_SCRIPT=%s\n" % launchscript_path)
 
     script_file.write("SIMULATION_TAG=%s\n" % config.simulation_tag)
 

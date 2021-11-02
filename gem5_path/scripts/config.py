@@ -70,6 +70,7 @@ checkpoint_subdir="ckpt"
 run_script_filename="simulate.sh"
 # Name of generated config file with simulation configuration
 sim_info_filename = 'simulate.info'
+launchscript_filename = 'launch_script.rcS'
 # In case we have different flavours of the benchmark binary
 binary_suffix = ''
 # simulate.sh template

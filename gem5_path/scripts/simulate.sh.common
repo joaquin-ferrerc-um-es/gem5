@@ -108,6 +108,7 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
     EXTRA_ARGS=""
     GDB_STRING=""
     DEBUG_STRING=""
+    STATS_STRING=""
     if [[ ${CHECKPOINT_RESTORE_NUM} -eq 1 ]]
     then
         # No need for Ruby
@@ -135,9 +136,6 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
         mkdir -p ${OUT_DIR}
         # Copy bootscript template and place a variable-time sleep based on
         # a random seed to produce variability (slightly different executions)
-        LAUNCH_SCRIPT="${OUT_DIR}/launchscript.rcS"
-        cp ${BOOT_SCRIPT} ${LAUNCH_SCRIPT}
-        SLEEP_TIME=$(printf "%02d" ${RANDOM_SEED})
         cd ${OUT_DIR}
         rm sim{err,out} system*${TERMINAL_SUFFIX} 2> /dev/null || true
         ln -s ${CHECKPOINT_BOOT_PATH} || true

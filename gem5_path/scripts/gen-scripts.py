@@ -51,11 +51,10 @@ def usage():
 
 def parseOptions():
   queue=False
-  local=False
   seeds=False
   config_file="config.py"
   try:
-    opts, args = getopt.getopt(sys.argv[1:], "hlqsc:", ["help", "local", "queue", "seeds", "config"])
+    opts, args = getopt.getopt(sys.argv[1:], "hlqsc:", ["help", "queue", "seeds", "config"])
   except getopt.GetoptError as err:
     # print help information and exit:
     print str(err)  # will print something like "option -a not recognized"
@@ -67,15 +66,13 @@ def parseOptions():
       sys.exit()
     elif o in ("-q", "--queue"):
       queue=True
-    elif o in ("-l", "--local"):
-      local=True
     elif o in ("-s", "--seeds"):
       seeds=True
     elif o in ("-c", "--config"):
       config_file=a
     else:
       assert False, "unhandled option"
-  return queue, local, seeds, config_file
+  return queue, seeds, config_file
 
 def remove_first_if_equals(s, c):
     if (len(s) > 0 and s[0] == c):
@@ -93,7 +90,7 @@ def remove_first_if_equals(s, c):
 # benchmarks) In order to submit jobs to the cluster, use '-q'. To
 # generate scripts to create init checkpoints, use '-i'
 
-submit_mode, local_mode, seeds_mode, config_file = parseOptions()
+submit_mode, seeds_mode, config_file = parseOptions()
 
 config_file = os.path.splitext(config_file)[0]
 
@@ -171,15 +168,8 @@ for random_seed in seed_list:
 
     gem5_executable_filepath = "%s" % (gem5_binary_exec_path[protocol])
 
-    if config.results_subdir[0] == '/':
-      # absolute results dir
-      print "results subdir must be a relative path. Edit config.py and try again"
-      sys.exit()
-    if (local_mode):
-      # Simulator installed in local filesystem (/scratch) , thus files
-      # not accessible to any other host in SLURM queue
-      hostname = socket.gethostname().split(".")[0]
-      nodelist = "--nodelist=" + hostname
+    if config.slurm_nodelist != None:
+      nodelist = "--nodelist=" + config.slurm_nodelist
 
     benchmark_name = benchmark
     binary_suffix = config.binary_suffix

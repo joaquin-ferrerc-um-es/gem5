@@ -95,6 +95,12 @@ then
         exit
     fi
 
+    kvm-ok
+    if [[ $? != 0 ]]
+    then
+        echo "KVM support not available in this host ($(hostname))"
+        exit
+    fi
     # Check if we can use KVM
     if [ $(cat /proc/sys/kernel/perf_event_paranoid) -gt 1 ] ; then
         echo "
@@ -125,6 +131,8 @@ echo "Arch=${ARCH}"
 echo "Disk-image=${DISK_IMAGE_FILENAME}"
 echo "Kernel=${KERNEL_FILENAME}"
 echo "Protocol=${PROTOCOL}"
+echo "Hostname=$(hostname)"
+
 if [ $LOCKSTEP_MODE -eq 1 ]
 then
    echo "Lockstep mode simulation"

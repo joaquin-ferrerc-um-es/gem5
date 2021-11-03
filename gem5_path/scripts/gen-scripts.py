@@ -101,7 +101,6 @@ config = __import__(config_file)
 print "Generating simulation scripts..."
 
 seed_list = [0]
-nodelist = ""
 repository_revision = str(subprocess.check_output(['git', 'describe', '--dirty', '--always', '--tags'])).split()[0]
 #repository_revision = str(subprocess.check_output(['git', 'log', '-1', '--oneline'])).split()[0]
 
@@ -168,8 +167,8 @@ for random_seed in seed_list:
 
     gem5_executable_filepath = "%s" % (gem5_binary_exec_path[protocol])
 
-    if config.slurm_nodelist != None:
-      nodelist = "--nodelist=" + config.slurm_nodelist
+    if config.slurm_exclude_nodelist != None:
+      nodelist = "--exclude=" + config.slurm_exclude_nodelist
 
     benchmark_name = benchmark
     binary_suffix = config.binary_suffix

@@ -107,7 +107,7 @@ simulation_tag="" # In order to tag simulations when applying patches
 
 results_subdir="tests" #load-delay" #splash" #tests" # The subdirectory inside "gem5/results"
                              # for simulation scripts and results
-slurm_nodelist="erc00,erc01,erc02,erc03,erc04,erc05,erc06,erc08,erc09" # In case a node is faulty (erc07)
+slurm_exclude_nodelist="erc07" # In case a node is faulty (erc07)
 
 for processors in processor_list :
     for (protocol, htm_config, cache_config) in system_list:

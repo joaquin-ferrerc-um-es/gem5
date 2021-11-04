@@ -68,6 +68,33 @@ void m5_work_begin(uint64_t workid, uint64_t threadid);
 void m5_work_end(uint64_t workid, uint64_t threadid);
 
 /*
+ * Two-way communication channel between benchmark (guest) and
+ * simulator via m5_sum op. Mostly used for instrumentation of HTM
+ * library, but also to deal with synchronization issues when using
+ * KVM to fast-forward simulation before taking checkpoint. The m5sum
+ * code in src/sim/pseudo_inst.cc will intercept calls that use the
+ * following HEXSPEAK values as arguments.
+ */
+#define M5_SUM_HACK_ARG_A   0xCAFE
+#define M5_SUM_HACK_ARG_B   0xBEEF
+#define M5_SUM_HACK_ARG_C   0xDEAD
+#define M5_SUM_HACK_ARG_D   0xBABE
+
+#define M5_SUM_HACK(type,code) m5_sum_addr(M5_SUM_HACK_ARG_A,\
+                                           M5_SUM_HACK_ARG_B,\
+                                           M5_SUM_HACK_ARG_C,\
+                                           M5_SUM_HACK_ARG_D,\
+                                           type, code)
+#define IS_M5_SUM_HACK(a,b,c,d) ((a == M5_SUM_HACK_ARG_A) && \
+                                 (b == M5_SUM_HACK_ARG_B) && \
+                                 (c == M5_SUM_HACK_ARG_C) && \
+                                 (d == M5_SUM_HACK_ARG_D))
+
+#define M5_SUM_HACK_TYPE_KVM_CKPT_SYNC 0xC0DE
+#define M5_SUM_HACK_TYPE_REGION_BEGIN 0xBAAD
+#define M5_SUM_HACK_TYPE_REGION_END   0xF00D
+
+/*
  * Send a very generic poke to the workload so it can do something. It's up to
  * the workload to know what information to look for to interpret an event,
  * such as what PC it came from, what register values are, or the context of

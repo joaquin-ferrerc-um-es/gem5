@@ -70,15 +70,6 @@ m5_init()
 #endif
 }
 
-
-// NOTE: Must keep HEXSPEAK arg values passed to m5_sum in sync with
-// those in $(GEM5_ROOT)/src/sim/pseudo_inst.cc (sanity checks)
-#define M5_SUM_HACK_TYPE_KVM_CKPT_SYNC 0xC0DE
-#define M5_SUM_HACK_TYPE_REGION_BEGIN 0xBAAD
-#define M5_SUM_HACK_TYPE_REGION_END   0xF00D
-
-#define M5_SUM_HACK(type,code) m5_sum_addr(0xCAFE,0xBEEF, 0xDEAD, 0xBABE, type, code)
-
 void simBeginRegionOfInterest() {
     // IMPORTANT NOTICE (support for fast-forward using KVM): See
     // $(GEM5_ROOT)/src/sim/System.py for documentation. Basically, we

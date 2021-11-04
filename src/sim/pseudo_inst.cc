@@ -51,6 +51,8 @@
 #include <string>
 #include <vector>
 
+#include <gem5/m5ops.h>
+
 #include "base/debug.hh"
 #include "base/output.hh"
 #include "cpu/base.hh"
@@ -191,6 +193,10 @@ m5sum(ThreadContext *tc, uint64_t a, uint64_t b, uint64_t c,
     DPRINTF(PseudoInst, "pseudo_inst::m5sum(%#x, %#x, %#x, %#x, %#x, %#x)\n",
             a, b, c, d, e, f);
 
+    if (IS_M5_SUM_HACK(a,b,c,d)) {
+      uint64_t hack_type = e;
+      switch(hack_type) {
+      case M5_SUM_HACK_TYPE_KVM_CKPT_SYNC:
     //////////////// checkpoint_m5sum_kvm_hack ////////////////
     // See documentation in src/sim/System.py
     // When --checkpoint-m5sum-kvm-hack provided and the 6 args passed
@@ -206,8 +212,7 @@ m5sum(ThreadContext *tc, uint64_t a, uint64_t b, uint64_t c,
     // Keep the following HEXSPEAK values in sync with your benchmark
     // instrumentation code as correct checkpointing when using KVM to
     // fast-forward simulation depends on this hacky tweak to m5sum
-    if ((a == 0xCAFE) && (b == 0xBEEF) && (c == 0xDEAD) &&
-        (d == 0xBABE) && (e == 0xBAAD) && (f == 0xC0DE)) {
+        assert(f == 0);
         if (tc->getCpuPtr()->system->params().checkpoint_m5sum_kvm_hack) {
             DPRINTF(PseudoInst, "m5sum kvm hack detected, returning 0\n");
             return 0;
@@ -218,8 +223,15 @@ m5sum(ThreadContext *tc, uint64_t a, uint64_t b, uint64_t c,
             warn("pseudo_inst::m5sum found dummy m5sum loop values but"
                  "--checkpoint-m5sum-kvm-hack not specified. Continuing..\n");
         }
-    }
+        break;
     //////////////// checkpoint_m5sum_kvm_hack end ////////////////
+      case M5_SUM_HACK_TYPE_REGION_BEGIN:
+      case M5_SUM_HACK_TYPE_REGION_END:
+          assert(false);
+      default:
+          panic("Unknown m5_sum hack type:\"%#lx\"", hack_type);
+      }
+    }
 
     return a + b + c + d + e + f;
 }

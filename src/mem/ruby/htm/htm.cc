@@ -16,6 +16,11 @@ namespace gem5
 namespace ruby
 {
 
+RubyHTM::RubyHTM(const Params &p)
+    : HTM(p)
+{
+}
+
 void
 RubyHTM::notifyPseudoInst() {
     /* Per thread "state" cycles (non-txnal, aborted, etc.)  must
@@ -30,19 +35,17 @@ RubyHTM::notifyPseudoInst() {
 }
 
 void
-RubyHTM::notifyPseudoInstWork(bool begin, int cpuId, uint64_t workid) {
+RubyHTM::notifyPseudoInstWork(bool begin, int cpuId, uint64_t reg) {
     if (!g_system_ptr) return;
-    if (AnnotatedRegion_isValidRegion(workid)) {
-        AnnotatedRegion_t region = AnnotatedRegion_getRegion(workid);
-        
-        if (g_system_ptr->getProfiler()->hasXactProfiler()) {
-            if (begin) {
-                g_system_ptr->getProfiler()->getXactProfiler()->
-                    beginRegion(cpuId, region);
-            } else{
-                g_system_ptr->getProfiler()->getXactProfiler()->
-                    endRegion(cpuId, region);
-            }
+    AnnotatedRegion_t region = (AnnotatedRegion_t)reg;
+    assert(AnnotatedRegion_isValidRegion(region));
+    if (g_system_ptr->getProfiler()->hasXactProfiler()) {
+        if (begin) {
+            g_system_ptr->getProfiler()->getXactProfiler()->
+                beginRegion(cpuId, region);
+        } else{
+            g_system_ptr->getProfiler()->getXactProfiler()->
+                endRegion(cpuId, region);
         }
     }
 }

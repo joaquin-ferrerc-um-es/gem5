@@ -227,7 +227,17 @@ m5sum(ThreadContext *tc, uint64_t a, uint64_t b, uint64_t c,
     //////////////// checkpoint_m5sum_kvm_hack end ////////////////
       case M5_SUM_HACK_TYPE_REGION_BEGIN:
       case M5_SUM_HACK_TYPE_REGION_END:
-          assert(false);
+          {
+              HTM *htm = tc->getSystemPtr()->getHTM();
+              if (htm != nullptr && htm->params().profiler) {
+                  uint64_t region = f;
+                  htm->notifyPseudoInstWork(
+                             hack_type == M5_SUM_HACK_TYPE_REGION_BEGIN,
+                             tc->getCpuPtr()->cpuId(),
+                             region);
+              }
+              break;
+          }
       default:
           panic("Unknown m5_sum hack type:\"%#lx\"", hack_type);
       }
@@ -520,11 +530,6 @@ triggerWorkloadEvent(ThreadContext *tc)
 void
 workbegin(ThreadContext *tc, uint64_t workid, uint64_t threadid)
 {
-    HTM *htm = tc->getSystemPtr()->getHTM();
-    if (htm != nullptr && htm->params().profiler) {
-            htm->notifyPseudoInstWork(true, tc->getCpuPtr()->cpuId(),
-                                      workid);
-    }
     DPRINTF(PseudoInst, "pseudo_inst::workbegin(%i, %i)\n", workid, threadid);
     System *sys = tc->getSystemPtr();
     const System::Params &params = sys->params();
@@ -597,11 +602,6 @@ workbegin(ThreadContext *tc, uint64_t workid, uint64_t threadid)
 void
 workend(ThreadContext *tc, uint64_t workid, uint64_t threadid)
 {
-    HTM *htm = tc->getSystemPtr()->getHTM();
-    if (htm != nullptr && htm->params().profiler) {
-        htm->notifyPseudoInstWork(false, tc->getCpuPtr()->cpuId(),
-                             workid);
-    }
     DPRINTF(PseudoInst, "pseudo_inst::workend(%i, %i)\n", workid, threadid);
     System *sys = tc->getSystemPtr();
     const System::Params &params = sys->params();

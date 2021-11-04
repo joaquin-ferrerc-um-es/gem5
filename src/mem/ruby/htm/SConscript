@@ -6,6 +6,7 @@ if env['PROTOCOL'] == 'None':
     Return()
 
 SimObject('RubyTransactionInterfaceManager.py')
+SimObject('RubyHTM.py')
 
 Source('htm.cc')
 Source('LazyTransactionCommitArbiter.cc')

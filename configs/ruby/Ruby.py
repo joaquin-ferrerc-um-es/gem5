@@ -189,7 +189,7 @@ def create_system(options, full_system, system, piobus = None, dma_ports = [],
         # Flexible HTM support from University of Murcia: For
         # supported protocols (*HTM_umu), create object that maintains
         # HTM config options.
-        system.htm = HTM()
+        system.htm = RubyHTM()
         HTMOptions.setHTMOptions(system.htm, options)
 
     # Generate pseudo filesystem

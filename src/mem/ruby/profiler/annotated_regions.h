@@ -28,36 +28,11 @@ typedef enum AnnotatedRegion {
     AnnotatedRegion_NUM
 } AnnotatedRegion_t;
 
-// Annotated regions reuse the m5_work_begin/end calls, but use a
-// special tag in the workid to skip work-unit functionality
-#define ANNOTATED_REGION_WORKID_TAG (0xc0deUL) // cOde
-#define ANNOTATED_REGION_WORKID_BITMASK (0xffffUL)
-#define ANNOTATED_REGION_WORKID_SHIFT_BITS (32)
-
-
 static inline
 bool
 AnnotatedRegion_isValidRegion(uint64_t val) {
-    return ((val >> ANNOTATED_REGION_WORKID_SHIFT_BITS) &
-            ANNOTATED_REGION_WORKID_BITMASK) == ANNOTATED_REGION_WORKID_TAG;
-}
-
-static inline
-AnnotatedRegion_t
-AnnotatedRegion_getRegion(uint64_t val) {
-    assert(AnnotatedRegion_isValidRegion(val));
-    uint64_t region = (val & ((1UL << ANNOTATED_REGION_WORKID_SHIFT_BITS)-1) );
-    assert(region < (1UL << ANNOTATED_REGION_WORKID_SHIFT_BITS));
-    return (AnnotatedRegion_t)region;
-
-}
-
-static inline
-uint64_t
-AnnotatedRegion_regionToWorkId(AnnotatedRegion_t region) {
-    assert(region < (1UL << ANNOTATED_REGION_WORKID_SHIFT_BITS));
-    return region |
-        (ANNOTATED_REGION_WORKID_TAG << ANNOTATED_REGION_WORKID_SHIFT_BITS);
+    return ((val >= AnnotatedRegion_FIRST) &&
+            (val < AnnotatedRegion_INVALID));
 }
 
 static inline

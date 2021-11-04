@@ -1,15 +1,10 @@
 #define _POSIX_C_SOURCE 200112L // pthread_barrier
 
-#include <fcntl.h>
 #include <stdint.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "env_globals.h"
 #include "util.h"
-
-#define DEFAULT_HTM_MAX_RETRIES 8
 
 bool parseBoolEnv(char *envVarName, bool *envVar) {
     // Sets envVar if "envVarName" defined and set to a valid int value
@@ -94,57 +89,3 @@ void setEnvGlobals(int numThreads) {
                 ENV_VAR_HTM_HEAP_PREFAULT);
     }
 }
-
-#define BUFF_SIZE 16386
-
-void catProcMaps(const char* out_filename) {
-    char filename[32];
-    sprintf(filename,"/proc/%d/maps",getpid());
-
-    int fd = open(filename, 0);
-    assert(fd >= 0);
-
-    char buf[BUFF_SIZE];
-    size_t bytesRead = 0;
-    size_t size = 0;
-    do {
-        bytesRead = read(fd, &buf[size], BUFF_SIZE);
-        size += bytesRead;
-        assert(size < BUFF_SIZE);
-    } while (bytesRead != 0);
-    close(fd);
-    assert(size > 0);
-    uint64_t bytesWritten =  m5_write_file_addr(buf, size, 0, out_filename);
-    assert(bytesWritten == size);
-}
-
-void dumpValueToHostFileSystem(long value, const char *out_filename) {
-    char buf[BUFF_SIZE];
-    sprintf(buf,"%#lx\n", value);
-    assert(strlen(out_filename) > 0);
-    int size = strlen(buf);
-    uint64_t bytesWritten =  m5_write_file_addr(buf, size, 0, out_filename);
-    assert(bytesWritten == size);
-}
-
-#if defined(ANNOTATE_CODE_REGIONS)
-
-#include "annotated_regions.h"
-
-void annotateCodeRegionBegin(uint64_t codeRegionId) {
-    uint64_t threadid = 0; // ignored
-    uint64_t val =  AnnotatedRegion_regionToWorkId(codeRegionId);
-    m5_work_begin_addr(val, threadid);
-}
-
-void annotateCodeRegionEnd(uint64_t codeRegionId) {
-    uint64_t threadid = 0; // ignored
-    uint64_t val =  AnnotatedRegion_regionToWorkId(codeRegionId);
-    m5_work_end_addr(val, threadid);
-}
-#else
-
-void annotateCodeRegionBegin(uint64_t codeRegionId) {}
-void annotateCodeRegionEnd(uint64_t codeRegionId) {}
-
-#endif

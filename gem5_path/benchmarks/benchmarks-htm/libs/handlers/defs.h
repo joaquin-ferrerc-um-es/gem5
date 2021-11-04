@@ -6,8 +6,3 @@
 #define PAGE_SIZE_BYTES 4096
 #endif
 
-#if defined(ENABLE_M5_TRIGGER) || (ANNOTATE_CODE_REGIONS)
-#include "include/gem5/m5ops.h"
-#include "util/m5/src/m5_mmap.h"
-
-#endif

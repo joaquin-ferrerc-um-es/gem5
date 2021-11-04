@@ -10,5 +10,3 @@ void cancelTransaction(long code);
 
 long inTransaction(void);
 
-void annotateBarrierRegionBegin();
-void annotateBarrierRegionEnd();

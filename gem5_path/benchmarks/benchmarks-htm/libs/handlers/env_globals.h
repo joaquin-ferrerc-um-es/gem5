@@ -15,6 +15,8 @@
 #include "defs.h"
 #include "thread_context.h"
 
+#define DEFAULT_HTM_MAX_RETRIES 8
+
 #define ENV_VAR_IN_SIMULATOR "M5_SIMULATOR"
 #define ENV_VAR_HTM_MAX_RETRIES "HTM_MAX_RETRIES"
 #define ENV_VAR_HTM_HEAP_PREFAULT "HTM_HEAP_PREFAULT"

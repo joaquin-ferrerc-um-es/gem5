@@ -19,23 +19,10 @@
 #include "spinlock.h"
 #include "util.h"
 #include "annotated_regions.h"
-
-#define FALLBACKLOCKADDR_FILENAME ("fallback_lock")
+#include "m5iface.h"
 
 // global array of thread contexts
 _tm_thread_context_t     *thread_contexts       = NULL;
-
-void
-init_m5_mem()
-{
-    if (inSimulator()) {
-        map_m5_mem();
-    } else {
-        // When running in real hardware, point m5_mem to a region of
-        // memory filled with zeros, no need to mmap /dev/mem
-        m5_mem = calloc( 0x10000, sizeof(char));
-    }
-}
 
 //Initialization. Called from STAMP to initialize common variables
 void initGlobals(int nthreads)
@@ -44,22 +31,7 @@ void initGlobals(int nthreads)
 
     setEnvGlobals(nthreads);
 
-    init_m5_mem();
-#ifdef ANNOTATE_FALLBACKLOCK_ADDR
-    if (inSimulator()) {
-        long fallBackLockAddr = (long)spinlock_getAddress();
-        // Max fallback lock filename length is 63 characters
-        char fallbackLockAddrFilename[CACHE_LINE_SIZE_BYTES]
-            __attribute__ ((aligned (CACHE_LINE_SIZE_BYTES))) =
-            FALLBACKLOCKADDR_FILENAME;
-        dumpValueToHostFileSystem(fallBackLockAddr,
-                                  fallbackLockAddrFilename);
-    }
-#endif
-#ifdef ANNOTATE_PROC_MAPS
-    if (inSimulator())
-        catProcMaps("proc_maps");
-#endif
+    m5_init();
 
     /*Set up thread contexts */
     thread_contexts = initThreadContexts(nthreads, inSimulator());
@@ -93,7 +65,7 @@ void beginTransaction_fallbackLock(long tag,
                                    _tm_thread_context_t *ctx) {
     u_int64_t ret, retryWithLock = 0;
     int nretries = 0;
-    u_int64_t flags = 0; //M5_XBEGIN_TAG_ENCODE(tag);
+    u_int64_t flags = 0;
     int tid = ctx->info.threadId;
 
     handleHeapPrefault(tid);
@@ -191,7 +163,7 @@ void beginTransaction_fallbackLock(long tag,
 #else
     spinlock_lock();
 #endif
-    annotateCodeRegionBegin(AnnotatedRegion_ABORT_HANDLER_HASLOCK);
+    simCodeRegionBegin(AnnotatedRegion_ABORT_HANDLER_HASLOCK);
 }
 
 
@@ -201,7 +173,7 @@ void commitTransaction_fallbackLock(long tag, _tm_thread_context_t *ctx)
     if (spinlock_isLocked()){
         /* unlock */
         spinlock_unlock();
-        annotateCodeRegionEnd(AnnotatedRegion_ABORT_HANDLER_HASLOCK);
+        simCodeRegionEnd(AnnotatedRegion_ABORT_HANDLER_HASLOCK);
     }
     else {
         htm_commit(tag);
@@ -243,9 +215,3 @@ void cancelTransaction(long code) {
     htm_cancel(code);
 }
 
-void annotateBarrierRegionBegin() {
-    annotateCodeRegionBegin(AnnotatedRegion_BARRIER);
-}
-void annotateBarrierRegionEnd() {
-    annotateCodeRegionEnd(AnnotatedRegion_BARRIER);
-}

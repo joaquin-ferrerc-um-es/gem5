@@ -31,8 +31,16 @@ bool htm_started(uint64_t status) {
 }
 
 void htm_cancel(uint64_t code) {
-    __tcancel(code);
+    // __tcancel expects a 16-bit immediate, so need this hack: Make
+    // sure the abort codes used by benchmarks are reflected in this
+    // switch Currently, only code 0 allowed for application-triggered
+    // aborts (STAMP benchmarks do not pass any abort code, so we
+    // invariably pass a zero value)
+    switch(code) {
+    case 0: __tcancel(0);
+    default:
     __builtin_unreachable();
+    }
 }
 
 void htm_cancel_lock_acquired() {
@@ -59,6 +67,11 @@ bool htm_abort_code_is_lock_acquired(uint16_t abort_code) {
 
 bool htm_may_succeed_on_retry(uint64_t status) {
     return status & _TMFAILURE_RTRY;
+}
+
+bool htm_abort_cause_disabled(uint64_t abort_status) {
+    //return (abort_status & _XABORT_DISABLED); // TODO: lockstep support
+    return false;
 }
 
 #elif defined (X86)

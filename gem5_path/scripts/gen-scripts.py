@@ -1,5 +1,5 @@
-#!/usr/bin/python
-import string, datetime, os, sys, time, config, pdb, getopt, socket, tempfile, subprocess, math, shutil, popen2, collections
+#!/usr/bin/python3
+import string, datetime, os, sys, time, config, pdb, getopt, socket, tempfile, subprocess, math, shutil, collections
 import caches, benchmarks, htm
 #from config import *
 
@@ -11,32 +11,6 @@ def set_default_search_path(path):
   g_default_search_path = path
   return
 
-def run_command(command_string, input_string="", max_lines=0, verbose=0, echo=1, throw_exception=1):
-    assert(g_default_search_path != "")
-    os.environ["PATH"] = g_default_search_path
-    if echo:
-        print "running:", command_string
-    obj = popen2.Popen4(command_string)
-    output = ""
-
-    obj.tochild.write(input_string)
-    obj.tochild.close()
-    line = obj.fromchild.readline()
-    while (line):
-        if verbose == 1:
-            print line,
-        output += line
-        line = obj.fromchild.readline()
-    exit_status = obj.wait()
-
-    if(max_lines != 0):
-        lines = output.split("\n");
-        output = string.join(lines[-max_lines:], "\n")
-
-    if throw_exception and exit_status != 0:
-        raise RegressionError(command_string, output)
-    return output
-
 # returns a list of lines in the file that matches the pattern
 def grep(filename, pattern):
     result = [];
@@ -47,7 +21,7 @@ def grep(filename, pattern):
     return result
 
 def usage():
-  print "Usage: "
+  print("Usage: ")
 
 def parseOptions():
   queue=False
@@ -57,7 +31,7 @@ def parseOptions():
     opts, args = getopt.getopt(sys.argv[1:], "hlqsc:", ["help", "queue", "seeds", "config"])
   except getopt.GetoptError as err:
     # print help information and exit:
-    print str(err)  # will print something like "option -a not recognized"
+    print (str(err))  # will print something like "option -a not recognized"
     usage()
     sys.exit(2)
   for o, a in opts:
@@ -94,30 +68,37 @@ submit_mode, seeds_mode, config_file = parseOptions()
 
 config_file = os.path.splitext(config_file)[0]
 
-print "Loading Config: " + config_file
+print("Loading Config: " + config_file)
 
 config = __import__(config_file)
 
-print "Generating simulation scripts..."
+print("Generating simulation scripts...")
 
 seed_list = [0]
-repository_revision = str(subprocess.check_output(['git', 'describe', '--dirty', '--always', '--tags'])).split()[0]
-#repository_revision = str(subprocess.check_output(['git', 'log', '-1', '--oneline'])).split()[0]
+
+
+p = subprocess.run(['git', 'describe', '--dirty', '--always', '--tags'],
+                   # Python 3.7: capture_output = True)
+                   stdout=subprocess.PIPE,
+                   stderr=subprocess.PIPE)
+if p.returncode != 0:
+  print("Failed to obtain repository revision via 'git describe'!")
+  sys.exit()
+repository_revision = p.stdout.decode().strip()
 
 if submit_mode:
-  print "Submitting jobs..."
+  print("Submitting jobs...")
   config.htm_xact_visualizer = 0  # Disable visualizer if submitting to queue
   config.run_gdb = 0  # No gdb when submitting
   config.copy_gem5_binary_tmp_dir = 1 # Copy binary to tmp dir to prevent overwriting it
 
 
 if seeds_mode:
-  print "[%d random seed(s)]" % config.num_random_seeds
+  print("[%d random seed(s)]" % config.num_random_seeds)
   seed_list.extend(range(1,config.num_random_seeds));
 
-results_prefix="%s/%s_%d" % (config.results_subdir,
-                                datetime.date.today(),
-                                config.seq_no)
+results_prefix=os.path.join(config.results_subdir,
+                            str(datetime.date.today())+'_'+str(config.seq_no))
 
 cvsroot_results = os.path.join(config.gem5root, "results", results_prefix)
 
@@ -127,9 +108,9 @@ gem5_binary_exec_path = {}
 # Copy gem5 binaries to tmp dirs, set path to gem5 binary for each protocol
 for protocol, htm_config, cache_config in config.system_list:
   # Locate gem5 executable
-  gem5_exec_path = "%s/build/%s_%s/gem5.%s" % (config.gem5root, config.arch,
-                                               protocol,
-                                               config.build_type)
+  gem5_exec_path = os.path.join(config.gem5root, "build",
+                                config.arch+"_"+protocol,
+                                "gem5."+config.build_type)
   if config.copy_gem5_binary_tmp_dir:
     # NOTE: Copying the binary is not enough to ensure that batch
     # simulations are not affected by changes to the source tree,
@@ -138,17 +119,19 @@ for protocol, htm_config, cache_config in config.system_list:
 
     # Create a temporary directory and copy gem5 binary
     # Different binaries for each arch/protocol combination
-    tmpdir_prefix = ("%s/%s/%s" % (config.tmp_gem5_binaries_path, config.arch, protocol))
+    tmpdir_prefix = os.path.join(config.tmp_gem5_binaries_path,
+                                 config.arch,
+                                 protocol)
     if not os.path.exists(tmpdir_prefix):
-      print "Creating %s" % tmpdir_prefix
+      print("Creating %s" % tmpdir_prefix)
       os.makedirs(tmpdir_prefix)
     # Different tmpdir for each revision
-    tmpdir_path = ("%s/gem5-rev%s." % (tmpdir_prefix, repository_revision))
+    tmpdir_path = os.path.join(tmpdir_prefix, "rev-"+repository_revision)
     tmpdir = tempfile.mkdtemp(prefix=tmpdir_path)
-    exec_path = "%s/gem5.%s" % (tmpdir, config.build_type)
+    exec_path = os.path.join(tmpdir, "gem5."+config.build_type)
     ret = subprocess.call(["cp", gem5_exec_path, tmpdir])
     if ret != 0:
-      print "Failed to copy gem5.%s binary to tmp dir %s" % (config.build_type, tmpdir)
+      print("Failed to copy gem5.%s binary to tmp dir %s" % (config.build_type, tmpdir))
       sys.exit()
   else:
     exec_path = gem5_exec_path
@@ -163,10 +146,10 @@ for random_seed in seed_list:
     benchmark_suite, benchmark, arg_prefix, processors_opt, arg_string, benchmark_subdir, binary_filename = benchmark_config
 
     if protocol not in gem5_binary_exec_path:
-      print "Could not find gem5 executable path for protocol %s, build type %s" % (protocol, config.build_type)
+      print("Could not find gem5 executable path for protocol %s, build type %s" % (protocol, config.build_type))
       sys.exit()
 
-    gem5_executable_filepath = "%s" % (gem5_binary_exec_path[protocol])
+    gem5_executable_filepath = gem5_binary_exec_path[protocol]
 
     if config.slurm_exclude_nodelist != None:
       nodelist = "--exclude=" + config.slurm_exclude_nodelist
@@ -185,7 +168,7 @@ for random_seed in seed_list:
         # For sanity, all available htm config options must have been
         # set in htm_config
         if option not in htm_config:
-          print "HTM option htm_%s not specified!" % option.gem5opt
+          print("HTM option htm_%s not specified!" % option.gem5opt)
           sys.exit(2)
         opt_value = htm_config[option]
         if option.gem5opt != None:  # None: HTM parameter is not gem5 option
@@ -225,20 +208,21 @@ for random_seed in seed_list:
          if prototype.gem5opt == "name":
            cache_config_description=option
          elif prototype.shared:
-           cache_options_str += ' --'+prototype.gem5opt+'='+str(option / processors)
+           cache_options_str += ' --'+prototype.gem5opt+'='+str(option // processors)
          elif prototype.gem5opt.startswith("l0") and "Two_Level" in protocol:
            pass
          else:
            cache_options_str += ' --'+prototype.gem5opt+'='+str(option)
 
-    results_bench_config = "%s/%s/%s" %  \
-                  (cvsroot_results, cpu_model, protocol)
+    results_bench_config = os.path.join(cvsroot_results, cpu_model, protocol)
     if htm_config:
-      results_bench_config += "/%s" %  htm_config_description
-    results_bench_config += "/%s/%dp/%s-%s/%s" %  \
-                            (cache_config_description, \
-                            processors, benchmark_suite, \
-                            arg_prefix, benchmark_name)
+      results_bench_config = os.path.join(results_bench_config,
+                                          htm_config_description)
+    results_bench_config = os.path.join(results_bench_config,
+                                        cache_config_description,
+                                        str(processors)+'p',
+                                        benchmark_suite+'-'+arg_prefix,
+                                        benchmark_name)
 
     # Checkpoint reuse disabled by default
     reuse_ckpt_path = None
@@ -273,7 +257,7 @@ for random_seed in seed_list:
     elif config.arch_name == 'aarch64':
       filesystem_prefix = 'sd'
     else:
-      print "Unknown architecture name %s" % config.arch_name
+      print("Unknown architecture name %s" % config.arch_name)
       sys.exit(2)
 
     launchscript_file.write("mount /dev/%sb1  %s\n" %
@@ -297,7 +281,8 @@ for random_seed in seed_list:
     # Variability is only needed if we are not using KVM..
     if not config.enable_kvm:
       launchscript_file.write("sleep 0.${RANDOM_SEED} # Generate variability via random seed \n")
-    launchscript_file.write("cd %s/%s\n" % ( benchmark_suite_root_dir, benchmark_subdir))
+    launchscript_file.write("cd %s\n" % ( os.path.join(benchmark_suite_root_dir,
+                                                       benchmark_subdir)))
     launchscript_file.write("export LD_PRELOAD=%s\n" % (config.preload));
     launchscript_file.write("./${BINARY_FILENAME}${BINARY_SUFFIX} %s${PROCESSORS} ${BENCHMARK_ARG_STRING}\n" % (processors_opt))
     # In case binary not found, give some time to tty to print error message
@@ -340,7 +325,7 @@ for random_seed in seed_list:
     ########### Simulation script generation #########
 
     script_filename = config.run_script_filename
-    script_path = "%s/%s" % (results_dir, script_filename)
+    script_path = os.path.join(results_dir, script_filename)
 
     script_file = open("%s" % (script_path), "w")
 
@@ -431,14 +416,18 @@ for random_seed in seed_list:
     script_file.write("\n### %s template ### \n" %
                       os.path.basename(config.template_script_path))
 
-    script_file.close()
     # Now append template script
-    run_command("cat %s >> %s " % (config.template_script_path, script_path), echo = 0 )
-    run_command("chmod +x %s" % (script_path), echo = 0)
+    with open(config.template_script_path) as infile:
+      script_file.write(infile.read())
+    script_file.close()
 
+    # Make it executable
+    os.chmod(script_path, 0o775)
+
+    # Sanity checks
     if (script_path in scripts):
-        print "Duplicated script path %s" % script_path
-        print "Conflicting configuration:", scripts[script_path]
+        print("Duplicated script path " + script_path)
+        print("Conflicting configuration: "+ scripts[script_path])
         sys.exit(-1)
     else:
       scripts[script_path] =  (processors, benchmark_config, cpu_model,
@@ -449,18 +438,23 @@ for random_seed in seed_list:
       ## Generate scripts and submit jobs to the cluster
       ## ######################################################
       assert(config.debug_time == 0)
-      print "Job %s_%d submitted" % (script_filename, random_seed)
 
       job_name = results_dir
+      print("Job {} submitted".format(job_name))
 
-      run_command("sbatch -J %s %s -e %s/stderr -o %s/stdout  %s " % \
-                  (job_name, nodelist, results_dir, results_dir, script_path),
-                  echo = 1)
+      submit_job_cmd_str = 'sbatch -J {} {} -e {} -o {} {}'.\
+                           format(job_name, nodelist,
+                                  os.path.join(results_dir,
+                                               'stderr'),
+                                  os.path.join(results_dir,
+                                               'stdout'),
+                                  script_path)
+      subprocess.run(submit_job_cmd_str, shell=True, check=True)
     else:
       ## ######################################################
       ## Generate scripts (manual execution)
       ## ######################################################
 
-      print "  Making script %s" % (script_path)
+      print("  Making script %s" % (script_path))
 
 

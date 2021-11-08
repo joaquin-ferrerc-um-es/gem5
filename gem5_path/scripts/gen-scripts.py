@@ -97,8 +97,9 @@ if seeds_mode:
   print("[%d random seed(s)]" % config.num_random_seeds)
   seed_list.extend(range(1,config.num_random_seeds));
 
-results_prefix=os.path.join(config.results_subdir,
-                            str(datetime.date.today())+'_'+str(config.seq_no))
+results_prefix = os.path.join(config.results_subdir,
+                              str(datetime.date.today())+'_'+str(config.seq_no),
+                              config.arch)
 
 cvsroot_results = os.path.join(config.gem5root, "results", results_prefix)
 
@@ -251,18 +252,12 @@ for random_seed in seed_list:
     launchscript_file.write("RANDOM_SEED='%d'\n" % random_seed)
     launchscript_file.write("\n")
     launchscript_file.write("sync\n") # For tty to show "Welcome to Ubuntu.."
-    launchscript_file.write("mkdir %s\n" % benchmarks.benchmark_disk_image_mountpoint)
-    if config.arch_name == 'x86_64':
-      filesystem_prefix = 'hd'
-    elif config.arch_name == 'aarch64':
-      filesystem_prefix = 'sd'
-    else:
-      print("Unknown architecture name %s" % config.arch_name)
-      sys.exit(2)
 
-    launchscript_file.write("mount /dev/%sb1  %s\n" %
-                          (filesystem_prefix,
-                           benchmarks.benchmark_disk_image_mountpoint))
+    if config.mount_benchmarks_device:
+      launchscript_file.write("mkdir -p %s\n" % config.benchmarks_disk_image_mountpoint)
+      launchscript_file.write("mount %s %s\n" %
+                              (config.benchmarks_device,
+                               config.benchmarks_disk_image_mountpoint))
 
     # Must set M5_SIMULATOR=1 in order to enable m5 ops. Otherwise,
     # benchmarks typically suppress m5 ops by mmap'ing m5_mem to a
@@ -276,7 +271,7 @@ for random_seed in seed_list:
       launchscript_file.write("export HTM_MAX_RETRIES=%d\n" % htm_config[htm.htm_max_retries])
       launchscript_file.write("export HTM_HEAP_PREFAULT=%d\n" % htm_config[htm.htm_heap_prefault])
 
-    benchmark_suite_root_dir = os.path.join(benchmarks.benchmark_disk_image_mountpoint,
+    benchmark_suite_root_dir = os.path.join(config.benchmarks_disk_image_mountpoint,
                                             benchmarks.benchmark_suites[benchmark_suite])
     # Variability is only needed if we are not using KVM..
     if not config.enable_kvm:
@@ -353,9 +348,14 @@ for random_seed in seed_list:
     script_file.write("EXTRA_DETAILED_ARGS=\" %s \"\n" % config.extra_detailed_args)
 
     script_file.write("\n### System configuration ### \n")
-    script_file.write("KERNEL_FILENAME=%s\n" % config.kernel)
-    script_file.write("DISK_IMAGE_FILENAME=%s\n" % config.os_disk_image)
     script_file.write("ARCH_NAME=%s\n" % config.arch_name)
+    script_file.write("KERNEL_BINARY=%s\n" % config.kernel_binary)
+    script_file.write("ROOT_DEVICE=%s\n" % config.root_device)
+    script_file.write("OS_DISK_IMAGE=%s\n" % config.os_disk_image)
+    script_file.write("BENCHMARKS_DEVICE=%s\n" % config.benchmarks_device)
+    script_file.write("BENCHMARKS_DISK_IMAGE=%s\n" % config.benchmarks_disk_image)
+    script_file.write('ARCH_SPECIFIC_OPTS=" %s "\n' % config.arch_specific_opts)
+    script_file.write("TERMINAL_FILENAME=%s\n\n" % config.terminal_filename)
     script_file.write("PROCESSORS=%d\n" % processors)
     script_file.write("BENCHMARK=%s\n" % benchmark)
     script_file.write("BENCHMARK_NAME=%s\n" % benchmark_name)
@@ -410,6 +410,8 @@ for random_seed in seed_list:
       script_file.write("\n### Location of 'gem5' executable   ### \n")
       script_file.write('GEM5_EXEC_PATH="${GEM5_ROOT}/build/${ARCH}_${PROTOCOL}/gem5.${BUILD_TYPE}"\n')
 
+    script_file.write("export M5_PATH=%s\n" % os.path.join(config.gem5path,
+                                                           config.arch_name))
     script_file.write("\n### Submit mode (SLURM)  ### \n")
     script_file.write("SUBMIT_MODE=%d\n" % submit_mode)
 

@@ -511,6 +511,8 @@ def addFSOptions(parser):
             help="Enable stats dump at context "
             "switches and dump tasks file (required for Streamline)")
         parser.add_argument("--vio-9p", action="store_true", help=vio_9p_help)
+        parser.add_argument("--enable-tme", action="store_true",
+                            help="Enable Transactional Memory Extensions")
         parser.add_argument(
             "--bootloader", action='append',
             help="executable file that runs before the --kernel")

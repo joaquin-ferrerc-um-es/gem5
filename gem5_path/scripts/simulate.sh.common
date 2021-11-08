@@ -1,36 +1,5 @@
-OLD_M5_PATH="${M5_PATH:-}"
-export M5_PATH="${GEM5_ROOT}/gem5_path/${ARCH_NAME}"
-if [[ -n "$OLD_M5_PATH" && "$(readlink -nf "$OLD_M5_PATH")" != "$(readlink -nf "$M5_PATH")" ]] ; then
-    echo "\$M5_PATH already set to «$OLD_M5_PATH»"
-    echo "\$M5_PATH should be «$M5_PATH»"
-    exit 1
-fi
-test -d "$M5_PATH" || { echo "M5_PATH=«$M5_PATH» no existe" ; exit 1 ; }
-
 SCONS_THREADS="$(echo -e "1\n"$(($(grep -c ^processor /proc/cpuinfo) - 2))"" | sort -nr | head -n1)"
-DISK_IMAGE_BENCHMARKS="${M5_PATH}/disks/${ARCH_NAME}-benchmarks.img"
-KERNEL_PATH="${M5_PATH}/binaries/${KERNEL_FILENAME}"
-DISK_IMAGE_PATH="${M5_PATH}/disks/${DISK_IMAGE_FILENAME}"
 
-
-if [ ${ARCH_NAME} == "x86_64" ] ; then
-    FILESYSTEM_PREFIX="hd"
-    ARCH_SPECIFIC_STRING=""
-elif [ ${ARCH_NAME} == "aarch64" ] ; then
-    FILESYSTEM_PREFIX="sd"
-    ARCH_SPECIFIC_STRING=" --machine-type=VExpress_GEM5_V2 "
-else
-    echo "Unknown architecture: ${ARCH_NAME}. Choices are: x86_64, aarch64"
-    exit
-fi
-# Terminal output filename varies between archs
-if [ ${ARCH_NAME} == "aarch64" ] ; then
-    FILESYSTEM_PREFIX="sd"
-    TERMINAL_SUFFIX="terminal"
-else
-    FILESYSTEM_PREFIX="hd"
-    TERMINAL_SUFFIX="com_1.device"
-fi
 
 if ldd ${GEM5_EXEC_PATH} | grep "not found" | grep -q "GLIBCXX"
 then
@@ -89,7 +58,6 @@ sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'
     fi
 fi
 
-ROOT_DEVICE="/dev/${FILESYSTEM_PREFIX}a1"
 CHECKPOINT_BOOT_DIR="${CHECKPOINT_BOOT_ROOT_DIR}/${PROCESSORS}_cores"
 cd ${CHECKPOINT_BOOT_DIR}
 if [[ $(find . -name "cpt*" | wc -l) -ne 1 ]]
@@ -101,8 +69,9 @@ CHECKPOINT_BOOT_PATH=$(find . -name "cpt*" | xargs readlink -f)
 echo "**** Running full system mode ****"
 echo "Run configuration:"
 echo "Arch=${ARCH}" 
-echo "Disk-image=${DISK_IMAGE_FILENAME}"
-echo "Kernel=${KERNEL_FILENAME}"
+echo "OS disk-image=${OS_DISK_IMAGE}"
+echo "Benchamarks image=${BENCHMARKS_DISK_IMAGE}"
+echo "Kernel=${KERNEL_BINARY}"
 echo "Protocol=${PROTOCOL}"
 echo "Hostname=$(hostname)"
 echo
@@ -144,7 +113,7 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
         # Copy bootscript template and place a variable-time sleep based on
         # a random seed to produce variability (slightly different executions)
         cd ${OUT_DIR}
-        rm sim{err,out} system*${TERMINAL_SUFFIX} 2> /dev/null || true
+        rm sim{err,out} ${TERMINAL_FILENAME} 2> /dev/null || true
         ln -s ${CHECKPOINT_BOOT_PATH} || true
         if [[ ${ENABLE_KVM} == 1 ]]
         then
@@ -168,7 +137,7 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
         OUT_DIR=${RESULTS_DIR}
         mkdir -p ${OUT_DIR}
         cd ${OUT_DIR}
-        rm sim{err,out} system*${TERMINAL_SUFFIX} 2> /dev/null || true
+        rm sim{err,out} ${TERMINAL_FILENAME} 2> /dev/null || true
         
         CPU_TYPE=${DETAILED_SIMULATION_CPU_MODEL}
         # Ruby required by TME for functional correction
@@ -213,15 +182,15 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
     fi
     ###############
     GEM5_COMMAND_ARGS="\
-        ${ARCH_SPECIFIC_STRING} \
+        ${ARCH_SPECIFIC_OPTS} \
         --num-cpus=${PROCESSORS} \
         --mem-size=${MEMORY_SIZE} \
         --checkpoint-dir=${CHECKPOINT_DIR} \
         -r ${CHECKPOINT_RESTORE_NUM} \
-        --kernel=${KERNEL_PATH} \
-        --disk-image=${DISK_IMAGE_PATH} \
+        --kernel=${KERNEL_BINARY} \
+        --disk-image=${OS_DISK_IMAGE} \
         --root-device=${ROOT_DEVICE} \
-        --disk-image=${DISK_IMAGE_BENCHMARKS} \
+        --disk-image=${BENCHMARKS_DISK_IMAGE} \
         ${EXTRA_ARGS}"
     if [[ 1 ]]
     then
@@ -259,7 +228,7 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
             fi
         fi
 
-        TERMINAL_FILES="$(find ${OUT_DIR} -name "system*${TERMINAL_SUFFIX}" -printf "%T@ %Tc %p\n" | sort -n | rev | cut -d " " -f1 | rev | xargs readlink -f)"
+        TERMINAL_FILES="$(find ${OUT_DIR} -name "${TERMINAL_FILENAME}" -printf "%T@ %Tc %p\n" | sort -n | rev | cut -d " " -f1 | rev | xargs readlink -f)"
         echo "#### Simulated terminal Begin ####"
         echo "${TERMINAL_FILES}"
         echo "##################################"

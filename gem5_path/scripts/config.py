@@ -49,11 +49,41 @@ simulation_list = []
 #############################################################
 # Simulation infrastructure options 
 #############################################################
-arch_name = "x86_64" # "{aarch64,x86_64}"
-arch = "X86" # "{X86,ARM}
-kernel='vmlinux-5.4.49'  # vmlinux.arm64
-os_disk_image='ubuntu-18-04.img' # aarch64-ubuntu-trusty-headless.img'
-enable_kvm=1
+arch_name= "x86_64" # "{aarch64,x86_64}"
+
+if arch_name == "x86_64":
+    arch = "X86"
+    kernel_binary=os.path.join(gem5path, arch_name,
+                               'binaries', 'vmlinux-5.4.49')
+    os_disk_image=os.path.join(gem5path, arch_name,
+                               'disks', 'ubuntu-18-04.img')
+    benchmarks_disk_image=os.path.join(gem5path, arch_name,
+                                       'disks', arch_name+'-benchmarks.img')
+    root_device = '/dev/hda1'
+    benchmarks_device = '/dev/hdb1'
+    mount_benchmarks_device = True
+    benchmarks_disk_image_mountpoint = "/benchmarks"
+    enable_kvm=1
+    arch_specific_opts=''
+    terminal_filename="system.pc.com_1.device"
+elif arch_name == "aarch64":
+    arch = "ARM"
+    kernel_binary=os.path.join(gem5path, arch_name,
+                               'binaries', 'vmlinux.arm64')
+    os_disk_image=os.path.join(gem5path, arch_name,
+                               'disks', 'ubuntu-18.04-arm64-docker.img')
+    benchmarks_disk_image=os.path.join(gem5path, arch_name,
+                                       'disks', arch_name+'-benchmarks.img')
+    root_device = '/dev/sda1'
+    benchmarks_device = '/dev/sdb1'
+    mount_benchmarks_device = False  # Already mounted in /data
+    benchmarks_disk_image_mountpoint = "/data"
+    enable_kvm=0
+    arch_specific_opts=' --machine-type=VExpress_GEM5_V2'
+    terminal_filename='system.terminal'
+else:
+    print("Unknown architecture: {}. Choices are: x86_64, aarch64".format(arch_name))
+    sys.exit(-1)
 
 # Root directory where benchmarks are located in the disk image, must
 # be kept in sync with IMAGE_DESTINATION_DIR in upload-to-image.sh
@@ -91,7 +121,7 @@ copy_gem5_binary_tmp_dir = 0 # Copy gem5 binary to tmp dir for simulation
 run_pdb = 0
 debug_flags = "" # "Exec,O3CPUAll,O3HTM,RubyHTM,ProtocolTrace"
 debug_time=0
-seq_no=1
+seq_no=3
 num_random_seeds=4 # 10 # Number of random seeds to simulate (when '-s' option passed to gen-scripts.py)
 
 preload="" #"/benchmarks/benchmarks-htm/Splash-3/libhooks_chkpoint.so"

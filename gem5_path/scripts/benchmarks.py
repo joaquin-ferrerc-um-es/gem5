@@ -4,8 +4,6 @@
 ####################################################################
 
 # Benchmark suites and their directory in the disk image
-benchmark_disk_image_mountpoint = "/benchmarks"
-# Benchmark suites and their directory in the disk image
 benchmark_suites = {}
 benchmark_suites['test-progs-caps'] = "test-progs/caps"
 benchmark_suites['stamp'] = "benchmarks-htm/stamp"

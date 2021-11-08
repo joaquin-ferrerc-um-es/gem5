@@ -26,11 +26,6 @@ GCC_PREFIX :=
 
 endif
 
-# These objects are built by running scons build/{arch}/out/m5 inside the gem5/util/m5 directory
-#GEM5_OBJS := $(GEM5_ROOT)/util/m5/build/$(ARCH)/m5_mmap.o $(GEM5_ROOT)/util/m5/build/$(ARCH)/abi/$(ARCH)/m5op.o
-#M5 := $(GEM5_ROOT)/build/$(ARCH)/out/m5
-
-
 CC        := $(GCC_PREFIX)gcc
 AR        := $(GCC_PREFIX)ar
 LD        := $(GCC_PREFIX)gcc

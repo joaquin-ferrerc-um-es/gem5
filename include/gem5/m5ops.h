@@ -80,11 +80,8 @@ void m5_work_end(uint64_t workid, uint64_t threadid);
 #define M5_SUM_HACK_ARG_C   0xDEAD
 #define M5_SUM_HACK_ARG_D   0xBABE
 
-#define M5_SUM_HACK(type,code) m5_sum_addr(M5_SUM_HACK_ARG_A,\
-                                           M5_SUM_HACK_ARG_B,\
-                                           M5_SUM_HACK_ARG_C,\
-                                           M5_SUM_HACK_ARG_D,\
-                                           type, code)
+#define M5_SUM_HACK_ARGS M5_SUM_HACK_ARG_A, M5_SUM_HACK_ARG_B, M5_SUM_HACK_ARG_C, M5_SUM_HACK_ARG_D
+
 #define IS_M5_SUM_HACK(a,b,c,d) ((a == M5_SUM_HACK_ARG_A) && \
                                  (b == M5_SUM_HACK_ARG_B) && \
                                  (c == M5_SUM_HACK_ARG_C) && \

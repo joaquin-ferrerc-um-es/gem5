@@ -36,6 +36,27 @@ void dumpValueToHostFileSystem(long value, const char *out_filename);
 void catProcMaps(const char* out_filename);
 
 
+#ifdef X86
+// on x86, the default mechanisms is magic address
+
+#define m5_write_file m5_write_file_addr
+#define m5_work_begin m5_work_begin_addr
+#define m5_work_end m5_work_end_addr
+#define m5_sum m5_sum_addr
+#define m5_dump_stats  m5_dump_stats_addr
+#define m5_reset_stats  m5_reset_stats_addr
+
+#else // call type: magic instruction
+
+#define m5_write_file m5_write_file
+#define m5_work_begin m5_work_begin
+#define m5_work_end m5_work_end
+#define m5_sum m5_sum
+#define m5_dump_stats  m5_dump_stats
+#define m5_reset_stats  m5_reset_stats
+
+#endif
+
 #ifdef ANNOTATE_FALLBACKLOCK_ADDR 
 #include "spinlock.h"
 #define FALLBACKLOCKADDR_FILENAME ("fallback_lock")
@@ -44,6 +65,7 @@ void catProcMaps(const char* out_filename);
 void
 m5_init()
 {
+#if X86
     if (inSimulator()) {
         map_m5_mem();
     } else {
@@ -51,6 +73,7 @@ m5_init()
         // memory filled with zeros, no need to mmap /dev/mem
         m5_mem = calloc( 0x10000, sizeof(char));
     }
+#endif
 
 #ifdef ANNOTATE_FALLBACKLOCK_ADDR
     if (inSimulator()) {
@@ -89,23 +112,23 @@ void simBeginRegionOfInterest() {
     // 'checkpoint-m5sum-kvm-hack' will determine whether the return value
     // of m5_sum is tweaked (0) instead of the expected sum of arguments
 
-    m5_work_begin_addr(0,0);
-    if (m5_sum_addr(1,2,3,4,5,6)) { // i.e., inSimulator()
-        while (M5_SUM_HACK(M5_SUM_HACK_TYPE_KVM_CKPT_SYNC, 0) == 0);
+    m5_work_begin(0,0);
+    if (m5_sum(1,2,3,4,5,6)) { // i.e., inSimulator()
+        while (m5_sum(M5_SUM_HACK_ARGS, M5_SUM_HACK_TYPE_KVM_CKPT_SYNC, 0) == 0);
     }
-    m5_reset_stats_addr(0,0);
+    m5_reset_stats(0,0);
 }
 
 void simEndRegionOfInterest() {
-    m5_work_end_addr(0,0);
-    m5_dump_stats_addr(0,0);
+    m5_work_end(0,0);
+    m5_dump_stats(0,0);
 }
 
 void simWorkBegin() {
-    m5_work_begin_addr(0,0);
+    m5_work_begin(0,0);
 }
 void simWorkEnd() {
-    m5_work_end_addr(0,0);
+    m5_work_end(0,0);
 }
 
 #if defined(ANNOTATE_CODE_REGIONS)
@@ -117,20 +140,24 @@ void simWorkEnd() {
 // the abort the benchmark is at a given moment.
 void simCodeRegionBegin(unsigned long int codeRegionId)
 {
-    M5_SUM_HACK(M5_SUM_HACK_TYPE_REGION_BEGIN, codeRegionId);
+    m5_sum(M5_SUM_HACK_ARGS,
+           M5_SUM_HACK_TYPE_REGION_BEGIN, codeRegionId);
 }
 void simCodeRegionEnd(unsigned long int codeRegionId)
 {
-    M5_SUM_HACK(M5_SUM_HACK_TYPE_REGION_END, codeRegionId);
+    m5_sum(M5_SUM_HACK_ARGS,
+           M5_SUM_HACK_TYPE_REGION_END, codeRegionId);
 }
 
 void simBarrierBegin()
 {
-    M5_SUM_HACK(M5_SUM_HACK_TYPE_REGION_BEGIN, AnnotatedRegion_BARRIER);
+    m5_sum(M5_SUM_HACK_ARGS,
+           M5_SUM_HACK_TYPE_REGION_BEGIN, AnnotatedRegion_BARRIER);
 }
 void simBarrierEnd()
 {
-    M5_SUM_HACK(M5_SUM_HACK_TYPE_REGION_END, AnnotatedRegion_BARRIER);
+    m5_sum(M5_SUM_HACK_ARGS,
+           M5_SUM_HACK_TYPE_REGION_END, AnnotatedRegion_BARRIER);
 }
 
 #else // # defined(ANNOTATE_CODE_REGIONS)
@@ -164,7 +191,7 @@ void catProcMaps(const char* out_filename) {
     } while (bytesRead != 0);
     close(fd);
     assert(size > 0);
-    int bytesWritten =  m5_write_file_addr(buf, size, 0, out_filename);
+    int bytesWritten =  m5_write_file(buf, size, 0, out_filename);
     assert(bytesWritten == size);
 }
 
@@ -173,7 +200,7 @@ void dumpValueToHostFileSystem(long value, const char *out_filename) {
     sprintf(buf,"%#lx\n", value);
     assert(strlen(out_filename) > 0);
     int size = strlen(buf);
-    int bytesWritten =  m5_write_file_addr(buf, size, 0, out_filename);
+    int bytesWritten =  m5_write_file(buf, size, 0, out_filename);
     assert(bytesWritten == size);
 }
 

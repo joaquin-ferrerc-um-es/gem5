@@ -82,7 +82,7 @@ elif arch_name == "aarch64":
     mount_benchmarks_device = False  # Already mounted in /data
     benchmarks_disk_image_mountpoint = "/data"
     enable_kvm=0
-    arch_specific_opts=' --machine-type=VExpress_GEM5_V2'
+    arch_specific_opts=' --machine-type=VExpress_GEM5_V2 --enable-tme'
     terminal_filename='system.terminal'
 else:
     print("Unknown architecture: {}. Choices are: x86_64, aarch64".format(arch_name))

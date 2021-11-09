@@ -44,7 +44,7 @@ void htm_cancel(uint64_t code) {
 }
 
 void htm_cancel_lock_acquired() {
-    __tcancel(TME_LOCK_IS_ACQUIRED);
+    __tcancel(TME_CODE_FALLBACK_LOCK_LOCKED);
     __builtin_unreachable();
 }
 
@@ -62,7 +62,7 @@ uint16_t htm_abort_cause_explicit_code(uint64_t status) {
 }
 
 bool htm_abort_code_is_lock_acquired(uint16_t abort_code) {
-    return abort_code == TME_LOCK_IS_ACQUIRED;
+    return abort_code == TME_CODE_FALLBACK_LOCK_LOCKED;
 }
 
 bool htm_may_succeed_on_retry(uint64_t status) {

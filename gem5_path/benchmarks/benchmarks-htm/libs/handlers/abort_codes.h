@@ -3,7 +3,10 @@
 
 #if defined AARCH64
 
-#define TME_LOCK_IS_ACQUIRED    65535
+/************************************************************************
+ * RESERVED|INT|DBG|NEST|SIZE|ERR|IMP|MEM|CNCL|RTRY|    REASON (14-0)   *
+ *63-24*****23**22**21****20**19**18**17**16***15***14*****************0*/
+#define TME_CODE_FALLBACK_LOCK_LOCKED    0x7fff
 
 // Masks to decode ret into fields
 #define TME_FAILURE_REASON_DECODE(ret) (ret & _TMFAILURE_REASON)

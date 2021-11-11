@@ -1109,8 +1109,8 @@ Commit::commitInsts()
                     // Data prefetches may silently fault and not have
                     // a valid eff addr when they retire...
                     assert(head_inst->effAddrValid());
-                    unsigned int cacheBlockMask = ~(cpu->cacheLineSize() - 1);
-                    Addr blockAddr = head_inst->physEffAddr & cacheBlockMask;
+                    Addr blockAddr = (head_inst->physEffAddr &
+                                      cpu->cacheBlockMask());
                     DPRINTF(HtmCpuInst,
                             "Sending HTM_ISOLATE signal for block addr %#x\n",
                             blockAddr);
@@ -1119,8 +1119,8 @@ Commit::commitInsts()
                                        blockAddr,
                                        Request::HTM_ISOLATE);
                     if (head_inst->physEffAddrSplit != Addr(0)) {
-                        Addr blockAddrSplit =
-                            head_inst->physEffAddrSplit & cacheBlockMask;
+                        Addr blockAddrSplit = (head_inst->physEffAddrSplit &
+                                               cpu->cacheBlockMask());
                         DPRINTF(HtmCpuInst,
                                 "Sending HTM_ISOLATE signal for block addr %#x"
                                 " (split)\n",

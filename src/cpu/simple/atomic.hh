@@ -144,7 +144,7 @@ class AtomicSimpleCPU : public BaseSimpleCPU
         AtomicCPUDPort(const std::string &_name, BaseSimpleCPU *_cpu)
             : AtomicCPUPort(_name, _cpu), cpu(_cpu)
         {
-            cacheBlockMask = ~(cpu->cacheLineSize() - 1);
+            cacheBlockMask = cpu->cacheBlockMask();
         }
 
         bool isSnooping() const { return true; }

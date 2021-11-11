@@ -249,7 +249,7 @@ LSQUnit::resetState()
 
     stalled = false;
 
-    cacheBlockMask = ~(cpu->cacheLineSize() - 1);
+    cacheBlockMask = cpu->cacheBlockMask();
 }
 
 std::string

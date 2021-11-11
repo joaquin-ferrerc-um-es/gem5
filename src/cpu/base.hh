@@ -379,6 +379,11 @@ class BaseCPU : public ClockedObject
      * Get the cache line size of the system.
      */
     inline unsigned int cacheLineSize() const { return _cacheLineSize; }
+    /**
+     * Get the block mask from the cache line size
+     */
+    inline uint64_t cacheBlockMask() const {
+        return ~((uint64_t)cacheLineSize()-1) ; }
 
     /**
      * Serialize this object to the given output stream.

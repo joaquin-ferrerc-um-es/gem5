@@ -221,7 +221,7 @@ class TimingSimpleCPU : public BaseSimpleCPU
             : TimingCPUPort(_cpu->name() + ".dcache_port", _cpu),
               tickEvent(_cpu)
         {
-           cacheBlockMask = ~(cpu->cacheLineSize() - 1);
+            cacheBlockMask = cpu->cacheBlockMask();
         }
 
         Addr cacheBlockMask;

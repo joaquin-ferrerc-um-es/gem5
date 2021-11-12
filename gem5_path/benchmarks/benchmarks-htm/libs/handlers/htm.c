@@ -5,7 +5,8 @@
 
 #if defined AARCH64
 
-#include "../isa/aarch64/tme.h"
+#include "../isa/aarch64/abort_status.h"
+
 
 #elif defined X86
 
@@ -70,8 +71,7 @@ bool htm_may_succeed_on_retry(uint64_t status) {
 }
 
 bool htm_abort_cause_disabled(uint64_t abort_status) {
-    //return (abort_status & _XABORT_DISABLED); // TODO: lockstep support
-    return false;
+    return (abort_status & _TMFAILURE_DISABLED);
 }
 
 #elif defined (X86)

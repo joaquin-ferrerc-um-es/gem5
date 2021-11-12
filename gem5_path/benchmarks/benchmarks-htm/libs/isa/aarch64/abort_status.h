@@ -15,6 +15,7 @@
 #define _TMFAILURE_DBG        0x00400000u
 #define _TMFAILURE_INT        0x00800000u
 #define _TMFAILURE_TRIVIAL    0x01000000u
+#define _TMFAILURE_DISABLED   0x02000000u
 
 #endif
 

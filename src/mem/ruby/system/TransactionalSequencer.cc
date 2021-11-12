@@ -255,9 +255,6 @@ void
 TransactionalSequencer::rubyHtmCallback(PacketPtr pkt)
 {
     int thread = 0;
-    // The packet was destined for memory and has not yet been turned
-    // into a response
-    assert(system->isMemAddr(pkt->getAddr()) || system->isDeviceMemAddr(pkt));
     assert(pkt->isRequest());
 
     // First retrieve the request port from the sender State

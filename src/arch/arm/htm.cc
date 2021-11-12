@@ -150,6 +150,23 @@ ArmISA::HTMCheckpoint::restore(ThreadContext *tc, HtmFailureFaultCause cause)
         // case HtmFailureFaultCause_DEBUG:
         //     replaceBits(error_code, 22, 1);
         //     break;
+        // case HtmFailureFaultCause::INTERRUPT:
+        //     replaceBits(error_code, 23, 1);
+        //     break;
+        // case HtmFailureFaultCause::TRIVIAL
+        //     replaceBits(error_code, 24, 1);
+        //     break;
+      case HtmFailureFaultCause::DISABLED:
+          // Bits 63-24: Reserved
+        replaceBits(error_code, 25, 1);
+        assert(tc->forceHtmDisabled());
+        if (tc->forceHtmRetryStatusBit()) {
+            // Lockstep support: Abort handler must spin on the
+            // htm_start instruction when bit 24 in the abort status is
+            // set, until the retry bit is unset (then acquire lock)
+            retry = true;
+        }
+        break;
       default:
         panic("Unknown HTM failure reason\n");
     }

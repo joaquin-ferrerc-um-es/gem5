@@ -629,6 +629,23 @@ def run(options, root, testsys, cpu_class):
     if options.initialize_only:
         return
 
+    if options.lockstep_mode != None:
+        # Support for lockstep execution: set lockstep mode for all
+        # detailed phase CPUS, create fifos after objects instantiated,
+        # and open fifos
+        if (options.lockstep_mode == 'record' or
+            options.lockstep_mode == 'replay'):
+            # Create lockstep manager (creates and opens commit order fifo)
+            testsys.setupLockstepManager(options.lockstep_mode)
+            for i in range(np):
+                # First, recorders must create the value fifos
+                if options.lockstep_mode == 'record':
+                    switch_cpus[i].createLockstepChecker()
+
+            # Then both recorder and replayers open the value fifos
+            for i in range(np):
+                switch_cpus[i].openLockstepChecker()
+
     # Handle the max tick settings now that tick frequency was resolved
     # during system instantiation
     # NOTE: the maxtick variable here is in absolute ticks, so it must

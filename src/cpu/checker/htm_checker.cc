@@ -18,6 +18,7 @@
 
 #include "debug/HTMChecker.hh"
 #include "enums/LockStepMode.hh"
+#include "mem/request.hh"
 #include "sim/system.hh"
 
 namespace gem5
@@ -39,6 +40,7 @@ HTMChecker::HTMChecker(const std::string &_my_name,
     valuesFifoFileDescriptor(-1),
     valueRecordGlobalSeqNo(0),
     fallbackLockVirtAddr(0),
+    lastNPC(0),
     faultPC(0)
 {
     if (cpu->system->getHTM() != NULL) {
@@ -91,8 +93,14 @@ HTMChecker::commit(uint64_t xid) {
         // called upon htm_stop instruction
         recorder.commit(xid);
     }
-    else { // replayer can never commit a transaction, values are
-           // checked when lock released detected by retiredMemRef
+    else if (cpu->system->getLockstepMode() == enums::replay) {
+        // replayer can never commit a transaction, values are
+        // checked when lock released detected by retiredMemRef
+
+        // NOTE: This can happen if forceHtmDisabled does not prevent
+        // transaction start
+        panic("Unexpected transaction commit in replayer!\n");
+    } else {
         assert(cpu->system->getLockstepMode() == enums::disabled);
     }
 }
@@ -195,6 +203,141 @@ HTMChecker::Recorder::abort()
     DPRINTF(HTMChecker, "recorder abort\n");
 }
 
+bool
+HTMChecker::isLock(Trace::InstRecord *traceData) const
+{
+    if (cpu->system->getArch() == Arch::X86ISA) {
+        return ((traceData->getIntData() == 1) &&
+                (lastFallbackLockReadValue == 0));
+    } else if (cpu->system->getArch() == Arch::ArmISA) {
+        bool isSC = traceData->getStaticInst()->isStoreConditional();
+        unsigned flags = traceData->getFlags();
+        bool llsc = flags & Request::LLSC;
+        assert(traceData->getMemValid());
+        if (isSC) { // lock
+            assert(llsc);
+            assert(traceData->getIntData() == 0); // TODO: Check
+            assert(lastFallbackLockReadValue == 0);
+            // TODO: How to handle failed SC???
+            return true;
+        } else {
+            assert(!llsc);
+            assert(traceData->getIntData() == 0); // TODO: Check
+            return false;
+        }
+    } else {
+        panic("Lockstep: lock interception not tested in this ISA!");
+        return false;
+    }
+}
+
+bool
+HTMChecker::isUnlock(Trace::InstRecord *traceData) const
+{
+    if (cpu->system->getArch() == Arch::X86ISA) {
+        return traceData->getIntData() == 0;
+    } else if (cpu->system->getArch() == Arch::ArmISA) {
+        bool isSC = traceData->getStaticInst()->isStoreConditional();
+        unsigned flags = traceData->getFlags();
+        bool llsc = flags & Request::LLSC;
+        assert(traceData->getMemValid());
+        if (isSC) { // lock
+            assert(llsc);
+            assert(lastFallbackLockReadValue == 0);
+            return false;
+        } else { // unlock done via stlr (store release)
+            assert(!llsc);
+            assert(traceData->getIntData() == 0); // TODO: Check
+            assert(lastFallbackLockReadValue == 1);
+            return true;
+        }
+    } else {
+        panic("Lockstep: unlock interception not tested in this ISA!");
+        return false;
+    }
+}
+
+bool
+HTMChecker::foundLocked(Trace::InstRecord *traceData) const
+{
+    if (cpu->system->getArch() == Arch::X86ISA) {
+        return (traceData->getIntData() == 1);
+    } else if (cpu->system->getArch() == Arch::ArmISA) {
+        bool isSC = traceData->getStaticInst()->isStoreConditional();
+        assert(isSC);
+        return false;
+    } else {
+        panic("Lockstep: lock interception not tested in this ISA!");
+        return false;
+   }
+}
+
+uint64_t
+HTMChecker::getLockValue(Trace::InstRecord *traceData) const
+{
+    if (cpu->system->getArch() == Arch::X86ISA) {
+        return traceData->getIntData();
+    } else if (cpu->system->getArch() == Arch::ArmISA) {
+        bool isSC = traceData->getStaticInst()->isStoreConditional();
+        assert(!isSC);
+        return traceData->getIntData();
+    } else {
+        panic("Lockstep: lock interception not tested in this ISA!");
+        return traceData->getIntData();
+    }
+}
+
+bool
+HTMChecker::isLeavingUserMode(Trace::InstRecord *traceData)
+{
+    assert(faultPC == 0);
+    if (cpu->system->getArch() == Arch::X86ISA) {
+        if (traceData->getPCState().microPC() >= 32768) {
+            faultPC = traceData->getPCState().instAddr();
+            return true;
+        }
+    } else if (cpu->system->getArch() == Arch::ArmISA) {
+        if (traceData->getPCState().instAddr() & 0xffffff0000000000) {
+            faultPC = lastNPC;
+            // Current PC is already kernel PC, need to
+            // save preceding usermode PC
+            return true;
+        }
+    } else {
+        panic("Lockstep: leaving user mode not tested in this ISA!");
+    }
+    return false;
+}
+
+bool
+HTMChecker::isReturnToUserMode(Trace::InstRecord *traceData)
+{
+    assert(faultPC != 0);
+    if (cpu->system->getArch() == Arch::X86ISA) {
+        if (faultPC == traceData->getPCState().instAddr()) {
+            if (traceData->getPCState().microPC() < 32768) {
+                return true;
+            } else {
+                DPRINTF(HTMChecker, "Current PC matches fault PC %#x"
+                        " but microPC is not 0 (upc=%#x)\n",
+                        faultPC, traceData->getPCState().microPC());
+            }
+        }
+    } else if (cpu->system->getArch() == Arch::ArmISA) {
+        if (faultPC == traceData->getPCState().instAddr()) {
+            if (lastInstName == "eret") {
+                return true;
+            } else {
+                panic("Return to user mode expects eret!");
+
+            }
+        }
+    } else {
+        panic("Lockstep: return to user mode not tested in this ISA!");
+    }
+    return false;
+}
+
 void
 HTMChecker::retireInst(bool isMemRef, bool isTransactional,
                        Trace::InstRecord *traceData) {
@@ -204,88 +347,84 @@ HTMChecker::retireInst(bool isMemRef, bool isTransactional,
             // Detect entry/exit into/from kernel during
             // transactions (no record/replay)
             if (faultPC != 0){
-                if (faultPC == traceData->getPCState().instAddr()) {
-                    if (traceData->getPCState().microPC() < 32768) {
-                        DPRINTF(HTMChecker, "Resuming value recording after "
-                                "handling interrupt/fault at PC %#x\n",
-                                faultPC);
-                        faultPC = 0;
-                    } else {
-                        DPRINTF(HTMChecker, "Current PC matches fault PC %#x"
-                                " but microPC is not 0 (upc=%#x)\n",
-                                faultPC, traceData->getPCState().microPC());
-                    }
+                if (isReturnToUserMode(traceData)) {
+                    faultPC = 0;
+                    DPRINTF(HTMChecker, "Resuming value recording after "
+                            "handling interrupt/fault at PC %#x\n",
+                            faultPC);
                 }
-            }
-            // Detect trap to kernel code
-            else if (traceData->getPCState().microPC() >= 32768 &&
-                     faultPC == 0) {
-                // Save int/fault pc
-                faultPC = traceData->getPCState().instAddr();
-                DPRINTF(HTMChecker, "Skipping value recording while "
-                        "handling interrupt/fault at PC %#x\n",
-                        faultPC);
+            } else if (faultPC == 0) {
+                // Detect trap to kernel code
+                if (isLeavingUserMode(traceData)) {
+                    // Save int/fault pc
+                    DPRINTF(HTMChecker, "Skipping value recording while "
+                            "handling interrupt/fault at PC %#x\n",
+                            faultPC);
+                }
             }
         }
     }
-    if (!isMemRef)
-        return;
-    bool isStore =traceData->getStaticInst()->isStore();
-    if (traceData->getStaticInst()->isHtmCmd()) {
-        // Skip htm commands
-    } else if (traceData->getAddr() == fallbackLockVirtAddr) {
-        if (!isStore) {
-            lastFallbackLockReadValue = traceData->getIntData();
-        } else if (isStore) {
-            if (traceData->getIntData() == 0) { // Unlock
-                assert(hasFallbackLock &&
-                       (lastFallbackLockReadValue == 1));
-                DPRINTF(HTMChecker, "lock released\n");
-                // Check replayed values at end of critical section
-                if (cpu->system->getLockstepMode() == enums::replay) {
-                    // Notify replayer
-                    replayer.commit(0);
-                } else if (cpu->system->getLockstepMode() == enums::record) {
-                    // Record values of non-spec transaction
-                    recorder.commit(0);
-                }
-                hasFallbackLock = false;
-            } else if ((traceData->getIntData() == 1) &&
-                       (lastFallbackLockReadValue == 0)) {
-                DPRINTF(HTMChecker, "lock acquired\n");
-                assert(!hasFallbackLock);
-                hasFallbackLock = true;
-                if (cpu->system->getLockstepMode() == enums::replay) {
-                    replayer.begin(0);
-                } else if (cpu->system->getLockstepMode() == enums::record) {
-                    // Record values of non-spec transaction
-                    recorder.begin(0);
-                }
-            } else if (traceData->getIntData() == 1) {
-                /* Stored value may be 1 if read data was 1
-                   (lock already acquired), so need to check last
-                   value seen for lock in order to detect if this is a
-                   successful "acquire" */
-                DPRINTF(HTMChecker, "compare-and-swap found busy lock\n");
+    assert(traceData->getStaticInst()->isMemRef() == isMemRef);
+
+    if (isMemRef && !traceData->getStaticInst()->isPrefetch()) {
+        bool isStore =traceData->getStaticInst()->isStore();
+        if (traceData->getStaticInst()->isHtmCmd()) {
+            // Skip htm commands
+        } else if (traceData->getAddr() == fallbackLockVirtAddr) {
+            if (!isStore) {
+                lastFallbackLockReadValue = getLockValue(traceData);
             } else {
-                panic("Unexpected value for fallback lock");
+                if (isUnlock(traceData)) { // Unlock
+                    assert(hasFallbackLock &&
+                           (lastFallbackLockReadValue == 1));
+                    DPRINTF(HTMChecker, "lock released\n");
+                    // Check replayed values at end of critical section
+                    if (cpu->system->getLockstepMode() == enums::replay) {
+                        // Notify replayer
+                        replayer.commit(0);
+                    } else if (cpu->system->
+                               getLockstepMode() == enums::record) {
+                        // Record values of non-spec transaction
+                        recorder.commit(0);
+                    }
+                    hasFallbackLock = false;
+                } else if (isLock(traceData)) { // Lock
+                    DPRINTF(HTMChecker, "lock acquired\n");
+                    assert(!hasFallbackLock);
+                    hasFallbackLock = true;
+                    if (cpu->system->getLockstepMode() == enums::replay) {
+                        replayer.begin(0);
+                    } else if (cpu->system->
+                               getLockstepMode() == enums::record) {
+                        // Record values of non-spec transaction
+                        recorder.begin(0);
+                    }
+                } else if (foundLocked(traceData)) {
+                    /* Stored value may be 1 if read data was 1
+                       (lock already acquired), so need to check last
+                       value seen for lock in order to detect if this is a
+                       successful "acquire" */
+                    DPRINTF(HTMChecker, "Store found busy lock\n");
+                } else {
+                    panic("Unexpected value for fallback lock");
+                }
+            } // isStore
+        } else { // Not an access to the lock
+            if (cpu->system->getLockstepMode() == enums::record) {
+                if (isTransactional || hasFallbackLock) {
+                    recorder.recordValue(isStore, traceData);
+                }
             }
-        }
-    } else { // Not an access to the lock
-        if (cpu->system->getLockstepMode() == enums::record) {
-            if (isTransactional || hasFallbackLock) {
-                /* Record transactional values as well as those in irrevocable
-                   transactions (acq fallback lock, non speculative sections)
-                */
-                recorder.recordValue(isStore, traceData);
-            }
-        }
-        else if (cpu->system->getLockstepMode() == enums::replay) {
-            if (hasFallbackLock) {
-                replayer.checkValue(isStore, traceData);
+            else if (cpu->system->
+                     getLockstepMode() == enums::replay) {
+                if (hasFallbackLock) {
+                    replayer.checkValue(isStore, traceData);
+                }
             }
         }
     }
+    lastNPC = traceData->getPCState().nextInstAddr();
+    lastInstName = traceData->getStaticInst()->getName();
 }
 
 void
@@ -369,6 +508,17 @@ HTMChecker::Recorder::recordValue(bool isStore, Trace::InstRecord *traceData) {
 
     uint64_t addr = traceData->getAddr();
     uint64_t value = traceData->getIntData();
+    int data_status = traceData->getDataStatus();
+    if ((data_status == Trace::InstRecord::DataVec) ||
+        (data_status == Trace::InstRecord::DataVecPred)) {
+        //TheISA::VecRegContainer& vec_value = getVecData();
+
+        // TODO: Extend ValueRecord to pass VecData values
+        // For now, simply pass a dummy value and have the replayer
+        // skip the value check for this record.
+        value = 0xCAFEBABEDEADC0DE;
+    }
+
     Addr pc = traceData->getPCState().instAddr();
     MicroPC upc = traceData->getPCState().microPC();
 
@@ -400,6 +550,14 @@ HTMChecker::Replayer::checkValue(bool isStore, Trace::InstRecord *traceData) {
     }
 
     uint64_t value = traceData->getIntData();
+    int data_status = traceData->getDataStatus();
+    bool vec_value = false;
+    if ((data_status == Trace::InstRecord::DataVec) ||
+        (data_status == Trace::InstRecord::DataVecPred)) {
+        //TheISA::VecRegContainer& vec_value = getVecData();
+        vec_value = true;
+    }
+
     uint64_t address = traceData->getAddr();
     Addr pc = traceData->getPCState().instAddr();
     MicroPC upc = traceData->getPCState().microPC();
@@ -450,7 +608,15 @@ HTMChecker::Replayer::checkValue(bool isStore, Trace::InstRecord *traceData) {
         addrMismatch = true;
     }
     if (value != record.value) {
-        valueMismatch = true;
+        if (vec_value) {
+            assert(record.value == 0xCAFEBABEDEADC0DE);
+            DPRINTF(HTMChecker,
+                    "replayer ignores vec value record"
+                    " for PC: %#x.%d (global seqno: %d)\n",
+                    pc, upc, checker->valueRecordGlobalSeqNo);
+        } else {
+            valueMismatch = true;
+        }
     }
 
     if (pcMismatch || typeMismatch || addrMismatch || valueMismatch) {

@@ -171,6 +171,8 @@ CommitOrder::readFromFile(char &type, int &tid, int &tag,
 
     // Set record
     fromString(buf, type, tid, tag);
+    DPRINTF(CommitOrder, "read from file commit record"
+            " cpu %d, xid %d, type %c\n", tid, tag, type);
 
     if (isEOF(type, tid, tag)) {
       exitSimLoop("lockstep mode: exit record reached "
@@ -238,6 +240,8 @@ CommitOrder::markReplayedPriv(char type, int tid, int tag)
 
     // "Consume" this record: will read from fifo in next call
     nextCommitToReplay_type = COMMIT_ORDER_RECORD_TYPE_INVALID;
+    DPRINTF(CommitOrder, "marked replayed commit record"
+            " cpu %d, xid %d, type %c\n", tid, tag, type);
 }
 
 void

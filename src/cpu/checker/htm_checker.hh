@@ -75,7 +75,6 @@ public:
         bool canReplay(uint64_t xid);
         void begin(uint64_t xid);
         void commit(uint64_t xid);
-        void readReplayValuesFromFile(std::vector<ValueRecord> &values);
         void checkValue(bool isStore, Trace::InstRecord *traceData);
 
         /** The object name, for DPRINTF.  We have to declare this
@@ -116,6 +115,13 @@ public:
 private:
     void openFifos();
     void createFifos();
+    bool isLock(Trace::InstRecord *traceData) const;
+    bool isUnlock(Trace::InstRecord *traceData) const;
+    bool foundLocked(Trace::InstRecord *traceData) const;
+    uint64_t getLockValue(Trace::InstRecord *traceData) const;
+    bool isReturnToUserMode(Trace::InstRecord *traceData);
+    bool isLeavingUserMode(Trace::InstRecord *traceData);
+
     /** The object name, for DPRINTF.  We have to declare this
      *  explicitly because HTM is not a SimObject. */
     const std::string _name;
@@ -135,6 +141,9 @@ private:
     std::vector<ValueRecord> values;
     /* Address of the fallback lock */
     Addr fallbackLockVirtAddr;
+    /* Last PC seen by checker */
+    Addr lastNPC;
+    std::string lastInstName;
     /* PC of the instruction that faulted during irrevocable
      * transaction execution, used to disable recording during faults
      * (i.e. not in user code) */

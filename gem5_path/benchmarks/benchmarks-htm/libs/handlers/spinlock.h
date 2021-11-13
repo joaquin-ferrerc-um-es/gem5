@@ -7,6 +7,10 @@
 
 #if defined (AARCH64)
 
+#if defined (AARCH64_NAIVE_SPINLOCK)
+
+// Naive spinlock implementation from:
+//  https://community.arm.com/arm-research/b/articles/posts/arms-transactional-memory-extension-support-
 #include <stdatomic.h>
 
 typedef atomic_int lock_t;
@@ -48,13 +52,92 @@ static inline void spinlock_lock()
     }
     while (atomic_exchange_explicit(&fallbackLock.lock, 1,
                                     memory_order_acquire));
-}
 
+    // This will generate a full memory barrier, e.g. DMB SY
+    atomic_thread_fence(memory_order_seq_cst);
+}
 
 static inline void spinlock_unlock()
 {
     atomic_store_explicit(&fallbackLock.lock, 0, memory_order_release);
 }
+
+#else // ARM64_NAIVE SPINLOCK
+
+// Ticket spinlock implementation found in the linux kernel, adapted from
+// https://github.com/siemens/jailhouse/blob/master/hypervisor/arch/arm64/include/asm/spinlock.h
+
+#define TICKET_SHIFT	16
+
+typedef struct {
+	uint16_t owner;
+	uint16_t next;
+} spinlock_t __attribute__ ((aligned (CACHE_LINE_SIZE_BYTES)));
+
+spinlock_t fallbackLock;
+
+static inline void * spinlock_getAddress()
+{
+    return (void *) &fallbackLock;
+}
+static inline void spinlock_init()
+{
+    fallbackLock.owner = 0;
+    fallbackLock.next = 0;
+}
+static inline long spinlock_isLocked()
+{
+    return fallbackLock.owner != fallbackLock.next;
+}
+
+static inline void spinlock_whileIsLocked()
+{
+  while (spinlock_isLocked()) {
+      // __yield();
+  }
+}
+
+static inline void spinlock_lock()
+{
+	unsigned int tmp;
+	spinlock_t lockval, newval;
+
+        __asm__ __volatile__(
+	/* Atomically increment the next ticket. */
+"	prfm	pstl1strm, %3\n"
+"1:	ldaxr	%w0, %3\n"
+"	add	%w1, %w0, %w5\n"
+"	stxr	%w2, %w1, %3\n"
+"	cbnz	%w2, 1b\n"
+	/* Did we get the lock? */
+"	eor	%w1, %w0, %w0, ror #16\n"
+"	cbz	%w1, 3f\n"
+	/*
+	 * No: spin on the owner. Send a local event to avoid missing an
+	 * unlock before the exclusive load.
+	 */
+"	sevl\n"
+"2:	wfe\n"
+"	ldaxrh	%w2, %4\n"
+"	eor	%w1, %w2, %w0, lsr #16\n"
+"	cbnz	%w1, 2b\n"
+	/* We got the lock. Critical section starts here. */
+"3:"
+	: "=&r" (lockval), "=&r" (newval), "=&r" (tmp), "+Q" (fallbackLock)
+	: "Q" (fallbackLock.owner), "I" (1 << TICKET_SHIFT)
+	: "memory");
+}
+
+static inline void spinlock_unlock()
+{
+        __asm__ __volatile__(
+"	stlrh	%w1, %0\n"
+	: "=Q" (fallbackLock.owner)
+	: "r" (fallbackLock.owner + 1)
+	: "memory");
+}
+
+#endif
 
 #elif defined (X86)
 

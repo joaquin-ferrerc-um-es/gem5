@@ -46,6 +46,8 @@ find "${RESULTS_DIR}" -name simulate.sh | sort | while IFS="" read -r SIM_SCRIPT
     elif grep -q "#### Simulation completed (m5 exit)" "${SIM_STDOUT}" ; then
         if grep -q "ARCH_NAME=x86_64" "${SIM_SCRIPT}" ; then
             SIM_TERMINAL="${SIM_DIR}/system.pc.com_1.device"
+        elif grep -q "ARCH_NAME=aarch64" "${SIM_SCRIPT}" ; then
+            SIM_TERMINAL="${SIM_DIR}/system.terminal"
         else
             echo "Cannot determine ARCH_NAME"
             exit

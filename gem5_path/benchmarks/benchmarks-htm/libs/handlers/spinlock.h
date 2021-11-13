@@ -85,9 +85,16 @@ static inline void spinlock_init()
     fallbackLock.owner = 0;
     fallbackLock.next = 0;
 }
+
 static inline long spinlock_isLocked()
 {
-    return fallbackLock.owner != fallbackLock.next;
+    spinlock_t lockval;
+    __asm__ __volatile__(
+"        ldr    %[result], %[input]\n"
+: [result] "=r" (lockval)
+: [input] "Q" (fallbackLock)
+: );
+    return lockval.owner != lockval.next;
 }
 
 static inline void spinlock_whileIsLocked()

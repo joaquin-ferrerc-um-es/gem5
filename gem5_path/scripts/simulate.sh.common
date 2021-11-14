@@ -7,7 +7,6 @@ then
     echo "HTM config options are disabled";
 else
     ### Lockstep mode configuration
-    LOCKSTEP_MODE=0
     LOCKSTEP_USE_XTERM=0
     # Set common/varying HTM config options here
     LOCKSTEP_COMMON_HTM_OPTIONS_STRING="${HTM_OPTIONS_STRING}"
@@ -323,6 +322,7 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
                 --outdir=${RECORD_OUT_DIR} \
                 --redirect-stdout --redirect-stderr \
                 ${GEM5_ROOT}/configs/example/fs.py \
+                --restore-with-cpu=${LOCKSTEP_RECORD_CPU_TYPE} \
                 --cpu-type=${LOCKSTEP_RECORD_CPU_TYPE} \
                 --lockstep-fifopath=${LOCKSTEP_FIFOPATH}"
         LOCKSTEP_RECORD_GEM5_COMMAND="${RECORD_GEM5_COMMAND} \
@@ -342,6 +342,7 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
                 --outdir=${REPLAY_OUT_DIR} \
                 --redirect-stdout --redirect-stderr \
                 ${GEM5_ROOT}/configs/example/fs.py \
+                --restore-with-cpu=${LOCKSTEP_REPLAY_CPU_TYPE} \
                 --cpu-type=${LOCKSTEP_REPLAY_CPU_TYPE} \
                 --lockstep-fifopath=${LOCKSTEP_FIFOPATH}"
         LOCKSTEP_REPLAY_GEM5_COMMAND="${REPLAY_GEM5_COMMAND} \

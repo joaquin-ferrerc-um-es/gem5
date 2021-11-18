@@ -292,7 +292,7 @@ TransactionConflictManager::shouldNackLoad(Addr addr,
           shouldNack = false;
           DPRINTF(RubyHTM,"Cannot nack non-transactional conflicting"
                   "access to address %#x from remote reader %d\n",
-                  machineIDToNodeID(remote_id));
+                  addr, machineIDToNodeID(remote_id));
       }
       // Finally, if req not nacked, resolve by aborting local tx
       if (!shouldNack) {

@@ -159,6 +159,11 @@ class LSQUnit
         bool _canWB = false;
         /** Whether or not the store is committed. */
         bool _committed = false;
+        /** Whether or not this store should skip writeback (sanity
+         * check).  _comitted already indicates whether the store has
+         * been sent to cache. SQ entries with this flag set are not
+         * considered part of the SB when iterating from storeWBIt */
+        bool _skipWritebackReplay = false;
         /** Whether or not the store is completed. */
         bool _completed = false;
         /** Does this request write all zeros and thus doesn't
@@ -182,6 +187,8 @@ class LSQUnit
         {
             LSQEntry::clear();
             _canWB = _completed = _committed = _isAllZeros = false;
+            _skipWritebackReplay = false;
+
         }
 
         /** Member accessors. */
@@ -192,6 +199,9 @@ class LSQUnit
         const bool& completed() const { return _completed; }
         bool& committed() { return _committed; }
         const bool& committed() const { return _committed; }
+        bool& skipWritebackReplay() { return _skipWritebackReplay; }
+        const bool& skipWritebackReplay() const {
+            return _skipWritebackReplay; }
         bool& isAllZeros() { return _isAllZeros; }
         const bool& isAllZeros() const { return _isAllZeros; }
         char* data() { return _data; }

@@ -15,9 +15,13 @@ system_list = []
 #####################################################################
 
 # Baseline
-#system_list.append(["MESI_Three_Level", htm.config_baseline, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM", htm.config_empty, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.config_baseline, caches.cache_baseline])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_base, caches.cache_baseline])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_precise, caches.cache_baseline])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_reqstalls, caches.cache_baseline])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_rset_l0_evict, caches.cache_baseline])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_replace_nontx, caches.cache_baseline])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg2_precise, caches.cache_baseline])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg2_reqstalls, caches.cache_baseline])
 
 processor_list = []
 
@@ -123,12 +127,12 @@ network_model = 'simple' # 'garnet2.0'
 memory_type='DDR3_1600_8x8' # 'DDR3_200cycles'
 memory_size='3GB'
 run_gdb = 0
-exit_at_roi_end = 0
+exit_at_roi_end = 1
 copy_gem5_binary_tmp_dir = 0 # Copy gem5 binary to tmp dir for simulation
 run_pdb = 0
 debug_flags = "" # "Exec,O3CPUAll,O3HTM,RubyHTM,ProtocolTrace"
 debug_time=0
-seq_no=3
+seq_no=8
 num_random_seeds=4 # 10 # Number of random seeds to simulate (when '-s' option passed to gen-scripts.py)
 
 preload="" #"/benchmarks/benchmarks-htm/Splash-3/libhooks_chkpoint.so"

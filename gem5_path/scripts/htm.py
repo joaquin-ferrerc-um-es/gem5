@@ -55,26 +55,54 @@ config_empty = collections.OrderedDict()
 
 # Baseline: All options disabled by except default HTM policies, set
 # to eager CD and lazy VM (no logging)
-config_baseline = collections.OrderedDict()
-config_baseline[htm_disable_speculation]=False
-config_baseline[htm_binary_suffix]='.htm.fallbacklock'
-config_baseline[htm_lazy_vm]=True
-config_baseline[htm_eager_cd]=True
-config_baseline[htm_conflict_resolution]='requester_wins'
-config_baseline[htm_lazy_arbitration]=None
-config_baseline[htm_lazy_validated_conf_res]=None
-config_baseline[htm_allow_read_set_l0_evictions]=True
-config_baseline[htm_allow_read_set_l1_evictions]=False
-config_baseline[htm_precise_read_set_tracking]=True
-config_baseline[htm_nack_l1_local_evictions]=True
-config_baseline[htm_replace_nontrans_preferred]=True
-config_baseline[htm_allow_load_delaying]=False
-config_baseline[htm_reload_if_stale]=False
-config_baseline[htm_l0_downgrade_on_l1_gets]=True
-config_baseline[htm_value_checker]=False
-config_baseline[htm_visualizer]=True
-config_baseline[htm_max_retries]=6
-config_baseline[htm_heap_prefault]=True
+cfg1_base = collections.OrderedDict()
+cfg1_base[htm_disable_speculation]=False
+cfg1_base[htm_binary_suffix]='.htm.fallbacklock'
+cfg1_base[htm_lazy_vm]=True
+cfg1_base[htm_eager_cd]=True
+cfg1_base[htm_conflict_resolution]='requester_wins'
+cfg1_base[htm_lazy_arbitration]=None
+cfg1_base[htm_lazy_validated_conf_res]=None
+cfg1_base[htm_allow_read_set_l0_evictions]=False
+cfg1_base[htm_allow_read_set_l1_evictions]=False
+cfg1_base[htm_precise_read_set_tracking]=False
+cfg1_base[htm_nack_l1_local_evictions]=False
+cfg1_base[htm_replace_nontrans_preferred]=False
+cfg1_base[htm_allow_load_delaying]=False
+cfg1_base[htm_reload_if_stale]=False
+cfg1_base[htm_l0_downgrade_on_l1_gets]=False
+cfg1_base[htm_value_checker]=False
+cfg1_base[htm_visualizer]=True
+cfg1_base[htm_max_retries]=6
+cfg1_base[htm_heap_prefault]=False
+
+# Vary one parameter at a time w.r.t. baseline, to determine its impact
+cfg1_precise = collections.OrderedDict(cfg1_base)
+cfg1_precise[htm_precise_read_set_tracking]=True
+
+cfg1_reqstalls = collections.OrderedDict(cfg1_base)
+cfg1_reqstalls[htm_conflict_resolution]='requester_stalls_cda_hybrid'
+
+cfg1_rset_l0_evict = collections.OrderedDict(cfg1_base)
+cfg1_rset_l0_evict[htm_allow_read_set_l1_evictions]=True
+
+cfg1_replace_nontx = collections.OrderedDict(cfg1_base)
+cfg1_replace_nontx[htm_replace_nontrans_preferred]=True
+
+# Now choose a different baseline in which we change based on the
+# results from the first round of parameter exploration
+
+# Config baseline 2: baseline 1 + htm_replace_nontrans_preferred
+cfg2_base = collections.OrderedDict(cfg1_base)
+cfg2_base[htm_replace_nontrans_preferred]=True
+
+cfg2_precise = collections.OrderedDict(cfg2_base)
+cfg2_precise[htm_precise_read_set_tracking]=True
+
+cfg2_reqstalls = collections.OrderedDict(cfg2_base)
+cfg2_reqstalls[htm_conflict_resolution]='requester_stalls_cda_hybrid'
+
+# No need to try every combination, but rather "guide" the search...
 
 
 ## Abbreviations used for HTM options string values, to generate more

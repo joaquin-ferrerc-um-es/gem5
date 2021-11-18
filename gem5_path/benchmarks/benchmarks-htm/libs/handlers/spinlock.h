@@ -113,7 +113,7 @@ static inline void spinlock_lock()
 	/* Atomically increment the next ticket. */
 "	prfm	pstl1strm, %3\n"
 "1:	ldaxr	%w0, %3\n"
-"	add	%w1, %w0, %w5\n"
+"	add     %w1, %w0, #0x10, lsl #12\n"
 "	stxr	%w2, %w1, %3\n"
 "	cbnz	%w2, 1b\n"
 	/* Did we get the lock? */
@@ -125,13 +125,13 @@ static inline void spinlock_lock()
 	 */
 "	sevl\n"
 "2:	wfe\n"
-"	ldaxrh	%w2, %4\n"
+"	ldaxrh	%w2, %3\n"
 "	eor	%w1, %w2, %w0, lsr #16\n"
 "	cbnz	%w1, 2b\n"
 	/* We got the lock. Critical section starts here. */
 "3:"
 	: "=&r" (lockval), "=&r" (newval), "=&r" (tmp), "+Q" (fallbackLock)
-	: "Q" (fallbackLock.owner), "I" (1 << TICKET_SHIFT)
+	:
 	: "memory");
 }
 

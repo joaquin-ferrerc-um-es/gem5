@@ -185,6 +185,12 @@ for random_seed in seed_list:
               assert((type(opt_value) is str) or
                      (type(opt_value) is int))
               htm_options_str += ' --htm-'+option.gem5opt+'='+opt_value
+              if type(opt_value) is str and \
+                 opt_value in htm.htm_option_str_abbreviations:
+                opt_value_abbrev=htm.htm_option_str_abbreviations[opt_value]
+              else:
+                opt_value_abbrev=opt_value
+              htm_config_description += option.abbrev+opt_value_abbrev+"_"
         elif option.descr: # Append abbrev name to description, if any
           if opt_value in htm.htm_option_str_abbreviations:
             option_descr = htm.htm_option_str_abbreviations[opt_value]

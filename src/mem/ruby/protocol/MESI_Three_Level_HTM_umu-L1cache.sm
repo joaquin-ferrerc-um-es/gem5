@@ -1411,7 +1411,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   }
 
   // Nack remote
-  transition(E_IL0, L0_Nack_Else, E_IL0_N) {
+  transition({E_IL0, E_DL0}, L0_Nack_Else, E_IL0_N) {
     rnt_recordNackInTBE;
     k_popL0RequestQueue;
     kd_wakeUpDependents;

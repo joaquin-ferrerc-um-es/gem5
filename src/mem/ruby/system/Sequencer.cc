@@ -188,9 +188,18 @@ Sequencer::llscStoreConditional(const Addr claddr)
                   claddr, m_version);
 
     if (line->isLocked(m_version)) {
+        DPRINTF(LLSC, "LLSC Monitor - "
+                "store conditional succeeded - "
+                "addr=0x%lx - cpu=%u\n",
+                claddr, m_version);
+
         line->clearLocked();
         return true;
     } else {
+        DPRINTF(LLSC, "LLSC Monitor - "
+                "store conditional failed - "
+                "addr=0x%lx - cpu=%u\n",
+                claddr, m_version);
         line->clearLocked();
         return false;
     }
@@ -419,6 +428,10 @@ Sequencer::recordMissLatency(SequencerRequest* srequest, bool llscSuccess,
 void
 Sequencer::writeCallbackScFail(Addr address, DataBlock& data)
 {
+    DPRINTF(LLSC, "LLSC Monitor - "
+            "store conditional failed in protocol - "
+            "addr=0x%lx - cpu=%u\n",
+            address, m_version);
     llscClearMonitor(address);
     writeCallback(address, data);
 }

@@ -1761,6 +1761,9 @@ LSQUnit::read(LSQRequest *req, int load_idx)
                           getHtmTransactionUid());
                     data_pkt->setHtmTransactional(
                         load_inst->getHtmTransactionUid());
+                    // Set st2ld, required for precise read set tracking
+                    load_inst->setHtmStoreToLoadForwarding(true);
+
                     DPRINTF(HtmCpu, "HTM LD (ST2LDF) "
                       "pc=0x%lx - vaddr=0x%lx - "
                       "paddr=0x%lx - htmUid=%u\n",

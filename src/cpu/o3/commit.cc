@@ -1087,9 +1087,7 @@ Commit::commitInsts()
                 if (head_inst->inHtmTransactionalState() &&
                     cpu->system->getHTM() != nullptr &&
                     head_inst->isLoad() &&
-#if 0 // TODO
-                    !head_inst->isStoreToLoadForwarding() &&
-#endif
+                    !head_inst->isHtmStoreToLoadForwarding() &&
                     !head_inst->isHtmCmd() &&
                     !head_inst->isDataPrefetch()) {
                     // Isolate transactional loads upon retirement for

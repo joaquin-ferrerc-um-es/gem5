@@ -165,6 +165,7 @@ class DynInst : public ExecContext, public RefCounted
         ReqMade,
         MemOpDone,
         HtmFromTransaction,
+        HtmStoreToLoadFwd,
         MaxFlags
     };
 
@@ -686,6 +687,15 @@ class DynInst : public ExecContext, public RefCounted
             htmUid = -1;
             htmDepth = 0;
         }
+    }
+    /** Returns whether the load instruction obtained data from a
+        previous store */
+    bool isHtmStoreToLoadForwarding() { return instFlags[HtmStoreToLoadFwd]; }
+
+    void
+    setHtmStoreToLoadForwarding(bool val)
+    {
+        instFlags[HtmStoreToLoadFwd] = val;
     }
 
     /** Temporarily sets this instruction as a serialize before instruction. */

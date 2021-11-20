@@ -84,7 +84,7 @@ cfg1_reqstalls = collections.OrderedDict(cfg1_base)
 cfg1_reqstalls[htm_conflict_resolution]='requester_stalls_cda_hybrid'
 
 cfg1_rset_l0_evict = collections.OrderedDict(cfg1_base)
-cfg1_rset_l0_evict[htm_allow_read_set_l1_evictions]=True
+cfg1_rset_l0_evict[htm_allow_read_set_l0_evictions]=True
 
 cfg1_replace_nontx = collections.OrderedDict(cfg1_base)
 cfg1_replace_nontx[htm_replace_nontrans_preferred]=True

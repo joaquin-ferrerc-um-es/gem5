@@ -16,13 +16,21 @@ endif
 ifeq ($(ARCH),aarch64)
 
 CFLAGS   += -DAARCH64
+ifdef AARCH64_CROSS_GCC_PREFIX
+GCC_PREFIX := ${AARCH64_CROSS_GCC_PREFIX}
+else
 GCC_PREFIX := aarch64-linux-gnu-
-CC10 := /opt/cross/bin/aarch64-linux-gcc # gcc-10 entirely built from source
+endif
+ifdef BENCHMARKS_AARCH64_TME_CROSS_HACK_GCC
+CC10 := ${BENCHMARKS_AARCH64_TME_CROSS_HACK_GCC}
+else
+CC10 := /opt/cross/bin/aarch64-linux-gcc # Ruben's gcc-10.2.0
+endif
 
 else ifeq ($(ARCH),x86)
 
 CFLAGS   += -DX86
-GCC_PREFIX :=
+GCC_PREFIX := ${X86_CROSS_GCC_PREFIX}
 
 endif
 
@@ -76,5 +84,20 @@ clean:
 	rm -f *.o *.a
 #	cd $(GEM5_ROOT)/util/m5 && scons --clean
 
+
+ifeq ($(ARCH),riscv)
+M5_ARCH=riscv
+else
+ifeq ($(ARCH),aarch64)
+M5_ARCH=arm64
+else
+ifeq ($(ARCH),x86) # TODO: why not x86_64 here?
+M5_ARCH=x86
+else
+$(error M5_ARCH unknown)
+endif
+endif
+endif
+
 $(M5):
-	cd $(GEM5_ROOT)/util/m5 && scons build/$(ARCH)/out/m5
+	cd $(GEM5_ROOT)/util/m5 && scons $(M5_ARCH).CROSS_COMPILE=${GCC_PREFIX} build/$(M5_ARCH)/out/m5

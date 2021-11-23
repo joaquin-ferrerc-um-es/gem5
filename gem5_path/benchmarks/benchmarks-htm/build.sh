@@ -1,13 +1,14 @@
 #!/bin/bash
 
-#set -xv
+set -xv
 SCRIPT_DIR="$(readlink -fm "$(dirname $0)")"
 SCRIPT_COMMAND="$(basename "$0")"
 BENCHMARKS_ROOT="${SCRIPT_DIR}"
 STAMP_SYMLINK_NAME="stamp"
 GEM5_SYMLINK_NAME="gem5"
 STAMP_DIR="${BENCHMARKS_ROOT}/${STAMP_SYMLINK_NAME}"
-ARCH="x86"
+export ARCH="${ARCH:-x86}"
+
 
 # Create links gem5->stamp and stamp->gem5
 cd "${BENCHMARKS_ROOT}"

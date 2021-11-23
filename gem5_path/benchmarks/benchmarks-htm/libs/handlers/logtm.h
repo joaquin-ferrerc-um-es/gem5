@@ -8,7 +8,7 @@
 #define LOG_CACHE_BLOCK_SIZE 64
 #define LOG_ENTRIES_PER_PAGE (56) //56*(64 + 8) = 4032
 
-#define MAX_LOG_SIZE_PAGES (1 << 12) // ~16MB max log size
+#define MAX_LOG_SIZE_PAGES (1 << 8) // ~16MB max log size
 #define MAX_LOG_SIZE_BYTES (LOG_PAGE_SIZE_BYTES * MAX_LOG_SIZE_PAGES)
 
 #define PAGE_MASK  (~(LOG_PAGE_SIZE_BYTES - 1))

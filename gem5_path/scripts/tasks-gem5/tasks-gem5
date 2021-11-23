@@ -1,0 +1,118 @@
+#!/bin/bash
+
+SCRIPT_DIR="$(dirname "$(readlink -fm "$0")")"
+. "${SCRIPT_DIR}/tasks-gem5-common.sh"
+. "${SCRIPT_DIR}/tasks-gem5.defaults.config"
+
+# Tasks are registered with declare_task in *.task.sh files
+for t in "$SCRIPT_DIR"/*.task.sh ; do . "${t}" ; done
+
+help() {
+    echo "Use: $0 TASK [OPTIONS]..."
+    echo ""
+    echo "Where TASK can be any of the following:"
+    for t in ${TASKS[@]} ; do
+        echo "    $t: ${TASK_HELP[$t]}"
+    done
+
+    echo "
+    Configuration will be read from '${SCRIPT_DIR}/tasks-gem5.defaults.config' and '${SCRIPT_DIR}/tasks-gem5.config'.
+
+    After configuration, the usual order of tasks is as follows: get-base-resources, build, build-benchmarks, update-benchmarks-image, create-boot-checkpoints, generate-simulation-scipts
+    
+    Prerequisites:
+     - Native GCC (x86_64) for Gem5 and x86_64 benchmarks (tested with GCC 9.2.0).
+     - GCC cross compiler for ARM (tested with GCC 9.2.0, currently not expected to work with later versions).
+     - GCC cross compiler for ARM with TME support (tested with GCC 10.2.0).
+     - Link/clone of the STAMP repository in '${GEM5_ROOT}/gem5_path/benchmarks/benchmarks-htm/stamp'.
+"
+}
+
+if [ -e "${SCRIPT_DIR}/tasks-gem5.config" ] ; then 
+    . "${SCRIPT_DIR}/tasks-gem5.config"
+else
+    help
+    error_and_exit "Configuration file not found at '${SCRIPT_DIR}/tasks-gem5.config'."$'\n'"You may want to create it using '${SCRIPT_DIR}/tasks-gem5.template.config as a starting point."
+fi
+
+if [[ $# -eq 0 ]] ; then
+    help
+    exit 0
+fi
+
+TASK="$1"
+shift
+
+if is_known_task "$TASK" ; then
+    task_"$TASK" "$@"
+else
+    echo "$(color red "Unkown task '$TASK'.")" 1>&2
+    help
+    exit 1
+fi
+
+exit 0
+################################
+
+
+
+#Verifying the ccurrent architecture simulation
+test -d "${GEM5_PATH}/${ARCH_NAME}" || {
+    if [ ${ARCH_NAME} != "riscv" ] ; then
+        echo "«${GEM5_PATH}/${ARCH_NAME}» does not exist"
+        if [[ $# == 0 || "$1" != "init-caps" ]] ; then
+            echo "NOTE: Use the 'init-caps' actions to set up full system files + benchmarks"
+            echo "Targets with full system simulation support: {aarch64, x86_64} "
+        fi
+    fi
+}
+
+#Flag that permit debugging the gem5 simulation
+ENABLE_DEBUG=0 # Enable debugging facilities (gdb, tracing, etc.)
+
+#Absolute path were the utility that create gem5 formated images for benchmarks and OSs are made
+UTIL_GEM5_IMG="${GEM5_ROOT}"/util/gem5img.py
+
+#Absolute path where the benchmark image could be found
+DISK_IMAGE_BENCHMARKS="${GEM5_PATH}/${ARCH_NAME}/disks/${ARCH_NAME}-benchmarks.img"
+#Size of the benchmarks image to be created
+DISK_IMAGE_BENCHMARKS_SIZE_MBYTES=4096
+#Aboslute path where the benchmarks image could be mounted
+
+# Directory inside benchmarks disk image 
+DISK_IMAGE_BENCHMARKS_TEST_PROGS_PREFIX_DIR="test-progs"
+# Directory where simulation infrastructure scripts are located
+# Default directory for test outputs
+DEFAULT_OUTS_DIR="${GEM5_ROOT}/out"
+SCRIPTS_PATH="${GEM5_PATH}/scripts"
+
+# Terminal output filename varies between archs
+if [ ${ARCH_NAME} == "aarch64" ] ; then
+    FILESYSTEM_PREFIX="sd"
+    TERMINAL_SUFFIX="terminal"
+else
+    FILESYSTEM_PREFIX="hd"
+    TERMINAL_SUFFIX="com_1.device"
+fi
+ROOT_DEVICE="/dev/${FILESYSTEM_PREFIX}a1"
+BENCHMARKS_DEVICE="/dev/${FILESYSTEM_PREFIX}b1"
+#Absolute path where the gem5 executable could be found
+GEM5_EXEC_PATH=${GEM5_ROOT}/build/${ARCH}_${PROTOCOL}/gem5.${BUILD_TYPE}
+
+#Check if KVM for x86_64 simulation could be made in the current host
+if [ ${ARCH_NAME} == "x86_64" ] ; then
+    # Check if we can use KVM
+    if [ $(cat /proc/sys/kernel/perf_event_paranoid) -gt 1 ] ; then
+        echo "
+ERROR: Use of kvmcpu requires access to perf events, but you may not have permission to collect stats.
+Consider tweaking /proc/sys/kernel/perf_event_paranoid:
+ -1 - Not paranoid at all
+  0 - Disallow raw tracepoint access for unpriv
+  1 - Disallow cpu events for unpriv
+  2 - Disallow kernel profiling for unpriv
+Running the following command should do it:
+sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'
+"
+    fi
+fi
+

@@ -57,7 +57,7 @@ get_base_resources() {
         rm -f  "$GEM5_ROOT/$disk_image"
         ln -sf /home/users/caps/gem5_full_system/aarch64/disks/ubuntu-18.04-arm64-docker.img "$GEM5_ROOT/$disk_image"
         rm -f  "$GEM5_ROOT/$bootloader"
-        ln -sf /home/users/caps/gem5_full_system/aarch64/binaries/boot.arm64 "$GEM5_ROOT/$bootloader"
+        ln -sf /home/users/caps/gem5_full_system/aarch64/binaries/boot_v2.arm64 "$GEM5_ROOT/$bootloader"
     else
         ...
     fi

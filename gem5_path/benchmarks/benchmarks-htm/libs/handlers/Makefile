@@ -51,7 +51,7 @@ CFLAGS    += -DANNOTATE_FALLBACKLOCK_ADDR
 # Annotate code regions for more precise HTM visualizer
 CFLAGS    += -DANNOTATE_CODE_REGIONS
 
-OBJS= abort_handlers.o htm.o thread_context.o util.o env_globals.o m5iface.o
+OBJS= abort_handlers.o htm.o thread_context.o util.o env_globals.o m5iface.o logtm.o
 
 M5_INCLUDE := -I$(GEM5_ROOT) -I$(GEM5_ROOT)/include
 

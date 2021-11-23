@@ -8,6 +8,7 @@ typedef struct {
     // (pointers, longs) sit at 8-byte aligned offsets. So we moved it
     // to offset 0,8
     // Non-speculative executions of critical sections
+    void* logtm_transactionLog; // LogTM transaction log
     long nonSpecExecutions;
     long workUnits;
     int numThreads;

@@ -5,6 +5,7 @@
 void m5_init() {}
 void simBeginRegionOfInterest() {}
 void simEndRegionOfInterest() {}
+void simSetLogBase(void *ptr) {}
 void simWorkBegin() {}
 void simWorkEnd() {}
 void simBarrierBegin() {}
@@ -129,6 +130,10 @@ void simWorkBegin() {
 }
 void simWorkEnd() {
     m5_work_end(0,0);
+}
+
+void simSetLogBase(void *ptr) {
+    m5_sum(M5_SUM_HACK_ARGS, M5_SUM_HACK_TYPE_LOGTM, (unsigned long int )ptr);
 }
 
 #if defined(ANNOTATE_CODE_REGIONS)

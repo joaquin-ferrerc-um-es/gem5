@@ -69,6 +69,7 @@ void beginTransaction_fallbackLock(long tag,
     int tid = ctx->info.threadId;
 
     handleHeapPrefault(tid);
+    simSetLogBase(ctx->info.logtm_transactionLog);
     do {
         ++nretries;
         ret = htm_start(flags);

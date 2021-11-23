@@ -5,6 +5,7 @@
 
 #include "defs.h"
 #include "thread_context.h"
+#include "logtm.h"
 
 extern int inSimulator();
 
@@ -25,6 +26,7 @@ _tm_thread_context_t * initThreadContexts(int numThreads, int inSimulator)
         thread_contexts[i].info.nonSpecExecutions = 0;
         thread_contexts[i].info.workUnits = 0;
     }
+    logtm_init_transaction_state(thread_contexts);
     return thread_contexts;
 }
 

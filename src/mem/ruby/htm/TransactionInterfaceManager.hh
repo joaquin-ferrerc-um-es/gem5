@@ -128,6 +128,13 @@ public:
   bool isAccessToLog(Addr addr);
   void setupLogTranslation(Addr vaddr, Addr paddr);
   Addr addLogEntry(Addr addr);
+  int getLogNumEntries(int thread);
+  bool isUnrollingLog(int thread);
+  void endLogUnroll(int thread);
+
+  void beginEscapeAction(int thread);
+  void endEscapeAction(int thread);
+  bool inEscapeAction(int thread);
 
   void setStartCycle(Cycles startCycle);
   Cycles getStartCycle();
@@ -205,6 +212,7 @@ private:
   int*      m_xid;
   int*      m_xidValid;
   bool*     m_abortFlag;
+  bool*     m_unrollingLogFlag;
   bool*     m_atCommit;
   HTMStats::AbortCause *m_abortCause;
   bool*     m_abortSourceNonTransactional;

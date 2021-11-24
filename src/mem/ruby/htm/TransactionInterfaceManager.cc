@@ -73,6 +73,7 @@ TransactionInterfaceManager::TransactionInterfaceManager(const Params &p)
     m_transactionLevel   = new int[smt_threads];
     m_escapeLevel        = new int[smt_threads];
     m_abortFlag          = new bool[smt_threads];
+    m_unrollingLogFlag    = new bool[smt_threads];
     m_atCommit           = new bool[smt_threads];
     m_abortCause         = new HTMStats::AbortCause[smt_threads];
     m_abortSourceNonTransactional = new bool[smt_threads];
@@ -86,6 +87,7 @@ TransactionInterfaceManager::TransactionInterfaceManager(const Params &p)
         m_transactionLevel[i]   = 0;
         m_escapeLevel[i]        = 0;
         m_abortFlag[i]          = false;
+        m_unrollingLogFlag[i]   = false;
         m_atCommit[i]           = false;
         m_abortCause[i]         = HTMStats::AbortCause::Undefined;
         m_abortSourceNonTransactional[i] = false;
@@ -173,6 +175,7 @@ TransactionInterfaceManager::beginTransaction(int thread, int xid,
     m_transactionLevel[thread]++;
     if (m_transactionLevel[thread] == 1){
         m_xid[thread]  = xid;
+        assert(!m_unrollingLogFlag[thread]);
 
         m_xactIsolationManager->beginTransaction(thread);
         m_xactConflictManager->beginTransaction(thread);
@@ -468,8 +471,9 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
         }
     }
     else {
-        // LogTM: log pointers reset after log unroll completed
-        m_xactEagerVersionManager->restartTransaction(thread);
+        // LogTM: we need to pass log size to the abort handler (as
+        // part of the abort status): do not reset log state now, wait
+        // until log unroll done (reset via endLogUnroll)
     }
 
     // Restart conflict management (mostly EE-specific: possible cycle, etc.)
@@ -486,7 +490,7 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
         // Keep detecting conflicts on Wset despite xact_level being
         // 0. We could use escape actions, but then we would need to
         // leave xact level > 0 until we get the "endLogUnroll" signal
-        //m_unrollingLogFlag[thread] = true;
+        m_unrollingLogFlag[thread] = true;
     }
 
     if (!XACT_EAGER_CD && m_atCommit[thread]) {
@@ -506,7 +510,15 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
         assert(!m_atCommit[thread]);
     }
 
-    m_transactionLevel[thread] = 0;
+    if (!XACT_LAZY_VM) { // LogTM implicitly enters log unroll region
+        // Also, LogTM leaves xact level to 1 until log unrolled in
+        // order to detect conflicts on Wset
+        assert(m_transactionLevel[thread] == 1);
+        // Escaped accesses (not marked as transactional)
+        m_escapeLevel[thread] = 1;
+    } else {
+        m_transactionLevel[thread] = 0;
+    }
 
     if (m_abortFlag[thread]) {
         // This abort was triggered from ruby (conflict/overflow)
@@ -1167,6 +1179,66 @@ Addr
 TransactionInterfaceManager::addLogEntry(Addr addr)
 {
     return m_xactEagerVersionManager->addLogEntry(addr);
+}
+
+int
+TransactionInterfaceManager::getLogNumEntries(int thread)
+{
+    return m_xactEagerVersionManager->getLogNumEntries();
+}
+
+bool
+TransactionInterfaceManager::isUnrollingLog(int thread){
+    if (!XACT_LAZY_VM) // LogTM
+        return m_unrollingLogFlag[thread];
+    else
+        return false;
+}
+
+void
+TransactionInterfaceManager::endLogUnroll(int thread){
+    assert(m_transactionLevel[thread] == 1);
+    assert(m_escapeLevel[thread] == 1);
+    assert(!XACT_LAZY_VM); // LogTM
+    assert(m_unrollingLogFlag[thread]);
+
+    // Reset log num entries
+    m_xactEagerVersionManager->restartTransaction(thread);
+
+    // Release isolation over write set
+    for (int i = m_transactionLevel[thread]; i > 0; i--)
+        getXactIsolationManager()->releaseIsolation(thread, i);
+
+    m_escapeLevel[thread] = 0;
+    m_transactionLevel[thread] = 0;
+    m_unrollingLogFlag[thread] = false;
+#if 0
+    // Value sanity checks done after log unrolled
+    if (RubySystem::enableValueChecker()) {
+        m_ruby_system->getXactValueChecker()->
+            restartTransaction(getProcID());
+    }
+#endif
+}
+
+void
+TransactionInterfaceManager::beginEscapeAction(int thread)
+{
+    assert(m_escapeLevel[thread] == 0);
+    m_escapeLevel[thread]++;
+}
+
+void
+TransactionInterfaceManager::endEscapeAction(int thread)
+{
+    assert(m_escapeLevel[thread] == 1);
+    m_escapeLevel[thread]--;
+}
+
+bool
+TransactionInterfaceManager::inEscapeAction(int thread)
+{
+    return m_escapeLevel[thread] > 0;
 }
 
 void

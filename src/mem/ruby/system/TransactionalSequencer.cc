@@ -73,9 +73,6 @@ TransactionalSequencer::abortTransaction(PacketPtr pkt)
 {
     int thread = 0;
     m_stalled = false;
-    if (!m_htm->params().lazy_vm) { // LogTM
-        panic("LogTM abort not implemented/tested!\n");
-    }
     m_xact_mgr->abortTransaction(thread, pkt);
     m_lastAbortHtmUid = pkt->getHtmTransactionUid();
 }
@@ -419,6 +416,13 @@ TransactionalSequencer::makeRequest(PacketPtr pkt)
                     if (!m_xact_mgr->isLogReady()) {
                         m_xact_mgr->setupLogTranslation(pkt->req->getVaddr(),
                                                         pkt->req->getPaddr());
+                    } else if (m_xact_mgr->isUnrollingLog(thread)) {
+                        assert(!pkt->isHtmTransactional());
+                        assert(!pkt->isWrite());
+                        DPRINTF(RubyHTMlog, "Log access during unroll "
+                                "vaddr %#x paddr %#x\n",
+                                pkt->req->getVaddr(),
+                                pkt->req->getPaddr());
                     } else {
                         panic("Unexpected access to undo log!\n");
                     }

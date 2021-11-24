@@ -238,7 +238,7 @@ m5sum(ThreadContext *tc, uint64_t a, uint64_t b, uint64_t c,
               }
               break;
           }
-      case M5_SUM_HACK_TYPE_LOGTM:
+      case M5_SUM_HACK_TYPE_LOGTM_SETUP_LOG:
           {
               HTM *htm = tc->getSystemPtr()->getHTM();
               if (htm != nullptr && !htm->params().lazy_vm) {
@@ -251,6 +251,14 @@ m5sum(ThreadContext *tc, uint64_t a, uint64_t b, uint64_t c,
                       // virtual-to-physical translations
                       return 0;
                   }
+              }
+              break;
+          }
+      case M5_SUM_HACK_TYPE_LOGTM_DONE_UNROLLING:
+          {
+              HTM *htm = tc->getSystemPtr()->getHTM();
+              if (htm != nullptr && !htm->params().lazy_vm) {
+                  htm->endLogUnroll(tc->getCpuPtr()->cpuId());
               }
               break;
           }

@@ -58,6 +58,7 @@ DebugFlag('RubyResourceStalls')
 DebugFlag('RubyHTM')
 DebugFlag('RubyHTMverbose')
 DebugFlag('RubyHTMvalues')
+DebugFlag('RubyHTMlog')
 
 CompoundFlag('Ruby', [ 'RubyQueue', 'RubyNetwork', 'RubyTester',
     'RubyGenerated', 'RubySlicc', 'RubySystem', 'RubyCache',

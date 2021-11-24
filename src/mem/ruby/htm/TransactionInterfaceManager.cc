@@ -11,6 +11,7 @@
 
 #include "debug/RubyHTM.hh"
 #include "debug/RubyHTMverbose.hh"
+#include "mem/ruby/htm/EagerTransactionVersionManager.hh"
 #include "mem/ruby/htm/LazyTransactionCommitArbiter.hh"
 #include "mem/ruby/htm/LazyTransactionVersionManager.hh"
 #include "mem/ruby/htm/TransactionConflictManager.hh"
@@ -51,7 +52,8 @@ TransactionInterfaceManager::TransactionInterfaceManager(const Params &p)
 
     m_xactIsolationManager = new TransactionIsolationManager(this, m_version);
     m_xactConflictManager  = new TransactionConflictManager(this, m_version);
-    if (!XACT_EAGER_CD) {
+    if (XACT_LAZY_VM) {
+        assert(!XACT_EAGER_CD);
         m_xactLazyVersionManager   =
             new LazyTransactionVersionManager(this,
                                               m_version,
@@ -60,6 +62,12 @@ TransactionInterfaceManager::TransactionInterfaceManager(const Params &p)
             new LazyTransactionCommitArbiter(this, m_version,
                                              m_htm->params().
                                              lazy_arbitration);
+    } else { // Eager VM (LogTM)
+        assert(XACT_EAGER_CD);
+        m_xactEagerVersionManager   =
+            new EagerTransactionVersionManager(this,
+                                              m_version,
+                                              m_dataCache_ptr);
     }
 
     m_transactionLevel   = new int[smt_threads];
@@ -136,6 +144,11 @@ TransactionInterfaceManager::getXactLazyVersionManager(){
   return m_xactLazyVersionManager;
 }
 
+EagerTransactionVersionManager*
+TransactionInterfaceManager::getXactEagerVersionManager(){
+  return m_xactEagerVersionManager;
+}
+
 LazyTransactionCommitArbiter*
 TransactionInterfaceManager::getXactLazyCommitArbiter(){
     return m_xactLazyCommitArbiter;
@@ -173,6 +186,7 @@ TransactionInterfaceManager::beginTransaction(int thread, int xid,
             }
         }
         else { // LogTM
+            m_xactEagerVersionManager->beginTransaction(thread);
         }
 
         XACT_PROFILER->moveTo(getProcID(),
@@ -300,6 +314,8 @@ TransactionInterfaceManager::commitTransaction(int thread, int xid,
                 m_xactLazyCommitArbiter->commitTransaction();
                 m_atCommit[thread] = false;; // Reset
             }
+        } else {
+            m_xactEagerVersionManager->commitTransaction(thread);
         }
         m_xactConflictManager->commitTransaction(thread);
         m_xactIsolationManager->commitTransaction(thread);
@@ -453,6 +469,7 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
     }
     else {
         // LogTM: log pointers reset after log unroll completed
+        m_xactEagerVersionManager->restartTransaction(thread);
     }
 
     // Restart conflict management (mostly EE-specific: possible cycle, etc.)
@@ -1126,6 +1143,32 @@ TransactionInterfaceManager::mergeDataFromWriteBuffer(PacketPtr pkt,
     getXactLazyVersionManager()->
         mergeDataFromWriteBuffer(thread, address, datablock);
 }
+
+bool
+TransactionInterfaceManager::isLogReady()
+{
+    return m_xactEagerVersionManager->isReady();
+}
+
+bool
+TransactionInterfaceManager::isAccessToLog(Addr addr)
+{
+    return m_xactEagerVersionManager->isAccessToLog(addr);
+}
+
+void
+TransactionInterfaceManager::setupLogTranslation(Addr vaddr,
+                                                 Addr paddr)
+{
+    m_xactEagerVersionManager->setupLogTranslation(vaddr, paddr);
+}
+
+Addr
+TransactionInterfaceManager::addLogEntry(Addr addr)
+{
+    return m_xactEagerVersionManager->addLogEntry(addr);
+}
+
 void
 TransactionInterfaceManager::regStats()
 {

@@ -850,7 +850,8 @@ Sequencer::issueRequest(PacketPtr pkt, RubyRequestType secondary_type)
              curTick(), m_version, "Seq", "Begin", "", "",
              printAddress(msg->getPhysicalAddress()),
              RubyRequestType_to_string(secondary_type),
-             pkt->isHtmTransactional() ? "Trans" : "",
+             pkt->isHtmTransactional() ? "Trans" :
+             (pkt->isHtmStoreToLog() ? "Log" : ""),
              pkt->req->isPriv() ? "Priv" : "",
              pkt->req->hasVaddr() ? "Vaddr" : "PhysAddr",
              vaddr);

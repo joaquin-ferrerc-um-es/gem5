@@ -158,6 +158,9 @@ class CacheMemory : public SimObject
     // hardware transactional memory
     void htmAbortTransaction();
     void htmCommitTransaction();
+    // LogTM (eager versioning)
+    void setHtmLogPending (Addr addr, bool val);
+    bool isHtmLogPending (Addr addr) const;
 
   public:
     int getCacheSize() const { return m_cache_size; }

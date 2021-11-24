@@ -552,6 +552,29 @@ Packet::isHtmAccessFailedInCache()
 }
 
 void
+Packet::setHtmStoreToLog(bool val, PacketPtr mainPkt)
+{
+    htmStoreToLog = val;
+    if (htmStoreToLog) {
+        assert(mainPkt != nullptr);
+        htmLoggedStorePkt = mainPkt;
+    }
+}
+
+bool
+Packet::isHtmStoreToLog()
+{
+    return htmStoreToLog;
+}
+
+PacketPtr
+Packet::getHtmLoggedStorePkt() const
+{
+    assert(htmStoreToLog);
+    return htmLoggedStorePkt;
+}
+
+void
 Packet::setAtLSQHead(bool val)
 {
     atLSQHead = val;

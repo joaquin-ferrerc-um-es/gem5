@@ -210,6 +210,9 @@ class HTM : public ClockedObject
     Addr getFallbackLockVAddr() { return m_fallbackLockVirtualAddress; }
     virtual void notifyPseudoInst() {};
     virtual void notifyPseudoInstWork(bool begin, int cpuId, uint64_t workid) {};
+    virtual bool setupLog(int cpuId, Addr addr) {
+        panic("Not implemented");
+    };
 };
 
 } // namespace gem5

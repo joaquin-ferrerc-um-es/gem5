@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2016-2021 Rubén Titos <rtitos@um.es>
+  Copyright (C) 2021 Rubén Titos <rtitos@um.es>
   Universidad de Murcia
 
   GPLv2, see file LICENSE.
@@ -7,6 +7,8 @@
 
 #include "mem/ruby/common/Global.hh"
 #include "mem/ruby/htm/htm.hh"
+#include "mem/ruby/htm/EagerTransactionVersionManager.hh"
+#include "mem/ruby/htm/TransactionInterfaceManager.hh"
 #include "mem/ruby/profiler/Profiler.hh"
 #include "mem/ruby/profiler/XactProfiler.hh"
 
@@ -47,6 +49,31 @@ RubyHTM::notifyPseudoInstWork(bool begin, int cpuId, uint64_t reg) {
             g_system_ptr->getProfiler()->getXactProfiler()->
                 endRegion(cpuId, region);
         }
+    }
+}
+
+bool
+RubyHTM::setupLog(int cpuId, Addr addr)
+{
+    if (!g_system_ptr) return false;
+
+    // No need to setup log if lazy versioning
+    if (params().lazy_vm) return false;
+
+    if (g_system_ptr->
+        getTransactionInterfaceManager(cpuId)->
+        getXactEagerVersionManager()->isReady()) {
+        Addr baseAddr = g_system_ptr->
+            getTransactionInterfaceManager(cpuId)->
+            getXactEagerVersionManager()->getLogBaseVirtualAddress();
+        // Sanity checks
+        assert(baseAddr == addr);
+        return false;
+    } else {
+        g_system_ptr->
+            getTransactionInterfaceManager(cpuId)->
+            getXactEagerVersionManager()->setLogBaseVirtualAddress(addr);
+        return true; // Needs walk to initialize log v2p translation table
     }
 }
 

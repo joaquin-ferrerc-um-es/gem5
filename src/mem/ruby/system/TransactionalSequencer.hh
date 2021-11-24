@@ -19,6 +19,25 @@ namespace ruby
 
 class TransactionInterfaceManager;
 
+// LogTM
+struct LogRequestInfo
+{
+    PacketPtr mainPkt = NULL; // Program store
+    PacketPtr logAddrPkt = NULL;
+    PacketPtr logDataPkt = NULL;
+    RequestStatus logAddrPktStatus = RequestStatus_NULL;
+    RequestStatus logDataPktStatus = RequestStatus_NULL;
+    //WriteCallbackArgs callbackArgs;
+    /** Number of outstanding associated access to complete (LogTM) */
+    int outstanding = 2; // log addr + log data + program store
+    LogRequestInfo(PacketPtr _mainPkt,
+                   PacketPtr _logAddrPkt,
+                   PacketPtr _logDataPkt)
+        : mainPkt(_mainPkt), logAddrPkt(_logAddrPkt),
+          logDataPkt(_logDataPkt)
+          //callbackArgs()
+    {}
+};
 
 class TransactionalSequencer : public Sequencer
 {
@@ -40,6 +59,14 @@ class TransactionalSequencer : public Sequencer
     void failedCallback(Addr address, DataBlock& data,
                         Cycles remote_timestamp,
                         MachineID nacker, bool write);
+    void writeCallback(Addr address,
+                       DataBlock& data,
+                       const bool externalHit = false,
+                       const MachineType mach = MachineType_NUM,
+                       const Cycles initialRequestTime = Cycles(0),
+                       const Cycles forwardRequestTime = Cycles(0),
+                       const Cycles firstResponseTime = Cycles(0),
+                       const bool noCoales = false) override;
 
   private:
     // Private copy constructor and assignment operator
@@ -65,8 +92,12 @@ class TransactionalSequencer : public Sequencer
     void handleTransactionalWrite(SequencerRequest *request,
                                   DataBlock& data, bool externalHit,
                                   const MachineType respondingMach);
-
-    // HTM support
+    LogRequestInfo buildLogPackets(PacketPtr mainPkt);
+    void handleStoresToLog(Addr address, PacketPtr pkt,
+                        DataBlock& data);
+    void handleLoggedStore(Addr address,
+                           SequencerRequest& request,
+                           DataBlock& data);
     HTM * m_htm;
     TransactionInterfaceManager* m_xact_mgr;
     // LL (lazy CD) support
@@ -78,6 +109,10 @@ class TransactionalSequencer : public Sequencer
     bool m_failedCallback;
     bool m_stalled;
     uint64_t m_lastAbortHtmUid;
+
+    // LogTM (eager VM) RequestTable contains outstanding log requests
+    // for pending program stores (per line address)
+    std::unordered_map<Addr, std::list<LogRequestInfo>> m_logRequestTable;
 
     // Lazy-lazy HTM:
     class WriteBufferHitEvent : public Event

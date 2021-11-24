@@ -27,6 +27,7 @@ namespace gem5
 namespace ruby
 {
 
+class EagerTransactionVersionManager;
 class LazyTransactionCommitArbiter;
 class LazyTransactionVersionManager;
 class TransactionInterfaceManager;
@@ -46,6 +47,7 @@ public:
   void regStats() override;
   TransactionIsolationManager* getXactIsolationManager();
   TransactionConflictManager*  getXactConflictManager();
+  EagerTransactionVersionManager*   getXactEagerVersionManager();
   LazyTransactionVersionManager*   getXactLazyVersionManager();
   LazyTransactionCommitArbiter* getXactLazyCommitArbiter();
   TransactionalSequencer *getSequencer();
@@ -122,6 +124,11 @@ public:
   void bypassLoadFromWriteBuffer(PacketPtr pkt, DataBlock& datablock);
   void mergeDataFromWriteBuffer(PacketPtr pkt, DataBlock& datablock);
 
+  bool isLogReady();
+  bool isAccessToLog(Addr addr);
+  void setupLogTranslation(Addr vaddr, Addr paddr);
+  Addr addLogEntry(Addr addr);
+
   void setStartCycle(Cycles startCycle);
   Cycles getStartCycle();
 
@@ -170,7 +177,6 @@ public:
   std::vector<TransactionInterfaceManager*>
      getRemoteTransactionManagers() const;
 
-
   /********/
   static int numberofSMTThreads() { return 1; };
 
@@ -190,6 +196,7 @@ private:
 
   TransactionIsolationManager     * m_xactIsolationManager;
   TransactionConflictManager      * m_xactConflictManager;
+  EagerTransactionVersionManager   * m_xactEagerVersionManager;
   LazyTransactionVersionManager   * m_xactLazyVersionManager;
   LazyTransactionCommitArbiter    * m_xactLazyCommitArbiter;
 

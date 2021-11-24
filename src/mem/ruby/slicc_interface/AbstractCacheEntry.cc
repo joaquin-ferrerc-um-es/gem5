@@ -126,5 +126,17 @@ AbstractCacheEntry::getInHtmWriteSet() const
     return m_htmInWriteSet;
 }
 
+void
+AbstractCacheEntry::setHtmLogPending(bool val)
+{
+    m_htmLogPending = val;
+}
+
+bool
+AbstractCacheEntry::getHtmLogPending() const
+{
+    return m_htmLogPending;
+}
+
 } // namespace ruby
 } // namespace gem5

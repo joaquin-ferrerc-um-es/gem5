@@ -58,13 +58,14 @@ namespace gem5
 
 namespace ruby
 {
-
+struct LogRequestInfo;
 struct SequencerRequest
 {
     PacketPtr pkt;
     RubyRequestType m_type;
     RubyRequestType m_second_type;
     Cycles issue_time;
+    LogRequestInfo* log = NULL;
     SequencerRequest(PacketPtr _pkt, RubyRequestType _m_type,
                      RubyRequestType _m_second_type, Cycles _issue_time)
                 : pkt(_pkt), m_type(_m_type), m_second_type(_m_second_type),
@@ -102,7 +103,7 @@ class Sequencer : public RubyPort
     void resetStats() override;
     void collateStats();
 
-    void writeCallback(Addr address,
+    virtual void writeCallback(Addr address,
                        DataBlock& data,
                        const bool externalHit = false,
                        const MachineType mach = MachineType_NUM,
@@ -224,10 +225,10 @@ class Sequencer : public RubyPort
                                         RubyRequestType primary_type,
                                         RubyRequestType secondary_type);
 
+    CacheMemory* m_dataCache_ptr;
+
   private:
     int m_max_outstanding_requests;
-
-    CacheMemory* m_dataCache_ptr;
 
     // The cache access latency for top-level caches (L0/L1). These are
     // currently assessed at the beginning of each memory access through the

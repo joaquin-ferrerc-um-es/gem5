@@ -769,6 +769,21 @@ CacheMemory::htmCommitTransaction()
     DPRINTF(HtmMem, "htmCommitTransaction: read set=%u write set=%u\n",
         htmReadSetSize, htmWriteSetSize);
 }
+void
+CacheMemory::setHtmLogPending(Addr address, bool val)
+{
+    AbstractCacheEntry* entry = lookup(address);
+    assert(entry != nullptr);
+    entry->setHtmLogPending(val);
+}
+
+bool
+CacheMemory::isHtmLogPending(Addr address) const
+{
+    const AbstractCacheEntry* entry = lookup(address);
+    assert(entry != nullptr);
+    return entry->getHtmLogPending();
+}
 
 void
 CacheMemory::profileDemandHit()

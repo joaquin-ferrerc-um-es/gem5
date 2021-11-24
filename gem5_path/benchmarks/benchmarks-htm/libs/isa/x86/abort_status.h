@@ -22,6 +22,8 @@
 #define _XABORT_NESTED		(1 << 5)
   // Set if an abort was forced by HTM speculation disabled
 #define _XABORT_DISABLED	(1 << 6)
+  // Set if an abort was not complete (requires log unroll)
+#define _XABORT_UNDO_LOG  	(1 << 7)
 
 #endif
 

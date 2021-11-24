@@ -6,6 +6,7 @@ void m5_init() {}
 void simBeginRegionOfInterest() {}
 void simEndRegionOfInterest() {}
 void simSetLogBase(void *ptr) {}
+void simEndLogUnroll() {}
 void simWorkBegin() {}
 void simWorkEnd() {}
 void simBarrierBegin() {}
@@ -136,12 +137,19 @@ void simWorkEnd() {
 void walk_log(unsigned long *log);
 
 void simSetLogBase(void *logptr) {
-    if (m5_sum(M5_SUM_HACK_ARGS, M5_SUM_HACK_TYPE_LOGTM, (unsigned long int )logptr) == 0) {
+    if (m5_sum(M5_SUM_HACK_ARGS, M5_SUM_HACK_TYPE_LOGTM_SETUP_LOG,
+               (unsigned long int )logptr) == 0) {
         // simulator returns 0 if v2p translation table already set
         // up. Otherwise, walk the log, simulator will intercept
         // accesses and fill log v2p translation table
         walk_log(logptr);
     }
+}
+
+void simEndLogUnroll() {
+    // Notify simulator that abort handler has completed unrolling the
+    // undo log
+    m5_sum(M5_SUM_HACK_ARGS, M5_SUM_HACK_TYPE_LOGTM_DONE_UNROLLING, 0);
 }
 
 #if defined(ANNOTATE_CODE_REGIONS)

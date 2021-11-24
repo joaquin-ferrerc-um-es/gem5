@@ -2,6 +2,7 @@ void m5_init();
 void simBeginRegionOfInterest();
 void simEndRegionOfInterest();
 void simSetLogBase(void *ptr);
+void simEndLogUnroll();
 void simWorkBegin();
 void simWorkEnd();
 void simBarrierBegin();

@@ -1,14 +1,81 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-uint64_t htm_start(uint64_t arg) ;
-void htm_commit(uint64_t arg) ;
-void htm_cancel(uint64_t code) ;
-bool htm_started(uint64_t status) ;
-void htm_cancel_lock_acquired() ;
-bool htm_abort_cause_conflict(uint64_t status) ;
-bool htm_abort_cause_explicit(uint64_t status) ;
-uint16_t htm_abort_cause_explicit_code(uint64_t status) ;
-bool htm_abort_code_is_lock_acquired(uint16_t abort_code) ;
-bool htm_may_succeed_on_retry(uint64_t status) ;
-bool htm_abort_cause_disabled(uint64_t status) ;
+#if defined AARCH64
+
+#include "../isa/aarch64/abort_status.h"
+
+
+#elif defined X86
+
+#include "../isa/x86/abort_status.h"
+
+/* IMPORTANT NOTE: Eager HTM systems (log-based) abort in two steps:
+ *  first, the register checkpoint is restored; then, the log is
+ *  unrolled to restore memory locations. Because the current stack
+ *  frame is garbage after the checkpoint is restored on abort (likely
+ *  overwritten by the call stack of the transaction that just
+ *  aborted), the code following xbegin must NOT make use of the
+ *  stack: Bear in mind that as part of the log unroll, this stack
+ *  frame will be restored to its state when xbegin above executed, so
+ *  we can't "call" any method after xbegin, or else the return
+ *  address will be lost when the log restores the current stack
+ *  frame. Hence logtm_log_unroll must be declared "static inline".
+ */
+/* Apart from performance reasons, using inline assembly for various
+ * checks on the returned abort status code is essential for
+ * functional correctness of the eager versioning implementation.
+ */
+#define htm_start(arg) ({                                      \
+            uint64_t ret;                                       \
+            __asm__ volatile ("mov %1, %%rdi\n\t"               \
+                              "mov $0xffffffff,%%eax\n\t"       \
+                              "xbegin   .+6 \n\t"               \
+                              "mov %%rax, %0\n\t"               \
+                              : "=r"(ret)                       \
+                              : "r"(arg)                        \
+                              : "%rdi", "rax");                 \
+            ret;                                                \
+        })
+    // NOTE: Abort handler offset fixed to 0 (invariably begins at the
+    // next instruction after xbegin). This doesn't need to be the
+    // case (xbegin takes a rel32 offset as immediate operand).
+    // NOTE 2: Do not use intrinsics, as we want to return a 64-bit
+    // value (RAX) rather than 32 bits (EAX) in order to return
+    // virtual addresses
+
+#define htm_started(status) (status == _XBEGIN_STARTED)
+
+#define htm_abort_undo_log(status) (status & _XABORT_UNDO_LOG)
+
+#define htm_commit(arg) ({                              \
+            __asm__ volatile ("mov %0,%%rdi\n\t"        \
+                              "xend\n\t"                \
+                              :                         \
+                              : "r"(arg)                \
+                              : "%rdi");                \
+        })
+
+#define htm_cancel(code) ({                             \
+            __asm__ volatile ("mov %0,%%rdi\n\t"        \
+                              "xabort $0x0\n\t"         \
+                              :                         \
+                              : "r"((uint64_t)code)    \
+                              : "%rdi");                \
+        })
+    // TODO: Pass abort code to simulator via imm instead of RDI.
+
+#define htm_cancel_lock_acquired() ({                   \
+            __asm__ volatile ("xabort $0xff\n\t"         \
+                              : : :);                    \
+        })
+    // NOTE: 0xff hard-coded as explicit abort because of lock acquired
+
+#define htm_abort_cause_conflict(status) (status & _XABORT_CONFLICT)
+#define htm_abort_cause_explicit(status) (status & _XABORT_EXPLICIT)
+#define htm_abort_cause_explicit_code(status) (_XABORT_CODE_DECODE(status))
+#define htm_abort_code_is_lock_acquired(abort_code) (abort_code == XABORT_CODE_FALLBACK_LOCK_LOCKED)
+#define htm_may_succeed_on_retry(status) (status & _XABORT_RETRY)
+#define htm_abort_cause_disabled(status) (status & _XABORT_DISABLED)
+
+#endif

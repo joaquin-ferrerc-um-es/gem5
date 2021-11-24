@@ -20,6 +20,7 @@
 #include "util.h"
 #include "annotated_regions.h"
 #include "m5iface.h"
+#include "logtm.h"
 
 // global array of thread contexts
 _tm_thread_context_t     *thread_contexts       = NULL;
@@ -79,6 +80,12 @@ void beginTransaction_fallbackLock(long tag,
             else { /* started transaction but someone has grabbed lock */
                 htm_cancel_lock_acquired();
             }
+        }
+        if (htm_abort_undo_log(ret)) {
+            uint32_t log_size = M5_ABORTSTATUS_LOGSIZE_DECODE(ret);
+            uint8_t *log_base = (uint8_t *)((_tm_thread_context_t *)ctx)->info.logtm_transactionLog;
+            logtm_log_unroll(log_base, log_size);
+            simEndLogUnroll();
         }
 
         if (htm_abort_cause_conflict(ret) &&

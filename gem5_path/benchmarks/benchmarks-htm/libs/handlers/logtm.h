@@ -16,6 +16,17 @@
 #define GET_PAGE_OFFSET(addr)  (((uint64_t)addr) & PAGE_OFFSET_MASK)
 #define GET_PAGE_ADDR(addr)  (((uint64_t)addr) & PAGE_MASK)
 
+/* Abort status (logtm), log size in cache blocks
+******************************************
+ *   log size       |      abort status  |
+ *****************************************
+ *    32b                   32b
+ */
+
+#define M5_ABORTSTATUS_LOGSIZE_ENCODE(logsize) ((logsize) << 32)
+#define M5_ABORTSTATUS_LOGSIZE_DECODE(ret) ((ret) >> 32)
+
+
 /******************************************************************************
 
 Organization of Transaction Log: Each speculatively modified cache

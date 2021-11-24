@@ -238,6 +238,22 @@ m5sum(ThreadContext *tc, uint64_t a, uint64_t b, uint64_t c,
               }
               break;
           }
+      case M5_SUM_HACK_TYPE_LOGTM:
+          {
+              HTM *htm = tc->getSystemPtr()->getHTM();
+              if (htm != nullptr && !htm->params().lazy_vm) {
+                  Addr logBaseAddr = Addr(f);
+                  bool needsLogWalk =
+                      htm->setupLog(tc->getCpuPtr()->cpuId(),
+                                    logBaseAddr);
+                  if (needsLogWalk) {
+                      // Need log walk so that HTM can setup
+                      // virtual-to-physical translations
+                      return 0;
+                  }
+              }
+              break;
+          }
       default:
           panic("Unknown m5_sum hack type:\"%#lx\"", hack_type);
       }

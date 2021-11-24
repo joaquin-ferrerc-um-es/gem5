@@ -325,6 +325,7 @@ class ThreadContext : public PCEventScope
     virtual void setHtmCheckpointPtr(BaseHTMCheckpointPtr cpt) = 0;
     bool forceHtmDisabled();
     bool forceHtmRetryStatusBit();
+    int getHtmUndoLogSize();
 };
 
 /** @{ */

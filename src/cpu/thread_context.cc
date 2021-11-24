@@ -305,4 +305,16 @@ ThreadContext::forceHtmRetryStatusBit() {
     }
 }
 
+int
+ThreadContext::getHtmUndoLogSize() {
+    // LogTM support: indicate abort handler that complete abort
+    // requires unrolling the undo log
+    if (getSystemPtr()->getHTM() &&
+        !getSystemPtr()->getHTM()->params().lazy_vm) {
+        return getSystemPtr()->getHTM()->getLogNumEntries(cpuId());
+    } else {
+        return 0;
+    }
+}
+
 } // namespace gem5

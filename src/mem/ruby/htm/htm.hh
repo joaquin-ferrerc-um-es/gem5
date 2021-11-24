@@ -28,6 +28,8 @@ class RubyHTM : public HTM
     void notifyPseudoInst() override;
     void notifyPseudoInstWork(bool begin, int cpuId, uint64_t workid) override;
     bool setupLog(int cpuId, Addr addr) override;
+    void endLogUnroll(int cpuId) override;
+    int getLogNumEntries(int cpuId) override;
 };
 
 } // namespace ruby

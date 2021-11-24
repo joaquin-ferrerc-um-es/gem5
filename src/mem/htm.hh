@@ -213,6 +213,12 @@ class HTM : public ClockedObject
     virtual bool setupLog(int cpuId, Addr addr) {
         panic("Not implemented");
     };
+    virtual void endLogUnroll(int cpuId) {
+        panic("Not implemented");
+    };
+    virtual int getLogNumEntries(int cpuId) {
+        panic("Not implemented");
+    };
 };
 
 } // namespace gem5

@@ -55,10 +55,10 @@ RubyHTM::notifyPseudoInstWork(bool begin, int cpuId, uint64_t reg) {
 bool
 RubyHTM::setupLog(int cpuId, Addr addr)
 {
-    if (!g_system_ptr) return false;
-
     // No need to setup log if lazy versioning
     if (params().lazy_vm) return false;
+
+    assert(g_system_ptr);
 
     if (g_system_ptr->
         getTransactionInterfaceManager(cpuId)->
@@ -75,6 +75,31 @@ RubyHTM::setupLog(int cpuId, Addr addr)
             getXactEagerVersionManager()->setLogBaseVirtualAddress(addr);
         return true; // Needs walk to initialize log v2p translation table
     }
+}
+
+void
+RubyHTM::endLogUnroll(int cpuId)
+{
+    // No need to setup log if lazy versioning
+    if (params().lazy_vm) return;
+
+    assert(g_system_ptr);
+
+    g_system_ptr->
+        getTransactionInterfaceManager(cpuId)->endLogUnroll(0);
+}
+
+int
+RubyHTM::getLogNumEntries(int cpuId)
+{
+    // No need to setup log if lazy versioning
+    if (params().lazy_vm) return 0;
+
+    assert(g_system_ptr);
+
+    return g_system_ptr->
+        getTransactionInterfaceManager(cpuId)->
+        getLogNumEntries(0);
 }
 
 } // namespace ruby

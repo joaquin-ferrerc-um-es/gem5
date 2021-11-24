@@ -90,6 +90,11 @@ X86ISA::HTMCheckpoint::restore(ThreadContext *tc, HtmFailureFaultCause cause)
     }
     if (retry)
         replaceBits(error_code, 1, 1);
+    if (tc->getHtmUndoLogSize() > 0) {
+        replaceBits(error_code, 7, 1);
+        uint64_t logsize = tc->getHtmUndoLogSize();
+        replaceBits(error_code, 63, 32, logsize);
+    }
     tc->setIntReg(INTREG_EAX, error_code);
     // set next PC
     pcstateckpt.uReset();

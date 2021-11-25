@@ -77,8 +77,8 @@ object Gem5Properties {
 
   /* Results */
 
-  Prop(Result, "simulation_time", _.stats("host_seconds").parseDouble, mixers.samples)
-  Prop(Result, "sim_ticks", _.stats("sim_ticks").parseLong, mixers.samples)
+  Prop(Result, "simulation_time", _.stats("hostSeconds").parseDouble, mixers.samples)
+  Prop(Result, "sim_ticks", _.stats("simTicks").parseLong, mixers.samples)
   // alternatve:  PropertyInfo("cycles_ruby", Result, _.stats("system", "ruby", "cycles").parseLong, mixers.samples)
   // alternatve: PropertyInfo("cycles_cpus", Result, s => (s.stats / "system" / re_cpus /+ "numCycles").map(_.parseLong).max)
 

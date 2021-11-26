@@ -60,7 +60,7 @@ get_base_resources() {
     echo "Getting resources for $arch."
 
     get_base_resource "$arch" kernel "${ARCH_KERNEL[$arch]}" "$(get_kernel "$arch")" "$mode" "$overwrite"
-    get_base_resource "$arch" base_image "${ARCH_BASE_IMAGE_FILENAME[$arch]}" "$(get_base_image "$arch")" "$mode" "$overwrite"
+    get_base_resource "$arch" base_image "${ARCH_BASE_IMAGE[$arch]}" "$(get_base_image "$arch")" "$mode" "$overwrite"
     if [[ -n "${ARCH_BOOTLOADER[$arch]}" ]] ; then 
         get_base_resource "$arch" bootloader "${ARCH_BOOTLOADER[$arch]}" "$(get_bootloader "$arch")" "$mode" "$overwrite"
     fi

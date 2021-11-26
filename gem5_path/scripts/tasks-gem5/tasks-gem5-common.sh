@@ -61,7 +61,7 @@ is_known_task() {
 # returns the path relative to $GEM5_ROOT to the base disk image for a given architecture
 get_base_image() {
     local arch="$1"
-    echo "gem5_path/$arch/disks/${ARCH_BASE_IMAGE_FILENAME[$arch]}"
+    echo "gem5_path/$arch/disks/${ARCH_BASE_IMAGE[$arch]}"
 }
 
 # returns the path relative to $GEM5_ROOT to the kernel for a given architecture

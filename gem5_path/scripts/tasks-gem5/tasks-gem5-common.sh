@@ -58,6 +58,29 @@ is_known_task() {
 
 ## Functions to locate some files and other configuration queries
 
+# returns the path relative to $GEM5_ROOT to the base disk image for a given architecture
+get_base_image() {
+    local arch="$1"
+    echo "gem5_path/$arch/disks/${ARCH_BASE_IMAGE_FILENAME[$arch]}"
+}
+
+# returns the path relative to $GEM5_ROOT to the kernel for a given architecture
+get_kernel() {
+    local arch="$1"
+    echo "gem5_path/$arch/binaries/${ARCH_KERNEL[$arch]}"
+}
+
+# returns the path relative to $GEM5_ROOT to the bootloader for a given architecture, or "" if there is no bootloader
+get_bootloader() {
+    local arch="$1"
+    local b="${ARCH_BOOTLOADER[$arch]}"
+    if [[ "$b" == "" ]] ; then
+        echo "$b"
+    else
+        echo "gem5_path/$arch/binaries/$b"
+    fi
+}
+
 # returns the path relative to $GEM5_ROOT to the becnhamrks disk image for a given architecture
 get_benchmarks_disk_image() {
     local arch="$1"

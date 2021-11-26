@@ -1,13 +1,28 @@
 
-declare_task "get-base-resources" "Get base resources (disk images, kernels…). Not completely implemented yet. Options:
+PATH_IN_ECHO_PREFIX="/home/users/caps/gem5_full_system"
+DEFAULT_URL_PREFIX="https://ditec.um.es/~rfernandez/gem5-resources"
+
+RESOURCES_LIST=$( echo "
+# arch   type        name                           path_in_echo                                                         url
+x86_64   base_image  ubuntu-18-04.img               ${PATH_IN_ECHO_PREFIX}/x86_64/disks/ubuntu-18-04.img                 ${DEFAULT_URL_PREFIX}/x86_64/disks/ubuntu-18-04.2021-11-25.img.xz
+aarch64  base_image  ubuntu-18.04-arm64-docker.img  ${PATH_IN_ECHO_PREFIX}/aarch64//disks/ubuntu-18.04-arm64-docker.img  ${DEFAULT_URL_PREFIX}/aarch64/disks/ubuntu-18.04-arm64-docker.2021-11-25.img.xz
+x86_64   kernel      vmlinux-5.4.49                 ${PATH_IN_ECHO_PREFIX}/x86_64/binaries/vmlinux-5.4.49                ${DEFAULT_URL_PREFIX}/x86_64/binaries/vmlinux-5.4.49.2021-11-25.xz
+aarch64  kernel      vmlinux.arm64                  ${PATH_IN_ECHO_PREFIX}/aarch64/binaries/vmlinux.arm64                ${DEFAULT_URL_PREFIX}/aarch64/binaries/vmlinux.arm64.2021-11-25.xz
+aarch64  bootloader  boot_v2.arm64                  ${PATH_IN_ECHO_PREFIX}/aarch64/binaries/boot_v2.arm64                ${DEFAULT_URL_PREFIX}/aarch64/binaries/boot_v2.arm64.2021-11-25.xz
+" | grep -v '^ *#.*' | grep -v '^ *$' | tr -s ' ')
+
+declare_task "get-base-resources" "Get base resources (disk images, kernels…). Options:
         --architecure X: Get only architecture X
-        --overwrite: Overwrite existing files (TODO).
+        --overwrite: Overwrite existing files.
+        --download: Download resources from th web.
+        --use-shared-caps: Use files from ${PATH_IN_ECHO_PREFIX} (default if possible)
 "
 
 task_get-base-resources() {
     local -a archs=("${ENABLED_ARCHITECTURES[@]}")
     local overwrite=no
-    options="$(simpler_getopt "architecure:,overwrite" "$@")"
+    local mode=auto
+    options="$(simpler_getopt "architecure:,overwrite,download,use-shared-echo" "$@")"
     eval set -- "$options"
     while [[ $# -gt 0 ]] ; do
         if [[ "--architecure" == "$1" ]] ; then
@@ -15,6 +30,10 @@ task_get-base-resources() {
             archs=("$1")
         elif [[ "--overwrite" == "$1" ]] ; then
             overwrite=yes
+        elif [[ "--download" == "$1" ]] ; then
+            mode=download
+        elif [[ "--use-shared-caps" == "$1" ]] ; then
+            mode=link
         elif [[ "--" == "$1" ]] ; then
             true # ignore
         else 
@@ -22,56 +41,90 @@ task_get-base-resources() {
         fi
         shift
     done
+    if [[ "$mode" == "auto" && -d "$PATH_IN_ECHO_PREFIX" ]] ; then
+        echo "$(color blue "Resources will be copied or linked from ${PATH_IN_ECHO_PREFIX}")"
+        mode=link
+    else
+        echo "$(color blue "Resources will be downloaded")"
+        mode=download
+    fi
     for arch in "${archs[@]}" ; do
-        get_base_resources "$arch" "$overwrite"
+        get_base_resources "$arch" "$overwrite" "$mode"
     done
 }
 
 get_base_resources() {
     local arch="$1"
     local overwrite="$2"
+    local mode="$3"
     echo "Getting resources for $arch."
 
-    local kernel="$(get_kernel "$arch")"
-    local disk_image="$(get_base_image "$arch")"
-    local bootloader="$(get_bootloader "$arch")"
-
-    # TODO
-    echo "$(color red "TODO: Implement me. Current implementation is just a placeholder, and is likely incorrect for your purposes.")"
-    echo "$(color red "Some files will be copied from /home/users/caps/…. You should read the script and verify that they are correct before proceeding")"
-    echo "$(color red "Press Enter to continue, or Control-C to cancel.")"
-    read key
-    
-    mkdir -p "$(dirname "$GEM5_ROOT/$kernel")"
-    mkdir -p "$(dirname "$GEM5_ROOT/$disk_image")"
-    
-    # from echo
-    if [[ "$arch" == "x86_64" && "${ARCH_BASE_IMAGE_FILENAME[$arch]}" == "ubuntu-18-04.img" && "${ARCH_KERNEL[$arch]}" == "vmlinux-5.4.49" ]] ; then
-        rm -f "$GEM5_ROOT/$kernel"
-        ln -sf /home/users/caps/gem5_full_system/x86_64/binaries/vmlinux-5.4.49 "$GEM5_ROOT/$kernel"
-        rm -f  "$GEM5_ROOT/$disk_image"
-        ln -sf /home/users/caps/gem5_full_system/x86_64/disks/ubuntu-18-04.img "$GEM5_ROOT/$disk_image"
-    elif [[ "$arch" == "aarch64" && "${ARCH_BASE_IMAGE_FILENAME[$arch]}" == "ubuntu-18.04-arm64-docker.img" && "${ARCH_KERNEL[$arch]}" == "vmlinux.arm64" ]] ; then
-        rm -f  "$GEM5_ROOT/$kernel"
-        ln -sf /home/users/caps/gem5_full_system/aarch64/binaries/vmlinux.arm64 "$GEM5_ROOT/$kernel"
-        rm -f  "$GEM5_ROOT/$disk_image"
-        ln -sf /home/users/caps/gem5_full_system/aarch64/disks/ubuntu-18.04-arm64-docker.img "$GEM5_ROOT/$disk_image"
-        rm -f  "$GEM5_ROOT/$bootloader"
-        ln -sf /home/users/caps/gem5_full_system/aarch64/binaries/boot_v2.arm64 "$GEM5_ROOT/$bootloader"
-    else
-        ...
+    get_base_resource "$arch" kernel "${ARCH_KERNEL[$arch]}" "$(get_kernel "$arch")" "$mode" "$overwrite"
+    get_base_resource "$arch" base_image "${ARCH_BASE_IMAGE_FILENAME[$arch]}" "$(get_base_image "$arch")" "$mode" "$overwrite"
+    if [[ -n "${ARCH_BOOTLOADER[$arch]}" ]] ; then 
+        get_base_resource "$arch" bootloader "${ARCH_BOOTLOADER[$arch]}" "$(get_bootloader "$arch")" "$mode" "$overwrite"
     fi
-
-    ## from public sites
-    #if [[ "$arch" == "x86_64" && "${ARCH_KERNEL[$arch]}" == "vmlinux-5.4.49" && "${ARCH_BASE_IMAGE_FILENAME[$arch]}" == "ubuntu-18.04-base-boottest.img" ]] ; then
-    #    # http://resources.gem5.org/resources/linux-kernel
-    #     # https://www.gem5.org/project/2020/03/09/boot-tests.html
-    #    curl http://dist.gem5.org/dist/current/images/x86/ubuntu-18-04/base.img.gz | gunzip > "$(absolute_path "$disk_image")"
-    #    curl http://dist.gem5.org/dist/v20-1/kernels/x86/static/vmlinux-5.4.49 -o  "$(absolute_path "$kernel")"
-    # elif [[ "$arch" == "aarch64" ]] ; then
-    #    ...
-    #else
-    #     ...
-    #fi        
 } 
 
+check_base_resource_known() {
+    local arch="$1"
+    local type="$2"
+    local name="$3"
+    echo "$RESOURCES_LIST" | grep -q "^${1} ${2} ${3}"
+}
+
+get_base_resource_path_in_echo() {
+    local arch="$1"
+    local type="$2"
+    local name="$3"
+    echo "$RESOURCES_LIST" | grep "^${1} ${2} ${3}" | cut -d' ' -f4
+}
+
+get_base_resource_url() {
+    local arch="$1"
+    local type="$2"
+    local name="$3"
+    echo "$RESOURCES_LIST" | grep "^${1} ${2} ${3}" | cut -d' ' -f5
+}
+
+get_base_resource() {
+    local arch="$1"
+    local type="$2"
+    local name="$3"
+    local destination="$4" # relative to $GEM5_ROOT
+    local mode="$5"
+    local overwrite="$6"
+
+    if [[ -f "$(absolute_path "$destination")" && "$overwrite" != "yes" ]] ; then
+        echo "$(color yellow "'$destination' already exists. Will not overwrite it.")"
+    else
+        if check_base_resource_known "$arch" "$type" "$name" ; then
+            rm -f "$GEM5_ROOT/$destination" # remove the destination if it exists. This is important if it is a symbolic link to avoid accidentally overwritting the destination. Also it is important to avoid resolving the link before removing it.
+            mkdir -p "$(dirname "$GEM5_ROOT/$destination")"
+            if [[ "$mode" == "link" ]] ; then
+                local src="$(get_base_resource_path_in_echo "$arch" "$type" "$name")"
+                echo "Linking '$src' to '$GEM5_ROOT/$destination'"
+                ln -s "$src" "$GEM5_ROOT/$destination"
+            elif [[ "$mode" == "download" ]] ; then
+                local src="$(get_base_resource_url "$arch" "$type" "$name")"
+                echo "Downloading '$src' to '$GEM5_ROOT/$destination'"
+                download "$src" "$GEM5_ROOT/$destination"
+            else
+                error_and_exit "Mode '$mode' unknown."
+            fi
+        else
+            error_and_exit "Resource '$name' of type $type for architecture '$arch' not known."
+        fi
+    fi
+}
+
+download() {
+    local src="$1"
+    local dst="$2"
+    # TODO FIXME --insecure is needed because ditec.um.es SSL certificate has expired
+    if [[ "$src" =~ .xz$ ]] ; then
+        curl --insecure "$src" | unxz > "$dst"
+    else
+        curl --insecure "$src" > "$dst"
+    fi || { rm -f "$dst" ; error_and_exit "Cannot download '$src'." ; }
+}

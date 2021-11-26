@@ -48,6 +48,7 @@ enumeration(CoherenceClass, desc="...") {
   INV_OWN,   desc="Invalidate (own)";
   INV_ELSE,  desc="Invalidate (else)";
   PUTX,      desc="Replacement message";
+  PUTM,      desc="Replacement message of write set block (LogTM)";
   PUTX_COPY, desc="Data block to be copied in L1. L0 will still be in M state";
 
   WB_ACK,    desc="Writeback ack";

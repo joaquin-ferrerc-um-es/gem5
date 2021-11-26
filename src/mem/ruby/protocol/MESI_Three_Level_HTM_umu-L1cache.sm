@@ -79,6 +79,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     EE, AccessPermission:Read_Write, desc="Line is present in exclusive state in L1 but not L0";
     M, AccessPermission:Maybe_Stale, desc="Line is present in modified state in L1 and present in L0", format="!b";
     MM, AccessPermission:Read_Write, desc="Line is present in modified state in L1 but not present in L0", format="!b";
+    MMT, AccessPermission:Read_Write, desc="Line is present in modified state, belongs to transaction write-set, force L2 to forward all traffic", format="!b";
 
     // Transient States
     IS, AccessPermission:Busy, desc="L1 idle, issued GETS, have not seen response yet";
@@ -86,6 +87,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     SM, AccessPermission:Read_Only, desc="L1 idle, issued GETX, have not seen response yet";
     IS_I, AccessPermission:Busy, desc="L1 idle, issued GETS, saw Inv before data because directory doesn't block on GETS hit";
     M_I, AccessPermission:Busy, desc="L1 replacing, waiting for ACK";
+    MMT_I, AccessPermission:Busy, desc="L1 replacing, waiting for ACK, block belongs to write set";
     MM_S, AccessPermission:Busy, desc="L0 just downgraded, will go to S after fwd";
     SINK_WB_ACK, AccessPermission:Busy, desc="This is to sink WB_Acks from L2";
 
@@ -146,6 +148,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
 
     // hardware transactional memory
     L0_DataCopy,     desc="Data Block from L0. Should remain in M state.";
+    L0_HtmData,     desc="Data Block from L0. Should remain in M state.";
 
     // L0 cache received the invalidation message and has
     // sent a NACK (because of htm abort) saying that the data
@@ -436,6 +439,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
             }
         }  else if (in_msg.Class == CoherenceClass:PUTX_COPY) {
               trigger(Event:L0_DataCopy, in_msg.addr, cache_entry, tbe);
+        }  else if (in_msg.Class == CoherenceClass:PUTM) {
+              trigger(Event:L0_HtmData, in_msg.addr, cache_entry, tbe);
         }  else if (in_msg.Class == CoherenceClass:INV_ACK) {
             trigger(Event:L0_Ack, in_msg.addr, cache_entry, tbe);
         }  else {
@@ -731,6 +736,24 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
       assert(is_valid(cache_entry));
       out_msg.addr := address;
       out_msg.Type := CoherenceRequestType:PUTX;
+      out_msg.Dirty := cache_entry.Dirty;
+      out_msg.Requestor:= machineID;
+      out_msg.Destination.add(mapAddressToRange(address, MachineType:L2Cache,
+                          l2_select_low_bit, l2_select_num_bits, clusterID));
+      if (cache_entry.Dirty) {
+        out_msg.MessageSize := MessageSizeType:Writeback_Data;
+        out_msg.DataBlk := cache_entry.DataBlk;
+      } else {
+        out_msg.MessageSize := MessageSizeType:Writeback_Control;
+      }
+    }
+  }
+
+  action(gm_issuePUTM, "gm", desc="send data to the L2 cache but stay as exclusive") {
+    enqueue(requestNetwork_out, RequestMsg, cache.getDataLatency()) {
+      assert(is_valid(cache_entry));
+      out_msg.addr := address;
+      out_msg.Type := CoherenceRequestType:PUTM;
       out_msg.Dirty := cache_entry.Dirty;
       out_msg.Requestor:= machineID;
       out_msg.Destination.add(mapAddressToRange(address, MachineType:L2Cache,
@@ -1393,6 +1416,52 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     u_writeDataFromL0Request;
     k_popL0RequestQueue;
   }
+
+  transition({M_IL0, E_IL0}, L0_HtmData, MMT) {
+      // L0 got InvOwn for Wset data (LogTM): Can evict this line as
+      // if MM but forcing L2 to keep forwarding traffic to this L1
+    u_writeDataFromL0Response;
+    k_popL0RequestQueue;
+    kd_wakeUpDependents;
+  }
+
+  // Transitions from Modified
+  transition(MMT, L1_Replacement, MMT_I) {
+    i_allocateTBE;
+    gm_issuePUTM;   // send data, but hold in case forwarded request
+    ff_deallocateCacheBlock;
+  }
+  transition(MMT_I, WB_Ack, I) {
+      // Need MMT_I in order to detect conflicts until WB_Ack arrives.
+      // Once in I, all fwd reqs to blocks that are not present in L1
+      // (not possible unless evicted wset block) will be checked
+      // against the HTM logic (L0)
+    s_deallocateTBE;
+    o_popL2ResponseQueue;
+    ff_deallocateCacheBlock;
+    kd_wakeUpDependents;
+  }
+  transition({IM}, Data_Exclusive, E) {
+      // Only possible to get Data_Exclusive from IM for blocks that
+      // were previously evicted from the write set
+    u_writeDataFromL2Response;
+    hh_xdata_to_l0;
+    jj_sendExclusiveUnblock;
+    s_deallocateTBE;
+    o_popL2ResponseQueue;
+    kd_wakeUpDependents;
+  }
+
+  /* Assume potentially conflicting since L2 dir points to this L1 as
+     exclusive but we don't have a copy of the block.
+
+  transition(I, {Fwd_GETS,Fwd_GETX}, ??) {
+  // TODO: Forward request to L0 to check for conflicts. If no conflict,
+  // must lazily clear "sticky state" in directory
+    l_popL2RequestQueue;
+  }
+  */
+
 
   transition(E_IL0, L0_Nack_Own, E) {
     smr_setMRU;

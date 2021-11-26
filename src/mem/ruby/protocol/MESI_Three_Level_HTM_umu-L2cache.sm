@@ -105,7 +105,11 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
     L1_GETX,                 desc="a L1D GETX request for a block maped to us";
     L1_UPGRADE,                 desc="a L1D GETX request for a block maped to us";
 
+    L1_GETS_Owner,           desc="a L1D GETX request for a block maped to us";
+    L1_GETX_Owner,           desc="a L1D GETX request for a block maped to us";
+
     L1_PUTX,                 desc="L1 replacing data";
+    L1_PUTM,                 desc="L1 writeback but stays as exclusive";
     L1_PUTX_old,             desc="L1 replacing data, but no longer sharer";
 
     // events initiated by this L2
@@ -138,6 +142,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
     MachineID Exclusive,          desc="Exclusive holder of block";
     DataBlock DataBlk,       desc="data for the block";
     bool Dirty, default="false", desc="data is dirty";
+    bool HtmWriteSet, default="false", desc="data is speculatively modified"; //Sanity checks
   }
 
   // TBE fields
@@ -183,6 +188,15 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
       return cache_entry.Sharers.isElement(requestor);
     } else {
       return false;
+    }
+  }
+
+  bool isExclusive(Addr addr, MachineID requestor, Entry cache_entry) {
+    if (is_valid(cache_entry) && cache_entry.Exclusive == requestor &&
+        cache_entry.Sharers.isElement(requestor)) {
+        return true;
+    } else{
+        return false;
     }
   }
 
@@ -263,11 +277,21 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
   Event L1Cache_request_type_to_event(CoherenceRequestType type, Addr addr,
                                       MachineID requestor, Entry cache_entry) {
     if(type == CoherenceRequestType:GETS) {
-      return Event:L1_GETS;
+      if (isExclusive(addr, requestor, cache_entry) &&
+          is_valid(cache_entry) && cache_entry.CacheState == State:MT) {
+          return Event:L1_GETS_Owner;
+      } else {
+          return Event:L1_GETS;
+      }
     } else if(type == CoherenceRequestType:GET_INSTR) {
       return Event:L1_GET_INSTR;
     } else if (type == CoherenceRequestType:GETX) {
-      return Event:L1_GETX;
+      if (isExclusive(addr, requestor, cache_entry) &&
+          is_valid(cache_entry) && cache_entry.CacheState == State:MT) {
+          return Event:L1_GETX_Owner;
+      } else {
+          return Event:L1_GETX;
+      }
     } else if (type == CoherenceRequestType:UPGRADE) {
       if ( is_valid(cache_entry) && cache_entry.Sharers.isElement(requestor) ) {
         return Event:L1_UPGRADE;
@@ -279,6 +303,12 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
         return Event:L1_PUTX;
       } else {
         return Event:L1_PUTX_old;
+      }
+    } else if (type == CoherenceRequestType:PUTM) {
+      if (isSharer(addr, requestor, cache_entry)) {
+        return Event:L1_PUTM;
+      } else {
+          assert(false);
       }
     } else {
       DPRINTF(RubySlicc, "address: %#x, Request Type: %s\n", addr, type);
@@ -500,10 +530,40 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
     }
   }
 
+  action(sws_setHtmWriteSet, "sws", desc="Set sanity check bit for evicted wset data") {
+      assert(is_valid(cache_entry));
+      peek(L1RequestL2Network_in, RequestMsg) {
+          assert(isExclusive(address, in_msg.Requestor, cache_entry));
+          cache_entry.HtmWriteSet := true;
+      }
+  }
+
   action(dd_sendExclusiveDataToRequestor, "dd", desc="Send data from cache to reqeustor") {
     peek(L1RequestL2Network_in, RequestMsg) {
       enqueue(responseL2Network_out, ResponseMsg, l2_response_latency) {
         assert(is_valid(cache_entry));
+        out_msg.addr := address;
+        out_msg.Type := CoherenceResponseType:DATA_EXCLUSIVE;
+        out_msg.Sender := machineID;
+        out_msg.Destination.add(in_msg.Requestor);
+        out_msg.DataBlk := cache_entry.DataBlk;
+        out_msg.MessageSize := MessageSizeType:Response_Data;
+
+        out_msg.AckCount := 0 - cache_entry.Sharers.count();
+        if (cache_entry.Sharers.isElement(in_msg.Requestor)) {
+          out_msg.AckCount := out_msg.AckCount + 1;
+        }
+      }
+    }
+  }
+
+  action(ddo_sendExclusiveDataToOwner, "ddo", desc="Send data from cache to reqeustor") {
+    peek(L1RequestL2Network_in, RequestMsg) {
+      enqueue(responseL2Network_out, ResponseMsg, l2_response_latency) {
+        assert(is_valid(cache_entry));
+        assert(isExclusive(address, in_msg.Requestor, cache_entry));
+        assert(cache_entry.HtmWriteSet);
+        cache_entry.HtmWriteSet := false;
         out_msg.addr := address;
         out_msg.Type := CoherenceResponseType:DATA_EXCLUSIVE;
         out_msg.Sender := machineID;
@@ -1038,6 +1098,23 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
     t_sendWBAck;
     jj_popL1RequestQueue;
   }
+
+  transition(MT, L1_PUTM) { // writback and stay as excusive
+    sws_setHtmWriteSet; // Sanity check
+    mr_writeDataToCacheFromRequest;
+    t_sendWBAck;
+    jj_popL1RequestQueue;
+  }
+
+  transition(MT, {L1_GETS_Owner, L1_GETX_Owner}, MT_MB) {
+      // Act as if coming from M
+    ddo_sendExclusiveDataToOwner;
+    set_setMRU;
+    uu_profileHit;
+    jj_popL1RequestQueue;
+  }
+
+
 
   transition({SS_MB,MT_MB}, Exclusive_Unblock, MT) {
     // update actual directory

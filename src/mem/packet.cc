@@ -557,7 +557,8 @@ Packet::setHtmStoreToLog(bool val, PacketPtr mainPkt)
     htmStoreToLog = val;
     if (htmStoreToLog) {
         assert(mainPkt != nullptr);
-        htmLoggedStorePkt = mainPkt;
+        htmLoggedStoreAddr = mainPkt->getAddr();
+        htmTransactionUid = mainPkt->htmTransactionUid;
     }
 }
 
@@ -567,11 +568,11 @@ Packet::isHtmStoreToLog()
     return htmStoreToLog;
 }
 
-PacketPtr
-Packet::getHtmLoggedStorePkt() const
+Addr
+Packet::getHtmLoggedStoreAddr() const
 {
     assert(htmStoreToLog);
-    return htmLoggedStorePkt;
+    return htmLoggedStoreAddr;
 }
 
 void

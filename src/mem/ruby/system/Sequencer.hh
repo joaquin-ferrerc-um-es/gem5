@@ -58,14 +58,13 @@ namespace gem5
 
 namespace ruby
 {
-struct LogRequestInfo;
+
 struct SequencerRequest
 {
     PacketPtr pkt;
     RubyRequestType m_type;
     RubyRequestType m_second_type;
     Cycles issue_time;
-    LogRequestInfo* log = NULL;
     SequencerRequest(PacketPtr _pkt, RubyRequestType _m_type,
                      RubyRequestType _m_second_type, Cycles _issue_time)
                 : pkt(_pkt), m_type(_m_type), m_second_type(_m_second_type),

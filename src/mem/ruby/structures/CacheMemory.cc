@@ -335,13 +335,21 @@ CacheMemory::cacheProbe(Addr address) const
     std::vector<ReplaceableEntry*> candidates;
     TransactionInterfaceManager * xact_mgr = NULL;
     if (m_xact_mgr &&
-        m_xact_mgr->config_replaceNonTransCandidatesPreferred()) {
+        (m_xact_mgr->config_replaceNonTransCandidatesPreferred() ||
+         !m_xact_mgr->config_lazyVM())) { // LogTM
         // Enable "htm-aware" replacement
         xact_mgr = m_xact_mgr;
     }
     do {
         for (int i = 0; i < m_cache_assoc; i++) {
-            if (xact_mgr) {
+            if (xact_mgr &&
+                m_cache[cacheSet][i]->getHtmLogPending()) {
+                // Prevent victimization of undo log entries while
+                // transactional store is being logged
+                assert(!m_xact_mgr->config_lazyVM()); // LogTM
+                continue;
+            }
+            else if (xact_mgr) {
                 Addr addr = m_cache[cacheSet][i]->m_Address;
                 if (xact_mgr->checkWriteSignature(addr) ||
                     (!xact_mgr->config_allowReadSetLowerLevelCacheEvictions() &&
@@ -781,8 +789,11 @@ bool
 CacheMemory::isHtmLogPending(Addr address) const
 {
     const AbstractCacheEntry* entry = lookup(address);
-    assert(entry != nullptr);
-    return entry->getHtmLogPending();
+    if (entry != nullptr) {
+        return entry->getHtmLogPending();
+    } else {
+        return false;
+    }
 }
 
 void

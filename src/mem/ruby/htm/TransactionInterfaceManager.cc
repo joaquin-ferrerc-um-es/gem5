@@ -10,6 +10,7 @@
 #include <cstdlib>
 
 #include "debug/RubyHTM.hh"
+#include "debug/RubyHTMlog.hh"
 #include "debug/RubyHTMverbose.hh"
 #include "mem/ruby/htm/EagerTransactionVersionManager.hh"
 #include "mem/ruby/htm/LazyTransactionCommitArbiter.hh"
@@ -53,16 +54,24 @@ TransactionInterfaceManager::TransactionInterfaceManager(const Params &p)
     m_xactIsolationManager = new TransactionIsolationManager(this, m_version);
     m_xactConflictManager  = new TransactionConflictManager(this, m_version);
     if (XACT_LAZY_VM) {
-        assert(!XACT_EAGER_CD);
-        m_xactLazyVersionManager   =
-            new LazyTransactionVersionManager(this,
+        if (!XACT_EAGER_CD) {
+            // Lazy CD + lazy VM in write buffer
+
+            // lazy version manager acts as dedicated write buffer
+            m_xactLazyVersionManager   =
+                new LazyTransactionVersionManager(this,
                                               m_version,
                                               m_dataCache_ptr);
-        m_xactLazyCommitArbiter  =
-            new LazyTransactionCommitArbiter(this, m_version,
-                                             m_htm->params().
-                                             lazy_arbitration);
-    } else { // Eager VM (LogTM)
+            // lazy commit arbiter ensures proper detection and
+            // resolution of conflicts at commit time
+            m_xactLazyCommitArbiter  =
+                new LazyTransactionCommitArbiter(this, m_version,
+                                                 m_htm->params().
+                                                 lazy_arbitration);
+        } else {
+            // Eager-lazy (eager CD + lazy VM in cache)
+        }
+    } else { // Eager CD + Eager VM (LogTM)
         assert(XACT_EAGER_CD);
         m_xactEagerVersionManager   =
             new EagerTransactionVersionManager(this,
@@ -487,10 +496,30 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
     else {
         // Only release isolation over read set
         getXactIsolationManager()->releaseReadIsolation(thread);
-        // Keep detecting conflicts on Wset despite xact_level being
-        // 0. We could use escape actions, but then we would need to
-        // leave xact level > 0 until we get the "endLogUnroll" signal
-        m_unrollingLogFlag[thread] = true;
+        int wsetsize = getXactIsolationManager()->
+            getWriteSetSize(thread, m_transactionLevel[thread]);
+        int logsize =m_xactEagerVersionManager->getLogNumEntries();
+        if (wsetsize != logsize) {
+            // It is possible that a logged trans store does not
+            // complete after its target block has been added to the
+            // log. The following assert may fail in non-TSO since
+            // more than one of such pending but already logged stores
+            // exists upon abort
+            assert(wsetsize+1 == logsize);
+        }
+
+        if (m_xactEagerVersionManager->getLogNumEntries() > 0) {
+            // Keep detecting conflicts on Wset despite xact_level being
+            // 0. We could use escape actions, but then we would need to
+            // leave xact level > 0 until we get the "endLogUnroll" signal
+            m_unrollingLogFlag[thread] = true;
+            // All log unroll accesses will be escaped (not marked as
+            // transactional)
+            m_escapeLevel[thread] = 1;
+            // Leaves xact level to 1 until log unrolled in order to
+            // detect conflicts on Wset
+            assert(m_transactionLevel[thread] == 1);
+        }
     }
 
     if (!XACT_EAGER_CD && m_atCommit[thread]) {
@@ -510,14 +539,13 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
         assert(!m_atCommit[thread]);
     }
 
-    if (!XACT_LAZY_VM) { // LogTM implicitly enters log unroll region
-        // Also, LogTM leaves xact level to 1 until log unrolled in
-        // order to detect conflicts on Wset
-        assert(m_transactionLevel[thread] == 1);
-        // Escaped accesses (not marked as transactional)
-        m_escapeLevel[thread] = 1;
-    } else {
+    // Update transaction level unless going into log unroll
+    if (!m_unrollingLogFlag[thread]) {
         m_transactionLevel[thread] = 0;
+    } else {
+        assert(!XACT_LAZY_VM); // LogTM
+        assert(m_transactionLevel[thread] == 1);
+        assert(m_xactEagerVersionManager->getLogNumEntries() > 0);
     }
 
     if (m_abortFlag[thread]) {
@@ -994,6 +1022,12 @@ TransactionInterfaceManager::xactReplacement(Addr addr, MachineID source,
     bool wset = false;
     assert(makeLineAddress(addr) == addr);
     if (checkWriteSignature(addr)) {
+        if (!XACT_LAZY_VM) { // LogTM
+            // Allowed, do not abort
+            DPRINTF(RubyHTMlog, "HTM: tolerated xactReplacement"
+                    " of logged write-set address=%x \n", addr);
+            return;
+        }
         wset = true;
         DPRINTF(RubyHTM, "HTM: xactReplacement "
                 "for write-set address=%x \n", addr);
@@ -1212,6 +1246,9 @@ TransactionInterfaceManager::endLogUnroll(int thread){
     m_escapeLevel[thread] = 0;
     m_transactionLevel[thread] = 0;
     m_unrollingLogFlag[thread] = false;
+    DPRINTF(RubyHTMlog, "HTM: done unrolling log, abort"
+            " is now complete!\n");
+
 #if 0
     // Value sanity checks done after log unrolled
     if (RubySystem::enableValueChecker()) {

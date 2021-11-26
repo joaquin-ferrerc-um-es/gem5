@@ -72,6 +72,11 @@ void
 TransactionalSequencer::abortTransaction(PacketPtr pkt)
 {
     int thread = 0;
+    assert(m_xact_mgr->isAborting(thread) ||
+           pkt->req->isHTMAbort());
+    if (!m_htm->params().lazy_vm) {
+        clearSuppressedLogRequests();
+    }
     m_stalled = false;
     m_xact_mgr->abortTransaction(thread, pkt);
     m_lastAbortHtmUid = pkt->getHtmTransactionUid();
@@ -120,6 +125,9 @@ TransactionalSequencer::notifyXactionEvent(PacketPtr pkt)
       DPRINTFR(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s \n",
                curTick(), m_version, "Seq",
                "HTM_START" , "", "");
+      if (!m_htm->params().lazy_vm) {
+          assert(m_logRequestTable.empty());
+      }
   } else if (pkt->req->isHTMCommit()) {
       DPRINTF(RubyHTM, "HTM_COMMIT\n");
       // Store value returned by canCommit, used to signal CPU whether
@@ -131,6 +139,9 @@ TransactionalSequencer::notifyXactionEvent(PacketPtr pkt)
                    curTick(), m_version, "Seq",
                    "HTM_COMMIT", "", "");
           m_commitPending = false;
+          if (!m_htm->params().lazy_vm) {
+              assert(m_logRequestTable.empty());
+          }
       } else {
           m_xact_mgr->initiateCommitTransaction(thread, xid, pkt);
           m_commitPending = true;
@@ -332,6 +343,7 @@ TransactionalSequencer::insertRequest(PacketPtr pkt,
     RequestStatus status = Sequencer::insertRequest(pkt,
                                                     primary_type,
                                                     secondary_type);
+
     if (!m_htm->params().precise_read_set_tracking) {
         /* If no precise read-set tracking, cache blocks are added to
          * read set as soon as load access begins. This forces the
@@ -402,6 +414,20 @@ TransactionalSequencer::makeRequest(PacketPtr pkt)
         // CPU by setting the htmReturnReason in the response packet
         // (ifetch and stores always return HtmCacheFailure::NO_FAIL)
         rubyHtmCallback(pkt);
+
+        if (!m_htm->params().lazy_vm && // LogTM
+            pkt->isWrite() &&
+            m_logRequestTable.find(pkt->getAddr()) !=
+            m_logRequestTable.end()) {
+            // Suppress outstanding logging actions for this store
+            auto &log_req_list = m_logRequestTable[pkt->getAddr()];
+            LogRequestInfo &log_req = log_req_list.back();
+            log_req.suppressed = true;
+            DPRINTF(RubyHTMlog, "Suppressed logging of store"
+                    " to paddr %#x (%#x) due to abort \n",
+                    pkt->getAddr(),
+                    makeLineAddress(pkt->getAddr()));
+        }
         return RequestStatus_Issued;
     } else {
         if (pkt->req->hasVaddr()){
@@ -484,79 +510,89 @@ TransactionalSequencer::makeRequest(PacketPtr pkt)
                         pkt->req->getVaddr(),
                         pkt->req->getPaddr());
             }
-        } else if (!m_htm->params().lazy_vm && // LogTM
-                   pkt->isHtmTransactional() &&
-                   pkt->isWrite()) {
-           assert(m_htm->params().eager_cd);
-           if (m_xact_mgr->checkWriteSignature(pkt->getAddr())) {
-               // Store to block already in wset
-               DPRINTF(RubyHTMlog, "Store to vaddr %#x"
-                       " block paddr %#x already logged\n",
-                       pkt->req->getVaddr(),
-                       makeLineAddress(pkt->req->getPaddr()));
-           } else {
-               /* Generate log requests and use
-                  Sequencer::makeRequest(pkt) to handle them. Once both
-                  log requests issued, then let it thru to make request
-                  for program store. Need to keep track of each
-                  "oustanding" store and its associated log requests.
-               */
-               Addr line_addr = makeLineAddress(pkt->getAddr());
-               // Check if there is any outstanding log request for the
-               // cache line targeted by this write.
-               auto &log_req_list = m_logRequestTable[line_addr];
-               assert(pkt->isHtmTransactional());
-               if (log_req_list.size() > 0) {
-                   // Outstanding log request
-                   LogRequestInfo &log_req = log_req_list.back();
-                   assert(log_req.mainPkt->isHtmTransactional());
-                   if (log_req.mainPkt != pkt) {
-                       // Another program store to same block
-                       panic("Unexpected store for block"
-                             " awaiting logging!\n");
-                   }
-                   if ((log_req.logAddrPktStatus != RequestStatus_Issued) ||
-                       (log_req.logDataPktStatus != RequestStatus_Issued)) {
-                       // Could not issue log requests on the first
-                       // attempt, retry now
-                       panic("Could not issue log requests!\n");
-                   }
-                   if (log_req.outstanding > 0) {
-                       DPRINTF(RubyHTMlog, "Cannot make request for"
-                               " store to vaddr %#x paddr %#x"
-                               " due to %d outstanding log requests\n",
-                               pkt->req->getVaddr(),
-                               pkt->req->getPaddr(),
-                               log_req.outstanding);
-                       return RequestStatus_WaitUntilLogged;
-                   }
-                   // Complete
-                   DPRINTF(RubyHTMlog, "Done adding log entry for"
-                           " store to vaddr %#x paddr %#x\n",
-                           pkt->req->getVaddr(),
-                           pkt->req->getPaddr());
-                   // Will call makeRequest for program store next
-               } else {
-                   // Create log requests/packets
-                   LogRequestInfo logreqinfo = buildLogPackets(pkt);
-                   DPRINTF(RubyHTMlog, "Generating accesses to log:"
-                           " - paddr %#x (addr) %#x (data)\n",
-                           logreqinfo.logAddrPkt->getAddr(),
-                           logreqinfo.logDataPkt->getAddr());
-                   // Try to issue requests and record status
-                   logreqinfo.logAddrPktStatus =
-                       Sequencer::makeRequest(logreqinfo.logAddrPkt);
-                   logreqinfo.logDataPktStatus =
-                       Sequencer::makeRequest(logreqinfo.logDataPkt);
-                   log_req_list.emplace_back(logreqinfo);
-                   DPRINTF(RubyHTMlog, "Store to vaddr %#x paddr %#x"
-                           " must wait until log requests done\n",
-                           pkt->req->getVaddr(),
-                           pkt->req->getPaddr());
-                   return RequestStatus_WaitUntilLogged;
-               }
-           }
-        }
+        } else if (!m_htm->params().lazy_vm) { // LogTM
+            Addr line_addr = makeLineAddress(pkt->getAddr());
+            if (pkt->isHtmTransactional() &&
+                pkt->isWrite()) {
+                assert(m_htm->params().eager_cd);
+                if (m_xact_mgr->checkWriteSignature(pkt->getAddr())) {
+                    // Store to block already in wset
+                    DPRINTF(RubyHTMlog, "Store to vaddr %#x"
+                            " block paddr %#x already logged\n",
+                            pkt->req->getVaddr(),
+                            makeLineAddress(pkt->req->getPaddr()));
+                    assert(m_logRequestTable.find(pkt->getAddr()) ==
+                           m_logRequestTable.end());
+                } else {
+                    /* Generate log requests and use
+                       Sequencer::makeRequest(pkt) to handle them. Once both
+                       log requests issued, then let it thru to make request
+                       for program store. Need to keep track of each
+                       "oustanding" store and its associated log requests.
+                    */
+                    // Check if there is any outstanding log request for the
+                    // cache line targeted by this write.
+                    if (m_logRequestTable.find(line_addr) !=
+                        m_logRequestTable.end()) {
+                        auto &log_req_list = m_logRequestTable[line_addr];
+                        assert(!log_req_list.empty());
+                        // Outstanding log request
+                        LogRequestInfo &log_req = log_req_list.back();
+                        if (log_req.completed + log_req.outstanding < 2) {
+                            makeLogRequests(log_req);
+                        }
+                        if (log_req.completed < 2) {
+                            DPRINTF(RubyHTMlog, "Cannot make request for"
+                                    " store to vaddr %#x paddr %#x (%#x)"
+                                    " - %d/%d outstanding/completed\n",
+                                    pkt->req->getVaddr(),
+                                    pkt->req->getPaddr(),
+                                    line_addr,
+                                    log_req.outstanding,
+                                    log_req.completed);
+                            return RequestStatus_WaitUntilLogged;
+                        }
+                        // Complete
+                        DPRINTF(RubyHTMlog, "Done adding log entry for"
+                                " store to vaddr %#x paddr %#x\n",
+                                pkt->req->getVaddr(),
+                                pkt->req->getPaddr());
+                        // Will call makeRequest for program store next
+                    } else {
+                        // Create log requests/packets
+                        LogRequestInfo log_req = buildLogPackets(pkt);
+                        // Try to issue them to cache
+                        makeLogRequests(log_req);
+                        // Record their status via logReqTable
+                        auto &log_req_list = m_logRequestTable[line_addr];
+                        assert(log_req_list.empty());
+                        log_req_list.emplace_back(log_req);
+                        DPRINTF(RubyHTMlog, "Store to vaddr %#x paddr %#x"
+                                "(%#x) must wait until log requests done\n",
+                                pkt->req->getVaddr(),
+                                pkt->req->getPaddr(),
+                                line_addr);
+
+
+                        return RequestStatus_WaitUntilLogged;
+                    }
+                }
+            } else { // Not a transactional write
+                if (m_logRequestAddr.find(line_addr) !=
+                    m_logRequestAddr.end()) {
+                    // Prevent accesses the log while logging is ongoing
+
+                    DPRINTF(RubyHTMlog, "%strans %s to paddr %#x"
+                            "(%#x) must wait until log requests done\n",
+                            pkt->isHtmTransactional() ? "" : "non-",
+                            pkt->isWrite() ? "write" : "read",
+                            pkt->getAddr(),
+                            line_addr);
+                    // Prevent processor from accessing the log while logging
+                    return RequestStatus_WaitUntilLogged;
+                }
+            }
+        }// Logtm
         return Sequencer::makeRequest(pkt);
     }
 }
@@ -873,25 +909,90 @@ TransactionalSequencer::buildLogPackets(PacketPtr mainPkt) {
   Addr vaddr = makeLineAddress(mainPkt->req->getVaddr());
   uint8_t *p = (uint8_t *)&vaddr;
   logAddrPkt->setData(p);
-  return LogRequestInfo(mainPkt, logAddrPkt, logDataPkt);
+  DPRINTF(RubyHTMlog, "Generating accesses to log:"
+          " - paddr %#x (addr) %#x (data)\n",
+          logAddrPkt->getAddr(),
+          logDataPkt->getAddr());
+
+  return LogRequestInfo(logAddrPkt, logDataPkt,
+                        mainPkt->req->getVaddr(),
+                        makeLineAddress(mainPkt->getAddr()));
 }
 
+void
+TransactionalSequencer::makeLogRequests(LogRequestInfo &logreqinfo)
+{
+    assert(!logreqinfo.suppressed);
+
+    if (logreqinfo.logAddrPktStatus != RequestStatus_Issued) {
+        logreqinfo.logAddrPktStatus =
+            Sequencer::makeRequest(logreqinfo.logAddrPkt);
+        if (logreqinfo.logAddrPktStatus == RequestStatus_Issued) {
+            DPRINTF(RubyHTMlog, "Issued log address request:"
+                    " - paddr %#x (addr)\n",
+                    logreqinfo.logAddrPkt->getAddr());
+            ++logreqinfo.outstanding;
+            Addr line_address =
+                makeLineAddress(logreqinfo.logAddrPkt->getAddr());
+            m_logRequestAddr[line_address]='y';
+        }
+    }
+    if (logreqinfo.logDataPktStatus != RequestStatus_Issued) {
+        logreqinfo.logDataPktStatus =
+            Sequencer::makeRequest(logreqinfo.logDataPkt);
+        if (logreqinfo.logDataPktStatus == RequestStatus_Issued) {
+            DPRINTF(RubyHTMlog, "Issued log data request:"
+                    " - paddr %#x (addr)\n",
+                    logreqinfo.logDataPkt->getAddr());
+            ++logreqinfo.outstanding;
+            Addr line_address =
+                makeLineAddress(logreqinfo.logDataPkt->getAddr());
+            m_logRequestAddr[line_address]='y';
+        }
+    }
+
+}
 
 void
 TransactionalSequencer::handleStoresToLog(Addr address,
                                        PacketPtr pkt,
                                        DataBlock& data)
 {
-    PacketPtr mainPkt = pkt->getHtmLoggedStorePkt();
-    Addr store_addr = makeLineAddress(mainPkt->getAddr());
+    assert(pkt->isWrite());
+    Addr store_addr = makeLineAddress(pkt->getHtmLoggedStoreAddr());
+    assert(m_logRequestTable.find(store_addr) !=
+           m_logRequestTable.end());
     auto &log_req_list = m_logRequestTable[store_addr];
     assert(log_req_list.size() == 1);
     LogRequestInfo &log = log_req_list.back();
-    assert(log.mainPkt->isHtmTransactional());
     assert(pkt->isHtmStoreToLog());
 
     --log.outstanding;
+    ++log.completed;
+    bool found = m_logRequestAddr.erase(address);
+    assert(found);
 
+    if (log.suppressed) {
+        // Transaction aborted while outstanding log requests: ignore,
+        // program store will delete packets and deallocate
+        // logRequestTable
+        DPRINTF(RubyHTMlog, "Ignored log requests for "
+                " cancelled store to paddr %#x due to abort "
+                " - %d/%d outstanding/completed\n", store_addr,
+                log.outstanding, log.completed);
+
+        delete pkt;
+
+        if (log.outstanding == 0) {
+            // Erase entry from log request table
+            bool found = m_logRequestTable.erase(store_addr);
+            assert(found);
+        }
+        // In case we stalled an access from the processor to this
+        // very same line
+        trySendRetries();
+        return;
+    }
     if (pkt == log.logAddrPkt) {
         // Copy virtual address to address log
         const uint64_t *vaddrPtr = pkt->getConstPtr<uint64_t>();
@@ -911,10 +1012,9 @@ TransactionalSequencer::handleStoresToLog(Addr address,
         m_dataCache_ptr->setHtmLogPending(address, true);
         DPRINTF(RubyHTMlog, "Log data block paddr %#x pinned in cache"
                 " until data from vaddr %#x (paddr %#x) copied\n",
-                address, log.mainPkt->req->getVaddr(),
-                log.mainPkt->getAddr());
+                address, log.vaddr, log.paddr);
     }
-    // Wake up program store if both stores to the log have completed
+    // Wake up program store or store to log pending to be issued
     if (log.outstanding == 0) {
         trySendRetries();
     }
@@ -925,19 +1025,24 @@ TransactionalSequencer::handleLoggedStore(Addr address,
                                           SequencerRequest& request,
                                           DataBlock& data)
 {
+    PacketPtr pkt = request.pkt;
+    assert(pkt->isHtmTransactional());
+    assert(pkt->isWrite());
     auto &log_req_list = m_logRequestTable[address];
     assert(log_req_list.size() == 1);
     LogRequestInfo &log = log_req_list.back();
-    PacketPtr pkt = request.pkt;
-    assert(log.mainPkt == pkt);
-    assert(pkt->isHtmTransactional());
-    assert(pkt->isWrite());
-    assert(log.outstanding == 0);
+    assert(log.outstanding == 0 && log.completed == 2);
+    assert(!log.suppressed);
     PacketPtr logPkt = log.logDataPkt;
     assert(logPkt->getSize() == RubySystem::getBlockSizeBytes());
     // get a pointer to the data log cache block, then write values
     // tryCacheAccess must find a write hit, and return pointer
-    assert(m_dataCache_ptr->isHtmLogPending(logPkt->getAddr()));
+    if (!m_dataCache_ptr->isHtmLogPending(logPkt->getAddr())) {
+        // TODO: Prevent replacements of entries with htmLogPending
+        // flag set
+      panic("Undo log data entry has been evicted "
+            "Transactional store cannot be logged!\n");
+    }
     // Unblock the data log cache block now..
     m_dataCache_ptr->setHtmLogPending(address, false);
     DataBlock* logDatablockPtr;
@@ -959,6 +1064,7 @@ TransactionalSequencer::handleLoggedStore(Addr address,
             makeLineAddress(pkt->getAddr()),
             *logDatablockPtr);
     // Delete packets
+
     delete log.logAddrPkt;
     delete log.logDataPkt;
 
@@ -966,6 +1072,33 @@ TransactionalSequencer::handleLoggedStore(Addr address,
     m_logRequestTable.erase(address);
 }
 
+void
+TransactionalSequencer::clearSuppressedLogRequests()
+{
+    // Careful when erasing from a map while iterating it. Must avoid
+    // using iterator after erasing
+    auto it = m_logRequestTable.cbegin();
+    for (auto next_it = it;
+         it != m_logRequestTable.cend(); it = next_it) {
+        ++next_it;
+        auto log_req_list =(*it).second;
+        assert(log_req_list.size() == 1);
+        LogRequestInfo log_req = log_req_list.back();
+        DPRINTF(RubyHTMlog, "Lingering logging of store"
+                " to paddr %#x\n",
+                (*it).first);
+        assert(log_req.suppressed);
+        if (log_req.outstanding == 0) {
+            // Erase entry from log request table
+            bool found = m_logRequestTable.erase((*it).first);
+            assert(found);
+        } else {
+            DPRINTF(RubyHTMlog, "Lingering logging of store"
+                    " to paddr %#x has outstanding request\n",
+                    (*it).first);
+        }
+    }
+}
 
 void
 TransactionalSequencer::writeCallback(Addr address, DataBlock& data,
@@ -993,8 +1126,9 @@ TransactionalSequencer::writeCallback(Addr address, DataBlock& data,
             markRemoved();
             // Do not callback CPU
             return;
-        } else if (m_logRequestTable.find(address) !=
-                   m_logRequestTable.end()) {
+        } else if (seq_req.pkt->isWrite() &&
+                   (m_logRequestTable.find(address) !=
+                    m_logRequestTable.end())) {
             // Transactional store with outstanding logging actions
             handleLoggedStore(address, seq_req, data);
             // Fall thru to erase and callback CPU...

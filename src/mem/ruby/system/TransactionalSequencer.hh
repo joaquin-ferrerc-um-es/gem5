@@ -22,19 +22,23 @@ class TransactionInterfaceManager;
 // LogTM
 struct LogRequestInfo
 {
-    PacketPtr mainPkt = NULL; // Program store
     PacketPtr logAddrPkt = NULL;
     PacketPtr logDataPkt = NULL;
     RequestStatus logAddrPktStatus = RequestStatus_NULL;
     RequestStatus logDataPktStatus = RequestStatus_NULL;
     //WriteCallbackArgs callbackArgs;
     /** Number of outstanding associated access to complete (LogTM) */
-    int outstanding = 2; // log addr + log data + program store
-    LogRequestInfo(PacketPtr _mainPkt,
-                   PacketPtr _logAddrPkt,
-                   PacketPtr _logDataPkt)
-        : mainPkt(_mainPkt), logAddrPkt(_logAddrPkt),
-          logDataPkt(_logDataPkt)
+    int outstanding = 0;
+    int completed = 0;
+    bool suppressed = false;
+    Addr vaddr = 0; // Program store
+    Addr paddr = 0; // Program store
+    LogRequestInfo(PacketPtr _logAddrPkt,
+                   PacketPtr _logDataPkt,
+                   Addr va, Addr pa)
+        : logAddrPkt(_logAddrPkt),
+          logDataPkt(_logDataPkt),
+          vaddr(va), paddr(pa)
           //callbackArgs()
     {}
 };
@@ -93,8 +97,10 @@ class TransactionalSequencer : public Sequencer
                                   DataBlock& data, bool externalHit,
                                   const MachineType respondingMach);
     LogRequestInfo buildLogPackets(PacketPtr mainPkt);
+    void makeLogRequests(LogRequestInfo &logreqinfo);
     void handleStoresToLog(Addr address, PacketPtr pkt,
                         DataBlock& data);
+    void clearSuppressedLogRequests();
     void handleLoggedStore(Addr address,
                            SequencerRequest& request,
                            DataBlock& data);
@@ -113,6 +119,7 @@ class TransactionalSequencer : public Sequencer
     // LogTM (eager VM) RequestTable contains outstanding log requests
     // for pending program stores (per line address)
     std::unordered_map<Addr, std::list<LogRequestInfo>> m_logRequestTable;
+    std::unordered_map<Addr, bool> m_logRequestAddr;
 
     // Lazy-lazy HTM:
     class WriteBufferHitEvent : public Event

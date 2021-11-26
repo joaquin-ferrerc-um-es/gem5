@@ -425,7 +425,7 @@ class Packet : public Printable
     /** For htmStoreToLog packets, keep a pointer to the packet from
      * the transactional store that originated this log store packet
      */
-    PacketPtr htmLoggedStorePkt;
+    Addr htmLoggedStoreAddr;
 
     /**
      * Whether a memory access sits at the head of load/store queue.
@@ -879,7 +879,7 @@ class Packet : public Printable
            htmReturnReason(HtmCacheFailure::NO_FAIL),
            htmTransactionUid(0),
            htmAccessFailed(false),
-           htmStoreToLog(false),
+           htmStoreToLog(false), htmLoggedStoreAddr(0),
            atLSQHead(false),
            headerDelay(0), snoopDelay(0),
            payloadDelay(0), senderState(NULL)
@@ -924,7 +924,7 @@ class Packet : public Printable
            htmReturnReason(HtmCacheFailure::NO_FAIL),
            htmTransactionUid(0),
            htmAccessFailed(false),
-           htmStoreToLog(false),
+           htmStoreToLog(false), htmLoggedStoreAddr(0),
            atLSQHead(false),
            headerDelay(0),
            snoopDelay(0), payloadDelay(0), senderState(NULL)
@@ -955,7 +955,7 @@ class Packet : public Printable
            htmReturnReason(HtmCacheFailure::NO_FAIL),
            htmTransactionUid(0),
            htmAccessFailed(false),
-           htmStoreToLog(false),
+           htmStoreToLog(false), htmLoggedStoreAddr(0),
            atLSQHead(false),
            headerDelay(pkt->headerDelay),
            snoopDelay(0),
@@ -1549,7 +1549,7 @@ class Packet : public Printable
     bool isHtmAccessFailedInCache();
     void setHtmStoreToLog(bool val, PacketPtr mainPkt = nullptr);
     bool isHtmStoreToLog();
-    PacketPtr getHtmLoggedStorePkt() const;
+    Addr getHtmLoggedStoreAddr() const;
     void setAtLSQHead(bool val);
     bool isAtLSQHead();
 };

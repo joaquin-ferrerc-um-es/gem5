@@ -2,10 +2,18 @@ void m5_init();
 void simBeginRegionOfInterest();
 void simEndRegionOfInterest();
 void simSetLogBase(void *ptr);
-void simEndLogUnroll();
 void simWorkBegin();
 void simWorkEnd();
 void simBarrierBegin();
 void simBarrierEnd();
 void simCodeRegionBegin(unsigned long int codeRegionId);
 void simCodeRegionEnd(unsigned long int codeRegionId);
+
+#define simEndLogUnroll(ptr) ({                                         \
+            __asm__ volatile ("mov    %0,%%rdi\n\t"                     \
+                              "movabs $0xdeadc0debaadcafe,%%rax\n\t"    \
+                              "mov    %%rax,(%%rdi)\n\t"                \
+                              :                                         \
+                              : "r"(ptr)                                \
+                              : "%rdi", "rax");                         \
+        })

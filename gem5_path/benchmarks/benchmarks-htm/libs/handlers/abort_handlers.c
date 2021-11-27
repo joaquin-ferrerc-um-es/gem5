@@ -66,14 +66,12 @@ void beginTransaction_fallbackLock(long tag,
                                    _tm_thread_context_t *ctx) {
     u_int64_t ret, retryWithLock = 0;
     int nretries = 0;
-    u_int64_t flags = 0;
-    int tid = ctx->info.threadId;
 
-    handleHeapPrefault(tid);
+    handleHeapPrefault(0);
     simSetLogBase(ctx->info.logtm_transactionLog);
     do {
         ++nretries;
-        ret = htm_start(flags);
+        ret = htm_start(0);
 
         if (htm_started(ret)) {
             if (!spinlock_isLocked()) return; /* Start transaction */
@@ -85,7 +83,7 @@ void beginTransaction_fallbackLock(long tag,
             uint32_t log_size = M5_ABORTSTATUS_LOGSIZE_DECODE(ret);
             uint8_t *log_base = (uint8_t *)((_tm_thread_context_t *)ctx)->info.logtm_transactionLog;
             logtm_log_unroll(log_base, log_size);
-            simEndLogUnroll();
+            simEndLogUnroll(ctx->info.logtm_transactionLog);
         }
 
         if (htm_abort_cause_conflict(ret) &&

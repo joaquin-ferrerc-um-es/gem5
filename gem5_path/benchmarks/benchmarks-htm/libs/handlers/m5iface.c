@@ -6,7 +6,6 @@ void m5_init() {}
 void simBeginRegionOfInterest() {}
 void simEndRegionOfInterest() {}
 void simSetLogBase(void *ptr) {}
-void simEndLogUnroll() {}
 void simWorkBegin() {}
 void simWorkEnd() {}
 void simBarrierBegin() {}
@@ -144,12 +143,6 @@ void simSetLogBase(void *logptr) {
         // accesses and fill log v2p translation table
         walk_log(logptr);
     }
-}
-
-void simEndLogUnroll() {
-    // Notify simulator that abort handler has completed unrolling the
-    // undo log
-    m5_sum(M5_SUM_HACK_ARGS, M5_SUM_HACK_TYPE_LOGTM_DONE_UNROLLING, 0);
 }
 
 #if defined(ANNOTATE_CODE_REGIONS)

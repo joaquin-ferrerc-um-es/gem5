@@ -33,7 +33,7 @@
                               "xbegin   .+6 \n\t"               \
                               "mov %%rax, %0\n\t"               \
                               : "=r"(ret)                       \
-                              : "r"(arg)                        \
+                              : "I"(arg)                        \
                               : "%rdi", "rax");                 \
             ret;                                                \
         })

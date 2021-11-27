@@ -63,6 +63,9 @@ that page: "data" log grows from the log bottom towards the log top, while
 void logtm_init_transaction_state(void *thread_contexts);
 long randomized_backoff(unsigned long num_retries);
 
+/* Magic number used for sanity checks to signal completion of log unroll to simulator */
+#define LOG_UNROLL_END_SIGNAL (0xDEADC0DEBAADCAFE)
+
 static inline uint64_t logtm_compute_addr_ptr_from_data_ptr(uint64_t dataLogPtr)  {
     uint64_t pageAddr = dataLogPtr & PAGE_MASK;
     uint64_t pageOffset = dataLogPtr & PAGE_OFFSET_MASK;

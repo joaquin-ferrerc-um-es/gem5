@@ -44,10 +44,14 @@ public:
       assert(m_initStatus >= LogInitStatus::BaseAddress);
       return m_logBaseVAddr; };
   Addr addLogEntry(Addr addr);
+  void commitLogEntry(Addr addr);
   int getLogNumEntries() const {
+      // Number of entries that were actually written to the log
+      // ("committed")
       assert(m_initStatus == LogInitStatus::Ready);
-      return m_logNumEntries;
+      return m_logNumCommittedEntries;
   };
+  bool isEndLogUnrollSignal(PacketPtr pkt);
 
 private:
   enum LogInitStatus
@@ -57,8 +61,10 @@ private:
       V2PTranslations,
       Ready
   };
+public:
   Addr computeLogDataPointer(int numEntries) const;
   Addr translateLogAddress(Addr vaddr) const;
+private:
   TransactionInterfaceManager *m_xact_mgr;
   int m_version;
   CacheMemory *m_dataCache_ptr;
@@ -66,6 +72,8 @@ private:
   Addr m_logBaseVAddr;
   std::map<Addr, Addr> m_logTLB;
   int m_logNumEntries = 0;
+  int m_logNumCommittedEntries = 0;
+  std::vector<Addr> m_addedLogDataPAddr;
 };
 
 } // namespace ruby

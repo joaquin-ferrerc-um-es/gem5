@@ -986,7 +986,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   //*****************************************************
 
   // Transitions for Load/Store/Replacement/WriteBack from transient states
-  transition({IS, IM, IS_I, M_I, SM, SINK_WB_ACK, S_IL0, M_IL0, E_IL0, MM_IL0, E_DL0, M_DL0},
+  transition({IS, IM, IS_I, M_I, MMT_I, SM, SINK_WB_ACK, S_IL0, M_IL0, E_IL0, MM_IL0, E_DL0, M_DL0},
              {Load, Store, L1_Replacement}) {
     z0_stallAndWaitL0Queue;
   }

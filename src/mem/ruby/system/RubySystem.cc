@@ -77,7 +77,7 @@ bool RubySystem::m_warmup_enabled = false;
 // of RubySystems that need to be warmed up on checkpoint restore.
 unsigned RubySystem::m_systems_to_warmup = 0;
 bool RubySystem::m_cooldown_enabled = false;
-string RubySystem::m_protocol;
+std::string RubySystem::m_protocol;
 bool RubySystem::m_l0_downgrade_on_l1_gets = false;
 
 RubySystem::RubySystem(const Params &p)
@@ -106,7 +106,7 @@ RubySystem::RubySystem(const Params &p)
     m_protocol = p.protocol;
     if (m_htm != nullptr) {
         m_l0_downgrade_on_l1_gets  = m_htm->params().l0_downgrade_on_l1_gets;
-        m_xactValueChecker = new XactValueChecker();
+        m_xactValueChecker = new XactValueChecker(this);
     }
 }
 

@@ -176,6 +176,8 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     bool Dirty, default="false",   desc="data is dirty";
     bool isPrefetched, default="false", desc="Set if this block was prefetched";
 
+    bool getHtmLogPending(), external="yes";
+
     // override invalidateEntry
     void invalidateEntry() {
       CacheState := State:I;
@@ -542,6 +544,13 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
                     assert(xact_mgr.isDoomed(0));
                     trigger(Event:InvOwn, in_msg.addr, cache_entry, tbe);
                 }
+            } else if (is_valid(cache_entry) &&
+                       cache_entry.getHtmLogPending()) {
+                // Nack L1 replacement of data log block while logging
+                // outstanding
+                assert(!xact_mgr.config_lazyVM());
+                trigger(Event:InvOwn_X,
+                        in_msg.addr, getCacheEntry(in_msg.addr), tbe);
             } else {
                 trigger(Event:InvOwn, in_msg.addr, cache_entry, tbe);
             }

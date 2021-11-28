@@ -404,19 +404,14 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
     HtmFailureFaultCause cause = pkt->req->getHtmAbortCause();
     profileHtmFailureFaultCause(thread, cause);
 
-    if (config_enableValueChecker()) {
-        m_ruby_system->getXactValueChecker()->
-            restartTransaction(getProcID());
-    }
     if (XACT_LAZY_VM) {
+        if (config_enableValueChecker()) {
+            // Lazy systems can perform value checks immediately
+            m_ruby_system->getXactValueChecker()->
+                restartTransaction(getProcID());
+        }
         if (XACT_EAGER_CD) {
             discardWriteSetFromL1DataCache(thread);
-#if 0
-            if (RubySystem::enableValueChecker()) {
-                m_ruby_system->getXactValueChecker()->
-                    restartTransaction(getProcID());
-            }
-#endif
         }
         else {
             if (m_atCommit[thread]) {
@@ -853,6 +848,9 @@ TransactionInterfaceManager::setAbortFlag(int thread, Addr addr,
                 " with TL=0\n", addr);
     }
 
+    if (!XACT_LAZY_VM) { // LogTM
+        assert(!isUnrollingLog(thread));
+    }
     if (!m_abortFlag[thread]) { // Only send abort signal to CPU once
         m_abortFlag[thread] = true;
 
@@ -1012,6 +1010,14 @@ TransactionInterfaceManager::isAborting(int thread) {
 }
 
 bool TransactionInterfaceManager::isDoomed(int thread) {
+    if (!XACT_LAZY_VM) { // LogTM
+        if (isUnrollingLog(thread)) {
+            // Abort flag already cleared but TL>0 so consider it
+            // doomed
+            assert(!m_abortFlag[thread]);
+            return true;
+        }
+    }
     return m_abortFlag[thread];
 }
 
@@ -1042,6 +1048,13 @@ TransactionInterfaceManager::xactReplacement(Addr addr, MachineID source,
         assert(checkReadSignature(addr));
         DPRINTF(RubyHTM, "HTM: xactReplacement "
                 "for read-set address=%x \n", addr);
+        if (!XACT_LAZY_VM) { // LogTM
+            if (isUnrollingLog(thread)) {
+                DPRINTF(RubyHTMlog, "HTM: read-set eviction"
+                        " during log unroll is ignored\n");
+                return;
+            }
+        }
     }
     setAbortFlag(thread, addr, source, false, capacity, wset);
 }
@@ -1202,6 +1215,12 @@ TransactionInterfaceManager::isAccessToLog(Addr addr)
     return m_xactEagerVersionManager->isAccessToLog(addr);
 }
 
+bool
+TransactionInterfaceManager::isEndLogUnrollSignal(PacketPtr pkt)
+{
+    return m_xactEagerVersionManager->isEndLogUnrollSignal(pkt);
+}
+
 void
 TransactionInterfaceManager::setupLogTranslation(Addr vaddr,
                                                  Addr paddr)
@@ -1213,6 +1232,12 @@ Addr
 TransactionInterfaceManager::addLogEntry(Addr addr)
 {
     return m_xactEagerVersionManager->addLogEntry(addr);
+}
+
+void
+TransactionInterfaceManager::commitLogEntry(Addr addr)
+{
+    return m_xactEagerVersionManager->commitLogEntry(addr);
 }
 
 int
@@ -1249,13 +1274,11 @@ TransactionInterfaceManager::endLogUnroll(int thread){
     DPRINTF(RubyHTMlog, "HTM: done unrolling log, abort"
             " is now complete!\n");
 
-#if 0
     // Value sanity checks done after log unrolled
-    if (RubySystem::enableValueChecker()) {
+    if (config_enableValueChecker()) {
         m_ruby_system->getXactValueChecker()->
             restartTransaction(getProcID());
     }
-#endif
 }
 
 void

@@ -248,8 +248,33 @@ TransactionConflictManager::shouldNackLoad(Addr addr,
               " requestor=%d addr=%lx (%s)\n",
               machineIDToNodeID(remote_id), addr,
               remote_trans ? "trans" : "non-trans");
-      if (false) {
-          return true;
+      if (remote_timestamp == 0) { // Privileged mode
+          panic("Conflicts with kernel code not tested!\n");
+          warn("HTM: cpu %d (writer) detected conflicting privileged"
+               " load from cpu %d for addr %lx \n",
+               getProcID(), machineIDToNodeID(remote_id), addr);
+          if (!m_xact_mgr->config_lazyVM()) { // LogTM
+              assert(isRequesterStallsPolicy());
+              // LogTM: abort but nack until requested line restored
+              // after log unrolled
+              if (!m_xact_mgr->isUnrollingLog(thread)) {
+                  m_xact_mgr->setAbortFlag(thread, addr,
+                                           remote_id, remote_trans);
+              }
+              shouldNack = true;
+          }
+          else {
+              // Protocol must make sure we never send speculatively
+              // modified data!! must send "yield" to L2 or send data from
+              // TBE if in M_E
+              DPRINTF(RubyHTM, "Conflict with kernel:"
+                      " Local writer %d (ts: %d) aborted by remote"
+                      " kernel reader %d for addr %lx\n",
+                      getProcID(), getTimestamp(thread),
+                      machineIDToNodeID(remote_id), addr);
+              // Kernel request
+              shouldNack = false;
+          }
       } else if (machineIDToMachineType(remote_id) == MachineType_L2Cache) {
           // LLC replacement
           shouldNack = false;
@@ -334,8 +359,35 @@ TransactionConflictManager::shouldNackStore(Addr addr,
               machineIDToNodeID(remote_id), addr,
               remote_trans ? "trans" : "non-trans");
 
-      if (false) {
-          return true;
+      if (remote_timestamp == 0) { // Privileged mode
+          panic("Conflicts with kernel code not tested!\n");
+          bool writer = m_xact_mgr->
+              getXactIsolationManager()->
+              isInWriteSetFilterSummary(addr);
+          warn("HTM: cpu %d (%s) detected conflicting privileged"
+               " load from cpu %d for addr %lx \n",
+               writer ? "writer" : "reader",
+               getProcID(), machineIDToNodeID(remote_id), addr);
+
+          if (!m_xact_mgr->config_lazyVM() && writer) { // LogTM
+              assert(m_policy_is_req_stalls_cda);
+              // LogTM: abort but nack until requested line restored
+              // after log unrolled
+              if (!m_xact_mgr->isUnrollingLog(thread)) {
+                  m_xact_mgr->setAbortFlag(thread, addr,
+                                           remote_id, remote_trans);
+              }
+              shouldNack = true;
+          }
+          else {
+              // LogTM reader / writer with lazy versioning
+              DPRINTF(RubyHTM, "Conflict with kernel: Local %s %d (ts: %d) "
+                      "aborted by remote kernel writer %d for addr %lx\n",
+                      writer ? "writer" : "reader",
+                      getProcID(), getTimestamp(thread),
+                      machineIDToNodeID(remote_id), addr);
+              shouldNack = false;
+          }
       } else if (machineIDToMachineType(remote_id) == MachineType_L2Cache) {
           // LLC replacement
           shouldNack = false;
@@ -369,6 +421,16 @@ TransactionConflictManager::shouldNackStore(Addr addr,
                   writer ? "writer" : "reader", getProcID(),
                   machineIDToNodeID(remote_id), addr);
           shouldNack = false;
+          if (!m_xact_mgr->config_lazyVM()) { // LogTM
+              // LogTM+reqwins: abort but nack until requested line
+              // restored after log unrolled
+              panic("Eager VM + requester wins not tested!\n");
+              if (!m_xact_mgr->isUnrollingLog(thread)) {
+                  m_xact_mgr->setAbortFlag(thread, addr,
+                                           remote_id, remote_trans);
+              }
+              shouldNack = true;
+          }
       }
       DPRINTF(RubyHTM,"HTM: PROC %d shouldNackStore detected conflict "
               "with PROC %d for address %#x, %s %d\n", getProcID(),

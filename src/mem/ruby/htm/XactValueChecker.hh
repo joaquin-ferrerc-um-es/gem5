@@ -20,13 +20,11 @@ namespace gem5
 namespace ruby
 {
 
-using namespace std;
-
-typedef map<Addr, DataBlock> WriteSetValueMap;
+typedef std::map<Addr, DataBlock> WriteSetValueMap;
 
 class XactValueChecker {
 public:
-  XactValueChecker();
+  XactValueChecker(RubySystem *rs);
   ~XactValueChecker();
   void registerSequencer(int proc);
 
@@ -38,6 +36,9 @@ public:
                          CacheMemory *dataCache_ptr);
   bool xactValueCheck(int thread, Addr addr, int size,
                       const uint8_t *ptr);
+   void notifyLoggedDataBlock(int proc, Addr addr, DataBlock &data);
+  void notifyUnrolledDataBlock(int proc,Addr addr, DataBlock &data);
+
 private:
   uint8_t readGlobalValue(Addr addr);
   bool existGlobalValue(Addr addr);
@@ -48,10 +49,22 @@ private:
   bool existInWriteBuffer(int proc, Addr addr);
   uint8_t getDataFromWriteBuffer(int proc, Addr addr);
 
-  map<Addr, uint8_t> m_xact_data;
-  vector< map<Addr, uint8_t> > m_writeBuffer;
-  vector< map<Addr, uint8_t> > m_writeBufferBlocks;
-  vector< int > m_writeBufferSizes;
+  RubySystem *m_ruby_system;
+  HTM *m_htm;
+
+    /*
+     */
+  std::map<Addr, uint8_t> m_xact_data;
+    /* Per-core map of data values written by ongoing transactions.
+     */
+  std::vector< std::map<Addr, uint8_t> > m_writeBuffer;
+    /* Per-core map of block addresses written by ongoing transactions.
+     */
+  std::vector< std::map<Addr, uint8_t> > m_writeBufferBlocks;
+    /* Per-core map of logged values */
+  std::vector<std::map<Addr, DataBlock>> m_loggedValues;
+    /* Per-core map of unrolled values */
+  std::vector<std::map<Addr, DataBlock>> m_unrolledValues;
 
 };
 

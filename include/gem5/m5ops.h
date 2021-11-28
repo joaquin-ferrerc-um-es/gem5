@@ -91,7 +91,6 @@ void m5_work_end(uint64_t workid, uint64_t threadid);
 #define M5_SUM_HACK_TYPE_REGION_BEGIN 0xBAAD
 #define M5_SUM_HACK_TYPE_REGION_END   0xF00D
 #define M5_SUM_HACK_TYPE_LOGTM_SETUP_LOG   0xDEAD
-#define M5_SUM_HACK_TYPE_LOGTM_DONE_UNROLLING  0xBEEF
 
 /*
  * Send a very generic poke to the workload so it can do something. It's up to

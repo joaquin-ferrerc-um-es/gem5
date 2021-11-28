@@ -6,6 +6,7 @@
 #include "debug/RubyHTMlog.hh"
 #include "debug/RubyHTMverbose.hh"
 #include "debug/RubyPort.hh"
+#include "mem/ruby/htm/EagerTransactionVersionManager.hh"
 #include "mem/ruby/htm/TransactionInterfaceManager.hh"
 #include "mem/ruby/htm/XactValueChecker.hh"
 #include "mem/ruby/htm/logtm.h"
@@ -43,7 +44,7 @@ TransactionalSequencer::~TransactionalSequencer()
 }
 
 void
-TransactionalSequencer::print(ostream& out) const
+TransactionalSequencer::print(std::ostream& out) const
 {
     Sequencer::print(out);
 
@@ -75,7 +76,7 @@ TransactionalSequencer::abortTransaction(PacketPtr pkt)
     assert(m_xact_mgr->isAborting(thread) ||
            pkt->req->isHTMAbort());
     if (!m_htm->params().lazy_vm) {
-        clearSuppressedLogRequests();
+        cancelLogRequests();
     }
     m_stalled = false;
     m_xact_mgr->abortTransaction(thread, pkt);
@@ -414,20 +415,6 @@ TransactionalSequencer::makeRequest(PacketPtr pkt)
         // CPU by setting the htmReturnReason in the response packet
         // (ifetch and stores always return HtmCacheFailure::NO_FAIL)
         rubyHtmCallback(pkt);
-
-        if (!m_htm->params().lazy_vm && // LogTM
-            pkt->isWrite() &&
-            m_logRequestTable.find(pkt->getAddr()) !=
-            m_logRequestTable.end()) {
-            // Suppress outstanding logging actions for this store
-            auto &log_req_list = m_logRequestTable[pkt->getAddr()];
-            LogRequestInfo &log_req = log_req_list.back();
-            log_req.suppressed = true;
-            DPRINTF(RubyHTMlog, "Suppressed logging of store"
-                    " to paddr %#x (%#x) due to abort \n",
-                    pkt->getAddr(),
-                    makeLineAddress(pkt->getAddr()));
-        }
         return RequestStatus_Issued;
     } else {
         if (pkt->req->hasVaddr()){
@@ -444,11 +431,20 @@ TransactionalSequencer::makeRequest(PacketPtr pkt)
                                                         pkt->req->getPaddr());
                     } else if (m_xact_mgr->isUnrollingLog(thread)) {
                         assert(!pkt->isHtmTransactional());
-                        assert(!pkt->isWrite());
                         DPRINTF(RubyHTMlog, "Log access during unroll "
                                 "vaddr %#x paddr %#x\n",
                                 pkt->req->getVaddr(),
                                 pkt->req->getPaddr());
+                        if (m_xact_mgr->isEndLogUnrollSignal(pkt)) {
+                            assert(pkt->isWrite());
+                           // "Magic value" written to logbase to
+                           // signal log unroll completed without
+                           // writing to the stack (call m5xxx)
+                            m_xact_mgr->endLogUnroll(thread);
+                            DPRINTF(RubyHTMlog, "Log unroll completed\n");
+                        } else {
+                            assert(!pkt->isWrite());
+                        }
                     } else {
                         panic("Unexpected access to undo log!\n");
                     }
@@ -867,7 +863,14 @@ TransactionalSequencer::buildLogPackets(PacketPtr mainPkt) {
    */
   Addr logDataPtr =  mainPkt->getLogAddr();
 #else
-  Addr logDataPtr = m_xact_mgr->addLogEntry(mainPkt->getAddr());
+  int numEntry = m_xact_mgr->addLogEntry(mainPkt->getAddr());
+  Addr logDataVPtr = m_xact_mgr->getXactEagerVersionManager()->
+      computeLogDataPointer(numEntry);
+  Addr logDataPtr = m_xact_mgr->getXactEagerVersionManager()->
+      translateLogAddress(logDataVPtr);
+  DPRINTF(RubyHTMlog,
+          "Logging store to paddr %#x - log %d vaddr %#x log paddr %#x \n",
+          mainPkt->getAddr(), numEntry, logDataVPtr, logDataPtr);
 #endif
   assert(logDataPtr == makeLineAddress(logDataPtr));
   Addr logAddressPtr = (Addr)logtm_compute_addr_ptr_from_data_ptr(logDataPtr);
@@ -973,16 +976,14 @@ TransactionalSequencer::handleStoresToLog(Addr address,
     assert(found);
 
     if (log.suppressed) {
-        // Transaction aborted while outstanding log requests: ignore,
-        // program store will delete packets and deallocate
-        // logRequestTable
+        // Transaction aborted while outstanding log requests: ignore
         DPRINTF(RubyHTMlog, "Ignored log requests for "
                 " cancelled store to paddr %#x due to abort "
                 " - %d/%d outstanding/completed\n", store_addr,
                 log.outstanding, log.completed);
-
+        // Delte packet now
         delete pkt;
-
+        // Erase entry if no more outstanding stores to log
         if (log.outstanding == 0) {
             // Erase entry from log request table
             bool found = m_logRequestTable.erase(store_addr);
@@ -1059,10 +1060,21 @@ TransactionalSequencer::handleLoggedStore(Addr address,
     logDatablockPtr->setData(data.getData(0,RubySystem::getBlockSizeBytes()),
                              0 /*offset*/,
                              RubySystem::getBlockSizeBytes() /*len*/);
-    DPRINTF(RubyHTMlog, "Logging store to vaddr %#x paddr %#x old value %s\n",
+
+    DPRINTF(RubyHTMlog, "Successfully logged store to vaddr"
+            " %#x paddr %#x old value %s\n",
             makeLineAddress(pkt->req->getVaddr()),
             makeLineAddress(pkt->getAddr()),
-            *logDatablockPtr);
+            logDatablockPtr->toString());
+    // Finally, commit this entry into the log.
+    m_xact_mgr->commitLogEntry(log.logDataPkt->getAddr());
+
+    if (m_xact_mgr->config_enableValueChecker()) {
+        // Record old value we just logged
+        m_ruby_system->getXactValueChecker()->
+            notifyLoggedDataBlock(m_version,address, data);
+    }
+
     // Delete packets
 
     delete log.logAddrPkt;
@@ -1073,26 +1085,28 @@ TransactionalSequencer::handleLoggedStore(Addr address,
 }
 
 void
-TransactionalSequencer::clearSuppressedLogRequests()
+TransactionalSequencer::cancelLogRequests()
 {
     // Careful when erasing from a map while iterating it. Must avoid
     // using iterator after erasing
-    auto it = m_logRequestTable.cbegin();
+    auto it = m_logRequestTable.begin();
     for (auto next_it = it;
-         it != m_logRequestTable.cend(); it = next_it) {
+         it != m_logRequestTable.end(); it = next_it) {
         ++next_it;
-        auto log_req_list =(*it).second;
+        auto &log_req_list =(*it).second;
         assert(log_req_list.size() == 1);
-        LogRequestInfo log_req = log_req_list.back();
+        LogRequestInfo &log_req = log_req_list.back();
         DPRINTF(RubyHTMlog, "Lingering logging of store"
                 " to paddr %#x\n",
                 (*it).first);
-        assert(log_req.suppressed);
         if (log_req.outstanding == 0) {
             // Erase entry from log request table
             bool found = m_logRequestTable.erase((*it).first);
             assert(found);
         } else {
+            // Will be erased by handleStoresToLog when the
+            // outstanding store completes
+            log_req.suppressed = true;
             DPRINTF(RubyHTMlog, "Lingering logging of store"
                     " to paddr %#x has outstanding request\n",
                     (*it).first);
@@ -1139,6 +1153,19 @@ TransactionalSequencer::writeCallback(Addr address, DataBlock& data,
                              forwardRequestTime,
                              firstResponseTime,
                              noCoales);
+    if (!m_htm->params().lazy_vm) { // LogTM
+        int thread = 0;
+        if (m_xact_mgr->config_enableValueChecker() &&
+            m_xact_mgr->isUnrollingLog(thread)) {
+            if (m_xact_mgr->checkWriteSignature(address)) {
+                // Restoring old value from log into wset block: Save
+                // datablock and check when unroll completes. Must do
+                // it after writeCallback observe written value
+                m_ruby_system->getXactValueChecker()->
+                    notifyUnrolledDataBlock(m_version, address, data);
+            }
+        }
+    }
 }
 
 } // namespace ruby

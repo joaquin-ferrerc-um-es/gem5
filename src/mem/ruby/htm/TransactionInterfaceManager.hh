@@ -8,19 +8,19 @@
 #ifndef __MEM_RUBY_HTM_TRANSACTIONINTERFACEMANAGER_HH__
 #define __MEM_RUBY_HTM_TRANSACTIONINTERFACEMANAGER_HH__
 
+#include <vector>
+
 #include "mem/htm.hh"
 #include "mem/packet.hh"
 #include "mem/request.hh"
 #include "mem/ruby/common/Address.hh"
-#include "mem/ruby/structures/CacheMemory.hh"
 #include "mem/ruby/profiler/annotated_regions.h"
+#include "mem/ruby/structures/CacheMemory.hh"
 #include "mem/ruby/system/RubySystem.hh"
 #include "mem/ruby/system/TransactionalSequencer.hh"
 #include "params/TransactionInterfaceManager.hh"
 #include "sim/sim_object.hh"
 #include "sim/system.hh"
-
-#include <vector>
 
 namespace gem5
 {
@@ -51,7 +51,7 @@ public:
   LazyTransactionVersionManager*   getXactLazyVersionManager();
   LazyTransactionCommitArbiter* getXactLazyCommitArbiter();
   TransactionalSequencer *getSequencer();
-    
+
   bool shouldNackLoad(Addr addr,
                       MachineID requestor,
                       Cycles remote_timestamp,
@@ -126,8 +126,10 @@ public:
 
   bool isLogReady();
   bool isAccessToLog(Addr addr);
+  bool isEndLogUnrollSignal(PacketPtr pkt);
   void setupLogTranslation(Addr vaddr, Addr paddr);
   Addr addLogEntry(Addr addr);
+  void commitLogEntry(Addr addr);
   int getLogNumEntries(int thread);
   bool isUnrollingLog(int thread);
   void endLogUnroll(int thread);

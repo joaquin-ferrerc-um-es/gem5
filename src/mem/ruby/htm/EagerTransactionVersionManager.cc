@@ -44,11 +44,15 @@ CLASS_NS beginTransaction(int thread)
     assert(m_logNumEntries == 0);
     assert(m_initStatus == LogInitStatus::Ready);
     assert(!m_logTLB.empty());
+    assert(m_logNumCommittedEntries == 0);
+    assert(m_addedLogDataPAddr.empty());
 }
 
 void
 CLASS_NS restartTransaction(int thread){
     m_logNumEntries = 0;
+    m_logNumCommittedEntries = 0;
+    m_addedLogDataPAddr.clear();
 }
 
 
@@ -56,6 +60,8 @@ void
 CLASS_NS commitTransaction(int thread)
 {
     m_logNumEntries = 0;
+    m_logNumCommittedEntries = 0;
+    m_addedLogDataPAddr.clear();
 }
 
 bool
@@ -138,14 +144,39 @@ CLASS_NS addLogEntry(Addr storeAddr)
     // Returns vaddr of log entry to be used for logging this store,
     // according to current number of entries, and increments number
     // of entries
-    Addr vaddr = computeLogDataPointer(m_logNumEntries);
-    ++m_logNumEntries;
-    Addr paddr = translateLogAddress(vaddr);
-    DPRINTF(RubyHTMlog,
-            "Logging store to paddr %#x - log vaddr %#x log paddr %#x \n",
-            storeAddr, vaddr, paddr);
+    assert(m_addedLogDataPAddr.size() == m_logNumEntries);
+    Addr paddr = translateLogAddress(computeLogDataPointer(m_logNumEntries));
+    m_addedLogDataPAddr.push_back(paddr);
+    return m_logNumEntries++;
+}
 
-    return paddr;
+
+void
+CLASS_NS commitLogEntry(Addr addr)
+{
+    // Sanity checks: So far, at most one outstanding logged store in
+    // flight supported. TODO: Non-TSO support
+    assert(m_addedLogDataPAddr.back() == addr);
+    ++m_logNumCommittedEntries;
+}
+
+bool
+CLASS_NS isEndLogUnrollSignal(PacketPtr pkt)
+{
+    assert(pkt->req->hasVaddr());
+    if (pkt->req->getVaddr() == m_logBaseVAddr) {
+        if (pkt->isWrite()) {
+            // No writes to the log during log unroll, except for this
+            // "end unroll signal" to the log base (magic number as
+            // sanity check)
+            const uint64_t *data = pkt->getConstPtr<uint64_t>();
+            assert(*data == 0xdeadc0debaadcafe);
+            return true;
+        } else {
+            return false;
+        }
+    }
+    return false;
 }
 
 } // namespace ruby

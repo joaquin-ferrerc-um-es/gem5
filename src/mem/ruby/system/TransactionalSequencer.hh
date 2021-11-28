@@ -100,7 +100,7 @@ class TransactionalSequencer : public Sequencer
     void makeLogRequests(LogRequestInfo &logreqinfo);
     void handleStoresToLog(Addr address, PacketPtr pkt,
                         DataBlock& data);
-    void clearSuppressedLogRequests();
+    void cancelLogRequests();
     void handleLoggedStore(Addr address,
                            SequencerRequest& request,
                            DataBlock& data);

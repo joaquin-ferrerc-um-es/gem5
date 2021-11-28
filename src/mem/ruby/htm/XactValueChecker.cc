@@ -24,11 +24,12 @@ namespace ruby
 
 #define CLASS_NS XactValueChecker::
 
-#define XACT_LAZY_VM (true)
-#define XACT_EAGER_CD (true)
+#define XACT_LAZY_VM (m_htm->params().lazy_vm)
+#define XACT_EAGER_CD (m_htm->params().eager_cd)
 
-CLASS_NS XactValueChecker() {
-  m_xact_data.clear();
+CLASS_NS XactValueChecker(RubySystem *rs) {
+    m_ruby_system = rs;
+    m_htm = rs->params().system->getHTM();
 }
 
 void
@@ -36,6 +37,8 @@ CLASS_NS registerSequencer(int proc) {
     if (proc+1 > m_writeBuffer.size()) {
         m_writeBuffer.resize(proc+1);
         m_writeBufferBlocks.resize(proc+1);
+        m_loggedValues.resize(proc+1);
+        m_unrolledValues.resize(proc+1);
     }
 }
 
@@ -44,7 +47,7 @@ CLASS_NS ~XactValueChecker() {
 
 uint8_t
 CLASS_NS readGlobalValue(Addr addr) {
-  map<Addr, uint8_t>::iterator p;
+    std::map<Addr, uint8_t>::iterator p;
   uint8_t data;
 
   p  = m_xact_data.find(addr);
@@ -55,14 +58,14 @@ CLASS_NS readGlobalValue(Addr addr) {
 
 bool
 CLASS_NS existGlobalValue(Addr addr) {
-  map<Addr, uint8_t>::iterator p;
+    std::map<Addr, uint8_t>::iterator p;
 
   return m_xact_data.find(addr) != m_xact_data.end();
 }
 
 void
 CLASS_NS writeGlobalValue(Addr addr, uint8_t value) {
-  map<Addr, uint8_t>::iterator p;
+    std::map<Addr, uint8_t>::iterator p;
   p  = m_xact_data.find(addr);
 
   if (p == m_xact_data.end()) { // Not present
@@ -87,7 +90,7 @@ CLASS_NS existInWriteBuffer(int proc, Addr addr){
 
 uint8_t
 CLASS_NS getDataFromWriteBuffer(int proc, Addr addr){
-  map<Addr, uint8_t>::iterator p;
+    std::map<Addr, uint8_t>::iterator p;
   uint8_t data = 0;
   p  = m_writeBuffer[proc].find(addr);
   assert(p != m_writeBuffer[proc].end());
@@ -99,7 +102,7 @@ void
 CLASS_NS notifyWrite(int proc, bool trans, Addr addr,
                      int size, uint8_t *data_ptr){
     if (trans) {
-        vector<uint8_t> data;
+        std::vector<uint8_t> data;
         for (int i=0; i < size; i++)
             data.push_back(data_ptr[i]);
         assert(size == data.size());
@@ -107,7 +110,7 @@ CLASS_NS notifyWrite(int proc, bool trans, Addr addr,
         bool overwrites = false;
         _unused(overwrites);
         for (int i = 0; i < size; i++){
-            map<Addr, uint8_t>::iterator p =
+            std::map<Addr, uint8_t>::iterator p =
                 m_writeBuffer[proc].find(addr + i);
             if (p != m_writeBuffer[proc].end()) {
                 assert(m_writeBuffer[proc].size() > 0);
@@ -316,7 +319,7 @@ CLASS_NS commitTransaction(int proc, TransactionInterfaceManager *xact_mgr,
        * - Check that write buffer values match values in cache
        * - Check that L1D cache has write permissions for all written lines
        */
-      map<Addr, uint8_t>::iterator ii;
+      std::map<Addr, uint8_t>::iterator ii;
       for (ii = m_writeBuffer[proc].begin();
            ii != m_writeBuffer[proc].end(); ++ii) {
 
@@ -377,7 +380,10 @@ CLASS_NS commitTransaction(int proc, TransactionInterfaceManager *xact_mgr,
       }
   }
   else { // LogTM
-      // TODO: Check that local values match global values?
+      // Additional checks on committed values??
+      // Clear logged values
+      m_loggedValues[proc].clear();
+      assert(m_unrolledValues[proc].empty());
   }
 
   // Clear write buffer contents
@@ -387,7 +393,60 @@ CLASS_NS commitTransaction(int proc, TransactionInterfaceManager *xact_mgr,
 
 void
 CLASS_NS restartTransaction(int proc){
+    // Must match std::map<Addr, DataBlock> > m_loggedValues;
+    //std::map<Addr, DataBlock> > m_unrolledValues;
+    // if logtm
+    if (!XACT_LAZY_VM) { // LogTM
+        auto it = m_loggedValues[proc].cbegin();
+        bool mismatch = false;
+        for (auto next_it = it;
+             it != m_loggedValues[proc].cend(); it = next_it) {
+            ++next_it;
+            DataBlock loggedData =(*it).second;
+            Addr addr = (*it).first;
+            auto uit = m_unrolledValues[proc].find(addr);
+            if (uit == m_unrolledValues[proc].end()) {
+                panic("Logged data was not unrolled!");
+            }
+            DataBlock unrolledData =(*uit).second;
+            if (!loggedData.equal(unrolledData)) {
+                DPRINTF(RubyHTMvalues, "HTM: PROC %d"
+                        " value mismatch line address=%#x "
+                        " logged/unrolled\n%s\n%s\n\n", proc,
+                        addr, loggedData.toString(),
+                        unrolledData.toString());
+                mismatch = true;
+            }
+            bool found = m_loggedValues[proc].erase(addr);
+            assert(found);
+            found = m_unrolledValues[proc].erase(addr);
+            assert(found);
+        }
+        if (mismatch) {
+            panic("Value mismatch in logged/unrolled data!");
+        }
+    }
     discardWriteBuffer(proc);
+}
+
+void
+CLASS_NS notifyLoggedDataBlock(int proc, Addr addr,
+                               DataBlock &data)
+{
+    assert(addr == makeLineAddress(addr));
+    assert(m_loggedValues[proc].find(addr) ==
+           m_loggedValues[proc].end());
+    DataBlock db = DataBlock(data);
+    m_loggedValues[proc][addr] = db;
+}
+void
+CLASS_NS notifyUnrolledDataBlock(int proc,Addr addr,
+                                 DataBlock &data)
+{
+    assert(addr == makeLineAddress(addr));
+    // Will be called more than once for each datablock
+    DataBlock db = DataBlock(data);
+    m_unrolledValues[proc][addr] = db;
 }
 
 } // namespace ruby

@@ -446,7 +446,17 @@ TransactionalSequencer::makeRequest(PacketPtr pkt)
                             assert(!pkt->isWrite());
                         }
                     } else {
-                        panic("Unexpected access to undo log!\n");
+                        if (pkt->isWrite()) {
+                            panic("Unexpected write to undo log!\n");
+                        } else {
+                            // Speculative from mispredicted paths may
+                            // read from log locations immediately
+                            // after unroll has completed
+                            warn("Unexpected load to undo log!"
+                                 " - PC %#x vaddr %#x\n",
+                                 pkt->req->getPC(),
+                                 pkt->req->getVaddr());
+                        }
                     }
                 }
             }

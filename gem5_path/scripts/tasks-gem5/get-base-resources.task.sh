@@ -9,6 +9,7 @@ aarch64  base_image  ubuntu-18.04-arm64-docker.img  ${PATH_IN_ECHO_PREFIX}/aarch
 x86_64   kernel      vmlinux-5.4.49                 ${PATH_IN_ECHO_PREFIX}/x86_64/binaries/vmlinux-5.4.49                ${DEFAULT_URL_PREFIX}/x86_64/binaries/vmlinux-5.4.49.2021-11-25.xz
 aarch64  kernel      vmlinux.arm64                  ${PATH_IN_ECHO_PREFIX}/aarch64/binaries/vmlinux.arm64                ${DEFAULT_URL_PREFIX}/aarch64/binaries/vmlinux.arm64.2021-11-25.xz
 aarch64  bootloader  boot_v2.arm64                  ${PATH_IN_ECHO_PREFIX}/aarch64/binaries/boot_v2.arm64                ${DEFAULT_URL_PREFIX}/aarch64/binaries/boot_v2.arm64.2021-11-25.xz
+all      qemu-server qemu-server.img                /home/users/caps/qemu-server.img                                     ${DEFAULT_URL_PREFIX}/qemu-server.2021-11-25.img.xz
 " | grep -v '^ *#.*' | grep -v '^ *$' | tr -s ' ')
 
 declare_task "get-base-resources" "Get base resources (disk images, kernels…). Options:
@@ -16,13 +17,15 @@ declare_task "get-base-resources" "Get base resources (disk images, kernels…).
         --overwrite: Overwrite existing files.
         --download: Download resources from th web.
         --use-shared-caps: Use files from ${PATH_IN_ECHO_PREFIX} (default if possible)
+        --no-common: Do not download architecture independent resources
 "
 
 task_get-base-resources() {
     local -a archs=("${ENABLED_ARCHITECTURES[@]}")
     local overwrite=no
     local mode=auto
-    options="$(simpler_getopt "architecure:,overwrite,download,use-shared-echo" "$@")"
+    local get_common=yes
+    options="$(simpler_getopt "architecure:,overwrite,download,use-shared-echo,no-common" "$@")"
     eval set -- "$options"
     while [[ $# -gt 0 ]] ; do
         if [[ "--architecure" == "$1" ]] ; then
@@ -34,6 +37,8 @@ task_get-base-resources() {
             mode=download
         elif [[ "--use-shared-caps" == "$1" ]] ; then
             mode=link
+        elif [[ "--no-common" == "$1" ]] ; then
+            get_common=no
         elif [[ "--" == "$1" ]] ; then
             true # ignore
         else 
@@ -51,6 +56,10 @@ task_get-base-resources() {
     for arch in "${archs[@]}" ; do
         get_base_resources "$arch" "$overwrite" "$mode"
     done
+    if [[ "$get_common" != "no" ]] ; then
+        echo "Getting architecture independent resources"
+        get_base_resource "all" "qemu-server" "qemu-server.img" "gem5_path/other/qemu-server.img" "$mode" "$overwrite"
+    fi
 }
 
 get_base_resources() {
@@ -70,21 +79,21 @@ check_base_resource_known() {
     local arch="$1"
     local type="$2"
     local name="$3"
-    echo "$RESOURCES_LIST" | grep -q "^${1} ${2} ${3}"
+    echo "$RESOURCES_LIST" | grep -q "^${1} ${2} ${3} "
 }
 
 get_base_resource_path_in_echo() {
     local arch="$1"
     local type="$2"
     local name="$3"
-    echo "$RESOURCES_LIST" | grep "^${1} ${2} ${3}" | cut -d' ' -f4
+    echo "$RESOURCES_LIST" | grep "^${1} ${2} ${3} " | cut -d' ' -f4
 }
 
 get_base_resource_url() {
     local arch="$1"
     local type="$2"
     local name="$3"
-    echo "$RESOURCES_LIST" | grep "^${1} ${2} ${3}" | cut -d' ' -f5
+    echo "$RESOURCES_LIST" | grep "^${1} ${2} ${3} " | cut -d' ' -f5
 }
 
 get_base_resource() {
@@ -121,10 +130,9 @@ get_base_resource() {
 download() {
     local src="$1"
     local dst="$2"
-    # TODO FIXME --insecure is needed because ditec.um.es SSL certificate has expired
     if [[ "$src" =~ .xz$ ]] ; then
-        curl --insecure "$src" | unxz > "$dst"
+        curl "$src" | unxz > "$dst"
     else
-        curl --insecure "$src" > "$dst"
+        curl "$src" > "$dst"
     fi || { rm -f "$dst" ; error_and_exit "Cannot download '$src'." ; }
 }

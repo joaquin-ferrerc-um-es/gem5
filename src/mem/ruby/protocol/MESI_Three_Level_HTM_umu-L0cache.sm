@@ -881,7 +881,6 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
                 address, out_msg.Dest);
         out_msg.MessageSize := MessageSizeType:Control;
         out_msg.AccessMode := in_msg.AccessMode;
-        Dcache.setMRU(cache_entry); // see comment in oo_allocateDCacheBlock
 	if (in_msg.htmFromTransaction) {
           out_msg.Transactional := true;
           out_msg.Timestamp := xact_mgr.getOldestTimestamp();
@@ -905,7 +904,6 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
                 address, out_msg.Dest);
         out_msg.MessageSize := MessageSizeType:Control;
         out_msg.AccessMode := in_msg.AccessMode;
-        Dcache.setMRU(cache_entry); // see comment in oo_allocateDCacheBlock
 	if (in_msg.htmFromTransaction) {
           out_msg.Transactional := true;
           out_msg.Timestamp := xact_mgr.getOldestTimestamp();
@@ -1373,7 +1371,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
   //*****************************************************
 
   // Transitions for Load/Store/Replacement/WriteBack from transient states
-  transition({Inst_IS, IS, IM, SM}, {Load, Ifetch, Store, L0_Replacement}) {
+  transition({Inst_IS, IS, IM, SM}, {Load, Ifetch, Store, L0_Replacement, L0_Replacement_Rset}) {
     z_stallAndWaitMandatoryQueue;
   }
 
@@ -1555,7 +1553,8 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     ff_deallocateCacheBlock;
   }
 
-  transition(M, {L0_Replacement_Rset, L0_Replacement_Wset}, I) {
+  transition(M, {L0_Replacement_Rset}, I) {
+      // TODO: Use PUTM when implementing  config_allowReadSetL1CacheEvictions
     gxc_issuePUTXCOPY;   // writeback dirty data, stay as exclusive
     ff_deallocateCacheBlock;
   }
@@ -1569,6 +1568,12 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     f_sendDataToL1;
     ff_deallocateCacheBlock;
     l_popRequestQueue;
+  }
+
+  transition({E,M}, {L0_Replacement_Wset}, I) {
+      // E: Evicted, refetched by load, then evicted again
+    gm_issuePUTM;   // writeback spec data, stay as exclusive
+    ff_deallocateCacheBlock;
   }
 
   transition(M, InvOwn_Wset, I) {

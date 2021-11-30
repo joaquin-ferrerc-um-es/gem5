@@ -1425,6 +1425,18 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     kd_wakeUpDependents;
   }
 
+  transition({E,M}, L0_HtmData, MMT) {
+    u_writeDataFromL0Request;
+    k_popL0RequestQueue;
+  }
+
+  transition({MMT}, {Load,Store}, M) {
+    hh_xdata_to_l0;
+    uu_profileHit;
+    k_popL0RequestQueue;
+  }
+
+
   // Transitions from Modified
   transition(MMT, L1_Replacement, MMT_I) {
     i_allocateTBE;

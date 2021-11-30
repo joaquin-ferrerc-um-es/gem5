@@ -95,7 +95,7 @@ start_server() {
     local images_args=( )
     QEMU_PIDFILE="$(mktemp)"
     # TODO: remove both -net… when qemu 6 is available, it is enough with -nic user,hostfwd=::9888-:22
-    qemu-system-x86_64 -drive file="$SERVER_IMG",format=raw,index=0,media=disk,snapshot=true \
+    qemu-system-x86_64 -drive file="$SERVER_IMG",format=raw,index=0,media=disk,snapshot=on \
          $(images_args) \
          -m 4096 -enable-kvm \
          -net user,hostfwd=::$PORT-:22 -net nic \

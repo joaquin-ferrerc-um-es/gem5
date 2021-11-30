@@ -41,15 +41,11 @@ build_gem5() {
     local arch="$1"
     local protocol="$2"
     local build_type="$3"
-    if [[ "$arch" == "aarch64" && "$protocol" == "None" ]] ; then
-        echo "$(color "yellow" "aarch64 Gem5 needs a Ruby protocol and None was requested")"
-        # Don't generate an error to allow building other combinations that may have been requested
-    else
-        pushd "$GEM5_ROOT" > /dev/null
-        echo /usr/bin/env python3 $(which scons) -j $(get_num_threads_for_building) $(get_gem5_binary "$arch" "$protocol" "$build_type") "${ADDITIONAL_BUILD_OPTIONS[@]}"
-        /usr/bin/env python3 $(which scons) -j $(get_num_threads_for_building) $(get_gem5_binary "$arch" "$protocol" "$build_type") "${ADDITIONAL_BUILD_OPTIONS[@]}"
-        popd > /dev/null
-    fi
+
+    pushd "$GEM5_ROOT" > /dev/null
+    echo /usr/bin/env python3 $(which scons) -j $(get_num_threads_for_building) $(get_gem5_binary "$arch" "$protocol" "$build_type") "${ADDITIONAL_BUILD_OPTIONS[@]}"
+    /usr/bin/env python3 $(which scons) -j $(get_num_threads_for_building) $(get_gem5_binary "$arch" "$protocol" "$build_type") "${ADDITIONAL_BUILD_OPTIONS[@]}"
+    popd > /dev/null
 }
 
 get_num_threads_for_building() {  

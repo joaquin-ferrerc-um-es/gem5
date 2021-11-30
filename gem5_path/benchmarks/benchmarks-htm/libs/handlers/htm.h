@@ -66,10 +66,14 @@
     // TODO: Pass abort code to simulator via imm instead of RDI.
 
 #define htm_cancel_lock_acquired() ({                   \
-            __asm__ volatile ("xabort $0xff\n\t"         \
-                              : : :);                    \
+            __asm__ volatile ("mov $0xff,%%rdi\n\t"        \
+                              "xabort $0x0\n\t"         \
+                              :                         \
+                              :                         \
+                              : "%rdi");                \
         })
-    // NOTE: 0xff hard-coded as explicit abort because of lock acquired
+    // TODO: Pass abort code to simulator via imm instead of RDI.
+    // NOTE: TODO: use XABORT_CODE_FALLBACK_LOCK_LOCKED immediate ("I")
 
 #define htm_abort_cause_conflict(status) (status & _XABORT_CONFLICT)
 #define htm_abort_cause_explicit(status) (status & _XABORT_EXPLICIT)

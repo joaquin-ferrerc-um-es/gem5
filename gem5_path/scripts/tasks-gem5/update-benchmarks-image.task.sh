@@ -1,5 +1,5 @@
 
-declare_task "update-benchmarks-image" "Update (or create) the benchmarks disk image. Options:
+declare_task "update-benchmarks-image" "Build benchmarks and update (or create) the benchmarks disk image. Options:
         --architecure X: Build only architecture X
 "
 

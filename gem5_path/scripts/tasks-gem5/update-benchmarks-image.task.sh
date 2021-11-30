@@ -45,6 +45,7 @@ update_benchmarks_image() {
         "$VDS" --img "$image_name" --command 'echo "- - - -" | sfdisk /dev/sdb && mke2fs -j -m0 -L "benchmarks" /dev/sdb1'
     fi
     "$VDS" --img "$image_name" \
+           --command "[ -d /mnt/sdb1 ] || { echo \"Could not mount image '$image_name'\" ; exit 1 ; }" \
            --command "mkdir -p /mnt/sdb1/benchmarks-htm/" \
            --src "$GEM5_ROOT/tests/test-progs/" --rsync-to "/mnt/sdb1/test-progs/" \
            --src "$GEM5_ROOT/gem5_path/benchmarks/benchmarks-htm/stamp/" --rsync-to "/mnt/sdb1/benchmarks-htm/stamp/" \

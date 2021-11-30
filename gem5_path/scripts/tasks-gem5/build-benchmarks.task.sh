@@ -73,8 +73,8 @@ build_benchmarks_stamp() {
         error_and_exit "Architecture $arch not supported for stamp"
     fi
 
-    if [[ ! -d "$(absolute_path "$BENCHMARKS_HTM_STAMP")" ]] ; then
-        error_and_exit "Stamp directory '$(absolute_path "$BENCHMARKS_HTM_STAMP")' not found. Clone the repository or create a symbolic link to an existing clone."
+    if [[ ! -d "$(absolute_path "$BENCHMARKS_HTM_STAMP")" || ! -L "${GEM5_ROOT}/${BENCHMARKS_HTM_STAMP}" ]] ; then
+        error_and_exit "Stamp directory symlink '$(absolute_path "$BENCHMARKS_HTM_STAMP")' not found. Clone the repository in a directory out of ${GEM5_ROOT} and create a symbolic link to it in '$(dirname "$(absolute_path "$BENCHMARKS_HTM_STAMP")")'."
     fi
     
     if [[ ! -d "$(absolute_path "$BENCHMARKS_HTM_STAMP")/gem5" ]] ; then

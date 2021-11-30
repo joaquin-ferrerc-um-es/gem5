@@ -95,7 +95,7 @@ start_server() {
     local images_args=( )
     QEMU_PIDFILE="$(mktemp)"
     # TODO: remove both -net… when qemu 6 is available, it is enough with -nic user,hostfwd=::9888-:22
-    qemu-system-x86_64 -drive file="$SERVER_IMG",format=raw,index=0,media=disk,snapshot \
+    qemu-system-x86_64 -drive file="$SERVER_IMG",format=raw,index=0,media=disk,snapshot=true \
          $(images_args) \
          -m 4096 -enable-kvm \
          -net user,hostfwd=::$PORT-:22 -net nic \
@@ -107,9 +107,14 @@ start_server() {
     trap shutdown_server EXIT
     
     local SERVER_CONNECTION_TIMEOUT=45 # TODO: configurable?
-    SERVER_PING="$(ssh -o NoHostAuthenticationForLocalhost=yes -o ForwardX11=no root@127.0.0.1 -o ConnectTimeout=1 -o ConnectionAttempts=$SERVER_CONNECTION_TIMEOUT -p $PORT -- echo ping)"
+    local start="$(date +%s)"
+    local server_ping=""
+    while [[ "$server_ping" != "ping"
+             && $(( $(date +%s) - start)) -lt $SERVER_CONNECTION_TIMEOUT ]] ; do
+        server_ping="$(ssh -o NoHostAuthenticationForLocalhost=yes -o ForwardX11=no root@127.0.0.1 -o ConnectTimeout=1 -o ConnectionAttempts=$(( SERVER_CONNECTION_TIMEOUT - ($(date +%s) - start))) -p $PORT -- echo ping 2> /dev/null || true)"
+    done
 
-    if [[ "$SERVER_PING" == "ping" ]] ; then
+    if [[ "$server_ping" == "ping" ]] ; then
         echo "Server accepting ssh connections at port $PORT."
     else
         (

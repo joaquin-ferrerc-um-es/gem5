@@ -6,7 +6,6 @@ declare_task "build-benchmarks" "Build benchmarks in the host system. Options:
 
 # TODO: Add options to choose what benchmarks should be built.
 
-# TODO: Reorganize the whole bulding process of stamp an the library so that different architectures and fallback handlers can be built at the same time
 
 task_build-benchmarks() {
     local -a archs=("${ENABLED_ARCHITECTURES[@]}")
@@ -37,8 +36,6 @@ build_benchmarks() {
         # TODO
         echo "$(color yellow "Skipping build of test benchmark (sumarray) because it is not yet supported for '$arch'. TODO: fix this")"
     fi
-
-    build_benchmarks_stamp "$arch"
 }
 
 build_benchmarks_sumarray() {
@@ -55,37 +52,5 @@ build_benchmarks_sumarray() {
     pushd "$GEM5_ROOT/tests/test-progs/caps/sumarray" > /dev/null
     make -f "$makefile"
     popd > /dev/null
-}
-
-build_benchmarks_stamp() {
-    local arch="$1"
-
-    echo "$(color green "Building stamp benchmarks for $arch")"
-    
-    if [[ "$arch" == "x86_64" ]] ; then
-        local build_arch="x86"
-        export X86_CROSS_GCC_PREFIX="${BENCHMARKS_ARCH_COMPILER_PREFIX[$arch]}"
-    elif [[ "$arch" == "aarch64" ]] ; then
-        local build_arch="aarch64"
-        export AARCH64_CROSS_GCC_PREFIX="${BENCHMARKS_ARCH_COMPILER_PREFIX[$arch]}"
-        export BENCHMARKS_AARCH64_TME_CROSS_HACK_GCC
-    else
-        error_and_exit "Architecture $arch not supported for stamp"
-    fi
-
-    if [[ ! -d "$(absolute_path "$BENCHMARKS_HTM_STAMP")" || ! -L "${GEM5_ROOT}/${BENCHMARKS_HTM_STAMP}" ]] ; then
-        error_and_exit "Stamp directory symlink '$(absolute_path "$BENCHMARKS_HTM_STAMP")' not found. Clone the repository in a directory out of ${GEM5_ROOT} and create a symbolic link to it in '$(dirname "$(absolute_path "$BENCHMARKS_HTM_STAMP")")'."
-    fi
-    
-    if [[ ! -d "$(absolute_path "$BENCHMARKS_HTM_STAMP")/gem5" ]] ; then
-        ln -s "$GEM5_ROOT" "$(absolute_path "$BENCHMARKS_HTM_STAMP")/gem5"
-    fi
-    
-    (
-        cd "$(absolute_path "$BENCHMARKS_HTM_ROOT")"
-        export FLAVOURS="$(for f in ${BENCHMARKS_STAMP_FLAVOURS[@]} ; do echo $f ; done)"
-        export ARCH="$build_arch"
-        ./build.sh "$build_arch" # TODO: cleanup and inline, remove build.sh, separate building the lib and the benchmarks
-    )
 }
 

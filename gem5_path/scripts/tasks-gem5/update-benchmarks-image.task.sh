@@ -5,8 +5,6 @@ declare_task "update-benchmarks-image" "Build benchmarks and update (or create) 
 
 # TODO: Add options to choose what benchmarks should be built.
 
-# TODO: Reorganize the whole bulding process of stamp an the library so that different architectures and fallback handlers can be built at the same time
-
 task_update-benchmarks-image() {
     local -a archs=("${ENABLED_ARCHITECTURES[@]}")
     options="$(simpler_getopt "architecure:" "$@")"
@@ -48,9 +46,6 @@ update_benchmarks_image() {
            --command "[ -d /mnt/sdb1 ] || { echo \"Could not mount image '$image_name'\" ; exit 1 ; }" \
            --command "mkdir -p /mnt/sdb1/benchmarks-htm/" \
            --src "$GEM5_ROOT/tests/test-progs/" --rsync-to "/mnt/sdb1/test-progs/" \
-           --src "$GEM5_ROOT/gem5_path/benchmarks/benchmarks-htm/stamp/" --rsync-to "/mnt/sdb1/benchmarks-htm/stamp/" \
-           --command "/mnt/sdb1/benchmarks-htm/stamp/prepare-inputs" \
-           --src "$GEM5_ROOT/gem5_path/benchmarks/benchmarks-htm/libs/" --rsync-to "/mnt/sdb1/benchmarks-htm/libs/" \
            --src "$GEM5_ROOT/util/m5/build/x86/out/m5" --copy-to "/mnt/sdb1/benchmarks-htm/" # TODO: the m5 binary should be arch dependent
 }
 

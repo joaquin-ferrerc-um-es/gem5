@@ -37,9 +37,7 @@ then
         exit
     fi
 
-    kvm-ok
-    if [[ $? != 0 ]]
-    then
+    if [[ ! "${GEM5_ROOT}/gem5_path/scripts/kvm-ok" ]] ; then
         echo "KVM support not available in this host ($(hostname))"
         exit
     fi

@@ -1,6 +1,8 @@
 #ifndef SPINLOCK_H
 #define SPINLOCK_H 1
 
+#include <stdint.h>
+
 #define CACHE_LINE_SIZE_BYTES 64
 #define NUM_GLOBAL_LOCKS 2
 #define PADDED_ARRAY_SIZE_BYTES (CACHE_LINE_SIZE_BYTES * NUM_GLOBAL_LOCKS)
@@ -20,7 +22,7 @@ typedef struct {
     char padding[CACHE_LINE_SIZE_BYTES - sizeof(lock_t)];
 } spinlock_t __attribute__ ((aligned (CACHE_LINE_SIZE_BYTES)));
 
-spinlock_t fallbackLock;
+extern spinlock_t fallbackLock;
 
 static inline void * spinlock_getAddress()
 {
@@ -74,7 +76,7 @@ typedef struct {
 	uint16_t next;
 } spinlock_t __attribute__ ((aligned (CACHE_LINE_SIZE_BYTES)));
 
-spinlock_t fallbackLock;
+extern spinlock_t fallbackLock;
 
 static inline void * spinlock_getAddress()
 {
@@ -153,7 +155,7 @@ static inline void spinlock_unlock()
 #include <stdio.h>
 #include <xmmintrin.h>
 
-volatile char lock_array[PADDED_ARRAY_SIZE_BYTES]
+extern volatile char lock_array[PADDED_ARRAY_SIZE_BYTES]
 __attribute__ ((aligned (CACHE_LINE_SIZE_BYTES))) ;
 
 typedef struct {
@@ -166,7 +168,7 @@ typedef struct {
     volatile long * preFallbackLock; // see HANDLER_FALLBACKLOCK_2PHASE
 } lockPtr_t __attribute__ ((aligned (CACHE_LINE_SIZE_BYTES)));
 
-lockPtr_t locks;
+extern lockPtr_t locks;
 
 static inline void * spinlock_getAddress()
 {

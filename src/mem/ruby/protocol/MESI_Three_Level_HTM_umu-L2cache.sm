@@ -129,6 +129,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
     Unblock, desc="Unblock from L1 requestor";
     Exclusive_Unblock, desc="Unblock from L1 requestor";
     Unblock_Cancel, desc="Unblock from L1 requestor";
+    Unblock_Yield, desc="Unblock from L1 requestor";
 
     MEM_Inv, desc="Invalidation from directory";
   }
@@ -348,6 +349,8 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
           trigger(Event:Unblock, in_msg.addr, cache_entry, tbe);
         } else if (in_msg.Type == CoherenceResponseType:UNBLOCK_CANCEL) {
           trigger(Event:Unblock_Cancel, in_msg.addr, cache_entry, tbe);
+        } else if (in_msg.Type == CoherenceResponseType:UNBLOCK_YIELD) {
+          trigger(Event:Unblock_Yield, in_msg.addr, cache_entry, tbe);
         } else {
           error("unknown unblock message");
         }
@@ -842,10 +845,8 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
   }
 
   action(ll_clearSharers, "\l", desc="Remove all L1 sharers from list") {
-    peek(L1RequestL2Network_in, RequestMsg) {
       assert(is_valid(cache_entry));
       cache_entry.Sharers.clear();
-    }
   }
 
   action(mm_markExclusive, "\m", desc="set the exclusive owner") {
@@ -1106,6 +1107,11 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
     jj_popL1RequestQueue;
   }
 
+  transition({MT_IIB, MT_MB}, L1_PUTM){
+    zz_stallAndWaitL1RequestQueue;
+  }
+
+
   transition(MT, {L1_GETS_Owner, L1_GETX_Owner}, MT_MB) {
       // Act as if coming from M
     ddo_sendExclusiveDataToOwner;
@@ -1144,6 +1150,12 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
   }
 
   transition(MT_IIB, Unblock_Cancel, MT) {
+    k_popUnblockQueue;
+    kd_wakeUpDependents;
+  }
+
+  transition({MT_IIB, MT_MB}, Unblock_Yield, M) {
+    ll_clearSharers;
     k_popUnblockQueue;
     kd_wakeUpDependents;
   }

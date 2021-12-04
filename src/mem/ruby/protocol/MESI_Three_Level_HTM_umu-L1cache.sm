@@ -98,9 +98,19 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     E_IL0, AccessPermission:Busy, desc="Exclusive in L1, invalidation sent to L0, have not seen response yet";
     M_IL0, AccessPermission:Busy, desc="Modified in L1, invalidation sent to L0, have not seen response yet";
     M_DL0, AccessPermission:Busy, desc="Modified in L1, downgrade sent to L0, have not seen response yet";
+    MMT_IL0, AccessPermission:Busy, desc="Modified in L1, invalidation sent to L0, have not seen response yet";
+    MMT_DL0, AccessPermission:Busy, desc="Modified in L1, downgrade sent to L0, have not seen response yet";
     E_DL0, AccessPermission:Busy, desc="Modified in L1, downgrade sent to L0, have not seen response yet";
     MM_IL0, AccessPermission:Read_Write, desc="Invalidation sent to L0, have not seen response yet";
     SM_IL0, AccessPermission:Busy, desc="Invalidation sent to L0, have not seen response yet";
+
+    I_DL0, AccessPermission:Busy, desc="Not present L1, invalidation sent to L0, have not seen response yet (evicted write set)";
+    II, AccessPermission:Busy, desc="Not present L1, ack from L0, no transation conflict";
+    I_DL0_N, AccessPermission:Busy, desc="Not present L1, invalidation sent to L0, have not seen response yet (evicted write set)";
+    IM_DL0, AccessPermission:Busy, desc="Not present L1, invalidation sent to L0, have not seen response yet (evicted write set)";
+    IIM, AccessPermission:Busy, desc="Not present L1, ack from L0, no transation conflict";
+    IM_DL0_N, AccessPermission:Busy, desc="Not present L1, invalidation sent to L0, have not seen response yet (evicted write set)";
+    MMT_DL0_N, AccessPermission:Busy, desc="Modified in L1, downgrade sent to L0, have not seen response yet";
     // For the following states, a nack response from L0 cache was
     // received, but the L2 request has not been responded yet
     S_IL0_N, AccessPermission:Busy, desc="Shared in L1, invalidation sent to L0 was nacked";
@@ -143,6 +153,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     Ack,        desc="Ack for processor";
     Ack_all,      desc="Last ack for processor";
     Nack_all,     desc="Last ack for processor, access was nacked";
+    Yield,     desc="Yield for processor, access must be retried";
 
     WB_Ack,        desc="Ack for replacement";
 
@@ -174,7 +185,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     DataBlock DataBlk,                desc="Buffer for the data block";
     bool Dirty, default="false",   desc="data is dirty";
     int pendingAcks, default="0", desc="number of pending acks";
-    bool nacked, default="false",   desc="access was nacked";
+    bool Nack, default="false",   desc="access was nacked";
+    bool Yield, default="false",   desc="access was yield";
     Cycles Timestamp, desc="";
     MachineID eldestNacker, desc="";
   }
@@ -185,11 +197,13 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     void deallocate(Addr);
     bool isPresent(Addr);
   }
+  Cycles curCycle();
 
   TBETable TBEs, template="<L1Cache_TBE>", constructor="m_number_of_TBEs";
 
   int l2_select_low_bit, default="RubySystem::getBlockSizeBits()";
   bool l0_downgrade_on_l1_gets, default="RubySystem::enableL0DowngradeOnL1Gets()";
+  int num_fwd_eviction_to_l0_nacked, default="0";
 
   Tick clockEdge();
   Cycles ticksToCycles(Tick t);
@@ -291,13 +305,16 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     return tbe.pendingAcks;
   }
 
-  bool isNacked(TBE tbe) {
-      return tbe.nacked;
+  bool isNack(TBE tbe) {
+      return tbe.Nack;
   }
-  void setNacked(TBE tbe, MachineID nacker, Cycles timestamp) {
+  bool isYield(TBE tbe) {
+      return tbe.Yield;
+  }
+  void setNack(TBE tbe, MachineID nacker, Cycles timestamp) {
      assert(machineIDToMachineType(nacker) == MachineType:L1Cache);
-      if (!tbe.nacked) {
-         tbe.nacked := true;
+      if (!tbe.Nack) {
+         tbe.Nack := true;
          tbe.eldestNacker := nacker;
          tbe.Timestamp := timestamp;
       } else if (timestamp < tbe.Timestamp) {
@@ -306,12 +323,25 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
       }
   }
 
-  bool inL0Cache(State state) {
+  void setYield(TBE tbe, MachineID nacker, Cycles timestamp) {
+     assert(machineIDToMachineType(nacker) == MachineType:L1Cache);
+     tbe.Yield := true;
+     tbe.eldestNacker := nacker;
+     tbe.Timestamp := timestamp;
+  }
+
+  bool inL0Cache(State state, bool own) {
     if (state == State:S || state == State:E ||
         state == State:M || state == State:SM ||
         state == State:S_IL0 || state == State:E_IL0 ||
         state == State:M_DL0 || state == State:E_DL0 ||
         state == State:M_IL0 || state == State:SM_IL0) {
+        return true;
+    }
+    if (!own && // INV/FWD, not an L1 replacement
+        (state == State:MMT || state == State:MMT_I)) {
+        // Need to check with L0 in order to detect conflicts on
+        // this evicted transactional line
         return true;
     }
 
@@ -342,7 +372,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
               trigger(Event:DataS_fromL1, in_msg.addr, cache_entry, tbe);
 
           } else if ( (getPendingAcks(tbe) - in_msg.AckCount) == 0 ) {
-              if (isNacked(tbe)) {
+              if (isNack(tbe)) {
                   trigger(Event:Data_all_Nacks, in_msg.addr, cache_entry, tbe);
               } else {
                   trigger(Event:Data_all_Acks, in_msg.addr, cache_entry, tbe);
@@ -351,17 +381,24 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
             trigger(Event:Data, in_msg.addr, cache_entry, tbe);
           }
         } else if ((in_msg.Type == CoherenceResponseType:ACK) ||
+                   (in_msg.Type == CoherenceResponseType:YIELD) ||
                    (in_msg.Type == CoherenceResponseType:NACK)) {
             if (in_msg.Type == CoherenceResponseType:NACK) {
-                setNacked(tbe, in_msg.Sender, in_msg.Timestamp);
+                setNack(tbe, in_msg.Sender, in_msg.Timestamp);
+            }
+            if (in_msg.Type == CoherenceResponseType:YIELD) {
+                setYield(tbe, in_msg.Sender, in_msg.Timestamp);
             }
             if ( (getPendingAcks(tbe) - in_msg.AckCount) == 0 ) {
-                if (isNacked(tbe)) {
+                if (isNack(tbe)) {
                     trigger(Event:Nack_all, in_msg.addr, cache_entry, tbe);
+                } else if (isYield(tbe)) {
+                    trigger(Event:Yield, in_msg.addr, cache_entry, tbe);
                 } else {
                     trigger(Event:Ack_all, in_msg.addr, cache_entry, tbe);
                 }
             } else {
+                assert(in_msg.Type != CoherenceResponseType:YIELD);
                 trigger(Event:Ack, in_msg.addr, cache_entry, tbe);
             }
         } else if (in_msg.Type == CoherenceResponseType:WB_ACK) {
@@ -382,7 +419,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
         TBE tbe := TBEs[in_msg.addr];
 
         if (in_msg.Type == CoherenceRequestType:INV) {
-            if (is_valid(cache_entry) && inL0Cache(cache_entry.CacheState)) {
+            if (is_valid(cache_entry) && inL0Cache(cache_entry.CacheState, false)) {
                 trigger(Event:L0_Invalidate_Else, in_msg.addr,
                         cache_entry, tbe);
             }  else {
@@ -390,14 +427,14 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
             }
         } else if (in_msg.Type == CoherenceRequestType:GETX ||
                    in_msg.Type == CoherenceRequestType:UPGRADE) {
-            if (is_valid(cache_entry) && inL0Cache(cache_entry.CacheState)) {
+            if (is_valid(cache_entry) && inL0Cache(cache_entry.CacheState, false)) {
                 trigger(Event:L0_Invalidate_Else, in_msg.addr,
                         cache_entry, tbe);
             } else {
                 trigger(Event:Fwd_GETX, in_msg.addr, cache_entry, tbe);
             }
         } else if (in_msg.Type == CoherenceRequestType:GETS) {
-            if (is_valid(cache_entry) && inL0Cache(cache_entry.CacheState)) {
+            if (is_valid(cache_entry) && inL0Cache(cache_entry.CacheState, false)) {
                 if (in_msg.Transactional && l0_downgrade_on_l1_gets) {
                     trigger(Event:L0_Downgrade_Else, in_msg.addr,
                             cache_entry, tbe);
@@ -459,7 +496,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
                     Entry victim_entry := getCacheEntry(victim);
                     TBE victim_tbe := TBEs[victim];
 
-                    if (is_valid(victim_entry) && inL0Cache(victim_entry.CacheState)) {
+                    if (is_valid(victim_entry) && inL0Cache(victim_entry.CacheState, true)) {
                         trigger(Event:L0_Invalidate_Own,
                                 victim, victim_entry, victim_tbe);
                     }  else {
@@ -634,11 +671,11 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     }
   }
 
-  action(e_sendAckToRequestor, "e", desc="send invalidate ack to requestor (could be L2 or L1)") {
+  action(e_sendYieldToRequestor, "e", desc="send ack to requestor (could be L2 or L1)") {
     peek(requestNetwork_in, RequestMsg) {
       enqueue(responseNetwork_out, ResponseMsg, cache.getDataLatency()) {
         out_msg.addr := address;
-        out_msg.Type := CoherenceResponseType:ACK;
+        out_msg.Type := CoherenceResponseType:YIELD;
         out_msg.Sender := machineID;
         out_msg.Destination.add(in_msg.Requestor);
         out_msg.MessageSize := MessageSizeType:Response_Control;
@@ -782,7 +819,24 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   action(jc_sendUnblockCancel, "jc", desc="send unblock cancel to the L2 cache") {
     enqueue(unblockNetwork_out, ResponseMsg, to_l2_latency) {
       out_msg.addr := address;
+      assert(is_valid(tbe));
+      assert(isNack(tbe));
       out_msg.Type := CoherenceResponseType:UNBLOCK_CANCEL;
+      out_msg.Sender := machineID;
+      out_msg.Destination.add(mapAddressToRange(address, MachineType:L2Cache,
+                          l2_select_low_bit, l2_select_num_bits, clusterID));
+      out_msg.MessageSize := MessageSizeType:Response_Control;
+      DPRINTF(RubySlicc, "%#x\n", address);
+    }
+  }
+
+  action(jy_sendUnblockYield, "jy", desc="send unblock yield to the L2 cache") {
+    enqueue(unblockNetwork_out, ResponseMsg, to_l2_latency) {
+      out_msg.addr := address;
+      assert(is_valid(tbe));
+      assert(isYield(tbe));
+      // No exclusive owner, L2 has valid data
+      out_msg.Type := CoherenceResponseType:UNBLOCK_YIELD;
       out_msg.Sender := machineID;
       out_msg.Destination.add(mapAddressToRange(address, MachineType:L2Cache,
                           l2_select_low_bit, l2_select_num_bits, clusterID));
@@ -824,6 +878,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
       enqueue(bufferToL0_out, CoherenceMsg, cache.getDataLatency()) {
           out_msg.addr := address;
           out_msg.Class := CoherenceClass:NACK;
+          assert(machineIDIsValid(tbe.eldestNacker));
           out_msg.Sender := tbe.eldestNacker;
           out_msg.Timestamp := tbe.Timestamp;
           out_msg.Dest := createMachineID(MachineType:L0Cache, version);
@@ -874,6 +929,12 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     set_tbe(TBEs[address]);
     tbe.Dirty := cache_entry.Dirty;
     tbe.DataBlk := cache_entry.DataBlk;
+  }
+
+  action(inc_allocateTBEnc, "inc", desc="Allocate TBE (number of invalidates=0)") {
+    check_allocate(TBEs);
+    TBEs.allocate(address);
+    set_tbe(TBEs[address]);
   }
 
   action(k_popL0RequestQueue, "k", desc="Pop mandatory queue.") {
@@ -980,13 +1041,18 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
       cache.setMRU(address);
   }
 
+  action(st_setTBETimestamp, "st", desc="") {
+      // Set timestamp to match requestor's
+      assert(is_valid(tbe));
+      tbe.Timestamp := curCycle();
+  }
 
   //*****************************************************
   // TRANSITIONS
   //*****************************************************
 
   // Transitions for Load/Store/Replacement/WriteBack from transient states
-  transition({IS, IM, IS_I, M_I, MMT_I, SM, SINK_WB_ACK, S_IL0, M_IL0, E_IL0, MM_IL0, E_DL0, M_DL0},
+  transition({IS, IM, IS_I, M_I, MMT_I, SM, SINK_WB_ACK, S_IL0, M_IL0, E_IL0, MM_IL0, E_DL0, M_DL0, I_DL0, IM_DL0, MMT_DL0, II, IIM},
              {Load, Store, L1_Replacement}) {
     z0_stallAndWaitL0Queue;
   }
@@ -1144,6 +1210,18 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     forward_downgrade_to_L0_else;
   }
 
+  transition(MMT, L0_Invalidate_Own, MMT_IL0) {
+    forward_eviction_to_L0_own;
+  }
+
+  transition(MMT, L0_Invalidate_Else, MMT_IL0) {
+    forward_eviction_to_L0_else;
+  }
+
+  transition(MMT, L0_Downgrade_Else, MMT_DL0) {
+    forward_downgrade_to_L0_else;
+  }
+
   transition(M_I, Fwd_GETX, SINK_WB_ACK) {
     dt_sendDataToRequestor_fromTBE;
     l_popL2RequestQueue;
@@ -1200,6 +1278,15 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   transition({IS,IS_I,IM}, Nack_all, I) {
     n_nack_to_l0;
     jc_sendUnblockCancel;
+    s_deallocateTBE;
+    ff_deallocateCacheBlock;
+    o_popL2ResponseQueue;
+    kd_wakeUpDependents;
+  }
+
+  transition({IS,IS_I,IM}, Yield, I) {
+    n_nack_to_l0;
+    jy_sendUnblockYield;
     s_deallocateTBE;
     ff_deallocateCacheBlock;
     o_popL2ResponseQueue;
@@ -1374,7 +1461,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     z2_stallAndWaitL2Queue;
   }
 
-  transition({S_IL0, M_IL0, E_IL0, MM_IL0}, {Inv, Fwd_GETX, Fwd_GETS}) {
+  transition({S_IL0, M_IL0, E_IL0, MM_IL0, I_DL0, IM_DL0, MMT_DL0}, {Inv, Fwd_GETX, Fwd_GETS}) {
     z2_stallAndWaitL2Queue;
   }
 
@@ -1453,6 +1540,12 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     ff_deallocateCacheBlock;
     kd_wakeUpDependents;
   }
+  transition(MMT_I, {Fwd_GETS, Fwd_GETX}) {
+      // Set tbe.timestamp
+    st_setTBETimestamp;
+    en_sendNackToL1Requestor;
+    l_popL2RequestQueue;
+  }
   transition({IM}, Data_Exclusive, E) {
       // Only possible to get Data_Exclusive from IM for blocks that
       // were previously evicted from the write set
@@ -1464,16 +1557,67 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     kd_wakeUpDependents;
   }
 
-  /* Assume potentially conflicting since L2 dir points to this L1 as
-     exclusive but we don't have a copy of the block.
-
-  transition(I, {Fwd_GETS,Fwd_GETX}, ??) {
-  // TODO: Forward request to L0 to check for conflicts. If no conflict,
-  // must lazily clear "sticky state" in directory
+  /* L2 dir points to this L1 as exclusive but we don't have a copy of
+     the block: this was a MMT block that may belong to the write set
+     of an active transaction.  Forward request to L0 to check for
+     conflicts. If no conflict, will lazily clear "sticky state" in
+     directory
+  */
+  transition(I, {Fwd_GETS, Fwd_GETX}, I_DL0) {
+    inc_allocateTBEnc;
+    forward_downgrade_to_L0_else;
+  }
+  transition(I_DL0, L0_Ack, II) {
+    k_popL0RequestQueue;
+    kd_wakeUpDependents;
+  }
+  transition(II, {Fwd_GETS, Fwd_GETX}, I) {
+    e_sendYieldToRequestor;
+    s_deallocateTBE;
     l_popL2RequestQueue;
   }
-  */
 
+  transition(I_DL0, L0_Nack_Else, I_DL0_N) {
+    k_popL0RequestQueue;
+    kd_wakeUpDependents;
+  }
+  transition(I_DL0_N, {Fwd_GETS, Fwd_GETX}, I) {
+    en_sendNackToL1Requestor;
+    s_deallocateTBE;
+    l_popL2RequestQueue;
+  }
+
+  transition({IM}, {Fwd_GETS, Fwd_GETX}, IM_DL0) {
+    forward_downgrade_to_L0_else;
+  }
+  transition(IM_DL0, L0_Ack, IIM) {
+    k_popL0RequestQueue;
+    kd_wakeUpDependents;
+  }
+  transition(IIM, {Fwd_GETS, Fwd_GETX}, IM) {
+    e_sendYieldToRequestor;
+    l_popL2RequestQueue;
+  }
+
+  transition(IM_DL0, L0_Nack_Else, IM_DL0_N) {
+    k_popL0RequestQueue;
+    kd_wakeUpDependents;
+  }
+  transition(IM_DL0_N, {Fwd_GETS,Fwd_GETX}, IM) {
+    en_sendNackToL1Requestor;
+    //s_deallocateTBE;     // Do not deallocate TBE, pending miss
+    l_popL2RequestQueue;
+  }
+  transition(MMT_DL0, L0_Nack_Else, MMT_DL0_N) {
+    rnt_recordNackInTBE;
+    k_popL0RequestQueue;
+    kd_wakeUpDependents;
+  }
+  transition(MMT_DL0_N, {Fwd_GETS,Fwd_GETX}, MMT) {
+    en_sendNackToL1Requestor;
+    s_deallocateTBE;
+    l_popL2RequestQueue;
+  }
 
   transition(E_IL0, L0_Nack_Own, E) {
     smr_setMRU;

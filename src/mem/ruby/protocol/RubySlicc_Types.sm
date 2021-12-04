@@ -176,7 +176,7 @@ structure (TransactionInterfaceManager, external = "yes") {
 
   bool config_lazyVM();
   bool config_eagerCD();
-  bool config_nackL1LocalEvictions();
+  bool shouldNackL1LocalEviction(Addr);
   bool config_allowReadSetL1CacheEvictions();
   bool config_allowReadSetLowerLevelCacheEvictions();
   bool config_preciseReadSetTracking();

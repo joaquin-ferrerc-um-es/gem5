@@ -776,11 +776,15 @@ CacheMemory::htmCommitTransaction()
     DPRINTF(HtmMem, "htmCommitTransaction: read set=%u write set=%u\n",
         htmReadSetSize, htmWriteSetSize);
 }
+
 void
 CacheMemory::setHtmLogPending(Addr address, bool val)
 {
     AbstractCacheEntry* entry = lookup(address);
     assert(entry != nullptr);
+    if (!val) {
+        assert(entry->getHtmLogPending());
+    }
     entry->setHtmLogPending(val);
 }
 
@@ -792,6 +796,25 @@ CacheMemory::isHtmLogPending(Addr address) const
         return entry->getHtmLogPending();
     } else {
         return false;
+    }
+}
+
+void
+CacheMemory::checkHtmLogPendingClear() const
+{
+
+    // iterate through every set and way to get a cache line
+    for (auto i = m_cache.begin(); i != m_cache.end(); ++i)
+    {
+        std::vector<AbstractCacheEntry*> set = *i;
+
+        for (auto j = set.begin(); j != set.end(); ++j)
+        {
+            AbstractCacheEntry *line = *j;
+            if (line != nullptr) {
+                assert(!line->getHtmLogPending());
+             }
+        }
     }
 }
 

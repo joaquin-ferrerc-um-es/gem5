@@ -161,6 +161,8 @@ class CacheMemory : public SimObject
     // LogTM (eager versioning)
     void setHtmLogPending (Addr addr, bool val);
     bool isHtmLogPending (Addr addr) const;
+    void checkHtmLogPendingClear() const;
+
 
   public:
     int getCacheSize() const { return m_cache_size; }

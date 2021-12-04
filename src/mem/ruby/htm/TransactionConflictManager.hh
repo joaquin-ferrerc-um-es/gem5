@@ -44,7 +44,7 @@ public:
   bool possibleCycle(int thread);
   void setPossibleCycle(int thread);
   void clearPossibleCycle(int thread);
-  bool nacked(int thread);
+  bool nackReceived(int thread);
   bool doomed(int thread);
   void setDoomed(int thread);
 
@@ -57,13 +57,15 @@ public:
   Cycles getTimestamp(int thread);
   Cycles getOldestTimestamp();
   bool isRequesterStallsPolicy();
+  Addr getNackedPossibleCycleAddr(int thread) {
+      assert(isRequesterStallsPolicy());
+      assert(m_sentNack[thread]);
+      return m_sentNackAddr[thread]; };
 
   int getNumRetries(int thread);
 
   void setVersion(int version);
   int getVersion() const;
-  void setStartCycle(Cycles startCycle);
-  Cycles getStartCycle();
   bool isRemoteOlder(int thread, int remote_thread, Cycles local_timestamp,
                      Cycles remote_timestamp,
                      MachineID remote_id);
@@ -74,14 +76,14 @@ private:
 
   TransactionInterfaceManager *m_xact_mgr;
   int m_version;
-  Cycles m_startCycle;
 
   Cycles    *m_timestamp;
   bool   *m_possible_cycle;
   bool   *m_lock_timestamp;
   int    *m_numRetries;
-  bool   *m_nacked;
-  Addr   *m_nackedAddr;
+  bool   *m_receivedNack;
+  bool   *m_sentNack;
+  Addr   *m_sentNackAddr;
   bool   *m_doomed;
   std::string    m_policy;
   std::string    m_lazy_validated_policy;

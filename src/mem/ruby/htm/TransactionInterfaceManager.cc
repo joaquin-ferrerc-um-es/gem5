@@ -199,6 +199,7 @@ TransactionInterfaceManager::beginTransaction(int thread, int xid,
         }
         else { // LogTM
             m_xactEagerVersionManager->beginTransaction(thread);
+            m_dataCache_ptr->checkHtmLogPendingClear();
         }
 
         XACT_PROFILER->moveTo(getProcID(),
@@ -300,6 +301,9 @@ TransactionInterfaceManager::commitTransaction(int thread, int xid,
             m_ruby_system->getXactValueChecker()->
                 commitTransaction(getProcID(), this, m_dataCache_ptr);
         }
+        if (config_nackL1LocalEvictions()) {
+            m_nackedL1LocalEvictions.clear();
+        }
         if (!config_allowReadSetLowerLevelCacheEvictions()) {
             // Sanity checks: All Rset blocks must be cached at commit
             vector<Addr> *rset = getXactIsolationManager()->
@@ -328,6 +332,7 @@ TransactionInterfaceManager::commitTransaction(int thread, int xid,
             }
         } else {
             m_xactEagerVersionManager->commitTransaction(thread);
+            m_dataCache_ptr->checkHtmLogPendingClear();
         }
         m_xactConflictManager->commitTransaction(thread);
         m_xactIsolationManager->commitTransaction(thread);
@@ -473,6 +478,8 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
             m_xactLazyVersionManager->restartTransaction(thread);
             m_xactLazyCommitArbiter->restartTransaction();
         }
+        // Restart conflict management
+        getXactConflictManager()->restartTransaction(thread);
     }
     else {
         // LogTM: we need to pass log size to the abort handler (as
@@ -480,30 +487,42 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
         // until log unroll done (reset via endLogUnroll)
     }
 
-    // Restart conflict management (mostly EE-specific: possible cycle, etc.)
-    getXactConflictManager()->restartTransaction(thread);
+    if (config_nackL1LocalEvictions()) {
+        m_nackedL1LocalEvictions.clear();
+    }
 
     if (XACT_LAZY_VM) {
         // Release isolation (clear filters/signatures)
         for (int i = m_transactionLevel[thread]; i > 0; i--)
             getXactIsolationManager()->releaseIsolation(thread, i);
     }
-    else {
-        // Only release isolation over read set
-        getXactIsolationManager()->releaseReadIsolation(thread);
-        int wsetsize = getXactIsolationManager()->
-            getWriteSetSize(thread, m_transactionLevel[thread]);
-        int logsize =m_xactEagerVersionManager->getLogNumEntries();
-        if (wsetsize != logsize) {
-            // It is possible that a logged trans store does not
-            // complete after its target block has been added to the
-            // log. The following assert may fail in non-TSO since
-            // more than one of such pending but already logged stores
-            // exists upon abort
-            assert(wsetsize+1 == logsize);
-        }
+    else { // LogTM
+        if (m_xactEagerVersionManager->getLogNumEntries() == 0) {
+            // No log unroll required: abort completes now
 
-        if (m_xactEagerVersionManager->getLogNumEntries() > 0) {
+            // Release isolation (clear filters/signatures)
+            for (int i = m_transactionLevel[thread]; i > 0; i--)
+                getXactIsolationManager()->releaseIsolation(thread, i);
+
+            // Reset log num entries
+            m_xactEagerVersionManager->restartTransaction(thread);
+            // Restart conflict management
+            getXactConflictManager()->restartTransaction(thread);
+        } else {
+            // Only release isolation over read set
+            getXactIsolationManager()->releaseReadIsolation(thread);
+            int wsetsize = getXactIsolationManager()->
+                getWriteSetSize(thread, m_transactionLevel[thread]);
+            int logsize =m_xactEagerVersionManager->getLogNumEntries();
+            if (wsetsize != logsize) {
+                // It is possible that a logged trans store does not
+                // complete after its target block has been added to the
+                // log. The following assert may fail in non-TSO since
+                // more than one of such pending but already logged stores
+                // exists upon abort
+                assert(wsetsize+1 == logsize);
+            }
+
             // Keep detecting conflicts on Wset despite xact_level being
             // 0. We could use escape actions, but then we would need to
             // leave xact level > 0 until we get the "endLogUnroll" signal
@@ -743,8 +762,20 @@ profileHtmFailureFaultCause(int thread,
             (cause == HtmFailureFaultCause::LSQ)) {
             Addr addr = m_abortAddress[thread];
             // Sanity checks
-            assert(checkWriteSignature(addr) ||
-                   checkReadSignature(addr));
+            if (m_htm->params().precise_read_set_tracking &&
+                getXactConflictManager()->isRequesterStallsPolicy()){
+                // It is possible to have conflict-induced aborts on
+                // addresses that are not yet part of the read set
+                // because the trans load has been repeatedly nacked
+                assert(getXactConflictManager()->nackReceived(thread));
+                assert(checkWriteSignature(addr) ||
+                       checkReadSignature(addr) ||
+                       (addr == getXactConflictManager()->
+                        getNackedPossibleCycleAddr(thread)));
+            } else {
+                assert(checkWriteSignature(addr) ||
+                       checkReadSignature(addr));
+            }
 
             if (cause == HtmFailureFaultCause::LSQ) {
                 // "False" LSQ conflicts, will be categorized as
@@ -1118,19 +1149,6 @@ TransactionInterfaceManager::checkWriteSignature(Addr addr)
     return getXactIsolationManager()->isInWriteSetFilterSummary(addr);
 }
 
-void
-TransactionInterfaceManager::setStartCycle(Cycles startCycle)
-{
-    getXactConflictManager()->setStartCycle(startCycle);
-
-}
-
-Cycles
-TransactionInterfaceManager::getStartCycle()
-{
-    return getXactConflictManager()->getStartCycle();
-}
-
 bool
 TransactionInterfaceManager::hasConflictWith(TransactionInterfaceManager *o)
 {
@@ -1261,8 +1279,11 @@ TransactionInterfaceManager::endLogUnroll(int thread){
     assert(!XACT_LAZY_VM); // LogTM
     assert(m_unrollingLogFlag[thread]);
 
+    m_dataCache_ptr->checkHtmLogPendingClear();
     // Reset log num entries
     m_xactEagerVersionManager->restartTransaction(thread);
+    // Restart conflict management
+    getXactConflictManager()->restartTransaction(thread);
 
     // Release isolation over write set
     for (int i = m_transactionLevel[thread]; i > 0; i--)
@@ -1299,6 +1320,39 @@ bool
 TransactionInterfaceManager::inEscapeAction(int thread)
 {
     return m_escapeLevel[thread] > 0;
+}
+
+bool
+TransactionInterfaceManager::shouldNackL1LocalEviction(Addr addr)
+{
+    if (config_allowReadSetLowerLevelCacheEvictions() ||
+        config_nackL1LocalEvictions()) {
+        // If Rset L0 replacements are allowed, we nack L1 local
+        // invalidations (INV_OWN) to Rset blocks so that L1 keeps
+        // forwarding traffic to this L0 in order to detect conflicts
+        // on evicted blocks. Thus, Rset blocks may never leave the L1
+        // while the transaction is active. Note that L1 Rset
+        // evictions would require remote requests for blocks that are
+        // not present in this private L0/L1 to be checked for
+        // conflicts.
+        assert(checkWriteSignature(addr) || checkReadSignature(addr));
+
+        // Can only nack L1 replacements once, to prevent
+        // deadlocks. The first time we nack, the block is set as MRU
+        // so it should not be considered for victimization until all
+        // other ways have been. The second time we get an INV_OWN we
+        // cannot nack it: must abort
+        if (m_nackedL1LocalEvictions.find(addr) ==
+            m_nackedL1LocalEvictions.end()) {
+            m_nackedL1LocalEvictions[addr] = 'y';
+            return true;
+        } else {
+            DPRINTF(RubyHTM, "HTM: Cannot nack L1 eviction %#x!\n",
+                    addr);
+
+        }
+    }
+    return false;
 }
 
 void

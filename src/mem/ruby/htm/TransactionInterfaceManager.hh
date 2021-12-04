@@ -138,9 +138,6 @@ public:
   void endEscapeAction(int thread);
   bool inEscapeAction(int thread);
 
-  void setStartCycle(Cycles startCycle);
-  Cycles getStartCycle();
-
   std::string config_protocol() const {
       return m_ruby_system->getProtocol();
   }
@@ -174,6 +171,8 @@ public:
   bool config_nackL1LocalEvictions() const {
       return m_htm->params().nack_l1_local_evictions;
   }
+  bool shouldNackL1LocalEviction(Addr addr);
+
   bool config_preciseReadSetTracking() const {
       return m_htm->params().precise_read_set_tracking;
   }
@@ -185,6 +184,8 @@ public:
   }
   std::vector<TransactionInterfaceManager*>
      getRemoteTransactionManagers() const;
+
+  HTM* getHTM() const { return m_htm; };
 
   /********/
   static int numberofSMTThreads() { return 1; };
@@ -223,6 +224,7 @@ private:
   Addr*     m_abortAddress;
   // Sanity checks
   std::map<Addr, char> m_writeSetDiscarded;
+  std::map<Addr, char> m_nackedL1LocalEvictions;
 
     Tick m_htmstart_tick;
     Counter m_htmstart_instruction;

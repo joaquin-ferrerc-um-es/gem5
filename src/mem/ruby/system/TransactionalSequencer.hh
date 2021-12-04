@@ -102,7 +102,7 @@ class TransactionalSequencer : public Sequencer
                         DataBlock& data);
     void cancelLogRequests();
     void handleLoggedStore(Addr address,
-                           SequencerRequest& request,
+                           PacketPtr pkt,
                            DataBlock& data);
     HTM * m_htm;
     TransactionInterfaceManager* m_xact_mgr;
@@ -114,11 +114,13 @@ class TransactionalSequencer : public Sequencer
     bool m_commitPending;
     bool m_failedCallback;
     bool m_stalled;
+    AnnotatedRegion m_lastStateBeforeStall;
     uint64_t m_lastAbortHtmUid;
 
     // LogTM (eager VM) RequestTable contains outstanding log requests
     // for pending program stores (per line address)
     std::unordered_map<Addr, std::list<LogRequestInfo>> m_logRequestTable;
+    // Address of logging requests generated (log addr/log data)
     std::unordered_map<Addr, bool> m_logRequestAddr;
 
     // Lazy-lazy HTM:

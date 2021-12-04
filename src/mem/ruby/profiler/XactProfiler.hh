@@ -40,6 +40,8 @@ public:
     
     void printProfilers() {};
     void moveTo(int proc_no, AnnotatedRegion newState);
+    AnnotatedRegion getCurrentRegion(int proc_no) {
+        return m_annotatedRegion[proc_no]; };
     void beginRegion(int proc_no, AnnotatedRegion region);
     void endRegion(int proc_no, AnnotatedRegion region);
     void profileCurrentAnnotatedRegion();

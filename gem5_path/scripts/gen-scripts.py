@@ -177,6 +177,7 @@ for random_seed in seed_list:
               continue
             elif type(htm_config[option]) is bool:
               assert(option.isbool)
+              # Only append to description if true
               if htm_config[option] is True:
                 htm_options_str += ' --htm-'+option.gem5opt
                 if option.descr: # Append abbrev name to description
@@ -198,8 +199,10 @@ for random_seed in seed_list:
             option_descr = ''
           else:
             option_descr = str(opt_value)
-          htm_config_description += option.abbrev+ \
-                                    option_descr+"_"
+            # Only append to description if true or non bool
+          if type(htm_config[option]) is not bool or \
+             htm_config[option] is True:
+            htm_config_description += option.abbrev+option_descr+"_"
     cache_config_description="Unknown"
     cache_options_str = ''
     # Create a copy of config to change cache_l2_caches option only

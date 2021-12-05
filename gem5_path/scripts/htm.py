@@ -95,12 +95,26 @@ cfg1_replace_nontx[htm_replace_nontrans_preferred]=True
 # Config baseline 2: baseline 1 + htm_replace_nontrans_preferred
 cfg2_base = collections.OrderedDict(cfg1_base)
 cfg2_base[htm_replace_nontrans_preferred]=True
+cfg2_base[htm_l0_downgrade_on_l1_gets]=True
 
 cfg2_precise = collections.OrderedDict(cfg2_base)
 cfg2_precise[htm_precise_read_set_tracking]=True
 
 cfg2_reqstalls = collections.OrderedDict(cfg2_base)
 cfg2_reqstalls[htm_conflict_resolution]='requester_stalls_cda_hybrid'
+
+cfg2_eagervm = collections.OrderedDict(cfg2_base)
+cfg2_eagervm[htm_lazy_vm]=False
+
+cfg2_eagervm_l0rsetevict = collections.OrderedDict(cfg2_eagervm)
+cfg2_eagervm_l0rsetevict[htm_allow_read_set_l0_evictions]=True
+
+cfg2_eagervm_l0rsetevict_pf = collections.OrderedDict(cfg2_eagervm_l0rsetevict)
+cfg2_eagervm_l0rsetevict_pf[htm_heap_prefault]=True
+
+cfg2_eagervm_l0rsetevict_pf_cdah = collections.OrderedDict(cfg2_eagervm_l0rsetevict_pf)
+cfg2_eagervm_l0rsetevict_pf_cdah[htm_conflict_resolution]='requester_stalls_cda_hybrid'
+
 
 # No need to try every combination, but rather "guide" the search...
 
@@ -114,3 +128,8 @@ htm_option_str_abbreviations['committer_wins'] = "cw"
 htm_option_str_abbreviations['requester_stalls_cda_base'] = "cdab"
 htm_option_str_abbreviations['requester_stalls_cda_base_ntx'] = "cdabntx"
 htm_option_str_abbreviations['requester_stalls_cda_hybrid'] = "cdah"
+# NOTE: ntx allows nacking non-transactional requests and can result
+# in deadlocks when using lock subscription as a non-transactional
+# thread cannot acquire the lock in the presence of active
+# transactions (readers of the lock)
+htm_option_str_abbreviations['requester_stalls_cda_hybrid_ntx'] = "cdahntx"

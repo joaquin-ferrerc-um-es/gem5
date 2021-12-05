@@ -55,6 +55,7 @@
 #include "cpu/timebuf.hh"
 #include "debug/Activity.hh"
 #include "debug/Drain.hh"
+#include "debug/HtmCpu.hh"
 #include "debug/IEW.hh"
 #include "debug/O3PipeView.hh"
 #include "params/O3CPU.hh"
@@ -1192,6 +1193,17 @@ IEW::executeInsts()
         // Execute instruction.
         // Note that if the instruction faults, it will be handled
         // at the commit stage.
+        if (inst->isExecuted()) {
+            /* In HTM, avoid re-executing executed transactional
+               instructions that have faulted
+             */
+            assert(inst->isMemRef());
+            assert(inst->inHtmTransactionalState());
+            assert(inst->fault != NoFault);
+            instToCommit(inst);
+            DPRINTF(HtmCpu, "Execute: Skipping instruction [sn:%llu] "
+                    "with HTM fault .\n", inst->seqNum);
+        } else
         if (inst->isMemRef()) {
             DPRINTF(IEW, "Execute: Calculating address for memory "
                     "reference.\n");

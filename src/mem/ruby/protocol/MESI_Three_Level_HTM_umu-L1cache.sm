@@ -130,6 +130,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     // L0 cache received the invalidation message
     // and has sent the data.
     L0_DataAck,      desc="L0 received INV message";
+    L0_DataAck_Trans,      desc="L0 received INV message";
 
     Inv,           desc="Invalidate request from L2 bank";
 
@@ -150,6 +151,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     Data_all_Nacks,       desc="Nack for processor instead of data, all acks";
 
     L0_Ack,        desc="Ack for processor";
+    L0_Ack_Trans,        desc="Ack for processor";
     Ack,        desc="Ack for processor";
     Ack_all,      desc="Last ack for processor";
     Nack_all,     desc="Last ack for processor, access was nacked";
@@ -158,8 +160,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     WB_Ack,        desc="Ack for replacement";
 
     // hardware transactional memory
-    L0_DataCopy,     desc="Data Block from L0. Should remain in M state.";
-    L0_HtmData,     desc="Data Block from L0. Should remain in M state.";
+    Writeback_Copy,     desc="Data Block from L0. Should remain in M state.";
 
     // L0 cache received the invalidation message and has
     // sent a NACK (because of htm abort) saying that the data
@@ -296,6 +297,11 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
       return Event:Store;
     } else if (type == CoherenceClass:PUTX) {
       return Event:WriteBack;
+    } else if (type == CoherenceClass:PUTX_COPY) {
+        // L0 sends this req upon first transactional store (lazy VM)
+        // to preserve consistent pre-transactional values in L1. The
+        // L1 must keep forwarding reqs to L0 as if it may have M copy
+      return Event:Writeback_Copy;
     } else {
       error("Invalid RequestType");
     }
@@ -474,12 +480,12 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
             } else { // Requestor was remote L1
               trigger(Event:L0_Nack_Else, in_msg.addr, cache_entry, tbe);
             }
-        }  else if (in_msg.Class == CoherenceClass:PUTX_COPY) {
-              trigger(Event:L0_DataCopy, in_msg.addr, cache_entry, tbe);
-        }  else if (in_msg.Class == CoherenceClass:PUTM) {
-              trigger(Event:L0_HtmData, in_msg.addr, cache_entry, tbe);
         }  else if (in_msg.Class == CoherenceClass:INV_ACK) {
             trigger(Event:L0_Ack, in_msg.addr, cache_entry, tbe);
+        }  else if (in_msg.Class == CoherenceClass:INV_DATA_TRANS) {
+            trigger(Event:L0_DataAck_Trans, in_msg.addr, cache_entry, tbe);
+        }  else if (in_msg.Class == CoherenceClass:INV_ACK_TRANS) {
+            trigger(Event:L0_Ack_Trans, in_msg.addr, cache_entry, tbe);
         }  else {
             if (is_valid(cache_entry)) {
                 trigger(mandatory_request_type_to_event(in_msg.Class),
@@ -1385,6 +1391,12 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     kd_wakeUpDependents;
   }
 
+  transition({M_IL0, E_IL0}, L0_DataAck_Trans, MMT) {
+    u_writeDataFromL0Response;
+    k_popL0RequestQueue;
+    kd_wakeUpDependents;
+  }
+
   transition({E_DL0, M_DL0}, L0_DataAck, MM_S) {
       // L0 keeps shared copy, L1 goes to MM_S, will transit to S
       // after Fwd_GETS serviced
@@ -1393,7 +1405,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     kd_wakeUpDependents;
   }
 
-  transition({E_DL0, M_DL0}, L0_DataCopy) {
+  transition({E_DL0, M_DL0}, Writeback_Copy) {
       // First trans store in L0 raced with fwd_gets to L1, and we get
       // the datacopy from L0 before the downgrade ack
     u_writeDataFromL0Response;
@@ -1404,7 +1416,11 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   transition({E_DL0, M_DL0}, L0_Ack, MM) {
       // L0 sent ack to inform it has no copy (discarded on abort), so
       // L1 goes straight to MM, will then forward
-    u_writeDataFromL0Response;
+    k_popL0RequestQueue;
+    kd_wakeUpDependents;
+  }
+
+  transition({E_DL0, M_DL0}, L0_Ack_Trans, MMT) {
     k_popL0RequestQueue;
     kd_wakeUpDependents;
   }
@@ -1435,6 +1451,10 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   }
 
   transition(E_IL0, L0_Ack, EE) {
+    k_popL0RequestQueue;
+    kd_wakeUpDependents;
+  }
+  transition({M_IL0,E_IL0}, L0_Ack_Trans, MMT) {
     k_popL0RequestQueue;
     kd_wakeUpDependents;
   }
@@ -1494,25 +1514,12 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   // A transaction may have tried to modify a cache block in M state with
   // non-speculative (pre-transactional) data. This needs to be copied
   // to the L1 before any further modifications occur at the L0.
-  transition({M,E}, L0_DataCopy, M) {
+  transition({M,E}, Writeback_Copy, M) {
     u_writeDataFromL0Request;
     k_popL0RequestQueue;
   }
 
-  transition({M_IL0, E_IL0}, L0_DataCopy, M_IL0) {
-    u_writeDataFromL0Request;
-    k_popL0RequestQueue;
-  }
-
-  transition({M_IL0, E_IL0}, L0_HtmData, MMT) {
-      // L0 got InvOwn for Wset data (LogTM): Can evict this line as
-      // if MM but forcing L2 to keep forwarding traffic to this L1
-    u_writeDataFromL0Response;
-    k_popL0RequestQueue;
-    kd_wakeUpDependents;
-  }
-
-  transition({E,M}, L0_HtmData, MMT) {
+  transition({M_IL0, E_IL0}, Writeback_Copy, M_IL0) {
     u_writeDataFromL0Request;
     k_popL0RequestQueue;
   }

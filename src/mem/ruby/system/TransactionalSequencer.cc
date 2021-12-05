@@ -1202,6 +1202,7 @@ TransactionalSequencer::writeCallback(Addr address, DataBlock& data,
             // Must check all outstanding requests for this address to
             // handle logged store that needs
             bool isWrite = false;
+            bool isRMWRead = false;
             PacketPtr writePkt;
             for (auto it=seq_req_list.begin();
                  it != seq_req_list.end(); ++it) {
@@ -1209,14 +1210,21 @@ TransactionalSequencer::writeCallback(Addr address, DataBlock& data,
                     isWrite = true;
                     writePkt = (*it).pkt;
                     break;
+                } else if ((*it).m_type == RubyRequestType_RMW_Read) {
+                    isRMWRead = true;
                 }
             }
             // Can we have a writeCallback for an address in the
             // logRequestTable if we don't have a write?
-            assert(isWrite);
-            // Transactional store with outstanding logging actions
-            handleLoggedStore(address, writePkt, data);
-            // Fall thru to erase and callback CPU...
+            if (isWrite) {
+                // Transactional store with outstanding logging actions
+                handleLoggedStore(address, writePkt, data);
+                // Fall thru to erase and callback CPU...
+            } else {
+                // This callback is for a prior RMW_Read to the same
+                // line that has a later store pending to be logged
+                assert(isRMWRead);
+            }
         }
     }
     Sequencer::writeCallback(address, data, externalHit, mach,

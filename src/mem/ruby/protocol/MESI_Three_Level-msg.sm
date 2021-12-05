@@ -48,7 +48,6 @@ enumeration(CoherenceClass, desc="...") {
   INV_OWN,   desc="Invalidate (own)";
   INV_ELSE,  desc="Invalidate (else)";
   PUTX,      desc="Replacement message";
-  PUTM,      desc="Replacement message of write set block (LogTM)";
   PUTX_COPY, desc="Data block to be copied in L1. L0 will still be in M state";
 
   WB_ACK,    desc="Writeback ack";
@@ -57,6 +56,10 @@ enumeration(CoherenceClass, desc="...") {
   // when an invalidation message is received.
   INV_DATA;
   INV_ACK;
+  // Request types for sending data and acks from L0 to L1 cache
+  // when an invalidation message is received (in transaction read set).
+  INV_DATA_TRANS;
+  INV_ACK_TRANS;
 
   DATA, desc="Data block for L1 cache in S state";
   DATA_EXCLUSIVE, desc="Data block for L1 cache in M/E state";

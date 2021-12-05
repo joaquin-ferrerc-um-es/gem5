@@ -123,7 +123,8 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     InvOwn,          desc="Invalidate request from L1 (own)";
     InvElse,         desc="Invalidate request from L1 (else)";
     Inv_Discard, desc="Invalidate request from L1 (own/else), must discard trans. modified data";
-    InvOwn_Wset,     desc="Invalidate request from L1 (own/else), can evict trans. modified data";
+    InvOwn_Rset,     desc="Invalidate request from L1 (own), can evict trans. read data";
+    InvOwn_Wset,     desc="Invalidate request from L1 (own), can evict trans. modified data";
     InvOwn_X,       desc="Invalidate request from L1 (own), must nack";
     InvElse_X,       desc="Invalidate request from L1 (else), must nack";
 
@@ -520,12 +521,10 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
                 }
             } else if (xact_mgr.checkReadSignature(in_msg.addr)) {
                 if (xact_mgr.config_allowReadSetL1CacheEvictions()) {
-                    // Allow Rset blocks to be evicted also from L1,
-                    // keeping the L2 directory state unchanged
-                    // (sticky-S directory state). In 2-level
-                    // protocols, this config option is implied by
-                    // config_allowReadSetCacheEvictions
-                    assert(false); // NOT IMPLEMENTED
+                    // NOTE: This option shall not to be mixed up with
+                    // config_allowReadSetLowerLevelCacheEvictions(),
+                    // which allows L0 to evict trans blocks.
+                    trigger(Event:InvOwn_Rset, in_msg.addr, cache_entry, tbe);
                 } else if (xact_mgr.shouldNackL1LocalEviction(in_msg.addr)) {
                     trigger(Event:InvOwn_X,
                             in_msg.addr, getCacheEntry(in_msg.addr), tbe);
@@ -699,15 +698,22 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
               // Check if the line we want to evict is not locked
               Addr victimAddr := Icache.cacheProbe(in_msg.LineAddress);
               check_on_cache_probe(mandatoryQueue_in, victimAddr);
-	      if (xact_mgr.checkWriteSignature(victimAddr)) {
+              if (xact_mgr.checkWriteSignature(victimAddr)) {
                   // Eviction of speculatively modified data
                   xact_mgr.xactReplacement(victimAddr, machineID, true);
-                  assert(xact_mgr.isDoomed(0));
-		// Eviction of speculatively modified data: discard data, xact mgr will abort
-		trigger(Event:L0_Replacement_Wset_Discard, victimAddr,
-			getICacheEntry(victimAddr),
-			TBEs[victimAddr]);
-	      }
+                  if (xact_mgr.config_lazyVM()) {
+                      assert(xact_mgr.isDoomed(0));
+                      // Wset eviction: discard data, xact mgr will abort
+                      trigger(Event:L0_Replacement_Wset_Discard, victimAddr,
+                              getICacheEntry(victimAddr),
+                              TBEs[victimAddr]);
+                  } else { // LogTM allows replacing write set blocks
+                      // Wset eviction: discard data, xact mgr will abort
+                      trigger(Event:L0_Replacement_Wset, victimAddr,
+                              getICacheEntry(victimAddr),
+                              TBEs[victimAddr]);
+                  }
+              }
               else if (xact_mgr.checkReadSignature(victimAddr)) {
                   if (xact_mgr.config_allowReadSetLowerLevelCacheEvictions()) {
                       // Eviction of speculatively read data: allowed, stay as sharer
@@ -759,7 +765,9 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
               // Check to see if it is in the OTHER L0
               Entry Icache_entry := getICacheEntry(in_msg.LineAddress);
               if (is_valid(Icache_entry)) {
-                  assert(!xact_mgr.checkWriteSignature(in_msg.LineAddress));
+                  if (xact_mgr.config_lazyVM()) {
+                      assert(!xact_mgr.checkWriteSignature(in_msg.LineAddress));
+                  }
                   
                   if (xact_mgr.checkReadSignature(in_msg.LineAddress) &&
                       in_msg.Type == RubyRequestType:LD) {
@@ -775,12 +783,23 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
                       if (xact_mgr.checkReadSignature(in_msg.LineAddress)) {
                           // ST to block in Icache: not a capacity abort!
                           xact_mgr.xactReplacement(in_msg.LineAddress, machineID);
-                          assert(xact_mgr.isDoomed(0));
+                          if (xact_mgr.config_lazyVM()) {
+                              assert(!xact_mgr.checkWriteSignature(in_msg.LineAddress));
+                          }
+                          if (!xact_mgr.config_allowReadSetLowerLevelCacheEvictions()) {
+                              assert(xact_mgr.isDoomed(0));
+                              // The block is in the wrong L0, put the request on the queue to the private L1
+                              // Make sure it has not been speculatively written while in the Icache,
+                              trigger(Event:L0_Replacement, in_msg.LineAddress,
+                                      Icache_entry, TBEs[in_msg.LineAddress]);
+                          } else {
+                              trigger(Event:L0_Replacement_Rset, in_msg.LineAddress,
+                                      Icache_entry, TBEs[in_msg.LineAddress]);
+                          }
+                      } else {
+                          trigger(Event:L0_Replacement, in_msg.LineAddress,
+                                  Icache_entry, TBEs[in_msg.LineAddress]);
                       }
-                      // The block is in the wrong L0, put the request on the queue to the private L1
-                      // Make sure it has not been speculatively written while in the Icache,
-                      trigger(Event:L0_Replacement, in_msg.LineAddress,
-                              Icache_entry, TBEs[in_msg.LineAddress]);
                   }
               }
 
@@ -949,6 +968,36 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
       }
     }
   }
+  action(ftrs_sendTransDataToL1, "frs", desc="Send read-set data to the L1 cache") {
+      assert(xact_mgr.checkWriteSignature(address) ||
+             xact_mgr.checkReadSignature(address));
+      enqueue(requestNetwork_out, CoherenceMsg, Dcache.getDataLatency()) {
+        assert(is_valid(cache_entry));
+        out_msg.addr := address;
+        out_msg.Class := CoherenceClass:INV_DATA_TRANS;
+        out_msg.DataBlk := cache_entry.DataBlk;
+        out_msg.Dirty := cache_entry.Dirty;
+        out_msg.Sender := machineID;
+        out_msg.Dest := createMachineID(MachineType:L1Cache, version);
+        out_msg.MessageSize := MessageSizeType:Writeback_Data;
+      }
+      cache_entry.Dirty := false;
+  }
+
+  action(firs_sendTransInvAck, "firs", desc="Send read-set data to the L1 cache") {
+      assert(xact_mgr.checkWriteSignature(address) ||
+             xact_mgr.checkReadSignature(address));
+    peek(messgeBuffer_in, CoherenceMsg) {
+      enqueue(requestNetwork_out, CoherenceMsg, Dcache.getTagLatency()) {
+        out_msg.addr := address;
+        out_msg.Class := CoherenceClass:INV_ACK_TRANS;
+        out_msg.Sender := machineID;
+        out_msg.OriginalRequestor := in_msg.OriginalRequestor;
+        out_msg.Dest := createMachineID(MachineType:L1Cache, version);
+        out_msg.MessageSize := MessageSizeType:Response_Control;
+      }
+    }
+  }
 
   action(fn_sendInvNack, "fn", desc="Send nak to the L1 cache") {
     peek(messgeBuffer_in, CoherenceMsg) {
@@ -1019,22 +1068,6 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
         assert(is_valid(cache_entry));
         out_msg.addr := address;
         out_msg.Class := CoherenceClass:PUTX_COPY;
-        out_msg.Dirty := cache_entry.Dirty;
-        out_msg.Sender:= machineID;
-        out_msg.Dest := createMachineID(MachineType:L1Cache, version);
-        out_msg.MessageSize := MessageSizeType:Writeback_Data;
-        out_msg.DataBlk := cache_entry.DataBlk;
-      }
-      cache_entry.Dirty := false;
-  }
-
-  action(gm_issuePUTM, "\gm", desc="Send modified line to the L1 cache, force L1 to keep forwarding to L0") {
-      assert(xact_mgr.checkWriteSignature(address) &&
-             !xact_mgr.config_lazyVM()); // LogTM
-      enqueue(requestNetwork_out, CoherenceMsg, Dcache.getDataLatency()) {
-        assert(is_valid(cache_entry));
-        out_msg.addr := address;
-        out_msg.Class := CoherenceClass:PUTM;
         out_msg.Dirty := cache_entry.Dirty;
         out_msg.Sender:= machineID;
         out_msg.Dest := createMachineID(MachineType:L1Cache, version);
@@ -1565,8 +1598,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
   }
 
   transition(M, {L0_Replacement_Rset}, I) {
-      // TODO: Use PUTM when implementing  config_allowReadSetL1CacheEvictions
-    gxc_issuePUTXCOPY;   // writeback dirty data, stay as exclusive
+    gxc_issuePUTXCOPY;   // writeback dirty data, force L1 to forward all traffic by staying as exclusive
     ff_deallocateCacheBlock;
   }
 
@@ -1583,14 +1615,23 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
 
   transition({E,M}, {L0_Replacement_Wset}, I) {
       // E: Evicted, refetched by load, now evicted from L0 again
-    gm_issuePUTM;   // writeback spec data, stay as exclusive
+    gxc_issuePUTXCOPY;   // writeback dirty data, stay as exclusive
     ff_deallocateCacheBlock;
   }
 
-  transition({I,E,M}, InvOwn_Wset, I) {
-      // E: Evicted, refetched by load, now evicted from L1 again
-    gm_issuePUTM;   // writeback spec data, stay as exclusive
+  transition({S,E,M}, {InvOwn_Rset, InvOwn_Wset}, I) {
+    ftrs_sendTransDataToL1;      
     ff_deallocateCacheBlock;
+    l_popRequestQueue;
+  }
+
+  transition(I, {InvOwn_Rset, InvOwn_Wset}) {
+    firs_sendTransInvAck;
+    l_popRequestQueue;
+  }
+
+  transition({IS, IM}, {InvOwn_Rset, InvOwn_Wset}) {
+    firs_sendTransInvAck;
     l_popRequestQueue;
   }
 

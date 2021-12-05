@@ -56,6 +56,8 @@ const std::string HtmPolicyStrings::requester_stalls_cda_base_ntx =
                                    "requester_stalls_cda_base_ntx";
 const std::string HtmPolicyStrings::requester_stalls_cda_hybrid =
                                    "requester_stalls_cda_hybrid";
+const std::string HtmPolicyStrings::requester_stalls_cda_hybrid_ntx =
+                                   "requester_stalls_cda_hybrid_ntx";
 
 HtmFailureFaultCause
 getIsaVisibleHtmFailureCause(HtmFailureFaultCause cause)

@@ -188,6 +188,7 @@ public:
   static const std::string requester_stalls_cda_base;
   static const std::string requester_stalls_cda_base_ntx;
   static const std::string requester_stalls_cda_hybrid;
+  static const std::string requester_stalls_cda_hybrid_ntx;
 };
 
 class HTM : public ClockedObject

@@ -53,6 +53,7 @@
 #include "cpu/checker/cpu.hh"
 #include "cpu/checker/htm_checker.hh"
 #include "cpu/exetrace.hh"
+#include "cpu/nop_static_inst.hh"
 #include "cpu/o3/cpu.hh"
 #include "cpu/o3/dyn_inst.hh"
 #include "cpu/o3/limits.hh"
@@ -995,8 +996,32 @@ Commit::commitInsts()
                 } else if (rob->isEmpty(commit_thread)){
                     DPRINTF(HtmCpu,
                             "Interrupt detected within transaction"
-                            " while ROB is empty, postponing "
-                            " until ROB not empty\n");
+                            " while ROB is empty, inserting nop!\n");
+                    if (cpu->instList.empty()) {
+                        // Use a nop in order to handle the interrupt
+                        // Create a new DynInst from the instruction fetched.
+                        ThreadID tid = commit_thread;
+                        DynInstPtr inst =
+                            new DynInst(nopStaticInstPtr, nullptr,
+                                        pc[tid], pc[tid],
+                                        youngestSeqNum[tid]+1, cpu);
+                        youngestSeqNum[tid] = inst->seqNum;
+                        inst->setTid(tid);
+                        inst->setNotAnInst();
+                        inst->setIssued();
+                        inst->setExecuted();
+                        inst->setCanCommit();
+                        inst->setInstListIt(cpu->addInst(inst));
+
+                        const auto& htm_cpt = cpu->tcBase(tid)->
+                            getHtmCheckpointPtr();
+                        auto htm_uid = htm_cpt->getHtmUid();
+                        inst->fault =
+                            std::make_shared<GenericHtmFailureFault>
+                            (htm_uid,
+                             HtmFailureFaultCause::INTERRUPT);
+                        rob->insertInst(inst);
+                    }
                     break;
                 } else {
                     head_inst = rob->readHeadInst(commit_thread);

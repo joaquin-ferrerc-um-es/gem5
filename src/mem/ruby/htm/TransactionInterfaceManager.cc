@@ -1086,6 +1086,11 @@ TransactionInterfaceManager::xactReplacement(Addr addr, MachineID source,
                 return;
             }
         }
+        if (config_allowReadSetLowerLevelCacheEvictions()) {
+            DPRINTF(RubyHTM, "HTM: read-set eviction tolerated"
+                    " for read-set address=%x \n", addr);
+            return;
+        }
     }
     setAbortFlag(thread, addr, source, false, capacity, wset);
 }

@@ -256,13 +256,21 @@ TransactionConflictManager::shouldNackLoad(Addr addr,
               !m_policy_nack_non_transactional) {
               if (!m_xact_mgr->config_lazyVM()) { // LogTM
                   shouldNack = true; // Nack until old value restored
+                  // Abort but keep nacking until old value restored
+                  // from log (or read signature cleared before log unroll)
+                  m_xact_mgr->setAbortFlag(thread, addr, remote_id,
+                                           remote_trans);
+                  DPRINTF(RubyHTM,"Abort due to non-transactional conflicting"
+                          " access to address %#x from remote reader %d\n",
+                          addr, machineIDToNodeID(remote_id));
               } else {
                   shouldNack = false;
                   remoteNonTransWins = true;
+
+                  DPRINTF(RubyHTM,"Cannot nack non-transactional conflicting"
+                          " access to address %#x from remote reader %d\n",
+                          addr, machineIDToNodeID(remote_id));
               }
-              DPRINTF(RubyHTM,"Cannot nack non-transactional conflicting"
-                      " access to address %#x from remote reader %d\n",
-                      addr, machineIDToNodeID(remote_id));
           } else { // trans-trans conflict
               shouldNack = true;
           }
@@ -359,15 +367,16 @@ TransactionConflictManager::shouldNackStore(Addr addr,
                   m_xact_mgr->setAbortFlag(thread, addr, remote_id,
                                            remote_trans);
                   DPRINTF(RubyHTM,"Abort due to non-transactional conflicting"
-                          " access to address %#x from remote reader %d\n",
+                          " access to address %#x from remote writer %d\n",
                           addr, machineIDToNodeID(remote_id));
               } else {
                   shouldNack = false;
                   remoteNonTransWins = true;
+
+                  DPRINTF(RubyHTM,"Cannot nack non-transactional conflicting"
+                          " access to address %#x from remote writer %d\n",
+                          addr, machineIDToNodeID(remote_id));
               }
-              DPRINTF(RubyHTM,"Cannot nack non-transactional conflicting"
-                      " access to address %#x from remote reader %d\n",
-                      addr, machineIDToNodeID(remote_id));
           } else { // trans-trans conflict
               shouldNack = true;
               int remote_thread = 0;

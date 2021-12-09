@@ -30,11 +30,16 @@ task_update-benchmarks-image() {
 VDS="${SCRIPT_DIR}/../virtual-disk-server"
 [[ -x "$VDS" ]] || error_and_exit "virtual-disk-server script not found ($VDS)"
 
+clean_benchmarks_all() {
+    "$(absolute_path "$BENCHMARKS_HTM_STAMP/make.all")" clean
+}
+
 update_benchmarks_image() {
     local arch="$1"
 
     # TODO: make this optional
     # First ensure that the benchmarks are built
+    clean_benchmarks_all # clean benchmark before rebuilding to include only the binaries for the desired arch
     build_benchmarks "$arch"
 
     local image_name="$(absolute_path "$(get_benchmarks_disk_image "$arch")")"

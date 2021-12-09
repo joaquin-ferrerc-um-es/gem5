@@ -1,103 +1,109 @@
-#
-# Makefile for the library
-#
-
 # gem5 hooks library
 GEM5_ROOT = ../../../../..
 
 ifndef ARCH
 $(error ARCH not set)
-else
-$(info $$ARCH is [${ARCH}])
 endif
-# ARCH set via make ARCH=xxx when building this library as part of the
-# build process of STAMP (see common/Defines.common.mk)
 
+ifndef HANDLER
+$(error HANDLER not set)
+endif
+
+$(info Building libaborthandlers: $$ARCH is [${ARCH}] and $$HANDLER is [${HANDLER}])
+
+# Set ARCH dependent variables
 ifeq ($(ARCH),aarch64)
-
-CFLAGS   += -DAARCH64
-ifdef AARCH64_CROSS_GCC_PREFIX
+M5_ARCH := arm64
+CFLAGS += -DAARCH64
+#CFLAGS += -march=armv8-a+tme # TODO: should be set for all files, currently only used by htm.c because old versions of GCC do not support it
 GCC_PREFIX := ${AARCH64_CROSS_GCC_PREFIX}
+
+# Hack to support building htm.c with a different version of
+# GCC. Currently, we have tested that everything works with GCC 9.2.0,
+# except htm.c which needs GCC 10.
+# TODO: Remove this once we check that there is no problem building everything with a recent GCC.
+$(info BENCHMARKS_AARCH64_TME_CROSS_HACK_GCC is $(BENCHMARKS_AARCH64_TME_CROSS_HACK_GCC))
+
+ifndef BENCHMARKS_AARCH64_TME_CROSS_HACK_GCC
+$(info All files will be compiled with $(GCC_PREFIX)gcc)
+CFLAGS += -march=armv8-a+tme # TODO: check if this is really necessary with newer versions of GCC
 else
-GCC_PREFIX := aarch64-linux-gnu-
-endif
-ifdef BENCHMARKS_AARCH64_TME_CROSS_HACK_GCC
-CC10 := ${BENCHMARKS_AARCH64_TME_CROSS_HACK_GCC}
-else
-CC10 := /opt/cross/bin/aarch64-linux-gcc # Ruben's gcc-10.2.0
+$(info htm.c will be compiled with $(BENCHMARKS_AARCH64_TME_CROSS_HACK_GCC), the rest with $(GCC_PREFIX)gcc without TME support)
 endif
 
-else ifeq ($(ARCH),x86)
-
-CFLAGS   += -DX86
+else ifeq ($(ARCH),x86_64)
+M5_ARCH := x86
+CFLAGS += -DX86
+#CFLAGS += -march=… -mtune=…
 GCC_PREFIX := ${X86_CROSS_GCC_PREFIX}
-
+else
+$(error ARCH $(ARCH) not supported)
 endif
 
-CC        := $(GCC_PREFIX)gcc
-AR        := $(GCC_PREFIX)ar
-LD        := $(GCC_PREFIX)gcc
+CC := $(GCC_PREFIX)gcc
+AR := $(GCC_PREFIX)ar
+LD := $(GCC_PREFIX)gcc
 
-AR_FLAGS  := rvs
-
-# Choice of abort handler
-CFLAGS    += $(HANDLER)
-# Must be set to one of the following:
-#-DHANDLER_EMPTY
-#-DHANDLER_FALLBACKLOCK
-#-DHANDLER_FALLBACKLOCK_2PHASE
+# Set HANDLER dependent variables
+ifeq ($(HANDLER),empty)
+CFLAGS += -DHANDLER_EMPTY
+else ifeq ($(HANDLER),fallbacklock)
+CFLAGS += -DHANDLER_FALLBACKLOCK
+else ifeq ($(HANDLER),fallbacklock2phase)
+CFLAGS += -DHANDLER_FALLBACKLOCK -DHANDLER_FALLBACKLOCK_2PHASE
+else ifeq ($(HANDLER),sgl)
+CFLAGS += -DHANDLER_SGL
+else
+$(error HANDLER $(HANDLER) not supported)
+endif
 
 # Enable m5 ops instrumentation for gem5
-CFLAGS   += -DENABLE_M5OPS
+CFLAGS += -DENABLE_M5OPS
 
 # Pass memory regions in /proc/<pid>/maps to simulator
-CFLAGS    += -DANNOTATE_PROC_MAPS
+CFLAGS += -DANNOTATE_PROC_MAPS
 
 # Pass fallback lock address to simulator (clasify aborts)
-CFLAGS    += -DANNOTATE_FALLBACKLOCK_ADDR
+CFLAGS += -DANNOTATE_FALLBACKLOCK_ADDR
 
 # Annotate code regions for more precise HTM visualizer
-CFLAGS    += -DANNOTATE_CODE_REGIONS
+CFLAGS += -DANNOTATE_CODE_REGIONS
 
-OBJS= abort_handlers.o htm.o thread_context.o util.o env_globals.o m5iface.o spinlock.o
+C_FILES := abort_handlers.c htm.c thread_context.c util.c env_globals.c m5iface.c spinlock.c
 
 M5_INCLUDE := -I$(GEM5_ROOT) -I$(GEM5_ROOT)/include
+CFLAGS += $(M5_INCLUDE)
 
-CFLAGS   += -O3 -Wall -fgnu-tm -std=c11 -D_POSIX_C_SOURCE=200112L
-CFLAGS   += $(M5_INCLUDE)
-CFLAGS   += -g
+CFLAGS += -O3 -Wall -fgnu-tm -std=c11 -D_POSIX_C_SOURCE=200112L
 
-libaborthandlers.a: $(OBJS) $(M5)
-	$(AR) $(AR_FLAGS) $@ $(OBJS) $(GEM5_OBJS)
+CFLAGS += -g
 
-ifeq ($(ARCH),aarch64)
-# ACLE (TME intrinsics) requires gcc-10, but everything else is built
-# using an older gcc version to avoid issues when running in  gem5
-htm.o: htm.c
-	$(CC10) $(CFLAGS) -march=armv8-a+tme -c $< -o $@
-endif
+libaborthandlers: build/$(ARCH)/libaborthandlers-$(HANDLER).a
 
-%.o: %.c
+libaborthandlers-$(HANDLER)_OBJS=$(foreach f,$(C_FILES:.c=-$(HANDLER).o),build/$(ARCH)/$(f))
+
+build/$(ARCH)/libaborthandlers-$(HANDLER).a: $(libaborthandlers-$(HANDLER)_OBJS) | build/$(ARCH)/
+	$(AR) rvs $@ $(libaborthandlers-$(HANDLER)_OBJS)
+
+build/$(ARCH)/%-$(HANDLER).o: %.c *.h | build/$(ARCH)/
 	$(CC) $(CFLAGS) -c $< -o $@
 
-clean:
-	rm -f *.o *.a
-#	cd $(GEM5_ROOT)/util/m5 && scons --clean
-
-
-ifeq ($(ARCH),riscv)
-M5_ARCH=riscv
-else
+ifdef BENCHMARKS_AARCH64_TME_CROSS_HACK_GCC
 ifeq ($(ARCH),aarch64)
-M5_ARCH=arm64
-else
-ifeq ($(ARCH),x86) # TODO: why not x86_64 here?
-M5_ARCH=x86
-else
-$(error M5_ARCH unknown)
-endif
+# Hack to support building htm.c with a different version of
+# GCC. Currently, we have tested that everything works with GCC 9.2.0,
+# except htm.c which needs GCC 10.
+# TODO: Remove this once we check that there is no problem building everything with a recent GCC.
+build/$(ARCH)/htm-$(HANDLER).o: htm.c *.h | build/$(ARCH)/
+	$(BENCHMARKS_AARCH64_TME_CROSS_HACK_GCC) $(CFLAGS) -march=armv8-a+tme -c $< -o $@
 endif
 endif
 
-$(M5):
-	cd $(GEM5_ROOT)/util/m5 && scons $(M5_ARCH).CROSS_COMPILE=${GCC_PREFIX} build/$(M5_ARCH)/out/m5
+build/$(ARCH)/:
+	mkdir -p $@
+
+.PHONY: clean
+clean:
+	rm -f build/$(ARCH)/*-$(HANDLER).[ao]
+	[ -e build/${ARCH} ] && rmdir --ignore-fail-on-non-empty build/${ARCH} || true
+	[ -e build ] && rmdir --ignore-fail-on-non-empty build/ || true

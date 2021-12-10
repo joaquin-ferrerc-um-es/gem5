@@ -97,7 +97,8 @@ else:
 # script in benchmarks-tm repository.
 checkpoint_boot_num=0  # Which boot ckpt number is used (if more than one available, see make-boot-checkpoints-
 # Root directory where "boot" checkpoints are located
-checkpoint_boot_root_dir=os.path.join(gem5root, "checkpoints", arch, str(checkpoint_boot_num))
+#checkpoint_boot_root_dir=os.path.join(gem5root, "checkpoints", arch, str(checkpoint_boot_num))
+checkpoint_boot_root_dir=os.path.join(gem5path, arch_name, "checkpoints", "booted")
 # Root directory where fast-forward "init" checkpoints will be written
 checkpoint_tmpdir_prefix=os.path.join(gem5path,"checkpoints")
 # The name of the subdirectory (symlink) in the output directory that

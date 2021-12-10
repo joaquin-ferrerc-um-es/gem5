@@ -97,6 +97,13 @@ createMachineID(MachineType type, NodeID id)
 }
 
 inline MachineID
+createInvalidMachineID()
+{
+    MachineID mach = {MachineType_NUM, 0};
+    return mach;
+}
+
+inline MachineID
 MachineTypeAndNodeIDToMachineID(MachineType type, NodeID node)
 {
     MachineID mach = {type, node};

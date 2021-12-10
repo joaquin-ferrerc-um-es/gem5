@@ -37,6 +37,8 @@ enumeration(CoherenceRequestType, desc="...") {
   INV,       desc="INValidate";
   PUTX,      desc="Replacement message";
   PUTM,      desc="Writeback and stay as exclusive";
+  CHECK_READ_WRITE_SET, desc="Invalidate from directory";
+  CHECK_WRITE_SET, desc="Invalidate from directory";
 
   WB_ACK,    desc="Writeback ack";
 
@@ -51,14 +53,12 @@ enumeration(CoherenceResponseType, desc="...") {
   DATA_EXCLUSIVE, desc="Data block for L1 cache in M/E state";
   MEMORY_DATA, desc="Data block from / to main memory";
   ACK, desc="Generic invalidate ack";
-  YIELD, desc="Yield to requestor, no longer keeps copy of block";
   NAK, desc="Generic negative ack";
   NACK, desc="Generic negative ack";
   WB_ACK, desc="writeback ack";
   UNBLOCK, desc="unblock";
   EXCLUSIVE_UNBLOCK, desc="exclusive unblock";
   UNBLOCK_CANCEL, desc="unblock after failed (nacked) access";
-  UNBLOCK_YIELD, desc="unblock after failed (acked) access";
   INV, desc="Invalidate from directory";
 }
 
@@ -98,6 +98,7 @@ structure(ResponseMsg, desc="...", interface="Message") {
   Addr addr,              desc="Physical address for this request";
   CoherenceResponseType Type,   desc="Type of response (Ack, Data, etc)";
   MachineID Sender,             desc="What component sent the data";
+  MachineID OriginalRequestor,  desc="What component request";
   NetDest Destination,          desc="Node to whom the data is sent";
   DataBlock DataBlk,            desc="Data for the cache line";
   bool Dirty, default="false",  desc="Dirty bit";

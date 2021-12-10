@@ -197,6 +197,7 @@ class CacheMemory : public SimObject
 
     // HTM
     TransactionInterfaceManager * m_xact_mgr;
+    bool m_htm_aware_replacements;
 
     BankedArray dataArray;
     BankedArray tagArray;

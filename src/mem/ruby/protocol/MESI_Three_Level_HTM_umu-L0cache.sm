@@ -506,18 +506,12 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
             trigger(Event:WB_Ack, in_msg.addr, cache_entry, tbe);
         } else if (in_msg.Class == CoherenceClass:INV_OWN) {
             if (xact_mgr.checkWriteSignature(in_msg.addr)) {
-                if (xact_mgr.config_lazyVM() &&
-                    xact_mgr.shouldNackL1LocalEviction(in_msg.addr)) {
-                    trigger(Event:InvOwn_X,
-                            in_msg.addr, getCacheEntry(in_msg.addr), tbe);
+                xact_mgr.xactReplacement(in_msg.addr, in_msg.Sender);
+                if (xact_mgr.config_lazyVM()) {
+                    assert(xact_mgr.isDoomed(0));
+                    trigger(Event:Inv_Discard, in_msg.addr, cache_entry, tbe);
                 } else {
-                    xact_mgr.xactReplacement(in_msg.addr, in_msg.Sender);
-                    if (xact_mgr.config_lazyVM()) {
-                        assert(xact_mgr.isDoomed(0));
-                        trigger(Event:Inv_Discard, in_msg.addr, cache_entry, tbe);
-                    } else {
-                        trigger(Event:InvOwn_Wset, in_msg.addr, cache_entry, tbe);
-                    }
+                    trigger(Event:InvOwn_Wset, in_msg.addr, cache_entry, tbe);
                 }
             } else if (xact_mgr.checkReadSignature(in_msg.addr)) {
                 if (xact_mgr.config_allowReadSetL1CacheEvictions()) {
@@ -525,9 +519,6 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
                     // config_allowReadSetLowerLevelCacheEvictions(),
                     // which allows L0 to evict trans blocks.
                     trigger(Event:InvOwn_Rset, in_msg.addr, cache_entry, tbe);
-                } else if (xact_mgr.shouldNackL1LocalEviction(in_msg.addr)) {
-                    trigger(Event:InvOwn_X,
-                            in_msg.addr, getCacheEntry(in_msg.addr), tbe);
                 } else {
                     xact_mgr.xactReplacement(in_msg.addr, in_msg.Sender);
                     assert(xact_mgr.isDoomed(0));
@@ -1895,9 +1886,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     ff_deallocateCacheBlock;
   }
 
-  // L1 replacement of line in read-write set and
-  // shouldNackL1LocalEviction enabled
-  transition({E,S,M}, InvOwn_X) {
+  transition({E,M}, InvOwn_X) {
     fn_sendInvNack;
     l_popRequestQueue;
   }

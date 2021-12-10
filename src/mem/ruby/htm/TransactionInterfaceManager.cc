@@ -112,7 +112,6 @@ TransactionInterfaceManager::TransactionInterfaceManager(const Params &p)
     if (m_ruby_system->getProtocol() == "MESI_Two_Level_HTM_umu") {
         // Sanity checks
         assert(!config_allowReadSetL0CacheEvictions());
-        assert(!config_nackL1LocalEvictions());
         assert(!m_htm->params().l0_downgrade_on_l1_gets);
     }
     m_htmstart_tick = 0;
@@ -302,9 +301,6 @@ TransactionInterfaceManager::commitTransaction(int thread, int xid,
             m_ruby_system->getXactValueChecker()->
                 commitTransaction(getProcID(), this, m_dataCache_ptr);
         }
-        if (config_nackL1LocalEvictions()) {
-            m_nackedL1LocalEvictions.clear();
-        }
         if (!config_allowReadSetLowerLevelCacheEvictions()) {
             // Sanity checks: All Rset blocks must be cached at commit
             vector<Addr> *rset = getXactIsolationManager()->
@@ -463,8 +459,6 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
                                    HTMStats::AbortCause::L2Capacity) {
                         } else if (m_abortCause[thread] ==
                                    HTMStats::AbortCause::L1Capacity) {
-                            assert(!m_htm->params().
-                                   nack_l1_local_evictions);
                         } else if (m_abortCause[thread] ==
                                    HTMStats::AbortCause::L0Capacity) {
                             assert(m_capacityAbortWriteSet[thread] ||
@@ -490,10 +484,6 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
         // LogTM: we need to pass log size to the abort handler (as
         // part of the abort status): do not reset log state now, wait
         // until log unroll done (reset via endLogUnroll)
-    }
-
-    if (config_nackL1LocalEvictions()) {
-        m_nackedL1LocalEvictions.clear();
     }
 
     if (XACT_LAZY_VM) {
@@ -1349,39 +1339,6 @@ bool
 TransactionInterfaceManager::inEscapeAction(int thread)
 {
     return m_escapeLevel[thread] > 0;
-}
-
-bool
-TransactionInterfaceManager::shouldNackL1LocalEviction(Addr addr)
-{
-    if (config_allowReadSetLowerLevelCacheEvictions() ||
-        config_nackL1LocalEvictions()) {
-        // If Rset L0 replacements are allowed, we nack L1 local
-        // invalidations (INV_OWN) to Rset blocks so that L1 keeps
-        // forwarding traffic to this L0 in order to detect conflicts
-        // on evicted blocks. Thus, Rset blocks may never leave the L1
-        // while the transaction is active. Note that L1 Rset
-        // evictions would require remote requests for blocks that are
-        // not present in this private L0/L1 to be checked for
-        // conflicts.
-        assert(checkWriteSignature(addr) || checkReadSignature(addr));
-
-        // Can only nack L1 replacements once, to prevent
-        // deadlocks. The first time we nack, the block is set as MRU
-        // so it should not be considered for victimization until all
-        // other ways have been. The second time we get an INV_OWN we
-        // cannot nack it: must abort
-        if (m_nackedL1LocalEvictions.find(addr) ==
-            m_nackedL1LocalEvictions.end()) {
-            m_nackedL1LocalEvictions[addr] = 'y';
-            return true;
-        } else {
-            DPRINTF(RubyHTM, "HTM: Cannot nack L1 eviction %#x!\n",
-                    addr);
-
-        }
-    }
-    return false;
 }
 
 void

@@ -65,13 +65,12 @@ class HTM(ClockedObject):
     # Whether the replacement policy favours read-write sets blocks
     # in detriment of non-transactional blocks, so that the latter are
     # always chosen as victims over the former.
-    replace_nontrans_preferred = Param.Bool(False,
+    trans_aware_l0_replacements = Param.Bool(False,
         "Replacement policy always chooses non-transactional blocks"
-        " over transactional blocks as candidates for victimization")
-    # In protocols with two levels of private cache, whether the L0
-    # can nack L1 replacements of cache blocks in the read-write sets
-    nack_l1_local_evictions = Param.Bool(False,
-        "Allow L0 cache to nack L1 evictions of read-write set blocks")
+        " over transactional blocks as candidates (L0 cache)")
+    trans_aware_l1_replacements = Param.Bool(False,
+        "Replacement policy always chooses non-transactional blocks"
+        " over transactional blocks as candidates (L1 cache)")
     # To prevent conflicts to trigger an abort, transactional load
     # can be delayed in the cpu until the trasaction is finished
     # or there is no room in the lsq or rob.

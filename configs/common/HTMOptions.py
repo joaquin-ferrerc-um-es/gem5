@@ -22,10 +22,10 @@ def setHTMOptions(htm, options):
         options.htm_allow_read_set_l1_cache_evictions
     if options.htm_precise_read_set_tracking != None:
         htm.precise_read_set_tracking = options.htm_precise_read_set_tracking
-    if options.htm_nack_l1_local_evictions != None:
-        htm.nack_l1_local_evictions = options.htm_nack_l1_local_evictions
-    if options.htm_replace_nontrans_preferred != None:
-        htm.replace_nontrans_preferred = options.htm_replace_nontrans_preferred
+    if options.htm_trans_aware_l0_replacements != None:
+        htm.trans_aware_l0_replacements = options.htm_trans_aware_l0_replacements
+    if options.htm_trans_aware_l1_replacements != None:
+        htm.trans_aware_l1_replacements = options.htm_trans_aware_l1_replacements
     if options.htm_allow_load_delaying != None:
         htm.allow_load_delaying = options.htm_allow_load_delaying
     if options.htm_l0_downgrade_on_l1_gets != None:
@@ -91,7 +91,11 @@ def addHTMOptions(parser):
                       action="store_true", default=False,
                       help="Nack L1 cache evictions of L0 blocks"
                       " in the read-write sets")
-    parser.add_argument("--htm-replace-nontrans-preferred",
+    parser.add_argument("--htm-trans-aware-l0-replacements",
+                      action="store_true", default=False,
+                      help="Avoid replacements of read-write set"
+                      " blocks when non-trans candidates present")
+    parser.add_argument("--htm-trans-aware-l1-replacements",
                       action="store_true", default=False,
                       help="Avoid replacements of read-write set"
                       " blocks when non-trans candidates present")

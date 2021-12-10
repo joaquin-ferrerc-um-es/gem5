@@ -17,6 +17,7 @@
 #include "mem/ruby/htm/LazyTransactionVersionManager.hh"
 #include "mem/ruby/htm/TransactionConflictManager.hh"
 #include "mem/ruby/htm/TransactionIsolationManager.hh"
+#include "mem/ruby/htm/XactIsolationChecker.hh"
 #include "mem/ruby/htm/XactValueChecker.hh"
 #include "mem/ruby/profiler/Profiler.hh"
 #include "mem/ruby/profiler/XactProfiler.hh"
@@ -111,7 +112,6 @@ TransactionInterfaceManager::TransactionInterfaceManager(const Params &p)
     if (m_ruby_system->getProtocol() == "MESI_Two_Level_HTM_umu") {
         // Sanity checks
         assert(!config_allowReadSetL0CacheEvictions());
-        assert(!config_nackL1LocalEvictions());
         assert(!m_htm->params().l0_downgrade_on_l1_gets);
     }
     m_htmstart_tick = 0;
@@ -301,9 +301,6 @@ TransactionInterfaceManager::commitTransaction(int thread, int xid,
             m_ruby_system->getXactValueChecker()->
                 commitTransaction(getProcID(), this, m_dataCache_ptr);
         }
-        if (config_nackL1LocalEvictions()) {
-            m_nackedL1LocalEvictions.clear();
-        }
         if (!config_allowReadSetLowerLevelCacheEvictions()) {
             // Sanity checks: All Rset blocks must be cached at commit
             vector<Addr> *rset = getXactIsolationManager()->
@@ -336,6 +333,10 @@ TransactionInterfaceManager::commitTransaction(int thread, int xid,
         }
         m_xactConflictManager->commitTransaction(thread);
         m_xactIsolationManager->commitTransaction(thread);
+        m_ruby_system->getXactIsolationChecker()->
+            clearReadSet(m_version, m_transactionLevel[thread]);
+        m_ruby_system->getXactIsolationChecker()->
+            clearWriteSet(m_version, m_transactionLevel[thread]);
 
         assert(m_writeSetDiscarded.empty());
         assert(m_abortCause[thread] == HTMStats::AbortCause::Undefined);
@@ -458,8 +459,6 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
                                    HTMStats::AbortCause::L2Capacity) {
                         } else if (m_abortCause[thread] ==
                                    HTMStats::AbortCause::L1Capacity) {
-                            assert(!m_htm->params().
-                                   nack_l1_local_evictions);
                         } else if (m_abortCause[thread] ==
                                    HTMStats::AbortCause::L0Capacity) {
                             assert(m_capacityAbortWriteSet[thread] ||
@@ -487,10 +486,6 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
         // until log unroll done (reset via endLogUnroll)
     }
 
-    if (config_nackL1LocalEvictions()) {
-        m_nackedL1LocalEvictions.clear();
-    }
-
     if (XACT_LAZY_VM) {
         // Release isolation (clear filters/signatures)
         for (int i = m_transactionLevel[thread]; i > 0; i--)
@@ -501,9 +496,13 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
             // No log unroll required: abort completes now
 
             // Release isolation (clear filters/signatures)
-            for (int i = m_transactionLevel[thread]; i > 0; i--)
+            for (int i = m_transactionLevel[thread]; i > 0; i--) {
                 getXactIsolationManager()->releaseIsolation(thread, i);
-
+                m_ruby_system->getXactIsolationChecker()->
+                    clearReadSet(m_version, i);
+                m_ruby_system->getXactIsolationChecker()->
+                    clearWriteSet(m_version, i);
+            }
             // Reset log num entries
             m_xactEagerVersionManager->restartTransaction(thread);
             // Restart conflict management
@@ -511,6 +510,9 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
         } else {
             // Only release isolation over read set
             getXactIsolationManager()->releaseReadIsolation(thread);
+            m_ruby_system->getXactIsolationChecker()->
+                clearReadSet(m_version, m_transactionLevel[thread]);
+
             int wsetsize = getXactIsolationManager()->
                 getWriteSetSize(thread, m_transactionLevel[thread]);
             int logsize =m_xactEagerVersionManager->getLogNumEntries();
@@ -680,6 +682,8 @@ TransactionInterfaceManager::isolateTransactionStore(int thread,
                                    physicalAddr,
                                    m_transactionLevel[thread]);
     m_xactIsolationManager->addToWriteSetFilter(thread, physicalAddr);
+    m_ruby_system->getXactIsolationChecker()->
+        addToWriteSet(m_version, physicalAddr);
 
     DPRINTF(RubyHTMverbose, "HTM: isolateTransactionStore "
             "address=%x\n", physicalAddr);
@@ -881,6 +885,16 @@ TransactionInterfaceManager::setAbortFlag(int thread, Addr addr,
 
     if (!XACT_LAZY_VM) { // LogTM
         assert(!isUnrollingLog(thread));
+    }
+    if (checkReadSignature(addr)) {
+        m_ruby_system->getXactIsolationChecker()->
+            removeFromReadSet(m_version, addr,
+                              m_transactionLevel[thread]);
+    }
+    if (checkWriteSignature(addr)) {
+        m_ruby_system->getXactIsolationChecker()->
+            removeFromWriteSet(m_version, addr,
+                               m_transactionLevel[thread]);
     }
     if (!m_abortFlag[thread]) { // Only send abort signal to CPU once
         m_abortFlag[thread] = true;
@@ -1291,8 +1305,13 @@ TransactionInterfaceManager::endLogUnroll(int thread){
     getXactConflictManager()->restartTransaction(thread);
 
     // Release isolation over write set
-    for (int i = m_transactionLevel[thread]; i > 0; i--)
+    for (int i = m_transactionLevel[thread]; i > 0; i--) {
         getXactIsolationManager()->releaseIsolation(thread, i);
+        m_ruby_system->getXactIsolationChecker()->
+            clearReadSet(m_version, i);
+        m_ruby_system->getXactIsolationChecker()->
+            clearWriteSet(m_version, i);
+    }
 
     m_escapeLevel[thread] = 0;
     m_transactionLevel[thread] = 0;
@@ -1325,39 +1344,6 @@ bool
 TransactionInterfaceManager::inEscapeAction(int thread)
 {
     return m_escapeLevel[thread] > 0;
-}
-
-bool
-TransactionInterfaceManager::shouldNackL1LocalEviction(Addr addr)
-{
-    if (config_allowReadSetLowerLevelCacheEvictions() ||
-        config_nackL1LocalEvictions()) {
-        // If Rset L0 replacements are allowed, we nack L1 local
-        // invalidations (INV_OWN) to Rset blocks so that L1 keeps
-        // forwarding traffic to this L0 in order to detect conflicts
-        // on evicted blocks. Thus, Rset blocks may never leave the L1
-        // while the transaction is active. Note that L1 Rset
-        // evictions would require remote requests for blocks that are
-        // not present in this private L0/L1 to be checked for
-        // conflicts.
-        assert(checkWriteSignature(addr) || checkReadSignature(addr));
-
-        // Can only nack L1 replacements once, to prevent
-        // deadlocks. The first time we nack, the block is set as MRU
-        // so it should not be considered for victimization until all
-        // other ways have been. The second time we get an INV_OWN we
-        // cannot nack it: must abort
-        if (m_nackedL1LocalEvictions.find(addr) ==
-            m_nackedL1LocalEvictions.end()) {
-            m_nackedL1LocalEvictions[addr] = 'y';
-            return true;
-        } else {
-            DPRINTF(RubyHTM, "HTM: Cannot nack L1 eviction %#x!\n",
-                    addr);
-
-        }
-    }
-    return false;
 }
 
 void

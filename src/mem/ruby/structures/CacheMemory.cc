@@ -81,6 +81,7 @@ CacheMemory::CacheMemory(const Params &p)
     m_replacementPolicy_ptr = p.replacement_policy;
     m_start_index_bit = p.start_index_bit;
     m_is_instruction_only_cache = p.is_icache;
+    m_htm_aware_replacements = p.htm_aware_replacements;
     m_resource_stalls = p.resourceStalls;
     m_block_size = p.block_size;  // may be 0 at this point. Updated in init()
     m_use_occupancy = dynamic_cast<replacement_policy::WeightedLRU*>(
@@ -334,11 +335,6 @@ CacheMemory::cacheProbe(Addr address) const
     int64_t cacheSet = addressToCacheSet(address);
     std::vector<ReplaceableEntry*> candidates;
     TransactionInterfaceManager * xact_mgr = NULL;
-    if (m_xact_mgr &&
-        (m_xact_mgr->config_replaceNonTransCandidatesPreferred())) {
-        // Enable "htm-aware" replacement
-        xact_mgr = m_xact_mgr;
-    }
     do {
         for (int i = 0; i < m_cache_assoc; i++) {
             if (m_xact_mgr && !m_xact_mgr->config_lazyVM() && //LogTM
@@ -348,7 +344,8 @@ CacheMemory::cacheProbe(Addr address) const
                 assert(!m_xact_mgr->config_lazyVM()); // LogTM
                 continue;
             }
-            else if (xact_mgr) {
+            else if (m_htm_aware_replacements &&
+                     xact_mgr) {
                 Addr addr = m_cache[cacheSet][i]->m_Address;
                 if (xact_mgr->checkWriteSignature(addr) ||
                     (!xact_mgr->config_allowReadSetLowerLevelCacheEvictions() &&

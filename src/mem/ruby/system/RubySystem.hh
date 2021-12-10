@@ -63,6 +63,7 @@ class Network;
 class AbstractController;
 class TransactionInterfaceManager;
 class XactValueChecker;
+class XactIsolationChecker;
 
 class RubySystem : public ClockedObject
 {
@@ -100,6 +101,12 @@ class RubySystem : public ClockedObject
     {
       assert(m_xactValueChecker != NULL);
       return m_xactValueChecker;
+    }
+    XactIsolationChecker*
+    getXactIsolationChecker()
+    {
+      assert(m_xactIsolationChecker != NULL);
+      return m_xactIsolationChecker;
     }
     /*
     void regStats() override {
@@ -180,6 +187,7 @@ class RubySystem : public ClockedObject
     HTM * m_htm;
     std::vector<TransactionInterfaceManager *> m_xact_mgr_vec;
     XactValueChecker* m_xactValueChecker;
+    XactIsolationChecker* m_xactIsolationChecker;
 
   public:
     Profiler* m_profiler;

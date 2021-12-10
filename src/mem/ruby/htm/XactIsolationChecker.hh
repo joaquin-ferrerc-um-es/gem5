@@ -1,4 +1,8 @@
 /*
+ *
+ * Copyright (C) 2016-2021 Rubén Titos <rtitos@um.es>
+ * Universidad de Murcia
+ *
  * Copyright (c) 1999-2008 Mark D. Hill and David A. Wood
  * All rights reserved.
  *
@@ -26,91 +30,56 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __MEM_RUBY_SLICC_INTERFACE_RUBYSLICC_COMPONENTMAPPINGS_HH__
-#define __MEM_RUBY_SLICC_INTERFACE_RUBYSLICC_COMPONENTMAPPINGS_HH__
+
+#ifndef __MEM_RUBY_HTM_XACTISOLATIONCHECKER_HH__
+#define __MEM_RUBY_HTM_XACTISOLATIONCHECKER_HH__
+
+#include <map>
+#include <vector>
 
 #include "mem/ruby/common/Address.hh"
-#include "mem/ruby/common/MachineID.hh"
-#include "mem/ruby/common/NetDest.hh"
-#include "mem/ruby/protocol/MachineType.hh"
-#include "mem/ruby/structures/DirectoryMemory.hh"
+#include "mem/ruby/slicc_interface/RubyRequest.hh"
 
 namespace gem5
 {
-
 namespace ruby
 {
+class RubySystem;
 
-inline NetDest
-broadcast(MachineType type)
+class XactIsolationChecker
 {
-    NetDest dest;
-    for (NodeID i = 0; i < MachineType_base_count(type); i++) {
-        MachineID mach = {type, i};
-        dest.add(mach);
-    }
-    return dest;
-}
+public:
+  XactIsolationChecker(RubySystem *rs);
+  ~XactIsolationChecker();
 
-inline MachineID
-mapAddressToRange(Addr addr, MachineType type, int low_bit,
-                  int num_bits, int cluster_id = 0)
-{
-    MachineID mach = {type, 0};
-    if (num_bits == 0)
-        mach.num = cluster_id;
-    else
-        mach.num = bitSelect(addr, low_bit, low_bit + num_bits - 1)
-            + (1 << num_bits) * cluster_id;
-    return mach;
-}
+  bool checkXACTIsolation(int proc, Addr addr, RubyRequestType accessType);
+  void addToReadSet(int proc, Addr addr, int xact_level);
+  void addToReadSet(int proc, Addr addr);
+  void addToWriteSet(int proc, Addr addr, int xact_level);
+  void addToWriteSet(int proc, Addr addr);
+  void clearReadSet(int proc, int xact_level);
+  void clearWriteSet(int proc, int xact_level);
+  void removeFromReadSet(int proc, Addr addr, int xact_level);
+  void removeFromWriteSet(int proc, Addr addr, int xact_level);
+  bool existInReadSet(int proc, Addr addr, Tick &since);
+  bool existInWriteSet(int proc, Addr addr, Tick &since);
+  void setAbortingProcessor(int proc);
+  void clearAbortingProcessor(int proc);
+  void printReadWriteSets(int proc);
 
-inline NodeID
-machineIDToNodeID(MachineID machID)
-{
-    return machID.num;
-}
+private:
+  RubySystem *m_ruby_system;
+  HTM *m_htm;
 
-inline MachineType
-machineIDToMachineType(MachineID machID)
-{
-    return machID.type;
-}
+  std::vector< std::vector< std::map<Addr, Tick> > > m_readSet;
+  std::vector< std::vector< std::map<Addr, Tick> > > m_writeSet;
+  std::vector<bool> m_abortingProcessor;
+  int m_num_sequencers;
+};
 
-inline bool
-machineIDIsValid(MachineID machID)
-{
-    return machID.isValid();
-}
-
-inline int
-machineCount(MachineType machType)
-{
-    return MachineType_base_count(machType);
-}
-
-inline MachineID
-createMachineID(MachineType type, NodeID id)
-{
-    MachineID mach = {type, id};
-    return mach;
-}
-
-inline MachineID
-createInvalidMachineID()
-{
-    MachineID mach = {MachineType_NUM, 0};
-    return mach;
-}
-
-inline MachineID
-MachineTypeAndNodeIDToMachineID(MachineType type, NodeID node)
-{
-    MachineID mach = {type, node};
-    return mach;
-}
 
 } // namespace ruby
 } // namespace gem5
 
-#endif  // __MEM_RUBY_SLICC_INTERFACE_COMPONENTMAPPINGS_HH__
+#endif
+

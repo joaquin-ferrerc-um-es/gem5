@@ -506,18 +506,12 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
             trigger(Event:WB_Ack, in_msg.addr, cache_entry, tbe);
         } else if (in_msg.Class == CoherenceClass:INV_OWN) {
             if (xact_mgr.checkWriteSignature(in_msg.addr)) {
-                if (xact_mgr.config_lazyVM() &&
-                    xact_mgr.shouldNackL1LocalEviction(in_msg.addr)) {
-                    trigger(Event:InvOwn_X,
-                            in_msg.addr, getCacheEntry(in_msg.addr), tbe);
+                xact_mgr.xactReplacement(in_msg.addr, in_msg.Sender);
+                if (xact_mgr.config_lazyVM()) {
+                    assert(xact_mgr.isDoomed(0));
+                    trigger(Event:Inv_Discard, in_msg.addr, cache_entry, tbe);
                 } else {
-                    xact_mgr.xactReplacement(in_msg.addr, in_msg.Sender);
-                    if (xact_mgr.config_lazyVM()) {
-                        assert(xact_mgr.isDoomed(0));
-                        trigger(Event:Inv_Discard, in_msg.addr, cache_entry, tbe);
-                    } else {
-                        trigger(Event:InvOwn_Wset, in_msg.addr, cache_entry, tbe);
-                    }
+                    trigger(Event:InvOwn_Wset, in_msg.addr, cache_entry, tbe);
                 }
             } else if (xact_mgr.checkReadSignature(in_msg.addr)) {
                 if (xact_mgr.config_allowReadSetL1CacheEvictions()) {
@@ -525,9 +519,6 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
                     // config_allowReadSetLowerLevelCacheEvictions(),
                     // which allows L0 to evict trans blocks.
                     trigger(Event:InvOwn_Rset, in_msg.addr, cache_entry, tbe);
-                } else if (xact_mgr.shouldNackL1LocalEviction(in_msg.addr)) {
-                    trigger(Event:InvOwn_X,
-                            in_msg.addr, getCacheEntry(in_msg.addr), tbe);
                 } else {
                     xact_mgr.xactReplacement(in_msg.addr, in_msg.Sender);
                     assert(xact_mgr.isDoomed(0));
@@ -942,7 +933,8 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
 
   action(f_sendDataToL1, "f", desc="Send data to the L1 cache") {
     // hardware transactional memory
-      assert(xact_mgr.checkWriteSignature(address) == false);
+      assert((xact_mgr.checkWriteSignature(address) == false) ||
+             !xact_mgr.config_lazyVM()); // LogTM
       enqueue(requestNetwork_out, CoherenceMsg, Dcache.getDataLatency()) {
         assert(is_valid(cache_entry));
         out_msg.addr := address;
@@ -968,37 +960,6 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
       }
     }
   }
-  action(ftrs_sendTransDataToL1, "frs", desc="Send read-set data to the L1 cache") {
-      assert(xact_mgr.checkWriteSignature(address) ||
-             xact_mgr.checkReadSignature(address));
-      enqueue(requestNetwork_out, CoherenceMsg, Dcache.getDataLatency()) {
-        assert(is_valid(cache_entry));
-        out_msg.addr := address;
-        out_msg.Class := CoherenceClass:INV_DATA_TRANS;
-        out_msg.DataBlk := cache_entry.DataBlk;
-        out_msg.Dirty := cache_entry.Dirty;
-        out_msg.Sender := machineID;
-        out_msg.Dest := createMachineID(MachineType:L1Cache, version);
-        out_msg.MessageSize := MessageSizeType:Writeback_Data;
-      }
-      cache_entry.Dirty := false;
-  }
-
-  action(firs_sendTransInvAck, "firs", desc="Send read-set data to the L1 cache") {
-      assert(xact_mgr.checkWriteSignature(address) ||
-             xact_mgr.checkReadSignature(address));
-    peek(messgeBuffer_in, CoherenceMsg) {
-      enqueue(requestNetwork_out, CoherenceMsg, Dcache.getTagLatency()) {
-        out_msg.addr := address;
-        out_msg.Class := CoherenceClass:INV_ACK_TRANS;
-        out_msg.Sender := machineID;
-        out_msg.OriginalRequestor := in_msg.OriginalRequestor;
-        out_msg.Dest := createMachineID(MachineType:L1Cache, version);
-        out_msg.MessageSize := MessageSizeType:Response_Control;
-      }
-    }
-  }
-
   action(fn_sendInvNack, "fn", desc="Send nak to the L1 cache") {
     peek(messgeBuffer_in, CoherenceMsg) {
       DPRINTF(RubySlicc, "Sending nak for %#x to the L1\n", address);
@@ -1048,7 +1009,8 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
   }
 
   action(g_issuePUTX, "\gx", desc="Send modified line to the L1 cache") {
-      assert(xact_mgr.checkWriteSignature(address) == false);
+      assert((xact_mgr.checkWriteSignature(address) == false) ||
+             !xact_mgr.config_lazyVM()); // LogTM
       enqueue(requestNetwork_out, CoherenceMsg, Dcache.getDataLatency()) {
         assert(is_valid(cache_entry));
         out_msg.addr := address;
@@ -1613,25 +1575,34 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     l_popRequestQueue;
   }
 
-  transition({E,M}, {L0_Replacement_Wset}, I) {
-      // E: Evicted, refetched by load, now evicted from L0 again
-    gxc_issuePUTXCOPY;   // writeback dirty data, stay as exclusive
+  transition(M, {L0_Replacement_Wset}, I) {
+    g_issuePUTX;
     ff_deallocateCacheBlock;
   }
 
-  transition({S,E,M}, {InvOwn_Rset, InvOwn_Wset}, I) {
-    ftrs_sendTransDataToL1;      
+  transition(E, {L0_Replacement_Wset}, I) {
+    g_issuePUTE;
+    ff_deallocateCacheBlock;
+  }
+
+  transition({E,M}, {InvOwn_Rset, InvOwn_Wset}, I) {
+    f_sendDataToL1;
+    ff_deallocateCacheBlock;
+    l_popRequestQueue;
+  }
+  transition(S, {InvOwn_Rset, InvOwn_Wset}, I) {
+    fi_sendInvAck;
     ff_deallocateCacheBlock;
     l_popRequestQueue;
   }
 
   transition(I, {InvOwn_Rset, InvOwn_Wset}) {
-    firs_sendTransInvAck;
+    fi_sendInvAck;
     l_popRequestQueue;
   }
 
-  transition({IS, IM}, {InvOwn_Rset, InvOwn_Wset}) {
-    firs_sendTransInvAck;
+  transition({IS, IM, Inst_IS}, {InvOwn_Rset, InvOwn_Wset}) {
+    fi_sendInvAck;
     l_popRequestQueue;
   }
 
@@ -1915,9 +1886,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     ff_deallocateCacheBlock;
   }
 
-  // L1 replacement of line in read-write set and
-  // shouldNackL1LocalEviction enabled
-  transition({E,S,M}, InvOwn_X) {
+  transition({E,M}, InvOwn_X) {
     fn_sendInvNack;
     l_popRequestQueue;
   }

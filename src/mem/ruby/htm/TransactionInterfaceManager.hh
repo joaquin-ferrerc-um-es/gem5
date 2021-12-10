@@ -168,16 +168,14 @@ public:
   bool config_allowReadSetL1CacheEvictions() const {
       return m_htm->params().allow_read_set_l1_cache_evictions;
   }
-  bool config_nackL1LocalEvictions() const {
-      return m_htm->params().nack_l1_local_evictions;
+  bool config_transAwareL0Replacements() const {
+      return m_htm->params().trans_aware_l0_replacements;
   }
-  bool shouldNackL1LocalEviction(Addr addr);
-
+  bool config_transAwareL1Replacements() const {
+      return m_htm->params().trans_aware_l1_replacements;
+  }
   bool config_preciseReadSetTracking() const {
       return m_htm->params().precise_read_set_tracking;
-  }
-  bool config_replaceNonTransCandidatesPreferred() const {
-      return m_htm->params().replace_nontrans_preferred;
   }
   bool config_enableValueChecker() const {
       return m_htm->params().value_checker;
@@ -224,7 +222,6 @@ private:
   Addr*     m_abortAddress;
   // Sanity checks
   std::map<Addr, char> m_writeSetDiscarded;
-  std::map<Addr, char> m_nackedL1LocalEvictions;
 
     Tick m_htmstart_tick;
     Counter m_htmstart_instruction;

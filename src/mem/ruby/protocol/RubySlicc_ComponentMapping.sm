@@ -40,3 +40,4 @@ NodeID machineIDToVersion(MachineID machID);
 MachineType machineIDToMachineType(MachineID machID);
 bool machineIDIsValid(MachineID machID);
 MachineID createMachineID(MachineType t, NodeID i);
+MachineID createInvalidMachineID();

@@ -8,6 +8,7 @@
 #include "debug/RubyPort.hh"
 #include "mem/ruby/htm/EagerTransactionVersionManager.hh"
 #include "mem/ruby/htm/TransactionInterfaceManager.hh"
+#include "mem/ruby/htm/XactIsolationChecker.hh"
 #include "mem/ruby/htm/XactValueChecker.hh"
 #include "mem/ruby/htm/logtm.h"
 #include "mem/ruby/profiler/Profiler.hh"
@@ -219,6 +220,10 @@ TransactionalSequencer::notifyXactionEvent(PacketPtr pkt)
            * coming from mispredicted paths.
            */
           m_xact_mgr->isolateTransactionLoad(thread, addr);
+          m_ruby_system->getXactIsolationChecker()->
+              addToReadSet(m_version,
+                           makeLineAddress(pkt->getAddr()));
+
           // With precise read sets, if block not in the read set this
           // far, then it cannot be part of retired read set
           assert(!m_xact_mgr->inRetiredReadSet(thread, addr));
@@ -766,8 +771,32 @@ TransactionalSequencer::hitCallback(SequencerRequest* srequest, DataBlock& data,
                 notifyWrite(m_version, pkt->isHtmTransactional(),
                             pkt->getAddr(), pkt->getSize(), data_ptr);
         }
+    } else {
+        if (m_xact_mgr->config_enableValueChecker()) {
+            assert(m_xact_mgr);
+            Addr request_address(pkt->getAddr()); // Word address
+            _unused(request_address);
+            bool checkPassed =
+                m_ruby_system->getXactValueChecker()->
+                xactValueCheck(m_version, request_address, pkt->getSize(),
+                               data.getData(getOffset(request_address),
+                                            pkt->getSize()));
+            if (!checkPassed) {
+                DPRINTF(RubyHTM,
+                        "Load to %#x (%#x)"
+                        " has failed value check!\n",
+                        pkt->getAddr(),
+                        makeLineAddress(pkt->getAddr()));
+                panic("Value check failed!\n");
+            }
+        }
     }
-
+    bool passed = m_ruby_system->getXactIsolationChecker()->
+        checkXACTIsolation(m_version, pkt->getAddr(),
+                           srequest->m_type);
+    if (!passed) {
+        panic("Transaction isolation check failed!\n");
+    }
     Sequencer::hitCallback(srequest, data,
                            llscSuccess,
                            mach, externalHit,
@@ -855,25 +884,6 @@ TransactionalSequencer::handleTransactionalRead(SequencerRequest *srequest,
                m_xact_mgr->isCancelledTransaction(thread));
         pkt->setHtmTransactionFailedInCache(reason);
         DPRINTF(RubyHTM, "Transactional read callback finds abort flag set\n");
-    } else {
-        if (m_xact_mgr->config_enableValueChecker()) {
-            assert(m_xact_mgr);
-            Addr request_address(pkt->getAddr()); // Word address
-            _unused(request_address);
-            bool checkPassed =
-                m_ruby_system->getXactValueChecker()->
-                xactValueCheck(m_version, request_address, pkt->getSize(),
-                               data.getData(getOffset(request_address),
-                                            pkt->getSize()));
-            if (!checkPassed) {
-                DPRINTF(RubyHTM,
-                        "Transactional load to %#x (%#x)"
-                        " has failed value check!\n",
-                        pkt->getAddr(),
-                        makeLineAddress(pkt->getAddr()));
-                panic("Value check failed!\n");
-            }
-        }
     }
 }
 

@@ -15,5 +15,6 @@ Source('EagerTransactionVersionManager.cc')
 Source('TransactionInterfaceManager.cc')
 Source('TransactionConflictManager.cc')
 Source('TransactionIsolationManager.cc')
+Source('XactIsolationChecker.cc')
 Source('XactValueChecker.cc')
 

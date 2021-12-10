@@ -17,6 +17,7 @@
 #include "mem/ruby/htm/LazyTransactionVersionManager.hh"
 #include "mem/ruby/htm/TransactionConflictManager.hh"
 #include "mem/ruby/htm/TransactionIsolationManager.hh"
+#include "mem/ruby/htm/XactIsolationChecker.hh"
 #include "mem/ruby/htm/XactValueChecker.hh"
 #include "mem/ruby/profiler/Profiler.hh"
 #include "mem/ruby/profiler/XactProfiler.hh"
@@ -336,6 +337,10 @@ TransactionInterfaceManager::commitTransaction(int thread, int xid,
         }
         m_xactConflictManager->commitTransaction(thread);
         m_xactIsolationManager->commitTransaction(thread);
+        m_ruby_system->getXactIsolationChecker()->
+            clearReadSet(m_version, m_transactionLevel[thread]);
+        m_ruby_system->getXactIsolationChecker()->
+            clearWriteSet(m_version, m_transactionLevel[thread]);
 
         assert(m_writeSetDiscarded.empty());
         assert(m_abortCause[thread] == HTMStats::AbortCause::Undefined);
@@ -501,9 +506,13 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
             // No log unroll required: abort completes now
 
             // Release isolation (clear filters/signatures)
-            for (int i = m_transactionLevel[thread]; i > 0; i--)
+            for (int i = m_transactionLevel[thread]; i > 0; i--) {
                 getXactIsolationManager()->releaseIsolation(thread, i);
-
+                m_ruby_system->getXactIsolationChecker()->
+                    clearReadSet(m_version, i);
+                m_ruby_system->getXactIsolationChecker()->
+                    clearWriteSet(m_version, i);
+            }
             // Reset log num entries
             m_xactEagerVersionManager->restartTransaction(thread);
             // Restart conflict management
@@ -511,6 +520,9 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
         } else {
             // Only release isolation over read set
             getXactIsolationManager()->releaseReadIsolation(thread);
+            m_ruby_system->getXactIsolationChecker()->
+                clearReadSet(m_version, m_transactionLevel[thread]);
+
             int wsetsize = getXactIsolationManager()->
                 getWriteSetSize(thread, m_transactionLevel[thread]);
             int logsize =m_xactEagerVersionManager->getLogNumEntries();
@@ -680,6 +692,8 @@ TransactionInterfaceManager::isolateTransactionStore(int thread,
                                    physicalAddr,
                                    m_transactionLevel[thread]);
     m_xactIsolationManager->addToWriteSetFilter(thread, physicalAddr);
+    m_ruby_system->getXactIsolationChecker()->
+        addToWriteSet(m_version, physicalAddr);
 
     DPRINTF(RubyHTMverbose, "HTM: isolateTransactionStore "
             "address=%x\n", physicalAddr);
@@ -881,6 +895,16 @@ TransactionInterfaceManager::setAbortFlag(int thread, Addr addr,
 
     if (!XACT_LAZY_VM) { // LogTM
         assert(!isUnrollingLog(thread));
+    }
+    if (checkReadSignature(addr)) {
+        m_ruby_system->getXactIsolationChecker()->
+            removeFromReadSet(m_version, addr,
+                              m_transactionLevel[thread]);
+    }
+    if (checkWriteSignature(addr)) {
+        m_ruby_system->getXactIsolationChecker()->
+            removeFromWriteSet(m_version, addr,
+                               m_transactionLevel[thread]);
     }
     if (!m_abortFlag[thread]) { // Only send abort signal to CPU once
         m_abortFlag[thread] = true;
@@ -1286,8 +1310,13 @@ TransactionInterfaceManager::endLogUnroll(int thread){
     getXactConflictManager()->restartTransaction(thread);
 
     // Release isolation over write set
-    for (int i = m_transactionLevel[thread]; i > 0; i--)
+    for (int i = m_transactionLevel[thread]; i > 0; i--) {
         getXactIsolationManager()->releaseIsolation(thread, i);
+        m_ruby_system->getXactIsolationChecker()->
+            clearReadSet(m_version, i);
+        m_ruby_system->getXactIsolationChecker()->
+            clearWriteSet(m_version, i);
+    }
 
     m_escapeLevel[thread] = 0;
     m_transactionLevel[thread] = 0;

@@ -53,6 +53,7 @@
 #include "debug/RubySystem.hh"
 #include "mem/ruby/common/Address.hh"
 #include "mem/ruby/htm/TransactionInterfaceManager.hh"
+#include "mem/ruby/htm/XactIsolationChecker.hh"
 #include "mem/ruby/htm/XactValueChecker.hh"
 #include "mem/ruby/network/Network.hh"
 #include "mem/ruby/system/DMASequencer.hh"
@@ -83,6 +84,7 @@ bool RubySystem::m_l0_downgrade_on_l1_gets = false;
 RubySystem::RubySystem(const Params &p)
     : ClockedObject(p), m_access_backing_store(p.access_backing_store),
       m_xactValueChecker(NULL),
+      m_xactIsolationChecker(NULL),
       m_cache_recorder(NULL)
 {
     m_randomization = p.randomization;
@@ -107,7 +109,8 @@ RubySystem::RubySystem(const Params &p)
     if (m_htm != nullptr) {
         m_l0_downgrade_on_l1_gets  = m_htm->params().l0_downgrade_on_l1_gets;
         m_xactValueChecker = new XactValueChecker(this);
-    }
+        m_xactIsolationChecker = new XactIsolationChecker(this);
+   }
 }
 
 void

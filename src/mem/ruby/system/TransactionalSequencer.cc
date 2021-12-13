@@ -220,9 +220,6 @@ TransactionalSequencer::notifyXactionEvent(PacketPtr pkt)
            * coming from mispredicted paths.
            */
           m_xact_mgr->isolateTransactionLoad(thread, addr);
-          m_ruby_system->getXactIsolationChecker()->
-              addToReadSet(m_version,
-                           makeLineAddress(pkt->getAddr()));
 
           // With precise read sets, if block not in the read set this
           // far, then it cannot be part of retired read set
@@ -244,6 +241,11 @@ TransactionalSequencer::notifyXactionEvent(PacketPtr pkt)
                   pkt->getAddr(),
                   makeLineAddress(pkt->getAddr()));
       }
+        if (m_xact_mgr->config_enableIsolationChecker()) {
+          m_ruby_system->getXactIsolationChecker()->
+              addToReadSet(m_version,
+                           makeLineAddress(pkt->getAddr()));
+        }
   } else {
     panic("Unsupported transactional MemCmd\n");
   }
@@ -450,6 +452,10 @@ TransactionalSequencer::makeRequest(PacketPtr pkt)
                            // writing to the stack (call m5xxx)
                             m_xact_mgr->endLogUnroll(thread);
                             DPRINTF(RubyHTMlog, "Log unroll completed\n");
+                            // No need to perform memory access in cache
+                            ruby_hit_callback(pkt);
+                            testDrainComplete();
+                            return RequestStatus_Issued;
                         } else {
                             assert(!pkt->isWrite());
                         }
@@ -791,11 +797,13 @@ TransactionalSequencer::hitCallback(SequencerRequest* srequest, DataBlock& data,
             }
         }
     }
-    bool passed = m_ruby_system->getXactIsolationChecker()->
-        checkXACTIsolation(m_version, pkt->getAddr(),
-                           srequest->m_type);
-    if (!passed) {
-        panic("Transaction isolation check failed!\n");
+    if (m_xact_mgr->config_enableIsolationChecker()) {
+        bool passed = m_ruby_system->getXactIsolationChecker()->
+            checkXACTIsolation(m_version, pkt->getAddr(),
+                               srequest->m_type);
+        if (!passed) {
+            panic("Transaction isolation check failed!\n");
+        }
     }
     Sequencer::hitCallback(srequest, data,
                            llscSuccess,
@@ -1017,6 +1025,7 @@ TransactionalSequencer::handleStoresToLog(Addr address,
                                        PacketPtr pkt,
                                        DataBlock& data)
 {
+    int thread=0;
     assert(pkt->isWrite());
     Addr store_addr = makeLineAddress(pkt->getHtmLoggedStoreAddr());
     assert(m_logRequestTable.find(store_addr) !=
@@ -1074,10 +1083,22 @@ TransactionalSequencer::handleStoresToLog(Addr address,
         // However, we need to set pending log store bit to
         // prevent replacements on this line: need both program
         // (src) and data log (dest) blocks cached
-        m_dataCache_ptr->setHtmLogPending(address, true);
-        DPRINTF(RubyHTMlog, "Log data block paddr %#x pinned in cache"
-                " until data from vaddr %#x (paddr %#x) copied\n",
-                address, log.vaddr, log.paddr);
+        if (!m_xact_mgr->isAborting(thread)) {
+            m_dataCache_ptr->setHtmLogPending(address, true);
+            DPRINTF(RubyHTMlog, "Log data block paddr %#x pinned in cache"
+                    " until data from vaddr %#x (paddr %#x) copied\n",
+                    address, log.vaddr, log.paddr);
+        } else {
+            // Avoid pinning when transaction is aborting, since it's
+            // possible that the log addr block has a pending miss
+            // that is outstanding after the abort completes
+            // (log stores cancelled)
+            assert(!m_dataCache_ptr->isHtmLogPending(address));
+            log.expectUnpinned = true;
+            DPRINTF(RubyHTMlog, "Log data block paddr %#x NOT pinned in"
+                    " cache, transaction is aborting!\n",
+                    address);
+        }
     }
     // Wake up program store or store to log pending to be issued
     if (log.outstanding == 0) {
@@ -1166,7 +1187,12 @@ TransactionalSequencer::cancelLogRequests()
         if (log_req.outstanding == 0) {
             // Release lock on log data block
             PacketPtr logPkt = log_req.logDataPkt;
-            m_dataCache_ptr->setHtmLogPending(logPkt->getAddr(), false);
+            if (log_req.expectUnpinned) {
+                assert(!m_dataCache_ptr->
+                       isHtmLogPending(logPkt->getAddr()));
+            } else {
+                m_dataCache_ptr->setHtmLogPending(logPkt->getAddr(), false);
+            }
             // Erase entry from log request table
             bool found = m_logRequestTable.erase((*it).first);
             assert(found);

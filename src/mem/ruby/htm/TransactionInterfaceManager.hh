@@ -180,6 +180,9 @@ public:
   bool config_enableValueChecker() const {
       return m_htm->params().value_checker;
   }
+  bool config_enableIsolationChecker() const {
+      return m_htm->params().isolation_checker;
+  }
   std::vector<TransactionInterfaceManager*>
      getRemoteTransactionManagers() const;
 

@@ -141,11 +141,7 @@ void XactIsolationChecker::addToReadSet(int proc, Addr addr){
 }
 
 void XactIsolationChecker::addToReadSet(int proc, Addr addr, int xact_level){
-  assert(xact_level > 0);
-
-  if (xact_level > m_readSet[proc].size()){
-    m_readSet[proc].resize(xact_level);
-  }
+  assert(xact_level == 1);
 
   if (m_readSet[proc][xact_level - 1].find(addr) ==
       m_readSet[proc][xact_level - 1].end()) {
@@ -160,11 +156,7 @@ void XactIsolationChecker::addToWriteSet(int proc, Addr addr){
 }
 
 void XactIsolationChecker::addToWriteSet(int proc, Addr addr, int xact_level){
-  assert(xact_level > 0);
-
-  if (xact_level > m_writeSet[proc].size()){
-    m_writeSet[proc].resize(xact_level);
-  }
+  assert(xact_level == 1);
 
   if (m_writeSet[proc][xact_level - 1].find(addr) ==
       m_writeSet[proc][xact_level - 1].end()){
@@ -175,6 +167,7 @@ void XactIsolationChecker::addToWriteSet(int proc, Addr addr, int xact_level){
 
 void XactIsolationChecker::removeFromReadSet(int proc, Addr addr,
                                              int xact_level){
+  assert(xact_level == 1);
   if (m_readSet[proc][xact_level-1].find(addr) !=
       m_readSet[proc][xact_level-1].end()){
     m_readSet[proc][xact_level-1].erase(addr);
@@ -183,6 +176,7 @@ void XactIsolationChecker::removeFromReadSet(int proc, Addr addr,
 
 void XactIsolationChecker::removeFromWriteSet(int proc, Addr addr,
                                               int xact_level){
+  assert(xact_level == 1);
   if (m_writeSet[proc][xact_level-1].find(addr) !=
       m_writeSet[proc][xact_level-1].end()){
     m_writeSet[proc][xact_level-1].erase(addr);
@@ -190,21 +184,13 @@ void XactIsolationChecker::removeFromWriteSet(int proc, Addr addr,
 }
 
 void XactIsolationChecker::clearWriteSet(int proc, int xact_level){
-  if (xact_level > m_writeSet[proc].size())
-    return;
-  for (int i = xact_level; i <= m_writeSet[proc].size(); i++){
-    m_writeSet[proc][i-1].clear();
-  }
-  m_writeSet[proc].resize(xact_level-1);
+    assert(xact_level == 1);
+    m_writeSet[proc][xact_level-1].clear();
 }
 
 void XactIsolationChecker::clearReadSet(int proc, int xact_level){
-  if (xact_level > m_readSet[proc].size())
-    return;
-  for (int i = xact_level; i <= m_readSet[proc].size(); i++){
-    m_readSet[proc][i-1].clear();
-  }
-  m_readSet[proc].resize(xact_level-1);
+    assert(xact_level == 1);
+    m_readSet[proc][xact_level-1].clear();
 }
 
 void XactIsolationChecker::setAbortingProcessor(int proc) {

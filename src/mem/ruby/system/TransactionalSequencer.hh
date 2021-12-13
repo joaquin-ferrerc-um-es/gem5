@@ -31,6 +31,7 @@ struct LogRequestInfo
     int outstanding = 0;
     int completed = 0;
     bool suppressed = false;
+    bool expectUnpinned = false;     // sanity checks
     Addr vaddr = 0; // Program store
     Addr paddr = 0; // Program store
     LogRequestInfo(PacketPtr _logAddrPkt,

@@ -333,11 +333,12 @@ TransactionInterfaceManager::commitTransaction(int thread, int xid,
         }
         m_xactConflictManager->commitTransaction(thread);
         m_xactIsolationManager->commitTransaction(thread);
-        m_ruby_system->getXactIsolationChecker()->
-            clearReadSet(m_version, m_transactionLevel[thread]);
-        m_ruby_system->getXactIsolationChecker()->
-            clearWriteSet(m_version, m_transactionLevel[thread]);
-
+        if (config_enableIsolationChecker()) {
+            m_ruby_system->getXactIsolationChecker()->
+                clearReadSet(m_version, m_transactionLevel[thread]);
+            m_ruby_system->getXactIsolationChecker()->
+                clearWriteSet(m_version, m_transactionLevel[thread]);
+        }
         assert(m_writeSetDiscarded.empty());
         assert(m_abortCause[thread] == HTMStats::AbortCause::Undefined);
         m_lastFailureCause[thread] = HtmFailureFaultCause::INVALID;
@@ -498,10 +499,12 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
             // Release isolation (clear filters/signatures)
             for (int i = m_transactionLevel[thread]; i > 0; i--) {
                 getXactIsolationManager()->releaseIsolation(thread, i);
-                m_ruby_system->getXactIsolationChecker()->
-                    clearReadSet(m_version, i);
-                m_ruby_system->getXactIsolationChecker()->
-                    clearWriteSet(m_version, i);
+                if (config_enableIsolationChecker()) {
+                    m_ruby_system->getXactIsolationChecker()->
+                        clearReadSet(m_version, i);
+                    m_ruby_system->getXactIsolationChecker()->
+                        clearWriteSet(m_version, i);
+                }
             }
             // Reset log num entries
             m_xactEagerVersionManager->restartTransaction(thread);
@@ -510,9 +513,10 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
         } else {
             // Only release isolation over read set
             getXactIsolationManager()->releaseReadIsolation(thread);
-            m_ruby_system->getXactIsolationChecker()->
-                clearReadSet(m_version, m_transactionLevel[thread]);
-
+            if (config_enableIsolationChecker()) {
+                m_ruby_system->getXactIsolationChecker()->
+                    clearReadSet(m_version, m_transactionLevel[thread]);
+            }
             int wsetsize = getXactIsolationManager()->
                 getWriteSetSize(thread, m_transactionLevel[thread]);
             int logsize =m_xactEagerVersionManager->getLogNumEntries();
@@ -682,9 +686,10 @@ TransactionInterfaceManager::isolateTransactionStore(int thread,
                                    physicalAddr,
                                    m_transactionLevel[thread]);
     m_xactIsolationManager->addToWriteSetFilter(thread, physicalAddr);
-    m_ruby_system->getXactIsolationChecker()->
-        addToWriteSet(m_version, physicalAddr);
-
+    if (config_enableIsolationChecker()) {
+        m_ruby_system->getXactIsolationChecker()->
+            addToWriteSet(m_version, physicalAddr);
+    }
     DPRINTF(RubyHTMverbose, "HTM: isolateTransactionStore "
             "address=%x\n", physicalAddr);
 }
@@ -881,20 +886,23 @@ TransactionInterfaceManager::setAbortFlag(int thread, Addr addr,
                wasOvertakingRead(thread, addr));
         DPRINTF(RubyHTM, "HTM: setAbortFlag for address=%#x"
                 " with TL=0\n", addr);
+    } else {
+        if (config_enableIsolationChecker()) {
+            if (checkReadSignature(addr)) {
+                m_ruby_system->getXactIsolationChecker()->
+                    removeFromReadSet(m_version, addr,
+                                      m_transactionLevel[thread]);
+            }
+            if (checkWriteSignature(addr)) {
+                m_ruby_system->getXactIsolationChecker()->
+                    removeFromWriteSet(m_version, addr,
+                                       m_transactionLevel[thread]);
+            }
+        }
     }
 
     if (!XACT_LAZY_VM) { // LogTM
         assert(!isUnrollingLog(thread));
-    }
-    if (checkReadSignature(addr)) {
-        m_ruby_system->getXactIsolationChecker()->
-            removeFromReadSet(m_version, addr,
-                              m_transactionLevel[thread]);
-    }
-    if (checkWriteSignature(addr)) {
-        m_ruby_system->getXactIsolationChecker()->
-            removeFromWriteSet(m_version, addr,
-                               m_transactionLevel[thread]);
     }
     if (!m_abortFlag[thread]) { // Only send abort signal to CPU once
         m_abortFlag[thread] = true;
@@ -1307,10 +1315,12 @@ TransactionInterfaceManager::endLogUnroll(int thread){
     // Release isolation over write set
     for (int i = m_transactionLevel[thread]; i > 0; i--) {
         getXactIsolationManager()->releaseIsolation(thread, i);
-        m_ruby_system->getXactIsolationChecker()->
-            clearReadSet(m_version, i);
-        m_ruby_system->getXactIsolationChecker()->
-            clearWriteSet(m_version, i);
+        if (config_enableIsolationChecker()) {
+            m_ruby_system->getXactIsolationChecker()->
+                clearReadSet(m_version, i);
+            m_ruby_system->getXactIsolationChecker()->
+                clearWriteSet(m_version, i);
+        }
     }
 
     m_escapeLevel[thread] = 0;

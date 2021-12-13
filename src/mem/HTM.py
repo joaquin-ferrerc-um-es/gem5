@@ -107,6 +107,10 @@ class HTM(ClockedObject):
     # Basic value-based sanity checks to ensure consistency of
     # read/written values produced/consumed by transactions
     value_checker = Param.Bool(False, "Enable value checker")
+    # Basic sanity checks to ensure that transaction read-write sets
+    # remain isolated (e.g. no writes made coherence while outstanding
+    # readers)
+    isolation_checker = Param.Bool(False, "Enable isolation checker")
     # Thread text-based visualization facility, showing state for each
     # thread at each give tick in the simulation
     visualizer = Param.Bool(False,

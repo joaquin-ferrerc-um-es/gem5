@@ -318,7 +318,7 @@ TransactionConflictManager::shouldNackLoad(Addr addr,
   else { // No conflict
       shouldNack = false;
   }
-  
+
   return shouldNack;
 }
 

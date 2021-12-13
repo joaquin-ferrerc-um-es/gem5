@@ -430,7 +430,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
             Addr victim := L2cache.cacheProbe(in_msg.addr);
             Entry L2cache_entry := getCacheEntry(victim);
             // TODO: Support for evicting transactional lines from LLC (LogTM)
-            assert(!cache_entry.HtmReadWriteSet);
+            assert(!L2cache_entry.HtmReadWriteSet);
             if (isDirty(L2cache_entry)) {
               trigger(Event:L2_Replacement, victim, L2cache_entry, TBEs[victim]);
             } else {

@@ -30,15 +30,17 @@ struct LogRequestInfo
     /** Number of outstanding associated access to complete (LogTM) */
     int outstanding = 0;
     int completed = 0;
+    uint64_t htmTransactionUid = 0;
     bool suppressed = false;
-    bool expectUnpinned = false;     // sanity checks
     Addr vaddr = 0; // Program store
     Addr paddr = 0; // Program store
     LogRequestInfo(PacketPtr _logAddrPkt,
                    PacketPtr _logDataPkt,
+                   uint64_t _htmUid,
                    Addr va, Addr pa)
         : logAddrPkt(_logAddrPkt),
           logDataPkt(_logDataPkt),
+          htmTransactionUid(_htmUid),
           vaddr(va), paddr(pa)
           //callbackArgs()
     {}

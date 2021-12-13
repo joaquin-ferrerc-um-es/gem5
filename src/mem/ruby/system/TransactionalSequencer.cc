@@ -129,9 +129,6 @@ TransactionalSequencer::notifyXactionEvent(PacketPtr pkt)
       DPRINTFR(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s \n",
                curTick(), m_version, "Seq",
                "HTM_START" , "", "");
-      if (!m_htm->params().lazy_vm) {
-          assert(m_logRequestTable.empty());
-      }
   } else if (pkt->req->isHTMCommit()) {
       DPRINTF(RubyHTM, "HTM_COMMIT\n");
       // Store value returned by canCommit, used to signal CPU whether
@@ -143,9 +140,6 @@ TransactionalSequencer::notifyXactionEvent(PacketPtr pkt)
                    curTick(), m_version, "Seq",
                    "HTM_COMMIT", "", "");
           m_commitPending = false;
-          if (!m_htm->params().lazy_vm) {
-              assert(m_logRequestTable.empty());
-          }
       } else {
           m_xact_mgr->initiateCommitTransaction(thread, xid, pkt);
           m_commitPending = true;
@@ -558,6 +552,17 @@ TransactionalSequencer::makeRequest(PacketPtr pkt)
                         assert(!log_req_list.empty());
                         // Outstanding log request
                         LogRequestInfo &log_req = log_req_list.back();
+                        if (log_req.htmTransactionUid !=
+                            pkt->getHtmTransactionUid()) {
+                            // Wait for lingering log store from
+                            // already aborted transaction
+                            assert(log_req.suppressed);
+                            DPRINTF(RubyHTMlog, "Cannot make request for"
+                                    " store to vaddr - Outstanding"
+                                    " lingering stores from htmUid %ld\n",
+                                    log_req.htmTransactionUid);
+                            return RequestStatus_WaitUntilLogged;
+                        }
                         if (log_req.completed + log_req.outstanding < 2) {
                             makeLogRequests(log_req);
                         }
@@ -969,6 +974,7 @@ TransactionalSequencer::buildLogPackets(PacketPtr mainPkt) {
           logDataPkt->getAddr());
 
   return LogRequestInfo(logAddrPkt, logDataPkt,
+                        mainPkt->getHtmTransactionUid(),
                         mainPkt->req->getVaddr(),
                         makeLineAddress(mainPkt->getAddr()));
 }
@@ -1025,7 +1031,6 @@ TransactionalSequencer::handleStoresToLog(Addr address,
                                        PacketPtr pkt,
                                        DataBlock& data)
 {
-    int thread=0;
     assert(pkt->isWrite());
     Addr store_addr = makeLineAddress(pkt->getHtmLoggedStoreAddr());
     assert(m_logRequestTable.find(store_addr) !=
@@ -1040,33 +1045,6 @@ TransactionalSequencer::handleStoresToLog(Addr address,
     bool found = m_logRequestAddr.erase(address);
     assert(found);
 
-    if (log.suppressed) {
-        // Transaction aborted while outstanding log requests: ignore
-        DPRINTF(RubyHTMlog, "Ignored log requests for "
-                " cancelled store to paddr %#x due to abort "
-                " - %d/%d outstanding/completed\n", store_addr,
-                log.outstanding, log.completed);
-        // Delte packet now
-#if 0
-        delete pkt;
-#endif
-        // Erase entry if no more outstanding stores to log
-        if (log.outstanding == 0) {
-            // Release lock on log data block
-            if (m_dataCache_ptr->isHtmLogPending(log.logDataPkt->getAddr())) {
-                m_dataCache_ptr->setHtmLogPending(log.logDataPkt->getAddr(),
-                                                  false);
-            }
-
-            // Erase entry from log request table
-            bool found = m_logRequestTable.erase(store_addr);
-            assert(found);
-        }
-        // In case we stalled an access from the processor to this
-        // very same line
-        trySendRetries();
-        return;
-    }
     if (pkt == log.logAddrPkt) {
         // Copy virtual address to address log
         const uint64_t *vaddrPtr = pkt->getConstPtr<uint64_t>();
@@ -1083,26 +1061,31 @@ TransactionalSequencer::handleStoresToLog(Addr address,
         // However, we need to set pending log store bit to
         // prevent replacements on this line: need both program
         // (src) and data log (dest) blocks cached
-        if (!m_xact_mgr->isAborting(thread)) {
-            m_dataCache_ptr->setHtmLogPending(address, true);
-            DPRINTF(RubyHTMlog, "Log data block paddr %#x pinned in cache"
-                    " until data from vaddr %#x (paddr %#x) copied\n",
-                    address, log.vaddr, log.paddr);
-        } else {
-            // Avoid pinning when transaction is aborting, since it's
-            // possible that the log addr block has a pending miss
-            // that is outstanding after the abort completes
-            // (log stores cancelled)
-            assert(!m_dataCache_ptr->isHtmLogPending(address));
-            log.expectUnpinned = true;
-            DPRINTF(RubyHTMlog, "Log data block paddr %#x NOT pinned in"
-                    " cache, transaction is aborting!\n",
-                    address);
-        }
+        m_dataCache_ptr->setHtmLogPending(address, true);
+        DPRINTF(RubyHTMlog, "Log data block paddr %#x pinned in cache"
+                " until data from vaddr %#x (paddr %#x) copied\n",
+                address, log.vaddr, log.paddr);
     }
-    // Wake up program store or store to log pending to be issued
-    if (log.outstanding == 0) {
-        trySendRetries();
+    if (log.suppressed) {
+        // Transaction aborted while outstanding log requests: ignore
+        DPRINTF(RubyHTMlog, "Ignored log requests for "
+                " cancelled store to paddr %#x due to abort "
+                " - %d/%d outstanding/completed\n", store_addr,
+                log.outstanding, log.completed);
+        // Erase entry if no more outstanding stores to log
+        if (log.outstanding == 0) {
+            // Release lock on log data block
+            m_dataCache_ptr->
+                setHtmLogPending(log.logDataPkt->getAddr(), false);
+            // Erase entry from log request table
+            bool found = m_logRequestTable.erase(store_addr);
+            assert(found);
+            // Delete packets
+#if 0
+            delete log.logAddrPkt;
+            delete log.logDataPkt;
+#endif
+        }
     }
 }
 
@@ -1185,20 +1168,21 @@ TransactionalSequencer::cancelLogRequests()
                 " to paddr %#x\n",
                 (*it).first);
         if (log_req.outstanding == 0) {
-            // Release lock on log data block
+            // Release lock on log data block for transactional stores
+            // that have not completed before the abort.
             PacketPtr logPkt = log_req.logDataPkt;
-            if (log_req.expectUnpinned) {
-                assert(!m_dataCache_ptr->
-                       isHtmLogPending(logPkt->getAddr()));
-            } else {
-                m_dataCache_ptr->setHtmLogPending(logPkt->getAddr(), false);
-            }
+            m_dataCache_ptr->setHtmLogPending(logPkt->getAddr(), false);
             // Erase entry from log request table
+#if 0
+            delete log_req.logAddrPkt;
+            delete log_req.logDataPkt;
+#endif
             bool found = m_logRequestTable.erase((*it).first);
             assert(found);
         } else {
-            // Will be erased by handleStoresToLog when the
-            // outstanding store completes
+            // Signal that the log req entry is to be erased and the
+            // lock on the cache released by handleStoresToLog when
+            // the outstanding log store completes
             log_req.suppressed = true;
             DPRINTF(RubyHTMlog, "Lingering logging of store"
                     " to paddr %#x has outstanding request\n",
@@ -1232,6 +1216,8 @@ TransactionalSequencer::writeCallback(Addr address, DataBlock& data,
             m_RequestTable.erase(address);
             markRemoved();
             // Do not callback CPU
+            // Wake up program store or store to log pending to be issued
+            trySendRetries();
             return;
         } else if (m_logRequestTable.find(address) !=
                    m_logRequestTable.end()) {

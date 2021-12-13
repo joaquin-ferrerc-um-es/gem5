@@ -199,7 +199,6 @@ TransactionInterfaceManager::beginTransaction(int thread, int xid,
         }
         else { // LogTM
             m_xactEagerVersionManager->beginTransaction(thread);
-            m_dataCache_ptr->checkHtmLogPendingClear();
         }
 
         XACT_PROFILER->moveTo(getProcID(),
@@ -797,12 +796,6 @@ profileHtmFailureFaultCause(int thread,
                 // Aborts of this type are only possible when CPU does
                 // not re-execute conflicting loads
                 assert(!m_htm->params().reload_if_stale);
-                if (!m_htm->params().precise_read_set_tracking) {
-                    // If imprecise read sets: outstanding load but
-                    // abortCause set to Conflict, so address has to
-                    // be in retired read set already
-                    assert(inRetiredReadSet(thread, addr));
-                }
             }
 
             if (m_abortCause[thread] == HTMStats::AbortCause::FallbackLock) {
@@ -1306,7 +1299,6 @@ TransactionInterfaceManager::endLogUnroll(int thread){
     assert(!XACT_LAZY_VM); // LogTM
     assert(m_unrollingLogFlag[thread]);
 
-    m_dataCache_ptr->checkHtmLogPendingClear();
     // Reset log num entries
     m_xactEagerVersionManager->restartTransaction(thread);
     // Restart conflict management

@@ -24,6 +24,7 @@ htm_allow_load_delaying        = HtmOption("htm_allow_load_delaying",           
 htm_reload_if_stale            = HtmOption("htm_reload_if_stale",               "RldStale", "reload-if-stale",                   True,  True , True  )
 htm_l0_downgrade_on_l1_gets    = HtmOption("htm_l0_downgrade_on_l1_gets",       "DwnG",     "l0-downgrade-on-l1-gets",           True,  True , True  )
 htm_value_checker              = HtmOption("htm_value_checker",                 "ValChk",   "value-checker",                     True,  False, False )
+htm_isolation_checker          = HtmOption("htm_isolation_checker",             "IsolChk",  "isolation-checker",                 True,  False, False )
 htm_visualizer                 = HtmOption("htm_visualizer",                    "Visual",   "visualizer",                        True,  False, False )
 # HTM library options
 htm_max_retries                = HtmOption("htm_max_retries",                   "Rtry",      None,                               False, True, True  )
@@ -46,6 +47,7 @@ htm_config_options.append(htm_allow_load_delaying)
 htm_config_options.append(htm_reload_if_stale)
 htm_config_options.append(htm_l0_downgrade_on_l1_gets)
 htm_config_options.append(htm_value_checker)
+htm_config_options.append(htm_isolation_checker)
 htm_config_options.append(htm_visualizer)
 htm_config_options.append(htm_max_retries)
 htm_config_options.append(htm_heap_prefault)
@@ -72,6 +74,7 @@ cfg1_base[htm_allow_load_delaying]=False
 cfg1_base[htm_reload_if_stale]=False
 cfg1_base[htm_l0_downgrade_on_l1_gets]=False
 cfg1_base[htm_value_checker]=False
+cfg1_base[htm_isolation_checker]=False
 cfg1_base[htm_visualizer]=True
 cfg1_base[htm_max_retries]=6
 cfg1_base[htm_heap_prefault]=False
@@ -117,10 +120,13 @@ cfg2_eagervm_l0rsetevict_pf_cdah[htm_conflict_resolution]='requester_stalls_cda_
 
 cfg2_eagervm_l1rsetevict_pf_cdah = collections.OrderedDict(cfg2_eagervm_l0rsetevict_pf_cdah)
 cfg2_eagervm_l1rsetevict_pf_cdah[htm_allow_read_set_l1_evictions]=True
+cfg2_eagervm_l1rsetevict_pf_cdah[htm_isolation_checker]=True
+cfg2_eagervm_l1rsetevict_pf_cdah[htm_value_checker]=True
 
 cfg2_eagervm_l1rsetevict_cdah = collections.OrderedDict(cfg2_eagervm_l1rsetevict_pf_cdah)
 cfg2_eagervm_l1rsetevict_cdah[htm_heap_prefault]=False
 cfg2_eagervm_l1rsetevict_cdah[htm_value_checker]=True
+cfg2_eagervm_l1rsetevict_cdah[htm_isolation_checker]=True
 
 
 # No need to try every combination, but rather "guide" the search...

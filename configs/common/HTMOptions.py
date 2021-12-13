@@ -39,6 +39,8 @@ def setHTMOptions(htm, options):
         htm.fallbacklock_addr = options.htm_fallbacklock_addr
     if options.htm_value_checker != None:
         htm.value_checker = options.htm_value_checker
+    if options.htm_isolation_checker != None:
+        htm.isolation_checker = options.htm_isolation_checker
     if options.htm_visualizer != None:
         htm.visualizer = options.htm_visualizer
     if options.htm_visualizer_filename != None:
@@ -114,6 +116,8 @@ def addHTMOptions(parser):
                       help="Address of the fallback lock (HTM)")
     parser.add_argument("--htm-value-checker", action="store_true", default=None,
                       help="Enable transaction value checker")
+    parser.add_argument("--htm-isolation-checker", action="store_true", default=None,
+                      help="Enable transaction isolation checker")
     parser.add_argument("--htm-visualizer", action="store_true", default=None,
                       help="Thread state visualizer")
     parser.add_argument("--htm-visualizer-filename", action="store",

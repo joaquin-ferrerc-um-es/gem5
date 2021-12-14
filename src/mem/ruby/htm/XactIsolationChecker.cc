@@ -90,7 +90,7 @@ bool XactIsolationChecker::existInReadSet(int proc, Addr addr, Tick &since){
   return found;
 }
 
-bool XactIsolationChecker::checkXACTIsolation(int proc, Addr addr,
+bool XactIsolationChecker::checkXACTIsolation(int proc, Addr addr, bool trans,
                                               RubyRequestType accessType){
    addr = makeLineAddress(addr);
   bool ok = true;
@@ -105,11 +105,20 @@ bool XactIsolationChecker::checkXACTIsolation(int proc, Addr addr,
     switch(accessType){
       case RubyRequestType_LD:
           if (existInWriteSet(i, addr, since)){
-              DPRINTF(RubyHTM, "HTM: Isolation check failed addr %#x"
+           if (trans) {
+               DPRINTF(RubyHTM, "HTM: Isolation check failed addr %#x"
                       " read from proc %d in"
                       " write set of proc %d since %ld\n",
                       addr, proc, i, since);
-            ok = false;
+               ok = false;
+           } else { // It is ok for non-transactional loads to use
+               // Data_Stale (inv seen while outstanding load
+               // miss)
+              DPRINTF(RubyHTM, "HTM: Non-transactional load"
+                      " to addr %#x from proc %d can use Data_Stale,"
+                      " now in write set of proc %d since %ld\n",
+                      addr, proc, i, since);
+           }
           }
           break;
       case RubyRequestType_ST:

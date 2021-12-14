@@ -52,7 +52,8 @@ public:
   XactIsolationChecker(RubySystem *rs);
   ~XactIsolationChecker();
 
-  bool checkXACTIsolation(int proc, Addr addr, RubyRequestType accessType);
+  bool checkXACTIsolation(int proc, Addr addr, bool trans,
+                          RubyRequestType accessType);
   void addToReadSet(int proc, Addr addr, int xact_level);
   void addToReadSet(int proc, Addr addr);
   void addToWriteSet(int proc, Addr addr, int xact_level);

@@ -360,9 +360,11 @@ TransactionConflictManager::shouldNackStore(Addr addr,
       } else if (m_policy_is_req_stalls_cda) {
           if (!remote_trans &&
               !m_policy_nack_non_transactional) {
-              if (!m_xact_mgr->config_lazyVM()) { // LogTM
+              if (!m_xact_mgr->config_lazyVM() && // LogTM
+                  local_is_writer) {
                   shouldNack = true;
-                  // Abort but keeing nacking until old value restored
+
+                  // Abort but keep nacking until old value restored
                   // from log (or read signature cleared before log unroll)
                   m_xact_mgr->setAbortFlag(thread, addr, remote_id,
                                            remote_trans);

@@ -1222,7 +1222,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     l_popL2RequestQueue;
   }
 
-  transition({I,IM,IS,SM,SS,S}, Inv_X) {
+  transition({I,IM,IS,IS_I,SM,SS,S}, Inv_X) {
     ein_sendInvNackToL1Requestor;
     l_popL2RequestQueue;
   }

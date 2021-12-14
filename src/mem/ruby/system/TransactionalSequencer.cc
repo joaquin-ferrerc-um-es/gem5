@@ -235,7 +235,7 @@ TransactionalSequencer::notifyXactionEvent(PacketPtr pkt)
                   pkt->getAddr(),
                   makeLineAddress(pkt->getAddr()));
       }
-        if (m_xact_mgr->config_enableIsolationChecker()) {
+      if (m_xact_mgr->config_enableIsolationChecker()) {
           m_ruby_system->getXactIsolationChecker()->
               addToReadSet(m_version,
                            makeLineAddress(pkt->getAddr()));
@@ -802,9 +802,11 @@ TransactionalSequencer::hitCallback(SequencerRequest* srequest, DataBlock& data,
             }
         }
     }
-    if (m_xact_mgr->config_enableIsolationChecker()) {
+    if (m_xact_mgr->config_enableIsolationChecker() &&
+        !m_xact_mgr->isAborting(thread)) {
         bool passed = m_ruby_system->getXactIsolationChecker()->
             checkXACTIsolation(m_version, pkt->getAddr(),
+                               pkt->isHtmTransactional(),
                                srequest->m_type);
         if (!passed) {
             panic("Transaction isolation check failed!\n");

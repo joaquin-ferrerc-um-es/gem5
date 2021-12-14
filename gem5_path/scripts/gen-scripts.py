@@ -255,6 +255,7 @@ for random_seed in seed_list:
     launchscript_file.write("PROCESSORS=%d\n" % processors)
     launchscript_file.write("BENCHMARK_DIR=%s\n" % benchmark_subdir)
     launchscript_file.write("BINARY_SUFFIX=%s\n" % binary_suffix)
+    launchscript_file.write("ARCH=%s\n" % config.arch_name)
 
     launchscript_file.write("BINARY_FILENAME=%s\n" % binary_filename)
     launchscript_file.write("BENCHMARK_ARG_STRING='%s'\n" % arg_string)
@@ -288,7 +289,7 @@ for random_seed in seed_list:
     launchscript_file.write("cd %s\n" % ( os.path.join(benchmark_suite_root_dir,
                                                        benchmark_subdir)))
     launchscript_file.write("export LD_PRELOAD=%s\n" % (config.preload));
-    launchscript_file.write("./${BINARY_FILENAME}${BINARY_SUFFIX} %s${PROCESSORS} ${BENCHMARK_ARG_STRING}\n" % (processors_opt))
+    launchscript_file.write("./${BINARY_FILENAME}.${ARCH}${BINARY_SUFFIX} %s${PROCESSORS} ${BENCHMARK_ARG_STRING}\n" % (processors_opt))
     # In case binary not found, give some time to tty to print error message
     launchscript_file.write("echo 'Launch script done. Exiting simulation...(m5 exit)'\n")
     launchscript_file.write("sync; sleep 2\n")

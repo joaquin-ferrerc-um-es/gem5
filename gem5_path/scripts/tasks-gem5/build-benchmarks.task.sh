@@ -5,8 +5,25 @@ declare_task "build-benchmarks" "Build benchmarks in the host system. Options:
 "
 
 # TODO: Add options to choose what benchmarks should be built.
+BENCHMARKS=(
+    "bayes"
+    "genome"
+    "intruder"
+    "kmeans"
+    "labyrinth"
+    "ssca2"
+    "vacation"
+    "yada"
+)
 
-# TODO: Reorganize the whole bulding process of stamp an the library so that different architectures and fallback handlers can be built at the same time
+# TODO: Add options to choose what sufixxes should be built.
+SUFIXES=(
+    "seq"
+    "htm.empty"
+    "htm.fallbacklock"
+    "htm.fallbacklock2phase"
+    "htm.sgl"
+)
 
 task_build-benchmarks() {
     local -a archs=("${ENABLED_ARCHITECTURES[@]}")
@@ -81,11 +98,18 @@ build_benchmarks_stamp() {
         ln -s "$GEM5_ROOT" "$(absolute_path "$BENCHMARKS_HTM_STAMP")/gem5"
     fi
     
-    (
-        cd "$(absolute_path "$BENCHMARKS_HTM_ROOT")"
-        export FLAVOURS="$(for f in ${BENCHMARKS_STAMP_FLAVOURS[@]} ; do echo $f ; done)"
-        export ARCH="$build_arch"
-        ./build.sh "$build_arch" # TODO: cleanup and inline, remove build.sh, separate building the lib and the benchmarks
-    )
+    for b in "${BENCHMARKS[@]}" ; do
+        for s in "${SUFIXES[@]}" ; do
+            if [[ "$arch" == "aarch64" && "$s" == "htm.fallbacklock2phase" ]] ; then
+                echo "$(color yellow "Skipping build of $b.$a.$s (TODO)")"
+            else
+                (
+                    echo "$(color green "Build $b.$a.$s")"
+                    cd "$(absolute_path "$BENCHMARKS_HTM_STAMP/$b")"
+                    make -j $(get_num_threads_for_building) -f "Makefile.$s" "ARCH=$arch"
+                )
+            fi
+        done
+    done
 }
 

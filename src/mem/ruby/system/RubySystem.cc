@@ -108,8 +108,12 @@ RubySystem::RubySystem(const Params &p)
     m_protocol = p.protocol;
     if (m_htm != nullptr) {
         m_l0_downgrade_on_l1_gets  = m_htm->params().l0_downgrade_on_l1_gets;
-        m_xactValueChecker = new XactValueChecker(this);
-        m_xactIsolationChecker = new XactIsolationChecker(this);
+        if (m_htm->params().value_checker) {
+            m_xactValueChecker = new XactValueChecker(this);
+        }
+        if (m_htm->params().isolation_checker) {
+            m_xactIsolationChecker = new XactIsolationChecker(this);
+        }
    }
 }
 

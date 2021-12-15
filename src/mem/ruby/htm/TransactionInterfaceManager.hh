@@ -162,10 +162,8 @@ public:
           return m_htm->params().allow_read_set_l0_cache_evictions;
       }
   }
-  bool config_allowReadSetL0CacheEvictions() const {
-      return m_htm->params().allow_read_set_l0_cache_evictions;
-  }
   bool config_allowReadSetL1CacheEvictions() const {
+      assert(m_ruby_system->getProtocol() == "MESI_Three_Level_HTM_umu");
       return m_htm->params().allow_read_set_l1_cache_evictions;
   }
   bool config_transAwareL0Replacements() const {
@@ -204,6 +202,7 @@ private:
   AbstractController *m_controller;
   TransactionalSequencer *m_sequencer;
   CacheMemory* m_dataCache_ptr;
+  MachineType m_lowerLevelCacheMachineType;
 
   TransactionIsolationManager     * m_xactIsolationManager;
   TransactionConflictManager      * m_xactConflictManager;

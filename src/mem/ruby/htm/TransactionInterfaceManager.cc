@@ -109,11 +109,21 @@ TransactionInterfaceManager::TransactionInterfaceManager(const Params &p)
     // Only supported HTM protocols by TransactionInterfaceManager
     assert(m_ruby_system->getProtocol() == "MESI_Two_Level_HTM_umu" ||
            m_ruby_system->getProtocol() == "MESI_Three_Level_HTM_umu");
+
     if (m_ruby_system->getProtocol() == "MESI_Two_Level_HTM_umu") {
+        m_lowerLevelCacheMachineType = MachineType_L1Cache;
         // Sanity checks
-        assert(!config_allowReadSetL0CacheEvictions());
+        assert(!m_htm->params().allow_read_set_l0_cache_evictions);
         assert(!m_htm->params().l0_downgrade_on_l1_gets);
+    } else {
+        // Three level
+        m_lowerLevelCacheMachineType = MachineType_L0Cache;
+        // Sanity checks
+        if (config_allowReadSetL1CacheEvictions()) {
+            assert(m_htm->params().allow_read_set_l0_cache_evictions);
+        }
     }
+
     m_htmstart_tick = 0;
     m_htmstart_instruction = 0;
 }
@@ -1101,10 +1111,24 @@ TransactionInterfaceManager::xactReplacement(Addr addr, MachineID source,
                 return;
             }
         }
-        if (config_allowReadSetLowerLevelCacheEvictions()) {
-            DPRINTF(RubyHTM, "HTM: read-set eviction tolerated"
-                    " for read-set address=%x \n", addr);
-            return;
+        MachineType sourceMachType = machineIDToMachineType(source);
+        if (machineIDToNodeID(source) == getProcID() &&
+            sourceMachType != MachineType_L2Cache) {
+            // Self L0/L1
+            if (config_allowReadSetLowerLevelCacheEvictions() &&
+                (sourceMachType == m_lowerLevelCacheMachineType)) {
+                // Lower level cache: allowed
+                DPRINTF(RubyHTM, "HTM: read-set eviction tolerated"
+                        " for address %#x \n", addr);
+                return;
+            }
+            if (m_ruby_system->getProtocol() == "MESI_Three_Level_HTM_umu" &&
+                config_allowReadSetL1CacheEvictions()) {
+                // L1 cache: allowed
+                DPRINTF(RubyHTM, "HTM: read-set eviction from L1 tolerated"
+                        " for address %#x \n", addr);
+                return;
+            }
         }
     }
     setAbortFlag(thread, addr, source, false, capacity, wset);

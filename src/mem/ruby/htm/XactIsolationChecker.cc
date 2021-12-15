@@ -57,6 +57,10 @@ XactIsolationChecker::XactIsolationChecker(RubySystem *rs) {
     m_writeSet[i].resize(1);
     m_abortingProcessor[i] = false;
   }
+  if (!m_htm->params().eager_cd) {
+      panic("Transaction isolate checker does not support"
+            " lazy conflict detection!");
+  }
 }
 
 XactIsolationChecker::~XactIsolationChecker() {

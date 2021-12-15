@@ -498,8 +498,15 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
 
     if (XACT_LAZY_VM) {
         // Release isolation (clear filters/signatures)
-        for (int i = m_transactionLevel[thread]; i > 0; i--)
+        for (int i = m_transactionLevel[thread]; i > 0; i--) {
             getXactIsolationManager()->releaseIsolation(thread, i);
+            if (config_enableIsolationChecker()) {
+                m_ruby_system->getXactIsolationChecker()->
+                    clearReadSet(m_version, i);
+                m_ruby_system->getXactIsolationChecker()->
+                    clearWriteSet(m_version, i);
+            }
+        }
     }
     else { // LogTM
         if (m_xactEagerVersionManager->getLogNumEntries() == 0) {

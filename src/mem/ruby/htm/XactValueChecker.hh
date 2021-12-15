@@ -26,8 +26,6 @@ class XactValueChecker {
 public:
   XactValueChecker(RubySystem *rs);
   ~XactValueChecker();
-  void registerSequencer(int proc);
-
   void notifyWrite(int proc, bool trans, Addr addr,
                    int size, uint8_t *data_ptr);
 

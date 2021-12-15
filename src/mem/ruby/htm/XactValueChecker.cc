@@ -30,16 +30,12 @@ namespace ruby
 CLASS_NS XactValueChecker(RubySystem *rs) {
     m_ruby_system = rs;
     m_htm = rs->params().system->getHTM();
-}
 
-void
-CLASS_NS registerSequencer(int proc) {
-    if (proc+1 > m_writeBuffer.size()) {
-        m_writeBuffer.resize(proc+1);
-        m_writeBufferBlocks.resize(proc+1);
-        m_loggedValues.resize(proc+1);
-        m_unrolledValues.resize(proc+1);
-    }
+    int num_sequencers = rs->params().num_of_sequencers;
+    m_writeBuffer.resize(num_sequencers);
+    m_writeBufferBlocks.resize(num_sequencers);
+    m_loggedValues.resize(num_sequencers);
+    m_unrolledValues.resize(num_sequencers);
 }
 
 CLASS_NS ~XactValueChecker() {

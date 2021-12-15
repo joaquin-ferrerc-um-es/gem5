@@ -191,6 +191,12 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   int l2_select_low_bit, default="RubySystem::getBlockSizeBits()";
   bool l0_downgrade_on_l1_gets, default="RubySystem::enableL0DowngradeOnL1Gets()";
 
+  // To avoid having a different "nack" state for each *_IL0 state,
+  // use this flag to signal we just got L0_Nack_Else and must send
+  // nack to remote INV/GETS/GETX request
+  bool l0_nack_else, default="false";
+  Addr l0_nack_else_addr;
+
   Tick clockEdge();
   Cycles ticksToCycles(Tick t);
   void set_cache_entry(AbstractCacheEntry a);
@@ -423,6 +429,11 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
         TBE tbe := TBEs[in_msg.addr];
 
         if (in_msg.Type == CoherenceRequestType:INV) {
+            if (l0_nack_else && l0_nack_else_addr == in_msg.addr) {
+                l0_nack_else := false;
+                trigger(Event:Inv_X,
+                        in_msg.addr, cache_entry, tbe);
+            } else
             if (shouldNackStore(in_msg.addr,
                                 in_msg.Requestor,
                                 in_msg.Timestamp,
@@ -443,6 +454,11 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
             trigger(Event:Check_Htm_Write_Set, in_msg.addr, cache_entry, tbe);
         } else if (in_msg.Type == CoherenceRequestType:GETX ||
                    in_msg.Type == CoherenceRequestType:UPGRADE) {
+            if (l0_nack_else && l0_nack_else_addr == in_msg.addr) {
+                l0_nack_else := false;
+                trigger(Event:Fwd_GETX_X,
+                        in_msg.addr, cache_entry, tbe);
+            } else
             if (shouldNackStore(in_msg.addr,
                                 in_msg.Requestor,
                                 in_msg.Timestamp,
@@ -458,9 +474,16 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
                 trigger(Event:Fwd_GETX, in_msg.addr, cache_entry, tbe);
             }
         } else if (in_msg.Type == CoherenceRequestType:GETS) {
+            if (l0_nack_else && l0_nack_else_addr == in_msg.addr) {
+                l0_nack_else := false;
+                // Conflict resolved by nacking request
+                trigger(Event:Fwd_GETS_X,
+                        in_msg.addr, cache_entry, tbe);
+            } else
             if (shouldNackLoad(in_msg.addr, in_msg.Requestor,
                                in_msg.Timestamp,
                                in_msg.Transactional)) {
+                l0_nack_else := false;
                 // Conflict resolved by nacking request
                 trigger(Event:Fwd_GETS_X,
                         in_msg.addr, cache_entry, tbe);
@@ -504,6 +527,9 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
             if (in_msg.OriginalRequestor == machineID) {
                 trigger(Event:L0_Nack_Own, in_msg.addr, cache_entry, tbe);
             } else {
+                assert(!l0_nack_else);
+                l0_nack_else := true;
+                l0_nack_else_addr := in_msg.addr;
                 trigger(Event:L0_Nack_Else, in_msg.addr, cache_entry, tbe);
             }
         }  else if (in_msg.Class == CoherenceClass:INV_ACK) {
@@ -744,6 +770,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   }
 
   action(forward_eviction_to_L0_else, "\cce", desc="sends (else) eviction information to the processor") {
+    assert(!l0_nack_else);
     peek(requestNetwork_in, RequestMsg) {
       enqueue(bufferToL0_out, CoherenceMsg, cache.getTagLatency()) {
           out_msg.addr := address;
@@ -1473,6 +1500,10 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     kd_wakeUpDependents;
   }
   transition({M_IL0,M_DL0}, L0_Nack_Else, M) {
+    k_popL0RequestQueue;
+    kd_wakeUpDependents;
+  }
+  transition({SM_IL0}, L0_Nack_Else, SM) {
     k_popL0RequestQueue;
     kd_wakeUpDependents;
   }

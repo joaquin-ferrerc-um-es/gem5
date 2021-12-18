@@ -192,6 +192,9 @@ public:
   bool config_enableIsolationChecker() const {
       return m_htm->params().isolation_checker;
   }
+  int config_lazyCommitWidth() const {
+      return m_htm->params().lazy_commit_width;
+  }
   std::vector<TransactionInterfaceManager*>
      getRemoteTransactionManagers() const;
 

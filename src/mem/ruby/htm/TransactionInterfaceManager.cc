@@ -449,9 +449,6 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
                     // Discard cache lines already written during
                     // write buffer flush
                     discardWriteSetFromL1DataCache(thread);
-                    // cancel pending writes, if any left
-                    getXactLazyVersionManager()->
-                        cancelWriteBufferFlush(thread);
                 } else {
                     if (m_xactLazyCommitArbiter->validated()) {
                         // Only admitted cause of a abort for already
@@ -928,6 +925,13 @@ TransactionInterfaceManager::setAbortFlag(int thread, Addr addr,
         if (m_transactionLevel[thread] > 0) {
             // Do not move to aborting until  TL > 0
             XACT_PROFILER->moveTo(getProcID(), AnnotatedRegion_ABORTING);
+        }
+        if (!XACT_EAGER_CD) { // Lazy-lazy
+            if (getXactLazyVersionManager()->committing()) {
+                // cancel pending writes, if any left
+                getXactLazyVersionManager()->
+                    cancelWriteBufferFlush(thread);
+            }
         }
         assert(m_abortCause[thread] == HTMStats::AbortCause::Undefined);
 

@@ -40,6 +40,7 @@ LazyTransactionVersionManager(TransactionInterfaceManager *xact_mgr,
     m_requestorID = Request::invldRequestorId;
     int smt_threads = 1; // TODO
 
+    m_issuedWriteBufferRequest = 0;
     m_writeBuffer.resize(smt_threads);
     m_writeBufferBlocks.resize(smt_threads);
 }
@@ -70,6 +71,7 @@ CLASS_NS restartTransaction(int thread){
     m_committing = false;
     m_committed = false;
     m_aborting = false;
+    assert(m_issuedWriteBufferRequest == 0);
     discardWriteBuffer(thread);
 }
 
@@ -83,6 +85,7 @@ CLASS_NS notifyCommittedTransaction(int thread){
     assert(!m_aborting);
     m_committing = false;
     m_committed = false;
+    assert(m_issuedWriteBufferRequest == 0);
     assert(m_writeBufferBlocks[thread].empty());
     assert(m_writeBuffer[thread].empty());
 }
@@ -97,6 +100,7 @@ CLASS_NS commitTransaction(int thread)
     m_committing = true;
     m_flushPending = false;
     m_shouldResumeFlush = false;
+
     flushWriteBuffer(thread);
 }
 
@@ -223,12 +227,18 @@ CLASS_NS flushWriteBuffer(int thread){
 
     if (m_writeBufferBlocks[thread].empty()) {
         m_committed = true;
+        assert(m_issuedWriteBufferRequest == 0);
         return;
     }
     for (map<Addr,WriteBufferBlockStatus>::iterator it =
              m_writeBufferBlocks[thread].begin();
          it != m_writeBufferBlocks[thread].end();
          ++it) {
+        if (m_issuedWriteBufferRequest ==
+            m_xact_mgr->config_lazyCommitWidth()) {
+            m_flushPending = true;
+            break;
+        };
         WriteBufferBlockStatus status =(*it).second;
         if (status == Pending) {
             Addr addr =(*it).first;
@@ -255,6 +265,7 @@ CLASS_NS flushWriteBuffer(int thread){
             }
             // Mark as issued
             (*it).second = Issued;
+            ++m_issuedWriteBufferRequest;
         }
     }
     if (m_flushPending) {
@@ -317,6 +328,7 @@ CLASS_NS mergeDataFromWriteBuffer(int thread, Addr address, DataBlock& data)
             address, data.toString());
     // Delete block address from write buffer blocks
     m_writeBufferBlocks[thread].erase(address);
+    --m_issuedWriteBufferRequest;
     DPRINTF(RubyHTM, "Merged %d bytes from write buffer"
             " into block paddr %#x\n",
             mergedBytes, address);
@@ -329,11 +341,12 @@ CLASS_NS mergeDataFromWriteBuffer(int thread, Addr address, DataBlock& data)
         }
         else {
             DPRINTF(RubyHTM, "Write buffer flush completed\n");
-            // Discard write buffer after all contents merged into
-            // cache blocks
-            m_writeBuffer[thread].clear();
-            m_committed = true; // Now canCommitTransaction will be true
         }
+        m_committed = true; // Now canCommitTransaction will be true,
+                            // allowing commit/abort to complete
+        // Discard write buffer after all contents merged into
+        // cache blocks
+        m_writeBuffer[thread].clear();
     }
     else {
         // If flush pending due to too many outstanding misses, resume
@@ -360,18 +373,17 @@ CLASS_NS cancelWriteBufferFlush(int thread)
     assert(transactionLevel == 1);
     map<Addr,WriteBufferBlockStatus>::iterator it =
         m_writeBufferBlocks[thread].begin();
-    while (it != m_writeBufferBlocks[thread].end()) {
+    for (auto next_it = it;
+         it != m_writeBufferBlocks[thread].end(); it = next_it) {
+        ++next_it;
         WriteBufferBlockStatus status =(*it).second;
         if (status == Pending) {
             Addr addr = (*it).first;
-            _unused(addr);
             DPRINTF(RubyHTM, "Cancelled pending "
                     "write buffer flush block paddr %#x\n",
                     addr);
-            it = m_writeBufferBlocks[thread].erase(it);
-        }
-        else {
-            ++it;
+            bool found = m_writeBufferBlocks[thread].erase(addr);
+            assert(found);
         }
     }
 }

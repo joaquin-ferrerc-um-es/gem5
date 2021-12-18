@@ -73,7 +73,7 @@ private:
   bool m_shouldResumeFlush;
   bool m_aborting;
 
-  Addr m_pendingWriteBufferRequest;
+  Addr m_issuedWriteBufferRequest;
 
   TransactionInterfaceManager *m_xact_mgr;
   int m_version;

@@ -416,6 +416,9 @@ TransactionalSequencer::makeRequest(PacketPtr pkt)
         // immediately. If access is load, abort signal sent back to
         // CPU by setting the htmReturnReason in the response packet
         // (ifetch and stores always return HtmCacheFailure::NO_FAIL)
+        if (m_commitPending) {
+            panic("Unexpected abort while commit pending!\n");
+        }
         rubyHtmCallback(pkt);
         return RequestStatus_Issued;
     } else {

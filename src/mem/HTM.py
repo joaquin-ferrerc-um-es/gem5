@@ -50,6 +50,8 @@ class HTM(ClockedObject):
     # for conlict detection.
     allow_read_set_l0_cache_evictions = Param.Bool(False,
         "Allow read set evictions from the L0 cache")
+    allow_write_set_l0_cache_evictions = Param.Bool(False,
+        "Allow write set evictions from the L0 cache")
     # Whether the L1 cache allows evictions of cache blocks in the
     # read-set of the transaction. If set, 3-level protocols allow L1
     # invalidations of Rset blocks using "sticky-S" L2 directory
@@ -57,6 +59,8 @@ class HTM(ClockedObject):
     # option equals allow_read_set_lower_private_cache_evictions
     allow_read_set_l1_cache_evictions = Param.Bool(False,
         "Allow read set evictions from the L1 cache")
+    allow_write_set_l1_cache_evictions = Param.Bool(False,
+        "Allow write set evictions from the L1 cache")
     # Whether speculatively-read cache block are added to the read-set
     # upon load access (imprecise) or load retirement  (precise)
     precise_read_set_tracking = Param.Bool(False,

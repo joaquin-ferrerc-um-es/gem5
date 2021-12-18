@@ -166,6 +166,17 @@ public:
       assert(m_ruby_system->getProtocol() == "MESI_Three_Level_HTM_umu");
       return m_htm->params().allow_read_set_l1_cache_evictions;
   }
+  bool config_allowWriteSetLowerLevelCacheEvictions() const {
+      if (m_ruby_system->getProtocol() == "MESI_Two_Level_HTM_umu") {
+          return m_htm->params().allow_write_set_l1_cache_evictions;
+      } else {
+          return m_htm->params().allow_write_set_l0_cache_evictions;
+      }
+  }
+  bool config_allowWriteSetL1CacheEvictions() const {
+      assert(m_ruby_system->getProtocol() == "MESI_Three_Level_HTM_umu");
+      return m_htm->params().allow_write_set_l1_cache_evictions;
+  }
   bool config_transAwareL0Replacements() const {
       return m_htm->params().trans_aware_l0_replacements;
   }

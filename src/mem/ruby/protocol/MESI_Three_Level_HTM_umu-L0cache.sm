@@ -507,7 +507,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
         } else if (in_msg.Class == CoherenceClass:INV_OWN) {
             if (xact_mgr.checkWriteSignature(in_msg.addr)) {
                 xact_mgr.xactReplacement(in_msg.addr, in_msg.Sender);
-                if (xact_mgr.config_lazyVM()) {
+                if (!xact_mgr.config_allowWriteSetL1CacheEvictions()) {
                     assert(xact_mgr.isDoomed(0));
                     trigger(Event:Inv_Discard, in_msg.addr, cache_entry, tbe);
                 } else {
@@ -551,7 +551,8 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
                 assert(false);
             }
             else if (!shouldSendDataToRequestor(in_msg.addr)) {
-                if (!xact_mgr.config_lazyVM()) { // LogTM
+                if (xact_mgr.config_allowWriteSetL1CacheEvictions()) {
+                    assert(!xact_mgr.config_lazyVM()); // LogTM
                     assert(false); // Req-wins??
                 } else {
                     // L2 replacements of L1 blocks in Wset should discard
@@ -692,13 +693,14 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
               if (xact_mgr.checkWriteSignature(victimAddr)) {
                   // Eviction of speculatively modified data
                   xact_mgr.xactReplacement(victimAddr, machineID, true);
-                  if (xact_mgr.config_lazyVM()) {
+                  if (!xact_mgr.config_allowWriteSetL1CacheEvictions()) {
                       assert(xact_mgr.isDoomed(0));
                       // Wset eviction: discard data, xact mgr will abort
                       trigger(Event:L0_Replacement_Wset_Discard, victimAddr,
                               getICacheEntry(victimAddr),
                               TBEs[victimAddr]);
                   } else { // LogTM allows replacing write set blocks
+                      assert(!xact_mgr.config_lazyVM());
                       // Wset eviction: discard data, xact mgr will abort
                       trigger(Event:L0_Replacement_Wset, victimAddr,
                               getICacheEntry(victimAddr),

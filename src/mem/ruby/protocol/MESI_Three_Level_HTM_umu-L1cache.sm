@@ -302,19 +302,20 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     return tbe.pendingAcks;
   }
   Event getReplacementEvent(Addr addr) {
-      if (!xact_mgr.config_lazyVM()) { // LogTM
-          if(xact_mgr.checkWriteSignature(addr)) {
-              return Event:L1_Replacement_Wset;
-          } else if(xact_mgr.checkReadSignature(addr)) {
-              return Event:L1_Replacement_Rset;
-          }
+      if (xact_mgr.config_allowWriteSetL1CacheEvictions() &&
+          xact_mgr.checkWriteSignature(addr)) {
+          return Event:L1_Replacement_Wset;
+      } else if (xact_mgr.config_allowReadSetL1CacheEvictions() &&
+                 xact_mgr.checkReadSignature(addr)) {
+          return Event:L1_Replacement_Rset;
       }
       return Event:L1_Replacement;
   }
   bool shouldNackLoad(Addr addr, MachineID remote_id,
                       Cycles remote_timestamp,
                       bool remote_transactional){
-      if (xact_mgr.config_lazyVM()) {
+      if (!xact_mgr.config_allowWriteSetL1CacheEvictions() &&
+          !xact_mgr.config_allowReadSetL1CacheEvictions()) {
           return false;
       }
       assert(machineIDToMachineType(remote_id) == MachineType:L1Cache);
@@ -327,7 +328,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
                        Cycles remote_timestamp,
                        bool remote_transactional,
                        bool local_is_exclusive){
-      if (xact_mgr.config_lazyVM()) {
+      if (!xact_mgr.config_allowReadSetL1CacheEvictions()) {
           return false;
       }
       // May get INVs coming from replacements
@@ -1504,6 +1505,11 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     kd_wakeUpDependents;
   }
   transition({SM_IL0}, L0_Nack_Else, SM) {
+    k_popL0RequestQueue;
+    kd_wakeUpDependents;
+  }
+
+  transition({MM_IL0}, L0_Nack_Else, MM) {
     k_popL0RequestQueue;
     kd_wakeUpDependents;
   }

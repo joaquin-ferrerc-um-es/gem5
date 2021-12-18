@@ -72,12 +72,18 @@ TransactionInterfaceManager::TransactionInterfaceManager(const Params &p)
         } else {
             // Eager-lazy (eager CD + lazy VM in cache)
         }
+        // No wset evictions from private cache are possible
+        assert(!m_htm->params().allow_write_set_l0_cache_evictions);
+        assert(!m_htm->params().allow_write_set_l1_cache_evictions);
     } else { // Eager CD + Eager VM (LogTM)
         assert(XACT_EAGER_CD);
         m_xactEagerVersionManager   =
             new EagerTransactionVersionManager(this,
                                               m_version,
                                               m_dataCache_ptr);
+        // Asume wset evictions from L1 (and L0) are possible
+        assert(m_htm->params().allow_write_set_l0_cache_evictions);
+        assert(m_htm->params().allow_write_set_l1_cache_evictions);
     }
 
     m_transactionLevel   = new int[smt_threads];

@@ -178,7 +178,9 @@ structure (TransactionInterfaceManager, external = "yes") {
   bool config_eagerCD();
   bool shouldNackL1LocalEviction(Addr);
   bool config_allowReadSetL1CacheEvictions();
+  bool config_allowWriteSetL1CacheEvictions();
   bool config_allowReadSetLowerLevelCacheEvictions();
+  bool config_allowWriteSetLowerLevelCacheEvictions();
   bool config_preciseReadSetTracking();
 }
 

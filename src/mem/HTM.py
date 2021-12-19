@@ -43,6 +43,8 @@ class HTM(ClockedObject):
     # Conflict resolution for validated transactions in lazy_cd
     lazy_validated_conf_res = Param.String("committer_wins",
         "Conflict resolution for lazy validated transactions")
+    lazy_commit_width = Param.Unsigned(4, "Maximum number of"
+        " outstanding write-set block requests during lazy commit")
     # Whether the L0 cache cache allows evictions of cache blocks in
     # the read-set of the transaction. If set, 3-level protocol allows
     # silent L0 replacements of Rset blocks but L1 local invalidations

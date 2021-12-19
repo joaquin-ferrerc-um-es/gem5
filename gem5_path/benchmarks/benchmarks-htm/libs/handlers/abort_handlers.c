@@ -67,7 +67,8 @@ void beginTransaction_fallbackLock(long tag,
     u_int64_t ret, retryWithLock = 0;
     int nretries = 0;
 
-    handleHeapPrefault(0);
+    assert(ctx == &thread_contexts[ctx->info.threadId]);
+    handleHeapPrefault(ctx->info.threadId);
     simSetLogBase(ctx->info.logtm_transactionLog);
     do {
         ++nretries;

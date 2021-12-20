@@ -259,7 +259,8 @@ class LSQ
             WritebackScheduled  = 0x00001000,
             WritebackDone       = 0x00002000,
             /** True if this is an atomic request */
-            IsAtomic            = 0x00004000
+            IsAtomic            = 0x00004000,
+            HtmFailedCacheAccess  = 0x00008000
         };
         FlagsType flags;
 
@@ -476,6 +477,13 @@ class LSQ
         {
             return flags.isSet(Flag::IsSplit);
         }
+
+        bool
+        isHtmFailedCacheAccess() const
+        {
+            return flags.isSet(Flag::HtmFailedCacheAccess);
+        }
+
         /** @} */
         virtual bool recvTimingResp(PacketPtr pkt) = 0;
         virtual void sendPacketToCache() = 0;
@@ -507,6 +515,7 @@ class LSQ
         {
             flags.set(Flag::Retry);
             flags.clear(Flag::Sent);
+            flags.clear(Flag::HtmFailedCacheAccess);
         }
 
         void sendFragmentToTranslation(int i);

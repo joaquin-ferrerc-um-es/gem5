@@ -540,13 +540,13 @@ Packet::getHtmTransactionUid() const
 }
 
 void
-Packet::setHtmAccessFailedInCache(bool val)
+Packet::setHtmFailedCacheAccess(bool val)
 {
     htmAccessFailed = val;
 }
 
 bool
-Packet::isHtmAccessFailedInCache()
+Packet::isHtmFailedCacheAccess()
 {
     return htmAccessFailed;
 }

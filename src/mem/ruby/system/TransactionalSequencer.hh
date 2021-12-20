@@ -74,6 +74,7 @@ class TransactionalSequencer : public Sequencer
                        const Cycles forwardRequestTime = Cycles(0),
                        const Cycles firstResponseTime = Cycles(0),
                        const bool noCoales = false) override;
+    bool isStalled() const { return m_stalled; };
 
   private:
     // Private copy constructor and assignment operator

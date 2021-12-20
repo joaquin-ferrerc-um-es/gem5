@@ -1545,8 +1545,8 @@ class Packet : public Printable
      * Whether a memory access failed to perform in cache due to
      * conflicts with remote transactions.
      */
-    void setHtmAccessFailedInCache(bool val);
-    bool isHtmAccessFailedInCache();
+    void setHtmFailedCacheAccess(bool val);
+    bool isHtmFailedCacheAccess();
     void setHtmStoreToLog(bool val, PacketPtr mainPkt = nullptr);
     bool isHtmStoreToLog();
     Addr getHtmLoggedStoreAddr() const;

@@ -667,7 +667,7 @@ TransactionalSequencer::hitCallback(SequencerRequest* srequest, DataBlock& data,
         }
         // Skip all the following actions and do not call
         // Sequencer::hitCallback
-        pkt->setHtmAccessFailedInCache(true);
+        pkt->setHtmFailedCacheAccess(true);
         if (pkt->isAtLSQHead() &&
             !m_xact_mgr->isAborting(thread) &&
             !m_stalled &&

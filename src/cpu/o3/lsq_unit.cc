@@ -120,11 +120,10 @@ LSQUnit::completeDataAccess(PacketPtr pkt)
         assert(inst->getHtmTransactionUid() == pkt->getHtmTransactionUid());
     }
 
-    if (pkt->isHtmAccessFailedInCache()) {
+    if (state->request()->isHtmFailedCacheAccess()) {
         DPRINTF(HtmCpu,
-                "Access failed (nacked) "
-                "in cache - addr=0x%lx\n",
-                pkt->getAddr());
+                "Access failed (nacked) in cache [sn:%lli]\n",
+                inst->seqNum);
         inst->fault = std::make_shared<HtmFailedCacheAccess>();
     }
     // if in a HTM transaction, it's possible
@@ -1299,19 +1298,24 @@ LSQUnit::completeNackedStore(typename StoreQueue::iterator store_idx)
     DynInstPtr inst = store_idx->instruction();
     assert(inst->fault != NoFault);
     // Only expect HtmFailedCacheAccess faults here generated in
-    // completeDataAccess for isHtmAccessFailedInCache packets
+    // completeDataAccess for isHtmFailedCacheAccess packets
 
     assert(dynamic_cast<HtmFailedCacheAccess*>
            (inst->fault.get()) != nullptr);
 
     LSQRequest* req = store_idx->request();
-    PacketPtr pkt = req->mainPacket(); // TODO: Handle split requests
-    assert(!req->isSplit());
     // Sanity checks
-    assert(pkt->isHtmAccessFailedInCache());
+    assert(req->isHtmFailedCacheAccess());
+    if (req->isSplit()) {  // Handle split requests
+        // completeDataAccess->completeStore->completeNackedStore only
+        // called when all fragments have completed (either
+        // successfully or nacked/failed)
+        DPRINTF(HtmCpu, "Nacked split store [sn:%lli], idx:%i\n",
+                inst->seqNum, store_idx.idx());
+    }
     assert(req->isSent());
     // Request not marked as completed by LSQ::recvTimingResp if
-    // isHtmAccessFailedInCache set
+    // isHtmFailedCacheAccess set
     assert(!req->isComplete());
     // Intercepted before completedStore marks as LSQ entry
     assert(!store_idx->completed());
@@ -1368,17 +1372,12 @@ LSQUnit::completeNackedStore(typename StoreQueue::iterator store_idx)
 
     req->packetNotSent(); // Clear sent flag, set retry flag
     assert(req->isRetry());
-    // Switch response packet back into request
-    pkt->makePrevRequest();
-    // Reset setHtmAccessFailedInCache in packet
-    pkt->setHtmAccessFailedInCache(false);
+    assert(!req->isHtmFailedCacheAccess());
     // Clear inst fault
     inst->fault = NoFault;
     // Clear committed flag in SQ entry
     store_idx->committed() = false;
-    // Keep inst data (value to be written in datablock), as the
-    // already allocated packets will be reused and contain a pointer
-    // to it
+    // Keep inst->data (value to be written in datablock)
 }
 
 void

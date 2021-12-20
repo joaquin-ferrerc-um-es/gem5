@@ -1151,7 +1151,14 @@ LSQ::SingleDataRequest::recvTimingResp(PacketPtr pkt)
     assert(_numOutstandingPackets == 1);
     auto state = dynamic_cast<LSQSenderState*>(pkt->senderState);
     assert(!flags.isSet(Flag::Complete));
-    if (!pkt->isHtmAccessFailedInCache()) {
+    if (pkt->isHtmFailedCacheAccess()) {
+        // Set this flag to indicate nack to completeDataAccess code
+        flags.set(Flag::HtmFailedCacheAccess);
+        // Reset packet state as buildPackets will not generate new
+        // packets upon retry
+        pkt->makePrevRequest(); // Convert response back to request
+        pkt->setHtmFailedCacheAccess(false);
+    } else {
         flags.set(Flag::Complete);
     }
     state->outstanding--;
@@ -1170,12 +1177,18 @@ LSQ::SplitDataRequest::recvTimingResp(PacketPtr pkt)
     assert(pktIdx < _packets.size());
     numReceivedPackets++;
     state->outstanding--;
+    uint32_t i;
+    if (pkt->isHtmFailedCacheAccess()) {
+        // Set flag in request
+        flags.set(Flag::HtmFailedCacheAccess);
+    }
     if (numReceivedPackets == _packets.size()) {
-        bool htmAccessFailed = false;
-        uint32_t i;
-        for (i = 0; i < _packets.size(); ++i) {
-            if (_packets[i]->isHtmAccessFailedInCache()) {
-                htmAccessFailed = true;
+        if (isHtmFailedCacheAccess()) {
+            // Needs to be retried: Reset state for all fragments
+            // since buildPackets will not generate new packets
+            for (i = 0; i < _packets.size(); ++i) {
+                _packets[i]->setHtmFailedCacheAccess(false);
+                _packets[i]->makePrevRequest(); // response back to request
             }
         }
         /* Assemble packets. */
@@ -1187,10 +1200,11 @@ LSQ::SplitDataRequest::recvTimingResp(PacketPtr pkt)
         else
             resp->dataStatic(_data);
         resp->senderState = _senderState;
-        if (!htmAccessFailed) {
-            flags.set(Flag::Complete);
+        if (isHtmFailedCacheAccess()) {
+            // Reset count of receive before retrying split access
+            numReceivedPackets = 0;
         } else {
-            resp->setHtmAccessFailedInCache(true);
+            flags.set(Flag::Complete);
         }
         _port.completeDataAccess(resp);
         delete resp;
@@ -1229,6 +1243,7 @@ LSQ::SingleDataRequest::buildPackets()
         }
         if (_inst->seqNum == _port.getLoadHeadSeqNum()) {
             _packets.back()->setAtLSQHead(true);
+            assert(isLoad());
         }
     }
     assert(_packets.size() == 1);
@@ -1278,6 +1293,7 @@ LSQ::SplitDataRequest::buildPackets()
             pkt->senderState = _senderState;
             if (_inst->seqNum == _port.getLoadHeadSeqNum()) {
                 pkt->setAtLSQHead(true);
+                assert(isLoad());
             }
             _packets.push_back(pkt);
 

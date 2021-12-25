@@ -111,10 +111,8 @@ void beginTransaction_fallbackLock(long tag,
                 // Explicit aborts because of fallback lock acquired
                 --nretries; // Not counted towards max retries
             } else {
-                // TODO: Check that abort code is properly returned by
-                // simulator when application explicitly aborts a
-                // transaction using cancelTransaction (see below)
-                assert(false);
+                assert(htm_abort_code_is_default
+                       (htm_abort_cause_explicit_code(ret)));
             }
         }
         else if (htm_abort_cause_disabled(ret)) {
@@ -218,7 +216,10 @@ void commitTransaction(long tag, _tm_thread_context_t *ctx) {
 }
 
 
-void cancelTransaction(long code) {
-    htm_cancel(code);
+void cancelTransactionWithAbortCode(long abort_code) {
+    htm_cancel(abort_code);
+}
+void cancelTransaction() {
+    htm_cancel(XABORT_CODE_DEFAULT);
 }
 

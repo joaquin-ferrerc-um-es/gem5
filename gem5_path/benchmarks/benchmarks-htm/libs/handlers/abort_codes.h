@@ -21,6 +21,8 @@
 
 // Set by abort handler if abort due to fallback lock locked after xbegin
 #define XABORT_CODE_FALLBACK_LOCK_LOCKED 0xff
+// Set by abort handler if htm_cancel does not provide any code (sanity checks)
+#define XABORT_CODE_DEFAULT 0xfe
 
 #endif
 

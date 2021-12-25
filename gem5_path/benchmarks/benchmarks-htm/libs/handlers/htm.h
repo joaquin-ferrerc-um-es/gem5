@@ -79,6 +79,7 @@
 #define htm_abort_cause_explicit(status) (status & _XABORT_EXPLICIT)
 #define htm_abort_cause_explicit_code(status) (_XABORT_CODE_DECODE(status))
 #define htm_abort_code_is_lock_acquired(abort_code) (abort_code == XABORT_CODE_FALLBACK_LOCK_LOCKED)
+#define htm_abort_code_is_default(abort_code) (abort_code == XABORT_CODE_DEFAULT)
 #define htm_may_succeed_on_retry(status) (status & _XABORT_RETRY)
 #define htm_abort_cause_disabled(status) (status & _XABORT_DISABLED)
 

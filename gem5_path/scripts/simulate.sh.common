@@ -20,7 +20,7 @@ else
     # it should be possible to use the lockstep facility to debug
     # different protocols
     LOCKSTEP_RECORD_CPU_TYPE=DerivO3CPU
-    LOCKSTEP_REPLAY_CPU_TYPE=TimingSimpleCPU
+    LOCKSTEP_REPLAY_CPU_TYPE=DerivO3CPU
     LOCKSTEP_RECORD_PROTOCOL=${PROTOCOL}
     LOCKSTEP_REPLAY_PROTOCOL=${PROTOCOL}
 fi
@@ -310,6 +310,8 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
         REPLAY_GEM5_EXEC_PATH=${GEM5_ROOT}/build/${ARCH}_${LOCKSTEP_REPLAY_PROTOCOL}/gem5.${BUILD_TYPE}
         RECORD_OUT_DIR=${OUT_DIR}/record
         REPLAY_OUT_DIR=${OUT_DIR}/replay
+        LOCKSTEP_RECORD_HTM_OPTIONS_STRING+=" --htm-visualizer-filename=${RECORD_OUT_DIR}/htm_visualizer "
+        LOCKSTEP_REPLAY_HTM_OPTIONS_STRING+=" --htm-visualizer-filename=${REPLAY_OUT_DIR}/htm_visualizer "
         mkdir -p ${REPLAY_OUT_DIR}
         mkdir -p ${RECORD_OUT_DIR}
         rm -rf /tmp/gem5fifo* 2>/dev/null

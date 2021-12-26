@@ -1608,7 +1608,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     l_popRequestQueue;
   }
 
-  transition({I,IS,IM}, {Fwd_GETS}) { // Previously invalidated upon abort
+  transition({I,IS,IM,Inst_IS}, {Fwd_GETS}) { // Previously invalidated upon abort
     fi_sendInvAck;
     l_popRequestQueue;
   }

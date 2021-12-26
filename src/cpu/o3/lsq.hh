@@ -901,6 +901,7 @@ class LSQ
     uint64_t getLatestHtmUid(ThreadID tid) const;
     void setLastRetiredHtmUid(ThreadID tid, uint64_t htmUid);
     uint64_t getLastCommittedHtmUid(ThreadID tid) const;
+    void setAtHtmStopHtmUid(ThreadID tid, uint64_t htmUid);
 
     /** Returns the number of free load entries. */
     unsigned numFreeLoadEntries();

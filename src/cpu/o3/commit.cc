@@ -1096,7 +1096,6 @@ Commit::commitInsts()
 
             // Try to commit the head instruction.
             bool commit_success = commitHead(head_inst, num_committed);
-
             if (commit_success) {
                 ++num_committed;
                 stats.committedInstType[tid][head_inst->opClass()]++;
@@ -1277,7 +1276,14 @@ Commit::commitHead(const DynInstPtr &head_inst, unsigned inst_num)
                || head_inst->isReadBarrier() || head_inst->isWriteBarrier()
                || head_inst->isAtomic()
                || (head_inst->isLoad() && head_inst->strictlyOrdered()));
-
+        if (head_inst->isHtmStopFence()) {
+          DPRINTF(HtmCpu, "htmStop fence at the head of the ROB,"
+                  " hasStoresToWB : %d \n",
+                  head_inst->staticInst->getName(),
+                  iewStage->hasStoresToWB(tid));
+          iewStage->setAtHtmStopHtmUid(tid,
+                                       head_inst->getHtmTransactionUid());
+        }
         DPRINTF(Commit,
                 "Encountered a barrier or non-speculative "
                 "instruction [tid:%i] [sn:%llu] "

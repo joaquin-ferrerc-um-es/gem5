@@ -336,7 +336,15 @@ class LSQUnit
     {
         return lastCommittedHtmUid;
     }
-
+    void setAtHtmStopHtmUid(uint64_t htm_uid)
+    {
+        assert(htm_uid >= atHtmStopHtmUid);
+        atHtmStopHtmUid = htm_uid;
+    }
+    uint64_t getAtHtmStopHtmUid()
+    {
+        return atHtmStopHtmUid;
+    }
     /** Returns if either the LQ or SQ is full. */
     bool isFull() { return lqFull() || sqFull(); }
 
@@ -531,6 +539,7 @@ class LSQUnit
     // sanity checks and debugging
     uint64_t lastRetiredHtmUid;
     uint64_t lastCommittedHtmUid;
+    uint64_t atHtmStopHtmUid;
 
     /** The index of the first instruction that may be ready to be
      * written back, and has not yet been written back.

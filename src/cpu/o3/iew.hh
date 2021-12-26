@@ -244,6 +244,10 @@ class IEW
     {
         return ldstQueue.getLastCommittedHtmUid(tid);
     }
+    void setAtHtmStopHtmUid(ThreadID tid, uint64_t htmUid)
+    {
+        ldstQueue.setAtHtmStopHtmUid(tid, htmUid);
+    }
 
   private:
     /** Sends commit proper information for a squash due to a branch

@@ -396,6 +396,12 @@ LSQ::getLastCommittedHtmUid(ThreadID tid) const
     return thread[tid].getLastCommittedHtmUid();
 }
 
+void
+LSQ::setAtHtmStopHtmUid(ThreadID tid, uint64_t htmUid)
+{
+    if (tid != InvalidThreadID)
+        thread[tid].setAtHtmStopHtmUid(htmUid);
+}
 
 void
 LSQ::recvReqRetry()
@@ -1241,9 +1247,14 @@ LSQ::SingleDataRequest::buildPackets()
               _packets.back()->getAddr(),
               _inst->getHtmTransactionUid());
         }
-        if (_inst->seqNum == _port.getLoadHeadSeqNum()) {
+    }
+    if (_inst->seqNum == _port.getLoadHeadSeqNum()) {
+        _packets.back()->setAtLSQHead(true);
+    } else if (_inst->seqNum == _port.getStoreHeadSeqNum()) {
+        if (_inst->inHtmTransactionalState() &&
+            _inst->getHtmTransactionUid() ==
+            _port.getAtHtmStopHtmUid()) {
             _packets.back()->setAtLSQHead(true);
-            assert(isLoad());
         }
     }
     assert(_packets.size() == 1);
@@ -1291,10 +1302,6 @@ LSQ::SplitDataRequest::buildPackets()
                 pkt->dataDynamic(req_data);
             }
             pkt->senderState = _senderState;
-            if (_inst->seqNum == _port.getLoadHeadSeqNum()) {
-                pkt->setAtLSQHead(true);
-                assert(isLoad());
-            }
             _packets.push_back(pkt);
 
             // hardware transactional memory
@@ -1312,6 +1319,17 @@ LSQ::SplitDataRequest::buildPackets()
                       _packets.back()->req->getVaddr() : 0lu,
                   _packets.back()->getAddr(),
                   _inst->getHtmTransactionUid());
+            }
+        }
+    }
+    for (int i = 0; i < _packets.size(); ++i) {
+        if (_inst->seqNum == _port.getLoadHeadSeqNum()) {
+            _packets[i]->setAtLSQHead(true);
+        } else if (_inst->seqNum == _port.getStoreHeadSeqNum()) {
+            if (_inst->inHtmTransactionalState() &&
+                _inst->getHtmTransactionUid() ==
+                _port.getAtHtmStopHtmUid()) {
+                _packets[i]->setAtLSQHead(true);
             }
         }
     }

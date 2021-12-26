@@ -371,6 +371,7 @@ def macroop MOVD_P_XMM {
 };
 
 def macroop XEND {
+    .htm_stop
     mfence
     xend
 };

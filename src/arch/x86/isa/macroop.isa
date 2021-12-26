@@ -158,6 +158,8 @@ let {{
             self.control_indirect = True
         def system_call(self):
             self.system_call = True
+        def htm_stop(self):
+            self.htm_stop = True
 
         def __init__(self, name):
             super(X86Macroop, self).__init__(name)
@@ -170,6 +172,7 @@ let {{
                 "function_call" : self.function_call,
                 "function_return" : self.function_return,
                 "system_call" : self.system_call,
+                "htm_stop" : self.htm_stop,
                 "control_direct" : self.control_direct,
                 "control_indirect" : self.control_indirect
             }
@@ -193,6 +196,7 @@ let {{
             self.control_direct = False
             self.control_indirect = False
             self.system_call = False
+            self.htm_stop = False
 
         def getAllocator(self, env):
             return "new x86_macroop::%s(machInst, %s)" % \
@@ -225,7 +229,8 @@ let {{
                     flags.append("IsFirstMicroop")
                     if self.system_call:
                         flags.append("IsSyscall")
-
+                    if self.htm_stop:  # First uop must be mfence
+                        flags.append("IsHtmStopFence")
 
                     if self.serialize_before:
                         flags.append("IsSerializing")

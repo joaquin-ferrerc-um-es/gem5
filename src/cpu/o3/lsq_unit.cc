@@ -224,6 +224,7 @@ LSQUnit::LSQUnit(uint32_t lqEntries, uint32_t sqEntries)
       loads(0), stores(0), storesToWB(0),
       htmStarts(0), htmStops(0),
       lastRetiredHtmUid(0),
+      atHtmStopHtmUid(0),
       cacheBlockMask(0), stalled(false),
       isStoreBlocked(false), storeInFlight(false), stats(nullptr)
 {

@@ -635,6 +635,7 @@ class DynInst : public ExecContext, public RefCounted
     // hardware transactional memory
     bool isHtmStart() const { return staticInst->isHtmStart(); }
     bool isHtmStop() const { return staticInst->isHtmStop(); }
+    bool isHtmStopFence() const { return staticInst->isHtmStopFence(); }
     bool isHtmCancel() const { return staticInst->isHtmCancel(); }
     bool isHtmCmd() const { return staticInst->isHtmCmd(); }
 

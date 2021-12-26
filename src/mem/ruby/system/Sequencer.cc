@@ -809,6 +809,19 @@ Sequencer::makeRequest(PacketPtr pkt)
     // It is OK to receive RequestStatus_Aliased, it can be considered Issued
     if (status != RequestStatus_Ready && status != RequestStatus_Aliased)
         return status;
+    if (status == RequestStatus_Aliased) {
+        DPRINTFR(ProtocolTrace,
+                 "%15s %3s %10s%20s %6s>%-6s %#x %s %s %s %s %#x\n",
+                 curTick(), m_version, "Seq", "Aliased",
+                 pkt->isAtLSQHead() ? "Head" : "", "",
+                 printAddress(pkt->getAddr()),
+                 RubyRequestType_to_string(secondary_type),
+                 pkt->isHtmTransactional() ? "Trans" :
+                 (pkt->isHtmStoreToLog() ? "Log" : ""),
+                 pkt->req->isPriv() ? "Priv" : "",
+                 pkt->req->hasVaddr() ? "Vaddr" : "PhysAddr",
+                 pkt->req->hasVaddr() ? pkt->req->getVaddr() : Addr(0));
+    }
     // non-aliased with any existing request in the request table, just issue
     // to the cache
     if (status != RequestStatus_Aliased)

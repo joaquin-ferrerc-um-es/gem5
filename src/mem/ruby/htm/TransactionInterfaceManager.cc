@@ -216,7 +216,7 @@ TransactionInterfaceManager::beginTransaction(int thread, int xid,
         else { // LogTM
             m_xactEagerVersionManager->beginTransaction(thread);
         }
-
+        assert(!m_sequencer->isStalled());
         XACT_PROFILER->moveTo(getProcID(),
                               AnnotatedRegion_TRANSACTIONAL);
 
@@ -309,6 +309,7 @@ TransactionInterfaceManager::commitTransaction(int thread, int xid,
          * exclusive ownership before it completes, so commit can happen instantly.
          */
 
+        assert(!m_sequencer->isStalled());
         XACT_PROFILER->moveTo(getProcID(),
                               AnnotatedRegion_COMMITTING);
 
@@ -593,6 +594,7 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
         m_abortCause[thread] = HTMStats::AbortCause::Undefined;
         m_abortAddress[thread] = Addr(0);
     } else {
+        assert(!m_sequencer->isStalled());
         // CPU-triggered abort (fault, interrupt, lsq conflict)
         XACT_PROFILER->moveTo(getProcID(), AnnotatedRegion_ABORTING);
     }
@@ -795,7 +797,14 @@ profileHtmFailureFaultCause(int thread,
                 // It is possible to have conflict-induced aborts on
                 // addresses that are not yet part of the read set
                 // because the trans load has been repeatedly nacked
-                assert(getXactConflictManager()->nackReceived(thread));
+                bool hybrid_policy =
+                    ((config_conflictResPolicy() ==
+                      HtmPolicyStrings::requester_stalls_cda_hybrid) ||
+                     (config_conflictResPolicy() ==
+                      HtmPolicyStrings::requester_stalls_cda_hybrid_ntx));
+                assert(getXactConflictManager()->nackReceived(thread) ||
+                       (hybrid_policy  && !checkWriteSignature(addr)) ||
+                       m_abortSourceNonTransactional[thread]);
                 assert(checkWriteSignature(addr) ||
                        checkReadSignature(addr) ||
                        (addr == getXactConflictManager()->

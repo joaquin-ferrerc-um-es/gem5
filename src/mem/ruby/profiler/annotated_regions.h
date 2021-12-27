@@ -8,6 +8,7 @@ typedef enum AnnotatedRegion {
     AnnotatedRegion_FIRST = 0, // Default region
     AnnotatedRegion_DEFAULT = AnnotatedRegion_FIRST, // Default region
     AnnotatedRegion_BARRIER,
+    AnnotatedRegion_BACKOFF,
     AnnotatedRegion_TRANSACTIONAL, // For visualization only, stats split into aborted vs committed
     AnnotatedRegion_TRANSACTIONAL_COMMITTED,
     AnnotatedRegion_TRANSACTIONAL_ABORTED,
@@ -111,6 +112,7 @@ static inline const char* AnnotatedRegion_to_string(AnnotatedRegion_t region)
     switch(region) {
     case AnnotatedRegion_DEFAULT: return "DEFAULT";
     case AnnotatedRegion_BARRIER: return "BARRIER";
+    case AnnotatedRegion_BACKOFF: return "BACKOFF";
     case AnnotatedRegion_TRANSACTIONAL: return "TRANSACTIONAL";
     case AnnotatedRegion_TRANSACTIONAL_COMMITTED: return "TRANSACTIONAL_COMMITTED";
     case AnnotatedRegion_TRANSACTIONAL_ABORTED: return "TRANSACTIONAL_ABORTED";

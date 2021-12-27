@@ -28,6 +28,7 @@ XactStateStruct s_xactStateStructMap[AnnotatedRegion_NUM] = {
   // Make sure the order of this map matches annotated_regions.h
   {AnnotatedRegion_DEFAULT, '%'},
   {AnnotatedRegion_BARRIER, '+'},
+  {AnnotatedRegion_BACKOFF, 'b'},
   {AnnotatedRegion_TRANSACTIONAL, '$'},
   {AnnotatedRegion_TRANSACTIONAL_COMMITTED, 0},
   {AnnotatedRegion_TRANSACTIONAL_ABORTED, 0},

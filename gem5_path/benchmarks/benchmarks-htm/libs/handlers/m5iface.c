@@ -10,6 +10,8 @@ void simWorkBegin() {}
 void simWorkEnd() {}
 void simBarrierBegin() {}
 void simBarrierEnd() {}
+void simBackoffBegin() {}
+void simBackoffEnd() {}
 void simCodeRegionBegin(unsigned long int codeRegionId) {}
 void simCodeRegionEnd(unsigned long int codeRegionId) {}
 
@@ -172,6 +174,17 @@ void simBarrierEnd()
 {
     m5_sum(M5_SUM_HACK_ARGS,
            M5_SUM_HACK_TYPE_REGION_END, AnnotatedRegion_BARRIER);
+}
+
+void simBackoffBegin()
+{
+    m5_sum(M5_SUM_HACK_ARGS,
+           M5_SUM_HACK_TYPE_REGION_BEGIN, AnnotatedRegion_BACKOFF);
+}
+void simBackoffEnd()
+{
+    m5_sum(M5_SUM_HACK_ARGS,
+           M5_SUM_HACK_TYPE_REGION_END, AnnotatedRegion_BACKOFF);
 }
 
 #else // # defined(ANNOTATE_CODE_REGIONS)

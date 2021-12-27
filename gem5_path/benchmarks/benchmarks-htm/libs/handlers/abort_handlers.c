@@ -21,6 +21,7 @@
 #include "annotated_regions.h"
 #include "m5iface.h"
 #include "logtm.h"
+#include "mt19937ar_1.h"
 
 // global array of thread contexts
 _tm_thread_context_t     *thread_contexts       = NULL;
@@ -31,6 +32,10 @@ void initGlobals(int nthreads)
     spinlock_init();
 
     setEnvGlobals(nthreads);
+    if (useBackoff()) {
+        unsigned long seed = 1;
+        init_genrand_1(mt, &mti, seed);
+    }
 
     m5_init();
 
@@ -57,6 +62,21 @@ void handleHeapPrefault(int threadId) {
       memory_touch (threadId, PREFAULT_TOUCH_BYTES);
       //SimAnnotateRegionExit(threadId, AnnotatedRegion_HEAP_TOUCH_PREFAULT);
   }
+}
+
+void doBackoff(int nretries) {
+    unsigned long rand;
+    int i, nbackoff = nretries;
+    u_int64_t exp, backoff;
+    simBackoffBegin();
+    rand = genrand_int32_1(mt, &(mti));
+    if (nretries > env.config.htm_max_backoff) {
+        nbackoff = env.config.htm_max_backoff;
+    }
+    exp = 1 << nbackoff;
+    backoff = (rand % exp) * 117;
+    for (i = 0; i < backoff; i++);
+    simBackoffEnd();
 }
 
 #if defined(HANDLER_FALLBACKLOCK)
@@ -86,7 +106,9 @@ void beginTransaction_fallbackLock(long tag,
             logtm_log_unroll(log_base, log_size);
             simEndLogUnroll(ctx->info.logtm_transactionLog);
         }
-
+        if (useBackoff()) {
+            doBackoff(nretries);
+        }
         if (htm_abort_cause_conflict(ret) &&
             spinlock_isLocked()) {
             /* Heuristic: If conflict-induced abort and lock held,

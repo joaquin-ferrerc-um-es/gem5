@@ -69,7 +69,7 @@ CFLAGS += -DANNOTATE_FALLBACKLOCK_ADDR
 # Annotate code regions for more precise HTM visualizer
 CFLAGS += -DANNOTATE_CODE_REGIONS
 
-C_FILES := abort_handlers.c htm.c thread_context.c util.c env_globals.c m5iface.c spinlock.c logtm.c
+C_FILES := abort_handlers.c htm.c thread_context.c util.c env_globals.c m5iface.c spinlock.c logtm.c mt19937ar_1.c
 
 M5_INCLUDE := -I$(GEM5_ROOT) -I$(GEM5_ROOT)/include
 CFLAGS += $(M5_INCLUDE)

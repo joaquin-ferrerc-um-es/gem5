@@ -6,6 +6,8 @@ void simWorkBegin();
 void simWorkEnd();
 void simBarrierBegin();
 void simBarrierEnd();
+void simBackoffBegin();
+void simBackoffEnd();
 void simCodeRegionBegin(unsigned long int codeRegionId);
 void simCodeRegionEnd(unsigned long int codeRegionId);
 

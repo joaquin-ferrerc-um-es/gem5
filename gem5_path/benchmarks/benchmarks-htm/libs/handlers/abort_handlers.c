@@ -106,9 +106,6 @@ void beginTransaction_fallbackLock(long tag,
             logtm_log_unroll(log_base, log_size);
             simEndLogUnroll(ctx->info.logtm_transactionLog);
         }
-        if (useBackoff()) {
-            doBackoff(nretries);
-        }
         if (htm_abort_cause_conflict(ret) &&
             spinlock_isLocked()) {
             /* Heuristic: If conflict-induced abort and lock held,
@@ -170,6 +167,9 @@ void beginTransaction_fallbackLock(long tag,
            may trigger the lemming effect */
         while (spinlock_prefb_isLocked())_mm_pause();
 #endif
+        if (useBackoff()) {
+            doBackoff(nretries);
+        }
     } while (retryWithLock == 0);
 
 #if defined(HANDLER_FALLBACKLOCK_2PHASE)

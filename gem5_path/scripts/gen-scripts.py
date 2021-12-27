@@ -280,6 +280,15 @@ for random_seed in seed_list:
       # to abort handler via environment
       launchscript_file.write("export HTM_MAX_RETRIES=%d\n" % htm_config[htm.htm_max_retries])
       launchscript_file.write("export HTM_HEAP_PREFAULT=%d\n" % htm_config[htm.htm_heap_prefault])
+      launchscript_file.write("export HTM_MAX_BACKOFF=%d\n" % htm_config[htm.htm_max_backoff])
+
+    launchscript_file.write("cat /sys/kernel/mm/transparent_hugepage/enabled \n")
+    if config.disable_transparent_hugepage:
+      # The default option in Ubuntu 18 and Fedora is madvise, but
+      # in the 4.8 kernel we are using these days is set to always:
+      #always [madvise] never
+      launchscript_file.write("echo never > /sys/kernel/mm/transparent_hugepage/enabled \n")
+      launchscript_file.write("\n")
 
     benchmark_suite_root_dir = os.path.join(config.benchmarks_disk_image_mountpoint,
                                             benchmarks.benchmark_suites[benchmark_suite])
@@ -439,7 +448,9 @@ for random_seed in seed_list:
     # Sanity checks
     if (script_path in scripts):
         print("Duplicated script path " + script_path)
-        print("Conflicting configuration: "+ scripts[script_path])
+        print("Conflicting configuration: {} {} {} {} {}"
+              .format(processors, cpu_model,
+                      protocol, htm_config, cache_config))
         sys.exit(-1)
     else:
       scripts[script_path] =  (processors, benchmark_config, cpu_model,

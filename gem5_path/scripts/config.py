@@ -16,22 +16,31 @@ system_list = []
 
 # Baseline
 system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_base, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_precise, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_reqstalls, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_rset_l0_evict, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_replace_nontx, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg2_precise, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg2_reqstalls, caches.cache_baseline])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l0rsetevict, caches.cache_baseline])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict, caches.cache_baseline])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf, caches.cache_baseline])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf_dwng, caches.cache_baseline])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf_dwng_lazycd_magic, caches.cache_baseline])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf_dwng_lazycd_magic_cw, caches.cache_baseline])
+'''
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l0rsetevict_precise_pf_reqstalls, caches.cache_baseline])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l0rsetevict_precise_pf_reqstalls_reload, caches.cache_baseline])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l0rsetevict_precise_pf_reqstalls_reload_downgrade, caches.cache_baseline])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l0rsetevict_precise_pf_reqstalls_reload_downgrade_2phase, caches.cache_baseline])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l0rsetevict_precise_pf_reqstalls_reload_downgrade_retry64, caches.cache_baseline])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_precise_pf_reqstalls_reload_downgrade, caches.cache_baseline])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_precise_pf_reqstalls_reload_downgrade_eagervm, caches.cache_baseline])
+'''
 
 processor_list = []
 
 #processor_list.append(64)
 #processor_list.append(32)
-processor_list.append(16)
+#processor_list.append(16)
 processor_list.append(8)
-processor_list.append(4)
-processor_list.append(2)
-processor_list.append(1)
+#processor_list.append(4)
+#processor_list.append(2)
+#processor_list.append(1)
 
 
 detailed_simulation_cpu_model_list = []
@@ -47,6 +56,7 @@ detailed_simulation_cpu_model_list.append('DerivO3CPU')
 benchmark_groups = []
 #benchmark_groups.append('test-progs-caps-small')
 benchmark_groups.append('stamp-small')
+#benchmark_groups.append('stamp-medium')
 
 benchmark_list = benchmarks.getBenchmarks(benchmark_groups)
 
@@ -115,7 +125,7 @@ launchscript_filename = 'launch_script.rcS'
 # cases (including the HTM protocol from gem5), this is the suffix that
 # gets appended to the binary.
 binary_suffix = '.htm.fallbacklock'  # Use same binaries as HTM_umu configs
-# simulate.sh template
+disable_transparent_hugepage = 0
 template_script_path = os.path.join(gem5path, "scripts/simulate.sh.common")
 # Directory where gem5 binaries are copied to for batch jobs
 tmp_gem5_binaries_path = os.path.join(gem5path, "tmp-bin")
@@ -133,14 +143,14 @@ copy_gem5_binary_tmp_dir = 0 # Copy gem5 binary to tmp dir for simulation
 run_pdb = 0
 debug_flags = "" # "Exec,O3CPUAll,O3HTM,RubyHTM,ProtocolTrace"
 debug_time=0
-seq_no=8
+seq_no=3
 num_random_seeds=4 # 10 # Number of random seeds to simulate (when '-s' option passed to gen-scripts.py)
 
 preload="" #"/benchmarks/benchmarks-htm/Splash-3/libhooks_chkpoint.so"
 
 simulation_tag="" # In order to tag simulations when applying patches
 
-results_subdir="tests" #load-delay" #splash" #tests" # The subdirectory inside "gem5/results"
+results_subdir="tests/" #load-delay" #splash" #tests" # The subdirectory inside "gem5/results"
                              # for simulation scripts and results
 slurm_exclude_nodelist="erc07" # In case a node is faulty (erc07)
 

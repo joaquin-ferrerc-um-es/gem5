@@ -26,7 +26,7 @@ def getBenchmarks(benchmark_groups):
         benchmark_list.append(("stamp", "ssca2",     "small", "-t", "-s13 -i1.0 -u1.0 -l3 -p3",       "ssca2",    "ssca2"))
         benchmark_list.append(("stamp", "vacation-l","small", "-c", "-n2 -q90 -u98 -r16384 -t4096",   "vacation", "vacation"))
         benchmark_list.append(("stamp", "vacation-h","small", "-c", "-n4 -q60 -u90 -r16384 -t4096",   "vacation", "vacation"))
-        #benchmark_list.append(("stamp", "yada",      "small", "-t", "-a20 -i inputs/633.2",           "yada",     "yada"))
+        benchmark_list.append(("stamp", "yada",      "small", "-t", "-a20 -i inputs/633.2",           "yada",     "yada"))
         #benchmark_list.append(("stamp", "bayes",     "small", "-t", "-v32 -r1024 -n2 -p20 -i2 -e2", "bayes",   "bayes"))
         #benchmark_list.append(("stamp", "labyrinth", "small", "-t", "-i inputs/random-x32-y32-z3-n96.txt", "labyrinth", "labyrinth"))
         #'''

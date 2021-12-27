@@ -30,6 +30,7 @@ htm_isolation_checker          = HtmOption("htm_isolation_checker",             
 htm_visualizer                 = HtmOption("htm_visualizer",                    "Visual",   "visualizer",                        True,  False, False )
 # HTM library options
 htm_max_retries                = HtmOption("htm_max_retries",                   "Rtry",      None,                               False, True, True  )
+htm_max_backoff                = HtmOption("htm_max_backoff",                   "Bkoff",     None,                               False, True, True  )
 htm_heap_prefault              = HtmOption("htm_heap_prefault",                 "Pflt",      None,                               True,  True, True  )
 
 htm_config_options = []
@@ -54,6 +55,7 @@ htm_config_options.append(htm_value_checker)
 htm_config_options.append(htm_isolation_checker)
 htm_config_options.append(htm_visualizer)
 htm_config_options.append(htm_max_retries)
+htm_config_options.append(htm_max_backoff)
 htm_config_options.append(htm_heap_prefault)
 
 # To be used by non-UMU (non-HTM or gem5 HTM) system configurations
@@ -83,17 +85,57 @@ cfg1_base[htm_value_checker]=False
 cfg1_base[htm_isolation_checker]=False
 cfg1_base[htm_visualizer]=True
 cfg1_base[htm_max_retries]=6
+cfg1_base[htm_max_backoff]=6
 cfg1_base[htm_heap_prefault]=False
 
 # Vary one parameter at a time w.r.t. baseline, to determine its impact
-cfg1_precise = collections.OrderedDict(cfg1_base)
-cfg1_precise[htm_precise_read_set_tracking]=True
-
-cfg1_reqstalls = collections.OrderedDict(cfg1_base)
-cfg1_reqstalls[htm_conflict_resolution]='requester_stalls_cda_hybrid'
 
 cfg1_l0rsetevict = collections.OrderedDict(cfg1_base)
 cfg1_l0rsetevict[htm_allow_read_set_l0_evictions]=True
+
+cfg1_l1rsetevict = collections.OrderedDict(cfg1_l0rsetevict)
+cfg1_l1rsetevict[htm_allow_read_set_l1_evictions]=True
+
+cfg1_l1rsetevict_pf = collections.OrderedDict(cfg1_l1rsetevict)
+cfg1_l1rsetevict_pf[htm_heap_prefault]=True
+
+cfg1_l1rsetevict_pf_dwng = collections.OrderedDict(cfg1_l1rsetevict_pf)
+cfg1_l1rsetevict_pf_dwng[htm_l0_downgrade_on_l1_gets]=True
+
+cfg1_l1rsetevict_pf_dwng_precise = collections.OrderedDict(cfg1_l1rsetevict_pf)
+cfg1_l1rsetevict_pf_dwng_precise[htm_precise_read_set_tracking]=True
+
+cfg1_l1rsetevict_pf_dwng_precise_reload = collections.OrderedDict(cfg1_l1rsetevict_pf)
+cfg1_l1rsetevict_pf_dwng_precise_reload[htm_reload_if_stale]=True
+
+cfg1_l1rsetevict_pf_dwng_lazycd_magic = collections.OrderedDict(cfg1_l1rsetevict_pf)
+cfg1_l1rsetevict_pf_dwng_lazycd_magic[htm_eager_cd]=False
+cfg1_l1rsetevict_pf_dwng_lazycd_magic[htm_lazy_arbitration]='magic'
+cfg1_l1rsetevict_pf_dwng_lazycd_magic[htm_lazy_validated_conf_res]='requester_wins'
+
+cfg1_l1rsetevict_pf_dwng_lazycd_magic_cw = collections.OrderedDict(cfg1_l1rsetevict_pf_dwng_lazycd_magic)
+cfg1_l1rsetevict_pf_dwng_lazycd_magic_cw[htm_lazy_validated_conf_res]='committer_wins'
+
+### Reqstalls
+'''
+cfg1_l1rsetevict_pf_precise_reqstalls = collections.OrderedDict(cfg1_l1rsetevict_pf_precise)
+cfg1_l1rsetevict_pf_precise_reqstalls[htm_conflict_resolution]='requester_stalls_cda_base_ntx'
+
+cfg1_l1rsetevict_pf_precise_reqstalls_hybrid = collections.OrderedDict(cfg1_l1rsetevict_pf_precise_reqstalls)
+cfg1_l1rsetevict_pf_precise_reqstalls_hybrid[htm_conflict_resolution]='requester_stalls_cda_hybrid_ntx'
+
+cfg1_l1rsetevict_pf_precise_reqstalls_reload = collections.OrderedDict(cfg1_l1rsetevict_pf_precise_reqstalls)
+cfg1_l1rsetevict_pf_precise_reqstalls_reload[htm_reload_if_stale]=True
+
+cfg1_l1rsetevict_pf_precise_reqstalls_reload_downgrade = collections.OrderedDict(cfg1_l1rsetevict_pf_precise_reqstalls_reload)
+cfg1_l1rsetevict_pf_precise_reqstalls_reload_downgrade[htm_l0_downgrade_on_l1_gets]=True
+
+cfg1_l1rsetevict_pf_precise_reqstalls_reload_downgrade_2phase = collections.OrderedDict(cfg1_l1rsetevict_pf_precise_reqstalls_reload_downgrade)
+cfg1_l1rsetevict_pf_precise_reqstalls_reload_downgrade_2phase[htm_binary_suffix]='.htm.fallbacklock2phase'
+
+cfg1_l1rsetevict_pf_precise_reqstalls_reload_downgrade_retry64 = collections.OrderedDict(cfg1_l1rsetevict_pf_precise_reqstalls_reload_downgrade)
+cfg1_l1rsetevict_pf_precise_reqstalls_reload_downgrade_retry64[htm_max_retries]=64
+
 
 # Now choose a different baseline in which we change based on the
 # results from the first round of parameter exploration
@@ -131,19 +173,10 @@ cfg2_eagervm_l1rsetevict_pf_cdah[htm_value_checker]=True
 cfg2_eagervm_l1rsetevict_cdah = collections.OrderedDict(cfg2_eagervm_l1rsetevict_pf_cdah)
 cfg2_eagervm_l1rsetevict_cdah[htm_heap_prefault]=False
 
-cfg2_lazycd_l0rsetevict = collections.OrderedDict(cfg2_base)
-cfg2_lazycd_l0rsetevict[htm_eager_cd]=False
-cfg2_lazycd_l0rsetevict[htm_allow_read_set_l0_evictions]=True
-cfg2_lazycd_l0rsetevict[htm_conflict_resolution]='requester_wins'
+cfg1_l1rsetevict_pf_precise_reqstalls_reload_downgrade_eagervm = collections.OrderedDict(cfg1_l1rsetevict_pf_precise_reqstalls_reload_downgrade)
+cfg1_l1rsetevict_pf_precise_reqstalls_reload_downgrade_eagervm[htm_eager_cd]=True
+'''
 
-cfg2_lazycd_l0rsetevict_pf = collections.OrderedDict(cfg2_lazycd_l0rsetevict)
-cfg2_lazycd_l0rsetevict_pf[htm_heap_prefault]=True
-
-cfg2_lazycd_l1rsetevict_pf = collections.OrderedDict(cfg2_lazycd_l0rsetevict_pf)
-cfg2_lazycd_l1rsetevict_pf[htm_allow_read_set_l1_evictions]=True
-
-cfg2_eagercd_l1rsetevict_pf = collections.OrderedDict(cfg2_lazycd_l1rsetevict_pf)
-cfg2_eagercd_l1rsetevict_pf[htm_eager_cd]=True
 
 # No need to try every combination, but rather "guide" the search...
 

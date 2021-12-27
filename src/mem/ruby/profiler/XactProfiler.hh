@@ -58,6 +58,7 @@ private:
        count per cpu */
     std::vector<AnnotatedRegion>    m_annotatedRegion;
     std::vector<int>                m_annotatedTid;
+    std::vector<uint64_t>           m_xactLastRegionProfile;
     std::vector<uint64_t>           m_xactLastRegionChange;
     std::vector< bool  >            m_inTransaction;
     std::vector< bool  >            m_inHardwareTransaction;

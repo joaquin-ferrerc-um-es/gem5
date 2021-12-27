@@ -40,6 +40,7 @@ XactProfiler::XactProfiler(RubySystem *rs)
     m_state_cycle_count.resize(num_sequencers);
     m_annotatedRegion.resize(num_sequencers);
     m_xactLastRegionChange.resize(num_sequencers);
+    m_xactLastRegionProfile.resize(num_sequencers);
     m_inTransaction.resize(num_sequencers);
     m_inHardwareTransaction.resize(num_sequencers);
     m_currentXactCyclesPerRegion.resize(num_sequencers);
@@ -48,6 +49,7 @@ XactProfiler::XactProfiler(RubySystem *rs)
         m_state_cycle_count[i].resize(AnnotatedRegion_NUM);
         m_annotatedRegion[i]            = AnnotatedRegion_INVALID;
         m_xactLastRegionChange[i]  =  g_system_ptr->curCycle();
+        m_xactLastRegionProfile[i]  =  g_system_ptr->curCycle();
         m_inTransaction[i] = false;
         m_inHardwareTransaction[i] = false;
         m_currentXactCyclesPerRegion[i].resize(AnnotatedRegion_NUM);
@@ -76,8 +78,10 @@ XactProfiler::~XactProfiler() {
 void
 XactProfiler::resetStats()
 {
+    assert(g_system_ptr->curCycle() == g_system_ptr->getStartCycle());
     for (int i = 0; i < m_ruby_system->params().num_of_sequencers; i++){
         m_xactLastRegionChange[i]  =  g_system_ptr->curCycle();
+        m_xactLastRegionProfile[i]  =  g_system_ptr->curCycle();
         m_annotatedRegion[i]            = AnnotatedRegion_DEFAULT;
         m_inTransaction[i] = false;
         m_inHardwareTransaction[i] = false;
@@ -138,6 +142,10 @@ void XactProfiler::beginRegion(int proc_no, AnnotatedRegion region)
     case AnnotatedRegion_BARRIER:
         assert(m_annotatedRegion[proc_no] == AnnotatedRegion_DEFAULT);
         break;
+    case AnnotatedRegion_BACKOFF:
+        assert(AnnotatedRegion_isAbortHandlerRegion(
+                  m_annotatedRegion[proc_no]));
+        break;
     default:
         panic("Unexpected region");
     }
@@ -153,6 +161,15 @@ void XactProfiler::endRegion(int proc_no, AnnotatedRegion region)
                 proc_no);
         break;
     case AnnotatedRegion_BARRIER:
+        if (m_xactLastRegionChange[proc_no] ==
+            g_system_ptr->getStartCycle()) {
+        // Allow mismatch at initialization (after thread created)
+            assert(m_annotatedRegion[proc_no] == AnnotatedRegion_DEFAULT);
+        } else {
+            assert(region == m_annotatedRegion[proc_no]);
+        }
+        break;
+    case AnnotatedRegion_BACKOFF:
         assert(region == m_annotatedRegion[proc_no]);
         break;
     default:
@@ -249,9 +266,9 @@ XactProfiler::profileCurrentTransactionalRegion(int proc_no)
 void
 XactProfiler::profileRegionChange(int proc_no,
                                   AnnotatedRegion nextRegion){
-  assert(g_system_ptr->curCycle() >=  m_xactLastRegionChange[proc_no]);
+  assert(g_system_ptr->curCycle() >=  m_xactLastRegionProfile[proc_no]);
   uint64_t last_state_time = g_system_ptr->curCycle() -
-    m_xactLastRegionChange[proc_no];
+    m_xactLastRegionProfile[proc_no];
   AnnotatedRegion region = m_annotatedRegion[proc_no];
 
 
@@ -309,8 +326,11 @@ XactProfiler::profileRegionChange(int proc_no,
   }
 
   // Update current region and cycle of last region change
+  if (m_annotatedRegion[proc_no] != nextRegion) {
+      m_xactLastRegionChange[proc_no] = g_system_ptr->curCycle();
+  }
   m_annotatedRegion[proc_no] = nextRegion;
-  m_xactLastRegionChange[proc_no] = g_system_ptr->curCycle();
+  m_xactLastRegionProfile[proc_no] = g_system_ptr->curCycle();
 }
 
 } // namespace ruby

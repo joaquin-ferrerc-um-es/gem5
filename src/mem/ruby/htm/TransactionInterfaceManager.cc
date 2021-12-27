@@ -468,7 +468,9 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
                                    HTMStats::AbortCause::Conflict) ||
                                    (m_abortCause[thread] ==
                                     HTMStats::AbortCause::ConflictStale)) {
-                            assert(m_abortSourceNonTransactional[thread]);
+                            assert(m_htm->params().lazy_validated_conf_res ==
+                                   HtmPolicyStrings::requester_wins);
+                            //assert(m_abortSourceNonTransactional[thread]);
                         } else if (m_abortCause[thread] ==
                                    HTMStats::AbortCause::L2Capacity) {
                         } else if (m_abortCause[thread] ==

@@ -25,6 +25,9 @@ typedef enum AnnotatedRegion {
     AnnotatedRegion_STALLED_COMMITTED,
     AnnotatedRegion_STALLED_ABORTED,
     AnnotatedRegion_STALLED_NONTRANS,
+    AnnotatedRegion_ARBITRATION, // For visualization only
+    AnnotatedRegion_ARBITRATION_COMMITTED,
+    AnnotatedRegion_ARBITRATION_ABORTED,
     AnnotatedRegion_INVALID,
     AnnotatedRegion_NUM
 } AnnotatedRegion_t;
@@ -42,6 +45,7 @@ AnnotatedRegion_hasDualOutcome(AnnotatedRegion_t region) {
     switch (region) {
     case AnnotatedRegion_TRANSACTIONAL:
     case AnnotatedRegion_STALLED:
+    case AnnotatedRegion_ARBITRATION:
         return true;
     default: 
         return false;
@@ -62,6 +66,10 @@ AnnotatedRegion_getOutcome(AnnotatedRegion_t region,
         assert(AnnotatedRegion_hasDualOutcome(region));
         return commit ? AnnotatedRegion_STALLED_COMMITTED :
             AnnotatedRegion_STALLED_ABORTED;
+    case AnnotatedRegion_ARBITRATION:
+        assert(AnnotatedRegion_hasDualOutcome(region));
+        return commit ? AnnotatedRegion_ARBITRATION_COMMITTED :
+            AnnotatedRegion_ARBITRATION_ABORTED;
     case AnnotatedRegion_COMMITTING:
     case AnnotatedRegion_ABORTING:
         assert(!AnnotatedRegion_hasDualOutcome(region));
@@ -132,6 +140,9 @@ static inline const char* AnnotatedRegion_to_string(AnnotatedRegion_t region)
     case AnnotatedRegion_STALLED_COMMITTED: return "STALLED_COMMITTED";
     case AnnotatedRegion_STALLED_ABORTED: return "STALLED_ABORTED";
     case AnnotatedRegion_STALLED_NONTRANS: return "STALLED_NONTRANS";
+    case AnnotatedRegion_ARBITRATION: return "ARBITRATION";
+    case AnnotatedRegion_ARBITRATION_COMMITTED: return "ARBITRATION_COMMITTED";
+    case AnnotatedRegion_ARBITRATION_ABORTED: return "ARBITRATION_ABORTED";
     default: assert(0);
     }
     return NULL;

@@ -271,11 +271,17 @@ TransactionInterfaceManager::initiateCommitTransaction(int thread, int xid,
     if (!m_xactLazyVersionManager->committed()) {
         if (m_xactLazyCommitArbiter->shouldValidateTransaction() &&
             !m_xactLazyCommitArbiter->validated()) {
+            XACT_PROFILER->moveTo(getProcID(),
+                                  AnnotatedRegion_ARBITRATION);
             // If validation required, initiate actions to determine
             // if this transaction can commit
             m_xactLazyCommitArbiter->
                 initiateValidateTransaction();
         } else {
+            if (!getXactLazyVersionManager()->committing()) {
+                XACT_PROFILER->moveTo(getProcID(),
+                                      AnnotatedRegion_COMMITTING);
+            }
             // Arbitration passed, or not required (best-effort):
             // initiate commit actions
             m_xactLazyVersionManager->commitTransaction(thread);
@@ -310,8 +316,12 @@ TransactionInterfaceManager::commitTransaction(int thread, int xid,
          */
 
         assert(!m_sequencer->isStalled());
-        XACT_PROFILER->moveTo(getProcID(),
-                              AnnotatedRegion_COMMITTING);
+        if (!m_atCommit[thread]) {
+            // Move to committing unless we have already done so
+            assert(XACT_LAZY_VM);
+            XACT_PROFILER->moveTo(getProcID(),
+                                  AnnotatedRegion_COMMITTING);
+        }
 
         if (config_enableValueChecker()) {
             m_ruby_system->getXactValueChecker()->

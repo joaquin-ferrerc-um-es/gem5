@@ -44,6 +44,7 @@
 #include <cassert>
 #include <map>
 #include <string>
+#include <vector>
 
 #include "params/HTM.hh"
 #include "sim/clocked_object.hh"
@@ -185,6 +186,7 @@ public:
   static const std::string committer_wins;
   static const std::string requester_stalls;
   static const std::string magic;
+  static const std::string token;
   static const std::string requester_stalls_cda_base;
   static const std::string requester_stalls_cda_base_ntx;
   static const std::string requester_stalls_cda_hybrid;
@@ -220,6 +222,15 @@ class HTM : public ClockedObject
     virtual int getLogNumEntries(int cpuId) {
         panic("Not implemented");
     };
+    void requestCommitToken(int cpuId);
+    void releaseCommitToken(int cpuId);
+    void removeCommitTokenRequest(int cpuId);
+    bool existCommitTokenRequest(int cpuId);
+    int getTokenOwner();
+    int getNumTokenRequests();
+
+private:
+    std::vector<int>  m_commitTokenRequestList;
 };
 
 } // namespace gem5

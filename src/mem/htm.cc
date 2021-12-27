@@ -50,6 +50,7 @@ const std::string HtmPolicyStrings::requester_wins = "requester_wins";
 const std::string HtmPolicyStrings::committer_wins = "committer_wins";
 const std::string HtmPolicyStrings::requester_stalls = "requester_stalls";
 const std::string HtmPolicyStrings::magic = "magic";
+const std::string HtmPolicyStrings::token = "token";
 const std::string HtmPolicyStrings::requester_stalls_cda_base =
                                    "requester_stalls_cda_base";
 const std::string HtmPolicyStrings::requester_stalls_cda_base_ntx =
@@ -161,6 +162,67 @@ HTM::HTM(const Params &p)
     } else {
         warn("Fallback lock address not specified!\n");
     }
+}
+
+void
+HTM::requestCommitToken(int proc_no)
+{
+    for (int i = 0 ; i < m_commitTokenRequestList.size(); i++)
+        assert(m_commitTokenRequestList[i] != proc_no);
+
+    m_commitTokenRequestList.push_back(proc_no);
+}
+
+void HTM::releaseCommitToken(int proc_no)
+{
+    assert(m_commitTokenRequestList.size() > 0);
+    assert(proc_no == m_commitTokenRequestList[0]);
+    m_commitTokenRequestList.erase(m_commitTokenRequestList.begin());
+}
+
+void HTM::removeCommitTokenRequest(int proc_no)
+{
+  bool found = false;
+
+  if (getTokenOwner() == proc_no){
+    releaseCommitToken(proc_no);
+    return;
+  }
+
+  for (std::vector<int>::iterator it = m_commitTokenRequestList.begin() ;
+       it != m_commitTokenRequestList.end() && !found; ++it) {
+    if (*it == proc_no){
+      m_commitTokenRequestList.erase(it);
+      found = true;
+    }
+  }
+  assert(found);
+}
+
+bool HTM::existCommitTokenRequest(int proc_no)
+{
+  bool found = false;
+  int  curr_size = m_commitTokenRequestList.size();
+  for (int i = 0; (i < curr_size) && !found; i++){
+    if (m_commitTokenRequestList[i] == proc_no){
+      found = true;
+    }
+  }
+  return found;
+}
+
+int HTM::getTokenOwner()
+{
+  int owner = -1;
+  if (m_commitTokenRequestList.size() > 0)
+   owner = m_commitTokenRequestList[0];
+
+  return owner;
+}
+
+int HTM::getNumTokenRequests()
+{
+ return m_commitTokenRequestList.size();
 }
 
 } // namespace gem5

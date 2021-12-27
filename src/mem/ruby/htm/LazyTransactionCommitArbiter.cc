@@ -43,6 +43,18 @@ CLASS_NS beginTransaction()
 
 void
 CLASS_NS restartTransaction(){
+    if (m_policy == HtmPolicyStrings::token) {
+        if (m_validating) {
+            m_xact_mgr->getHTM()->removeCommitTokenRequest(m_version);
+            DPRINTF(RubyHTM, "PROC %d removed commit token request\n",
+                    m_version);
+        } else if (m_validated) {
+            m_xact_mgr->getHTM()->releaseCommitToken(m_version);
+            DPRINTF(RubyHTM, "PROC %d released commit token, "
+                    "validated transaction was aborted\n",
+                    m_version);
+        }
+    }
     m_validated = false;
     m_validating = false;
 }
@@ -51,6 +63,11 @@ void
 CLASS_NS commitTransaction(){
     assert(m_validated);
     assert(!m_validating);
+    if (m_policy == HtmPolicyStrings::token) {
+        m_xact_mgr->getHTM()->releaseCommitToken(m_version);
+        DPRINTF(RubyHTM, "PROC %d released commit token\n",
+                m_version);
+    }
     m_validated = false;
     m_validating = false;
 }
@@ -61,6 +78,8 @@ CLASS_NS shouldValidateTransaction()
 {
     if (m_policy == HtmPolicyStrings::magic) {
         return true;
+    } else if (m_policy == HtmPolicyStrings::token) {
+        return true;
     } else {
         panic("Invalid lazy commit validation policy\n");
     }
@@ -70,8 +89,9 @@ void
 CLASS_NS initiateValidateTransaction()
 {
     assert(!m_validated);
-    m_validating = true;
+    bool failed = true;
     if (m_policy == HtmPolicyStrings::magic) {
+        m_validating = true;
         // Magic conflict detection at commit time
         std::vector<TransactionInterfaceManager*> mgrs =
             m_xact_mgr->getRemoteTransactionManagers();
@@ -90,14 +110,32 @@ CLASS_NS initiateValidateTransaction()
                     // a result of committer invalidations
                     DPRINTF(RubyHTM, "PROC %d validation failed due to "
                             "conflict with proc %d\n", m_version, i);
-                    return;
+                    failed = true;
                 }
             }
         }
-        m_validating = false;
-        m_validated = true;
+    } else if (m_policy == HtmPolicyStrings::token) {
+        if (!m_validating) {
+            m_validating = true;
+            m_xact_mgr->getHTM()->requestCommitToken(m_version);
+            DPRINTF(RubyHTM, "PROC %d requested commit token\n",
+                    m_version);
+        }
+        int owner = m_xact_mgr->getHTM()->getTokenOwner();
+        if (owner == m_version) {
+            failed = false;
+        }
+        DPRINTF(RubyHTM, "PROC %d %s commit token - "
+                "owner is %d\n",
+                m_version,
+                failed ? "denied" : "granted",
+                owner);
     } else {
         panic("initiateValidateTransaction not tested!\n");
+    }
+    if (!failed) {
+        m_validating = false;
+        m_validated = true;
     }
 }
 

@@ -45,6 +45,9 @@ XactStateStruct s_xactStateStructMap[AnnotatedRegion_NUM] = {
   {AnnotatedRegion_STALLED_COMMITTED, 0},
   {AnnotatedRegion_STALLED_ABORTED, 0},
   {AnnotatedRegion_STALLED_NONTRANS, '-'},
+  {AnnotatedRegion_ARBITRATION, 'a'},
+  {AnnotatedRegion_ARBITRATION_COMMITTED, 0},
+  {AnnotatedRegion_ARBITRATION_ABORTED, 0},
   {AnnotatedRegion_INVALID, '!'},
 };
 

@@ -449,12 +449,18 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
         else {
             if (m_atCommit[thread]) {
                 if (getXactLazyVersionManager()->committing()) {
+                    if (!m_abortFlag[thread]) { // If CPU-triggered abort
+                        // cancel pending writes, if any left
+                        getXactLazyVersionManager()->
+                            cancelWriteBufferFlush(thread);
+                    }
                     if (m_xactLazyVersionManager->committed()) {
                         DPRINTF(RubyHTM, "Aborted after write buffer"
                                 " completely flushed \n");
                         // Only possible if conflict resolution is
-                        // requester wins
-                        assert(m_htm->params().conflict_resolution ==
+                        // requester wins or interrupt
+                        assert(cause == HtmFailureFaultCause::INTERRUPT ||
+                               m_htm->params().conflict_resolution ==
                                HtmPolicyStrings::requester_wins);
                     }
                     // Discard cache lines already written during
@@ -490,6 +496,9 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
                             assert(m_capacityAbortWriteSet[thread] ||
                                    !m_htm->params().
                                    allow_read_set_l0_cache_evictions);
+                        } else if (m_abortCause[thread] ==
+                                   HTMStats::AbortCause::Undefined) {
+                            // CPU-triggered abort
                         } else {
                             panic("Unexpected abort cause for"
                                   " validated transaction\n");

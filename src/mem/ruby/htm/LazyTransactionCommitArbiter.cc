@@ -89,13 +89,13 @@ void
 CLASS_NS initiateValidateTransaction()
 {
     assert(!m_validated);
-    bool failed = true;
+    bool failed = true; // Set to false if validated
     if (m_policy == HtmPolicyStrings::magic) {
         m_validating = true;
         // Magic conflict detection at commit time
         std::vector<TransactionInterfaceManager*> mgrs =
             m_xact_mgr->getRemoteTransactionManagers();
-
+        bool existsRemoteConflictingCommitter = false;
         TransactionInterfaceManager* new_committer = m_xact_mgr;
         for (int i=0; i < mgrs.size(); i++) {
             TransactionInterfaceManager* ongoing_committer=mgrs[i];
@@ -110,9 +110,12 @@ CLASS_NS initiateValidateTransaction()
                     // a result of committer invalidations
                     DPRINTF(RubyHTM, "PROC %d validation failed due to "
                             "conflict with proc %d\n", m_version, i);
-                    failed = true;
+                    existsRemoteConflictingCommitter = true;
                 }
             }
+        }
+        if (!existsRemoteConflictingCommitter) {
+            failed = false;
         }
     } else if (m_policy == HtmPolicyStrings::token) {
         if (!m_validating) {

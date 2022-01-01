@@ -318,7 +318,6 @@ TransactionInterfaceManager::commitTransaction(int thread, int xid,
         assert(!m_sequencer->isStalled());
         if (!m_atCommit[thread]) {
             // Move to committing unless we have already done so
-            assert(XACT_LAZY_VM);
             XACT_PROFILER->moveTo(getProcID(),
                                   AnnotatedRegion_COMMITTING);
         }

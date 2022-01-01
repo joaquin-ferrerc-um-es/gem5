@@ -133,6 +133,7 @@ Commit::Commit(CPU *_cpu, const O3CPUParams &params)
         renameMap[tid] = nullptr;
         htmStarts[tid] = 0;
         htmStops[tid] = 0;
+        atHtmStop[tid] = false;
     }
     interrupt = NoFault;
 }
@@ -449,6 +450,7 @@ Commit::resetHtmStartsStops(ThreadID tid)
     {
         htmStarts[tid] = 0;
         htmStops[tid] = 0;
+        atHtmStop[tid] = false;
     }
 }
 
@@ -993,6 +995,11 @@ Commit::commitInsts()
                     toIEW->commitInfo[0].clearInterrupt = true;
                     interrupt = NoFault;
                     avoidQuiesceLiveLock = true;
+                } else if (cpu->system->getHTM() != nullptr &&
+                           !cpu->system->getHTM()->params().eager_cd &&
+                           atHtmStop[commit_thread]) {
+                    DPRINTF(Commit,
+                            "Lazy commit outstanding, interrupt must wait.\n");
                 } else if (rob->isEmpty(commit_thread)){
                     DPRINTF(HtmCpu,
                             "Interrupt detected within transaction"
@@ -1106,6 +1113,7 @@ Commit::commitInsts()
                 // update nesting depth
                 if (head_inst->isHtmStart()) {
                     htmStarts[tid]++;
+                    assert(!atHtmStop[tid]);
                 }
                 // sanity check
                 if (head_inst->inHtmTransactionalState() &&
@@ -1153,9 +1161,13 @@ Commit::commitInsts()
                     }
                 }
 
+                if (head_inst->isHtmStopFence()) {
+                    atHtmStop[tid] = true;
+                }
                 // update nesting depth
                 if (head_inst->isHtmStop()) {
                     htmStops[tid]++;
+                    atHtmStop[tid] = false;
                     if (!executingHtmTransaction(tid)) {
                         cpu->htmChecker->commit(0);
                     }

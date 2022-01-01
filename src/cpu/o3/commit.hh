@@ -473,6 +473,7 @@ class Commit
     // HTM
     int htmStarts[MaxThreads];
     int htmStops[MaxThreads];
+    bool atHtmStop[MaxThreads];
 
     struct CommitStats : public statistics::Group
     {

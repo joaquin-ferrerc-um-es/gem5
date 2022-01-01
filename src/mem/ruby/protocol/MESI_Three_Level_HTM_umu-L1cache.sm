@@ -1572,7 +1572,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
 
   // hardware transactional memory
 
-  transition({S_IL0, M_IL0, E_IL0, MM_IL0}, {Inv_X, Fwd_GETX_X, Fwd_GETS_X}) {
+  transition({S_IL0, M_IL0, E_IL0, M_DL0, E_DL0, MM_IL0}, {Inv_X, Fwd_GETX_X, Fwd_GETS_X}) {
     z2_stallAndWaitL2Queue;
   }
 

@@ -1,0 +1,343 @@
+
+# Lockstep mode global switch
+LOCKSTEP_MODE=0
+
+### Lockstep mode configuration
+LOCKSTEP_USE_XTERM=0
+# Set common/varying HTM config options here
+LOCKSTEP_COMMON_OPTIONS_STRING="${GEM5_OPTIONS[@]}"
+LOCKSTEP_RECORD_HTM_OPTIONS_STRING+=""
+LOCKSTEP_REPLAY_HTM_OPTIONS_STRING+=""
+LOCKSTEP_RECORD_CACHE_OPTIONS_STRING+=""
+LOCKSTEP_REPLAY_CACHE_OPTIONS_STRING+=""
+# Set here your record/replay protocol and CPU type By
+# default, compare timing vs o3 CPU using same protocol, but
+# it should be possible to use the lockstep facility to debug
+# different protocols
+LOCKSTEP_RECORD_CPU_TYPE=DerivO3CPU
+LOCKSTEP_REPLAY_CPU_TYPE=TimingSimpleCPU
+LOCKSTEP_RECORD_PROTOCOL=${protocol}
+LOCKSTEP_REPLAY_PROTOCOL=${protocol}
+
+
+if ldd ${gem5_exec_path} | grep "not found" | grep -q "GLIBCXX"
+then
+    # Cannot find required GBLIC version
+    echo "Cannot find GLIBCXX version required by current build of gem5 binary (${gem5_exec_path})"
+    if ! gcc -v 2>&1 | grep -q "gcc version 9.2"
+    then
+        GCC92DIR="/opt/gcc/9.2.0/"
+        echo "Setting environment to gcc 9.2 in ${GCC92DIR}"
+        if [ -d $GCC92DIR ]
+        then
+
+            export ORIGINAL_PATH=$PATH
+            export PATH=$GCC92DIR/bin:$ORIGINAL_PATH
+            export ORIGINAL_LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-}
+            export LD_LIBRARY_PATH=$GCC92DIR/lib:$GCC92DIR/lib64:$ORIGINAL_LD_LIBRARY_PATH
+            export ORIGINAL_MANPATH=${MANPATH:-}
+            export MANPATH=$GCC92DIR/share/man:${ORIGINAL_MANPATH}
+        fi
+    fi
+    if ldd ${gem5_exec_path} | grep "not found" | grep -q "GLIBCXX"
+    then
+        echo "Exiting simulation script due missing GLIBC version"
+        echo "Perhaps you can try to rebuild gem5 in your current environment"
+        exit
+    fi
+fi
+
+if [[ "${enable_kvm}" = "True" ]]
+then
+    if [[ ${arch} != "x86_64" ]]
+    then
+        echo "No KVM support for ${arch}!"
+        echo "Disable KVM support or use x86_64 as target arch."
+        exit
+    fi
+
+    if [[ ! "${GEM5_ROOT}/gem5_path/scripts/kvm-ok" ]] ; then
+        echo "KVM support not available in this host ($(hostname))"
+        exit
+    fi
+    # Check if we can use KVM
+    if [ $(cat /proc/sys/kernel/perf_event_paranoid) -gt 1 ] ; then
+        echo "
+ERROR: Use of kvmcpu requires access to perf events, but you may not have permission to collect stats.
+Consider tweaking /proc/sys/kernel/perf_event_paranoid:
+ -1 - Not paranoid at all
+  0 - Disallow raw tracepoint access for unpriv
+  1 - Disallow cpu events for unpriv
+  2 - Disallow kernel profiling for unpriv
+Running the following command should do it:
+sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'
+"
+    fi
+fi
+
+CHECKPOINT_BOOT_DIR="${checkpoint_boot_root_dir}/${num_processors}_cores"
+cd ${CHECKPOINT_BOOT_DIR}
+if [[ $(find . -name "cpt*" | wc -l) -ne 1 ]]
+then
+    echo "Cannot locate boot checkpoint in: ${PWD}"
+    exit
+fi
+CHECKPOINT_BOOT_PATH=$(find . -name "cpt*" | xargs readlink -f)
+echo "**** Running full system mode ****"
+echo "Run configuration:"
+echo "arch=${arch}" 
+echo "os_disk_image=${os_disk_image}"
+echo "benchmarks_disk_image=${benchmarks_disk_image}"
+echo "kernel_binary=${kernel_binary}"
+echo "protocol=${protocol}"
+echo "hostname=$(hostname)"
+
+if [ $LOCKSTEP_MODE -eq 1 ]
+then
+   echo "Lockstep mode simulation"
+fi
+echo
+cd "${GEM5_ROOT}"
+# Run simulator twice, once to create "init" checkpoint before
+# region of interest (using AtomicSimpleCPU), once again to
+# simulate in detail using TimingSimpleCPU/O3CPU + Ruby
+CPT_NUMS="1 2"
+for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
+    EXTRA_ARGS=""
+    GDB_STRING=""
+    DEBUG_STRING=""
+    STATS_STRING=""
+    if [[ ${CHECKPOINT_RESTORE_NUM} -eq 1 ]]
+    then
+        # No need for Ruby
+        CHECKPOINT_PATH="${output_directory}/${checkpoint_init_subdir}"
+        STATS_STRING=" --stats-file=/dev/null "
+        CHECKPOINT_FOUND=0 #  If checkpoint subdir contains valid checkpoint, do not create
+        if [ -d "$CHECKPOINT_PATH" ]; then
+            # If no regular files, no checkpoint exists
+            CORRECT=`find -L "$CHECKPOINT_PATH"  -type f -name m5.cpt -size +1k | wc -l`
+            if [ $CORRECT -eq 2 ] # 2 cpt files: "boot" and "init"
+            then
+                echo "### Found 'init' checkpoint! ###"
+                find "$CHECKPOINT_PATH"  -type f -name m5.cpt
+                echo "### Reusing existing 'init' checkpoint (assuming your benchmark executable and launch script have NOT changed) ###"
+                CHECKPOINT_DIR=${CHECKPOINT_PATH}
+                continue
+            else
+                # Remove checkpoint folder
+                echo "$CHECKPOINT_PATH directory does not contain a valid checkpoint, overwriting"
+                rm -rf "$CHECKPOINT_PATH"
+            fi
+        fi
+        OUT_DIR=${CHECKPOINT_PATH}
+        CHECKPOINT_DIR=${CHECKPOINT_PATH}
+        mkdir -p ${OUT_DIR}
+        # Copy bootscript template and place a variable-time sleep based on
+        # a random seed to produce variability (slightly different executions)
+        cd ${OUT_DIR}
+        rm sim{err,out} ${terminal_filename} 2> /dev/null || true
+        ln -s ${CHECKPOINT_BOOT_PATH} || true
+        if [[ "${enable_kvm}" = "True" ]]
+        then
+            CPU_TYPE="X86KvmCPU"
+            # Hack required for correct checkpointing when using KVM
+            EXTRA_ARGS+=" --checkpoint-m5sum-kvm-hack"
+        else
+            CPU_TYPE="AtomicSimpleCPU"
+        fi
+        # Do not use Ruby to create init checkpoint
+        # (checkpointing not supported by
+        # src/mem/ruby/protocol/MESI_Three_Level_HTM-L0cache.sm)
+        EXTRA_ARGS+=" --script=${output_directory}/${launchscript_filename}"
+        # Take checkpoint at first m5_work_begin
+        EXTRA_ARGS+=" --work-begin-checkpoint-count=1"
+        # Stop simulation after first checkpoint
+        # (AtomicSimpleCPU does not support TME)
+        EXTRA_ARGS+=" --max-checkpoints=1"
+        SIMINFO_STRING=""
+        echo "#### Creating init checkpoint using ${CPU_TYPE}..."
+    elif [[ ${CHECKPOINT_RESTORE_NUM} -eq 2 ]]
+    then
+        OUT_DIR="${output_directory}"
+        mkdir -p "${OUT_DIR}"
+        cd "${OUT_DIR}"
+        rm sim{err,out} ${terminal_filename} 2> /dev/null || true
+        
+        CPU_TYPE=${cpu_model}
+        # Ruby required by TME for functional correction
+        EXTRA_ARGS+=" --ruby"
+
+        # Extra info about simulation configuration, used as key (unique
+        # identifier) of this simulation, is read from file config.info
+        # and appended to config.ini
+        SIMINFO_STRING=" --sim-info=${output_directory}/${siminfo_filename}"
+
+        # Exit after first work end (debugging only)
+        if [[ "${exit_at_roi_end}" = "True" ]]
+        then
+            EXTRA_ARGS+=" --work-end-exit-count=1"
+        fi
+
+        if [[ "${run_gdb}" = "True" ]]
+        then
+            GDB_STRING="gdb --args"
+            if [ $LOCKSTEP_MODE -eq 1 ]
+            then
+                # Use xterm for recording CPU if debugging in lockstep mode
+                LOCKSTEP_USE_XTERM=1
+            fi
+        fi
+        if [ -n "$debug_flags" ]
+        then
+            NOW=`date +%Y-%m-%d_%H.%M.%S`
+            DEBUG_FILE=debug_output_${protocol}_${NOW}.trace
+            DEBUG_STRING="--debug-flags=${debug_flags} --debug-file=${DEBUG_FILE}"
+            if [[ "$debug_start_tick" != "-1" ]] ; then
+                DEBUG_STRING+=" --debug-start=${debug_start_tick}"
+            fi
+        fi
+        PROC_MAPS_STRING=" --proc-maps-file=${output_directory}/${proc_maps_file}"
+        #EXTRA_ARGS+="${PROC_MAPS_STRING}"
+	
+	EXTRA_ARGS+=" --mem-type=${memory_type}"
+	EXTRA_ARGS+=" --network=${network_model}"
+	EXTRA_ARGS+=" ${GEM5_OPTIONS[@]}"
+	EXTRA_ARGS+=" ${extra_detailed_args}"
+
+        FALLBACK_LOCK_FILE="${output_directory}/${htm_fallback_lock_filename}"
+        if [ $LOCKSTEP_MODE -eq 1 ]
+        then
+            # Exec flag required by lockstep mode
+            if [ -z ${debug_flags} ] ; then
+                # Avoid generating trace file if only Exec
+                DEBUG_FILE=/dev/null
+                debug_flags="Exec"
+                DEBUG_STRING="--debug-flags=${debug_flags} --debug-file=${DEBUG_FILE}"
+            fi
+            if [ -f ${FALLBACK_LOCK_FILE} ] && [ $(cat  ${FALLBACK_LOCK_FILE} | wc -l) -eq 1 ]
+            then
+                LOCKSTEP_COMMON_OPTIONS_STRING+=" --htm-fallbacklock-addr=$(cat ${FALLBACK_LOCK_FILE}) "
+                else
+                    echo "Lockstep mode requires a valid fallback lock address in file ${FALLBACK_LOCK_FILE}"
+                    exit
+            fi
+
+            EXTRA_ARGS+=" ${LOCKSTEP_COMMON_OPTIONS_STRING} "
+        else
+                if [ -f ${FALLBACK_LOCK_FILE} ] && [ $(cat  ${FALLBACK_LOCK_FILE} | wc -l) -eq 1 ]
+                then
+                    EXTRA_ARGS+=" --htm-fallbacklock-addr=$(cat ${FALLBACK_LOCK_FILE}) "
+                fi
+        fi
+        echo "#### Simulating from init checkpoint using ${CPU_TYPE} + Ruby protocol ${protocol}..."
+    else
+        echo "Unknown checkpoint restore num: ${CHECKPOINT_RESTORE_NUM}"
+        exit
+    fi
+    ###############
+    GEM5_COMMAND_ARGS="\
+        ${arch_specific_opts} \
+        --num-cpus=${num_processors} \
+        --mem-size=${memory_size} \
+        --checkpoint-dir=${CHECKPOINT_DIR} \
+        -r ${CHECKPOINT_RESTORE_NUM} \
+        --kernel=${kernel_binary} \
+        --disk-image=${os_disk_image} \
+        --root-device=${root_device} \
+        --disk-image=${benchmarks_disk_image} \
+        ${EXTRA_ARGS}"
+    if [[ $LOCKSTEP_MODE == 0 || ${CHECKPOINT_RESTORE_NUM} != 2 ]]
+    then
+        GEM5_COMMAND="${GDB_STRING} \
+                ${gem5_exec_path} \
+                ${DEBUG_STRING} \
+                ${SIMINFO_STRING} \
+                ${STATS_STRING} \
+                --outdir=${OUT_DIR} \
+                --redirect-stdout --redirect-stderr \
+                ${GEM5_ROOT}/configs/example/fs.py"
+        GEM5_COMMAND=${GEM5_COMMAND}" --restore-with-cpu=${CPU_TYPE} --cpu-type=${CPU_TYPE} "
+	${GEM5_COMMAND} ${GEM5_COMMAND_ARGS}
+
+        # NOTE: Keep the following strings (starting with ####) in sync with check_simulations-r.sh
+        if [[ ${CHECKPOINT_RESTORE_NUM} -eq 1 ]]
+        then
+            if grep -q "because checkpoint" "${CHECKPOINT_DIR}/simout" ; then
+                echo "#### Init checkpoint created   ####"
+                FAILED=0
+            else
+                echo "#### Failed to create init checkpoint   ####"
+                FAILED=1
+            fi
+        else
+            if grep -q "because m5_exit instruction encountered" "${OUT_DIR}/simout" ; then
+                echo "#### Simulation completed (m5 exit)  ####"
+                FAILED=0
+            elif grep -q "because work items exit count reached" "${OUT_DIR}/simout" ; then
+                echo "#### Simulation completed (end of ROI)   ####"
+                FAILED=0
+            else
+                echo "#### Simulation failed   ####"
+                FAILED=1
+            fi
+        fi
+
+        TERMINAL_FILES="$(find ${OUT_DIR} -name "${terminal_filename}" -printf "%T@ %Tc %p\n" | sort -n | rev | cut -d " " -f1 | rev | xargs readlink -f)"
+        echo "#### Simulated terminal Begin ####"
+        echo "${TERMINAL_FILES}"
+        echo "##################################"
+        cat $TERMINAL_FILES
+        echo
+        echo "#### Simulated terminal End   ####"
+        if [[ ${FAILED} -eq 1 ]] ; then
+                exit
+        fi
+    else
+        ############################ LOCKSTEP MODE #########################
+
+        RECORD_GEM5_EXEC_PATH=${GEM5_ROOT}/build/${m5_arch}_${LOCKSTEP_RECORD_PROTOCOL}/gem5.${build_type}
+        REPLAY_GEM5_EXEC_PATH=${GEM5_ROOT}/build/${m5_arch}_${LOCKSTEP_REPLAY_PROTOCOL}/gem5.${build_type}
+        RECORD_OUT_DIR=${OUT_DIR}/record
+        REPLAY_OUT_DIR=${OUT_DIR}/replay
+        mkdir -p ${REPLAY_OUT_DIR}
+        mkdir -p ${RECORD_OUT_DIR}
+        rm -rf /tmp/gem5fifo* 2>/dev/null
+        LOCKSTEP_FIFOPATH=`mktemp -d /tmp/gem5-lockstep_mode.XXXXXXX`
+        RECORD_GEM5_COMMAND="${GDB_STRING} \
+                ${RECORD_GEM5_EXEC_PATH} \
+                ${DEBUG_STRING} \
+                --outdir=${RECORD_OUT_DIR} \
+                --redirect-stdout --redirect-stderr \
+                ${GEM5_ROOT}/configs/example/fs.py \
+                --restore-with-cpu=${LOCKSTEP_RECORD_CPU_TYPE} \
+                --cpu-type=${LOCKSTEP_RECORD_CPU_TYPE} \
+                --lockstep-fifopath=${LOCKSTEP_FIFOPATH}"
+        LOCKSTEP_RECORD_GEM5_COMMAND="${RECORD_GEM5_COMMAND} \
+                                      ${GEM5_COMMAND_ARGS} \
+                                      ${LOCKSTEP_RECORD_HTM_OPTIONS_STRING} \
+                                      ${LOCKSTEP_RECORD_CACHE_OPTIONS_STRING} \
+                                       --lockstep-mode=record"
+        if [ $LOCKSTEP_USE_XTERM -eq 1 ]
+        then
+	    xterm -geometry  180x24+0+0  -fa 'Monospace' -fs 12  -title "gem5" -e ${LOCKSTEP_RECORD_GEM5_COMMAND} &
+        else
+	    ${LOCKSTEP_RECORD_GEM5_COMMAND} &
+        fi
+        REPLAY_GEM5_COMMAND="${GDB_STRING} \
+                ${REPLAY_GEM5_EXEC_PATH} \
+                ${DEBUG_STRING} \
+                --outdir=${REPLAY_OUT_DIR} \
+                --redirect-stdout --redirect-stderr \
+                ${GEM5_ROOT}/configs/example/fs.py \
+                --restore-with-cpu=${LOCKSTEP_REPLAY_CPU_TYPE} \
+                --cpu-type=${LOCKSTEP_REPLAY_CPU_TYPE} \
+                --lockstep-fifopath=${LOCKSTEP_FIFOPATH}"
+        LOCKSTEP_REPLAY_GEM5_COMMAND="${REPLAY_GEM5_COMMAND} \
+                                      ${GEM5_COMMAND_ARGS} \
+                                      ${LOCKSTEP_REPLAY_HTM_OPTIONS_STRING} \
+                                      ${LOCKSTEP_REPLAY_CACHE_OPTIONS_STRING} \
+                                       --lockstep-mode=replay"
+	${LOCKSTEP_REPLAY_GEM5_COMMAND}
+    fi
+    #############
+done

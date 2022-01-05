@@ -1,0 +1,282 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+
+from gem5_run import Option, Benchmark, set_options_module
+
+set_options_module(locals()) # create variables in this scope for the Options defined below
+    
+# Basic options
+Option("gem5_root", str,
+       gem5_option = None,
+       runscript_option = "yes:GEM5_ROOT",
+       siminfo_exclude = True)
+Option("arch", str,
+       gem5_option = None,
+       launchscript_option = "yes",
+       descr_dir = "{value}")
+Option("m5_arch", str,
+       gem5_option = None,
+       siminfo_exclude = True)
+Option("protocol", str,
+       gem5_option = None,
+       launchscript_option = "yes",
+       descr_dir = "{value}")
+Option("cpu_model", str,
+       gem5_option = None,
+       launchscript_option = "yes")
+Option("num_processors", int,
+       gem5_option = None,
+       launchscript_option = "yes",
+       descr_dir = "{value}p")
+Option("output_directory_root", str,
+       gem5_option = None,
+       runscript_option = "omit",
+       siminfo_exclude = True)
+Option("output_directory_sub", str,
+       gem5_option = None,
+       runscript_option = "omit",
+       siminfo_exclude = True)
+Option("config_description", str,
+       gem5_option = None,
+       runscript_option = "omit",
+       siminfo_exclude = True)
+Option("output_directory", str,
+       gem5_option = None,
+       siminfo_exclude = True)
+Option("random_seed", int,
+       gem5_option = None,
+       launchscript_option = "yes",
+       descr_dir = "{value}")
+Option("git_revision", str,
+       gem5_option = None,
+       launchscript_option = "yes")
+Option("launchscript_filename", str, # unnecesary
+       gem5_option = None,
+       siminfo_exclude = True)
+Option("siminfo_filename", str, # unnecesary
+       gem5_option = None,
+       siminfo_exclude = True)
+Option("runscript_filename", str, # unnecesary
+       gem5_option = None,
+       runscript_option = "omit",
+       siminfo_exclude = True)
+Option("runscript_template_filename", str, # unnecesary
+       gem5_option = None,
+       runscript_option = "omit",
+       siminfo_exclude = True)
+
+Option("gem5_exec_path", str,
+       gem5_option = None,
+       siminfo_exclude = True)
+Option("m5_path", str,
+       gem5_option = None,
+       runscript_option = "export:M5_PATH",
+       siminfo_exclude = True)
+
+# Debug options
+Option("enable_kvm", bool,
+       gem5_option = None,
+       launchscript_option = "yes")
+Option("debug_start_tick", int, # -1 to disable
+       gem5_option = None)
+Option("debug_flags", str,
+       gem5_option = None)
+Option("build_type", str, # 'opt', 'fast', 'debug'
+       gem5_option = None)
+Option("run_gdb", bool,
+       gem5_option = None)
+Option("run_pdb", bool,
+       gem5_option = None)
+Option("exit_at_roi_end", bool,
+       gem5_option = None)
+Option("extra_detailed_args", str,
+       gem5_option = None)
+Option("proc_maps_file", str,
+       gem5_option = None)
+
+
+# Boot options
+Option("kernel_binary", str,
+       gem5_option = None,
+       siminfo_exclude = True)
+Option("root_device", str,
+       gem5_option = None,
+       siminfo_exclude = True)
+Option("os_disk_image", str,
+       gem5_option = None,
+       siminfo_exclude = True)
+Option("terminal_filename", str,
+       gem5_option = None,
+       siminfo_exclude = True)
+Option("arch_specific_opts", str,
+       gem5_option = None,
+       siminfo_exclude = True)
+Option("checkpoint_boot_root_dir", str, # unnecesary
+       gem5_option = None,
+       siminfo_exclude = True)
+Option("checkpoint_init_subdir", str, # unnecesary
+       gem5_option = None,
+       siminfo_exclude = True)
+
+# Benchmark options
+Option("benchmark", Benchmark,
+       gem5_option = None,
+       runscript_option = "omit")
+Option("benchmark_name", str,
+       gem5_option = None,
+       runscript_option = "omit",
+       descr_dir = "{value}")
+Option("benchmark_size", str,
+       gem5_option = None,
+       runscript_option = "omit",
+       descr_dir = "{value}")
+Option("benchmark_subdir", str,
+       gem5_option = None,
+       launchscript_option = "yes",
+       siminfo_exclude = True,
+       runscript_option = "omit")
+Option("benchmark_binary_filename_base", str,
+       gem5_option = None,
+       launchscript_option = "yes",
+       siminfo_exclude = True,
+       runscript_option = "omit")
+Option("benchmark_binary_suffix", str,
+       gem5_option = None,
+       launchscript_option = "yes",
+       runscript_option = "omit")
+Option("benchmark_num_threads_option", str,
+       gem5_option = None,
+       launchscript_option = "yes",
+       siminfo_exclude = True,
+       runscript_option = "omit")
+Option("benchmark_args_string", str,
+       gem5_option = None,
+       launchscript_option = "yes",
+       siminfo_exclude = True,
+       runscript_option = "omit")
+Option("benchmark_ld_preload", str,
+       gem5_option = None,
+       launchscript_option = "export:LD_PRELOAD",
+       siminfo_exclude = True,
+       runscript_option = "omit")
+
+# Benchmark disk image options
+Option("benchmarks_mount_image", bool,
+       gem5_option = None,
+       launchscript_option = "yes",
+       siminfo_exclude = True,
+       runscript_option = "omit")
+Option("benchmarks_disk_image", str,
+       gem5_option = None,
+       siminfo_exclude = True)
+Option("benchmarks_image_device", str,
+       gem5_option = None,
+       launchscript_option = "yes",
+       siminfo_exclude = True,
+       runscript_option = "omit")
+Option("benchmarks_image_mountpoint", str,
+       gem5_option = None,
+       launchscript_option = "yes",
+       siminfo_exclude = True,
+       runscript_option = "omit")
+
+# Other
+Option("network_model", str,
+       gem5_option = None)
+Option("memory_type", str,
+       gem5_option = None)
+Option("memory_size", str,
+       gem5_option = None)
+
+
+# Cache options
+Option("cache_name", str,
+       gem5_option = None,
+       descr_dir = "{value}")
+Option("cache_l0i_size", int,
+       gem5_option = "l0i_size")
+Option("cache_l0d_size", int,
+       gem5_option = "l0d_size")
+Option("cache_l0i_assoc", int,
+       gem5_option = "l0i_assoc")
+Option("cache_l0d_assoc", int,
+       gem5_option = "l0d_assoc")
+Option("cache_l1i_size", int,
+       gem5_option = "l1i_size")
+Option("cache_l1d_size", int,
+       gem5_option = "l1d_size")
+Option("cache_l1i_assoc", int,
+       gem5_option = "l1i_assoc")
+Option("cache_l1d_assoc", int,
+       gem5_option = "l1d_assoc")
+Option("cache_l2_num_caches", int,
+       gem5_option = "num-l2caches")
+#Option("cache_l2_size_total", int,
+#       gem5_option = None) # must be cache_l2_size_per_cache * cache_l2_num_caches
+Option("cache_l2_size_per_cache", int,
+       gem5_option = "l2_size") # must be cache_l2_size_total / cache_l2_num_caches
+Option("cache_l2_assoc", int,
+       gem5_option = "l2_assoc")
+
+# HTM Options
+Option("htm_disable_speculation", bool,
+       descr_abbrev = "NoSpec")
+Option("htm_precise_read_set_tracking", bool,
+       descr_abbrev = "RSPrec")
+Option("htm_conflict_resolution", str,
+       descr_abbrev = "CR")
+Option("htm_binary_suffix", str,
+       descr_abbrev = "BinSfx",
+       gem5_option = None,
+       launchscript_option = "yes",
+       runscript_option = "omit") # TODO: unnecesary, see benchmark_binary_suffix
+Option("htm_lazy_vm", bool,
+       descr_abbrev = "LV")
+Option("htm_eager_cd", bool,
+       descr_abbrev = "ED")
+Option("htm_conflict_resolution", str,
+       descr_abbrev = "CR")
+Option("htm_lazy_arbitration", str,
+       descr_abbrev = "LArb")
+Option("htm_lazy_validated_conf_res", str,
+       descr_abbrev = "LzCR")
+Option("htm_allow_read_set_l0_evictions", bool,
+       descr_abbrev = "RSL0Ev")
+Option("htm_allow_read_set_l1_evictions", bool,
+       descr_abbrev = "RSL1Ev")
+Option("htm_precise_read_set_tracking", bool,
+       descr_abbrev = "RSPrec")
+Option("htm_trans_aware_l0_replacements", bool,
+       descr_abbrev = "L0Repl")
+Option("htm_trans_aware_l1_replacements", bool,
+       descr_abbrev = "L1Repl")
+Option("htm_allow_load_delaying", bool,
+       descr_abbrev = "LDelay")
+Option("htm_reload_if_stale", bool,
+       descr_abbrev = "RldStale")
+Option("htm_l0_downgrade_on_l1_gets", bool,
+       descr_abbrev = "DwnG")
+Option("htm_value_checker", bool,
+       descr_abbrev = "ValChk",
+       siminfo_exclude = True)
+Option("htm_isolation_checker", bool,
+       descr_abbrev = "IsolChk",
+       siminfo_exclude = True)
+Option("htm_visualizer", bool,
+       descr_abbrev = "Visual",
+       siminfo_exclude = True)
+
+# HTM library options
+Option("htm_max_retries", int,
+       descr_abbrev = "Rtry",
+       gem5_option = None,
+       launchscript_option = "export:HTM_MAX_RETRIES",
+       runscript_option = "omit")
+Option("htm_heap_prefault", int, # TODO: should be bool
+       descr_abbrev = "Pflt",
+       gem5_option = None,
+       launchscript_option = "export:HTM_HEAP_PREFAULT",
+       runscript_option = "omit")
+Option("htm_fallback_lock_filename", str, # unnecesary
+       gem5_option = None)
+

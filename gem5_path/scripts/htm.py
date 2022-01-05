@@ -19,6 +19,8 @@ htm_allow_read_set_l0_evictions= HtmOption("htm_allow_read_set_l0_evictions",   
 htm_allow_read_set_l1_evictions= HtmOption("htm_allow_read_set_l1_evictions",   "RSL1Ev",   "allow-read-set-l1-cache-evictions", True,  True , True  )
 htm_allow_write_set_l0_evictions= HtmOption("htm_allow_write_set_l0_evictions", "WSL0Ev",   "allow-write-set-l0-cache-evictions", True,  True , True  )
 htm_allow_write_set_l1_evictions= HtmOption("htm_allow_write_set_l1_evictions", "WSL1Ev",   "allow-write-set-l1-cache-evictions", True,  True , True  )
+htm_allow_read_set_l2_evictions = HtmOption("htm_allow_read_set_l2_evictions",  "RSL2Ev",   "allow-read-set-l2-cache-evictions", True,  True , True  )
+htm_allow_write_set_l2_evictions = HtmOption("htm_allow_write_set_l2_evictions","WSL2Ev",   "allow-write-set-l2-cache-evictions", True,  True , True  )
 htm_precise_read_set_tracking  = HtmOption("htm_precise_read_set_tracking",     "RSPrec",   "precise-read-set-tracking",         True,  True , True  )
 htm_trans_aware_l0_replacements= HtmOption("htm_trans_aware_l0_replacements",   "L0Repl",   "trans-aware-l0-replacements",       True,  True , True  )
 htm_trans_aware_l1_replacements= HtmOption("htm_trans_aware_l1_replacements",   "L1Repl",   "trans-aware-l1-replacements",       True,  True , True  )
@@ -45,6 +47,8 @@ htm_config_options.append(htm_allow_read_set_l0_evictions)
 htm_config_options.append(htm_allow_read_set_l1_evictions)
 htm_config_options.append(htm_allow_write_set_l0_evictions)
 htm_config_options.append(htm_allow_write_set_l1_evictions)
+htm_config_options.append(htm_allow_read_set_l2_evictions)
+htm_config_options.append(htm_allow_write_set_l2_evictions)
 htm_config_options.append(htm_precise_read_set_tracking)
 htm_config_options.append(htm_trans_aware_l0_replacements)
 htm_config_options.append(htm_trans_aware_l1_replacements)
@@ -75,6 +79,8 @@ cfg1_base[htm_allow_read_set_l0_evictions]=False
 cfg1_base[htm_allow_read_set_l1_evictions]=False
 cfg1_base[htm_allow_write_set_l0_evictions]=False
 cfg1_base[htm_allow_write_set_l1_evictions]=False
+cfg1_base[htm_allow_read_set_l2_evictions]=False
+cfg1_base[htm_allow_write_set_l2_evictions]=False
 cfg1_base[htm_precise_read_set_tracking]=False
 cfg1_base[htm_trans_aware_l0_replacements]=False
 cfg1_base[htm_trans_aware_l1_replacements]=False
@@ -125,16 +131,21 @@ cfg1_l1rsetevict_pf_dwng_precise_reqstalls[htm_conflict_resolution]='requester_s
 cfg1_l1rsetevict_pf_dwng_precise_reqstalls_reload = collections.OrderedDict(cfg1_l1rsetevict_pf_dwng_precise_reqstalls)
 cfg1_l1rsetevict_pf_dwng_precise_reqstalls_reload[htm_reload_if_stale]=True
 
-cfg1_l1rsetevict_pf_dwng_precise_reqstalls_eagervm = collections.OrderedDict(cfg1_l1rsetevict_pf_dwng_precise_reqstalls)
-cfg1_l1rsetevict_pf_dwng_precise_reqstalls_eagervm[htm_lazy_vm]=False
-cfg1_l1rsetevict_pf_dwng_precise_reqstalls_eagervm[htm_allow_write_set_l0_evictions]=True
-cfg1_l1rsetevict_pf_dwng_precise_reqstalls_eagervm[htm_allow_write_set_l1_evictions]=True
-
-cfg1_l1rsetevict_pf_dwng_precise_reqstalls_eagervm_reload = collections.OrderedDict(cfg1_l1rsetevict_pf_dwng_precise_reqstalls_eagervm)
-cfg1_l1rsetevict_pf_dwng_precise_reqstalls_eagervm_reload[htm_reload_if_stale]=True
-
 cfg1_l1rsetevict_pf_dwng_precise_reqstalls_retry64 = collections.OrderedDict(cfg1_l1rsetevict_pf_dwng_precise_reqstalls)
 cfg1_l1rsetevict_pf_dwng_precise_reqstalls_retry64[htm_max_retries]=64
+
+cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm = collections.OrderedDict(cfg1_l1rsetevict_pf_dwng_precise_reqstalls)
+cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm[htm_lazy_vm]=False
+cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm[htm_allow_read_set_l2_evictions]=True
+cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm[htm_allow_write_set_l0_evictions]=True
+cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm[htm_allow_write_set_l1_evictions]=True
+cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm[htm_allow_write_set_l2_evictions]=True
+cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm[htm_isolation_checker]=True
+
+cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm_reload = collections.OrderedDict(cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm)
+cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm_reload[htm_reload_if_stale]=True
+
+
 
 
 ## Abbreviations used for HTM options string values, to generate more

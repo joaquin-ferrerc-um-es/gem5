@@ -15,6 +15,7 @@ system_list = []
 #####################################################################
 
 # Baseline
+
 system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_base, caches.cache_baseline])
 system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l0rsetevict, caches.cache_baseline])
 system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict, caches.cache_baseline])
@@ -30,19 +31,19 @@ system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf_dwng_pre
 system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf_dwng_precise_reqstalls_reload, caches.cache_baseline])
 system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf_dwng_precise_reqstalls_retry64, caches.cache_baseline])
 
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf_dwng_precise_reqstalls_eagervm, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf_dwng_precise_reqstalls_eagervm_reload, caches.cache_baseline])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm, caches.cache_baseline])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm_reload, caches.cache_baseline])
 
 
 processor_list = []
 
 #processor_list.append(64)
 #processor_list.append(32)
-#processor_list.append(16)
+processor_list.append(16)
 processor_list.append(8)
-#processor_list.append(4)
-#processor_list.append(2)
-#processor_list.append(1)
+processor_list.append(4)
+processor_list.append(2)
+processor_list.append(1)
 
 
 detailed_simulation_cpu_model_list = []
@@ -145,7 +146,7 @@ copy_gem5_binary_tmp_dir = 0 # Copy gem5 binary to tmp dir for simulation
 run_pdb = 0
 debug_flags = "" # "Exec,O3CPUAll,O3HTM,RubyHTM,ProtocolTrace"
 debug_time=0
-seq_no=14
+seq_no=25
 num_random_seeds=4 # 10 # Number of random seeds to simulate (when '-s' option passed to gen-scripts.py)
 
 preload="" #"/benchmarks/benchmarks-htm/Splash-3/libhooks_chkpoint.so"

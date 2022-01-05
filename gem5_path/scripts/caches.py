@@ -46,6 +46,14 @@ cache_baseline[cache_l2_caches] = 0
 cache_baseline[cache_l2_size] = 33554432
 cache_baseline[cache_l2_assoc] = 16
 
+cache_tests = collections.OrderedDict(cache_baseline)
+cache_tests[cache_name] = "TestCache"
+cache_tests[cache_l0i_size] = 8192
+cache_tests[cache_l0d_size] = 8192
+cache_tests[cache_l1i_size] = 32768
+cache_tests[cache_l1d_size] = 32768
+cache_tests[cache_l2_size] = 262144
+
 cache_small = collections.OrderedDict(cache_baseline)
 cache_small[cache_name] = "SmallCache"
 cache_small[cache_l0i_size] = 4096

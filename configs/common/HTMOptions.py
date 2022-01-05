@@ -20,6 +20,12 @@ def setHTMOptions(htm, options):
     if options.htm_allow_read_set_l1_cache_evictions != None:
         htm.allow_read_set_l1_cache_evictions = \
         options.htm_allow_read_set_l1_cache_evictions
+    if options.htm_allow_read_set_l2_cache_evictions != None:
+        htm.allow_read_set_l2_cache_evictions = \
+        options.htm_allow_read_set_l2_cache_evictions
+    if options.htm_allow_write_set_l2_cache_evictions != None:
+        htm.allow_write_set_l2_cache_evictions = \
+        options.htm_allow_write_set_l2_cache_evictions
     if options.htm_allow_write_set_l0_cache_evictions != None:
         htm.allow_write_set_l0_cache_evictions = \
         options.htm_allow_write_set_l0_cache_evictions
@@ -99,13 +105,15 @@ def addHTMOptions(parser):
     parser.add_argument("--htm-allow-write-set-l1-cache-evictions",
                       action="store_true", default=False,
                       help="Allow write-set L1 cache evictions")
+    parser.add_argument("--htm-allow-read-set-l2-cache-evictions",
+                      action="store_true", default=False,
+                      help="Allow read-set L2 cache evictions")
+    parser.add_argument("--htm-allow-write-set-l2-cache-evictions",
+                      action="store_true", default=False,
+                      help="Allow write-set L2 cache evictions")
     parser.add_argument("--htm-precise-read-set-tracking",
                       action="store_true", default=False,
                       help="Allow read-set L0/L1 cache evictions")
-    parser.add_argument("--htm-nack-l1-local-evictions",
-                      action="store_true", default=False,
-                      help="Nack L1 cache evictions of L0 blocks"
-                      " in the read-write sets")
     parser.add_argument("--htm-trans-aware-l0-replacements",
                       action="store_true", default=False,
                       help="Avoid replacements of read-write set"

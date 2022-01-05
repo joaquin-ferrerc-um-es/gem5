@@ -236,6 +236,7 @@ TransactionConflictManager::shouldNackLoad(Addr addr,
   bool existConflict = m_xact_mgr->
     getXactIsolationManager()->isInWriteSetFilterSummary(addr);
   if (existConflict) {
+      assert(machineIDToMachineType(remote_id) == MachineType_L1Cache);
       assert(remote_timestamp > 0);
       DPRINTF(RubyHTM, "Conflict detected by shouldNackLoad,"
               " requestor=%d addr %#lx (%s)\n",
@@ -244,9 +245,6 @@ TransactionConflictManager::shouldNackLoad(Addr addr,
       if (m_xact_mgr->isUnrollingLog(thread)) {
           assert(!m_xact_mgr->config_lazyVM()); // LogTM
           shouldNack = true;
-      } else if (machineIDToMachineType(remote_id) == MachineType_L2Cache) {
-          // LLC replacement
-          shouldNack = false;
 #if 0 // TODO: Check
       } else if (m_xact_mgr->isDoomed(thread)) {
           shouldNack = false;
@@ -341,7 +339,24 @@ TransactionConflictManager::shouldNackStore(Addr addr,
   bool remoteNonTransWins = false;
 
   if (existConflict) {
-      assert(remote_timestamp > 0);
+      if (machineIDToMachineType(remote_id) == MachineType_L2Cache) {
+          // LLC replacement
+          assert(remote_timestamp == 0);
+          DPRINTF(RubyHTM, "L2 cache eviction of transactional block"
+                  " addr %#lx (local is writer: %d)\n", addr,
+                  local_is_writer);
+          if ((!local_is_writer &&
+               !m_xact_mgr->config_allowReadSetL2CacheEvictions()) ||
+              (local_is_writer &&
+               !m_xact_mgr->config_allowWriteSetL2CacheEvictions())) {
+              m_xact_mgr->setAbortFlag(thread, addr, remote_id,
+                                       remote_trans);
+          }
+          return false;
+      } else {
+          assert(machineIDToMachineType(remote_id) == MachineType_L1Cache);
+          assert(remote_timestamp > 0);
+      }
       DPRINTF(RubyHTM, "Conflict detected by shouldNackStore,"
               " requestor=%d addr %#lx (%s)\n",
               machineIDToNodeID(remote_id), addr,
@@ -350,9 +365,6 @@ TransactionConflictManager::shouldNackStore(Addr addr,
       if (m_xact_mgr->isUnrollingLog(thread)) {
           assert(!m_xact_mgr->config_lazyVM()); // LogTM
           shouldNack = true;
-      } else if (machineIDToMachineType(remote_id) == MachineType_L2Cache) {
-          // LLC replacement
-          shouldNack = false;
 #if 0 // TODO: Check
       } else if (m_xact_mgr->isDoomed(thread)) {
           shouldNack = false;

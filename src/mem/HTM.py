@@ -63,6 +63,10 @@ class HTM(ClockedObject):
         "Allow read set evictions from the L1 cache")
     allow_write_set_l1_cache_evictions = Param.Bool(False,
         "Allow write set evictions from the L1 cache")
+    allow_read_set_l2_cache_evictions = Param.Bool(False,
+        "Allow read set evictions from the L2 cache")
+    allow_write_set_l2_cache_evictions = Param.Bool(False,
+        "Allow write set evictions from the L2 cache")
     # Whether speculatively-read cache block are added to the read-set
     # upon load access (imprecise) or load retirement  (precise)
     precise_read_set_tracking = Param.Bool(False,

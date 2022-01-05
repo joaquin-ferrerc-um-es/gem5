@@ -543,6 +543,31 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
                 trigger(Event:InvElse_X,
                         in_msg.addr, getCacheEntry(in_msg.addr), tbe);
             }
+            else if (machineIDToMachineType(in_msg.OriginalRequestor) == MachineType:L2Cache) {
+                if (is_valid(cache_entry) &&
+                    cache_entry.getHtmLogPending()) {
+                    // Nack L1 replacement of data log block while logging
+                    // outstanding
+                    assert(!xact_mgr.config_lazyVM());
+                    trigger(Event:InvElse_X,
+                            in_msg.addr, getCacheEntry(in_msg.addr), tbe);
+                } else if (xact_mgr.checkWriteSignature(in_msg.addr)) {
+                    if (xact_mgr.config_allowWriteSetL2CacheEvictions()) {
+                            assert(!xact_mgr.config_lazyVM()); // LogTM
+                            trigger(Event:InvElse, in_msg.addr,
+                                    getCacheEntry(in_msg.addr), tbe);
+                    } else {
+                        // L2 replacements of L1 blocks in Wset should discard
+                        // writeback
+                        xact_mgr.xactReplacement(in_msg.addr, in_msg.OriginalRequestor);
+                        assert(xact_mgr.isDoomed(0));
+                        trigger(Event:Inv_Discard, in_msg.addr, getCacheEntry(in_msg.addr), tbe);
+                    }
+                } else {
+                    // LLC Replacement
+                    trigger(Event:InvElse, in_msg.addr, getCacheEntry(in_msg.addr), tbe);
+                }
+            }
             else if (xact_mgr.checkReadSignature(in_msg.addr) &&
                      !xact_mgr.isDoomed(0)) {
                 // Sanity check: Conflict on a Rset block, if this

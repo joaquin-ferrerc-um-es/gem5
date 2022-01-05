@@ -75,6 +75,7 @@ TransactionInterfaceManager::TransactionInterfaceManager(const Params &p)
         // No wset evictions from private cache are possible
         assert(!m_htm->params().allow_write_set_l0_cache_evictions);
         assert(!m_htm->params().allow_write_set_l1_cache_evictions);
+        assert(!m_htm->params().allow_write_set_l2_cache_evictions);
     } else { // Eager CD + Eager VM (LogTM)
         assert(XACT_EAGER_CD);
         m_xactEagerVersionManager   =
@@ -84,6 +85,7 @@ TransactionInterfaceManager::TransactionInterfaceManager(const Params &p)
         // Asume wset evictions from L1 (and L0) are possible
         assert(m_htm->params().allow_write_set_l0_cache_evictions);
         assert(m_htm->params().allow_write_set_l1_cache_evictions);
+        assert(m_htm->params().allow_write_set_l2_cache_evictions);
     }
 
     m_transactionLevel   = new int[smt_threads];
@@ -127,6 +129,11 @@ TransactionInterfaceManager::TransactionInterfaceManager(const Params &p)
         // Sanity checks
         if (config_allowReadSetL1CacheEvictions()) {
             assert(m_htm->params().allow_read_set_l0_cache_evictions);
+        }
+        if (config_allowWriteSetL1CacheEvictions() ||
+            config_allowWriteSetL2CacheEvictions()) {
+            // Evicting write set blocks requires eager versioning
+            assert(!XACT_LAZY_VM);
         }
     }
 
@@ -1020,8 +1027,6 @@ TransactionInterfaceManager::setAbortFlag(int thread, Addr addr,
                 // pending load miss) are distinguishable via abortSource
                 // {L1Cache:machineCount}
                 m_abortCause[thread] = HTMStats::AbortCause::ConflictStale;
-                // TODO: Check the following assert (Rset evictions)
-                assert(!inRetiredReadSet(thread, m_abortAddress[thread]));
             } else if (!checkWriteSignature(m_abortAddress[thread]) &&
                        checkReadSignature(m_abortAddress[thread]) &&
                        !inRetiredReadSet(thread, m_abortAddress[thread])) {

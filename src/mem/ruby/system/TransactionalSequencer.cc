@@ -677,9 +677,6 @@ TransactionalSequencer::hitCallback(SequencerRequest* srequest, DataBlock& data,
             assert(m_lastStateBeforeStall == AnnotatedRegion_INVALID);
             m_lastStateBeforeStall = m_ruby_system->getProfiler()->
                 getXactProfiler()->getCurrentRegion(m_version);
-            // If htm load at LQ head, should be past htm_start
-            assert(m_xact_mgr->inTransaction(thread) ==
-                   pkt->isHtmTransactional());
             Addr address = makeLineAddress(pkt->getAddr());
             DPRINTF(RubyHTM,
                     "Stalled (nacked) thread after failing to perform"

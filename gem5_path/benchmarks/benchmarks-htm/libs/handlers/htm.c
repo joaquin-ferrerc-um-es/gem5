@@ -6,6 +6,7 @@
 #if defined (AARCH64)
 #include <arm_acle.h>
 
+#if 0
 uint64_t htm_start(uint64_t arg) {
     return __tstart();
 }
@@ -25,7 +26,7 @@ void htm_cancel(uint64_t code) {
     // aborts (STAMP benchmarks do not pass any abort code, so we
     // invariably pass a zero value)
     switch(code) {
-    case 0: __tcancel(0);
+    case 0: __tcancel(CANCEL_TRANSACTION_DEFAULT_CODE);
     default:
     __builtin_unreachable();
     }
@@ -60,6 +61,7 @@ bool htm_may_succeed_on_retry(uint64_t status) {
 bool htm_abort_cause_disabled(uint64_t abort_status) {
     return (abort_status & _TMFAILURE_DISABLED);
 }
+#endif
 
 #elif defined (X86)
 

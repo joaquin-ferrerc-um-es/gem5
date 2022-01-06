@@ -5,6 +5,52 @@
 
 #include "../isa/aarch64/abort_status.h"
 
+#define htm_start(arg) ({                                       \
+    uint64_t ret;                                               \
+            __asm__ volatile ("\n\t"                            \
+                              "\n\t"                            \
+                              :                                 \
+                              :                                 \
+                              :);                               \
+            ret;                                                \
+        })
+
+#define htm_started(status) (status == 0)
+
+#define htm_abort_undo_log(status) (status & _TMFAILURE_UNDO_LOG)
+
+#define htm_commit(arg) ({                              \
+            __asm__ volatile ("\n\t"                    \
+                              "\n\t"                    \
+                              :                         \
+                              :                         \
+                              : );                      \
+        })
+
+#define htm_cancel(code) ({                             \
+            __asm__ volatile ("\n\t"                    \
+                              "\n\t"                    \
+                              :                         \
+                              :                         \
+                              :);                       \
+        })
+// TODO: Pass abort code to simulator via imm instead of RDI.
+
+#define htm_cancel_lock_acquired() ({                   \
+            __asm__ volatile ("\n\t"                    \
+                              "\n\t"                    \
+                              :                         \
+                              :                         \
+                              :);                       \
+        })
+
+#define htm_abort_cause_conflict(status) (status & _TMFAILURE_MEM)
+#define htm_abort_cause_explicit(status) (status & _TMFAILURE_CNCL)
+#define htm_abort_cause_explicit_code(status) ( TME_FAILURE_REASON_DECODE(status))
+#define htm_abort_code_is_lock_acquired(abort_code) ( abort_code == TME_CODE_FALLBACK_LOCK_LOCKED)
+#define htm_abort_code_is_default(abort_code) (abort_code == CANCEL_TRANSACTION_DEFAULT_CODE)
+#define htm_may_succeed_on_retry(status) ( status & _TMFAILURE_RTRY)
+#define htm_abort_cause_disabled(status) (status & _TMFAILURE_DISABLED)
 
 #elif defined X86
 
@@ -79,7 +125,7 @@
 #define htm_abort_cause_explicit(status) (status & _XABORT_EXPLICIT)
 #define htm_abort_cause_explicit_code(status) (_XABORT_CODE_DECODE(status))
 #define htm_abort_code_is_lock_acquired(abort_code) (abort_code == XABORT_CODE_FALLBACK_LOCK_LOCKED)
-#define htm_abort_code_is_default(abort_code) (abort_code == XABORT_CODE_DEFAULT)
+#define htm_abort_code_is_default(abort_code) (abort_code == CANCEL_TRANSACTION_DEFAULT_CODE)
 #define htm_may_succeed_on_retry(status) (status & _XABORT_RETRY)
 #define htm_abort_cause_disabled(status) (status & _XABORT_DISABLED)
 

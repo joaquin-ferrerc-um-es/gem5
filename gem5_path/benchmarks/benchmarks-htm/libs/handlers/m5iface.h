@@ -11,6 +11,18 @@ void simBackoffEnd();
 void simCodeRegionBegin(unsigned long int codeRegionId);
 void simCodeRegionEnd(unsigned long int codeRegionId);
 
+#if defined AARCH64
+
+
+#define simEndLogUnroll(ptr) ({                                         \
+            __asm__ volatile (""                                        \
+                              :                                         \
+                              :                                         \
+                              :                                             ); \
+        })
+
+#elif defined X86
+
 #define simEndLogUnroll(ptr) ({                                         \
             __asm__ volatile ("mov    %0,%%rdi\n\t"                     \
                               "movabs $0xdeadc0debaadcafe,%%rax\n\t"    \
@@ -19,3 +31,4 @@ void simCodeRegionEnd(unsigned long int codeRegionId);
                               : "r"(ptr)                                \
                               : "%rdi", "rax");                         \
         })
+#endif

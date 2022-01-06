@@ -242,6 +242,6 @@ void cancelTransactionWithAbortCode(long abort_code) {
     htm_cancel(abort_code);
 }
 void cancelTransaction() {
-    htm_cancel(XABORT_CODE_DEFAULT);
+    htm_cancel(CANCEL_TRANSACTION_DEFAULT_CODE);
 }
 

@@ -1291,7 +1291,6 @@ Commit::commitHead(const DynInstPtr &head_inst, unsigned inst_num)
         if (head_inst->isHtmStopFence()) {
           DPRINTF(HtmCpu, "htmStop fence at the head of the ROB,"
                   " hasStoresToWB : %d \n",
-                  head_inst->staticInst->getName(),
                   iewStage->hasStoresToWB(tid));
           iewStage->setAtHtmStopHtmUid(tid,
                                        head_inst->getHtmTransactionUid());

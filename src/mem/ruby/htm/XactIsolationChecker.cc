@@ -36,6 +36,7 @@
 #include <iostream>
 
 #include "debug/RubyHTM.hh"
+#include "debug/RubyHTMverbose.hh"
 #include "mem/ruby/htm/TransactionInterfaceManager.hh"
 #include "mem/ruby/system/RubySystem.hh"
 
@@ -160,8 +161,11 @@ void XactIsolationChecker::addToReadSet(int proc, Addr addr, int xact_level){
       m_readSet[proc][xact_level - 1].end()) {
       m_readSet[proc][xact_level-1].
           insert(std::pair<Addr,Tick>(addr, curTick()));
-  }
+      DPRINTF(RubyHTMverbose, "HTM: Isolation checker adds addr %#x"
+              " to read set of proc %d \n",
+              addr, proc);
 
+  }
 }
 
 void XactIsolationChecker::addToWriteSet(int proc, Addr addr){
@@ -175,6 +179,9 @@ void XactIsolationChecker::addToWriteSet(int proc, Addr addr, int xact_level){
       m_writeSet[proc][xact_level - 1].end()){
       m_writeSet[proc][xact_level-1].
           insert(std::pair<Addr,Tick>(addr, curTick()));
+      DPRINTF(RubyHTMverbose, "HTM: Isolation checker adds addr %#x"
+              " to write set of proc %d \n",
+              addr, proc);
   }
 }
 

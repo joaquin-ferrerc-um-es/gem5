@@ -5,8 +5,6 @@ declare_task "update-benchmarks-image" "Build benchmarks and update (or create) 
 
 # TODO: Add options to choose what benchmarks should be built.
 
-# TODO: Reorganize the whole bulding process of stamp an the library so that different architectures and fallback handlers can be built at the same time
-
 task_update-benchmarks-image() {
     local -a archs=("${ENABLED_ARCHITECTURES[@]}")
     options="$(simpler_getopt "architecure:" "$@")"

@@ -193,6 +193,7 @@ CLASS_NS forwardData(int thread, Addr addr, int size,
     }
     if (forwarding) {
         uint64_t value = 0;
+        bool trace = true;
         _unused(value);
         switch(size) {
         case sizeof(uint8_t):
@@ -208,12 +209,22 @@ CLASS_NS forwardData(int thread, Addr addr, int size,
             value = (uint64_t)*((uint64_t *)buffer);
             break;
         default:
-            panic("Unsupported packet size\n");
+            trace = false;
+            break;
+
         }
-        DPRINTF(RubyHTMverbose,
-                "Forwarding from write buffer,"
-                " addr %#x size %d value %#x\n",
-                addr, size, value);
+        if (trace) {
+            DPRINTF(RubyHTMverbose,
+                    "Forwarding from write buffer,"
+                    " addr %#x size %d value %#x\n",
+                    addr, size, value);
+        } else {
+            DPRINTF(RubyHTMverbose,
+                    "Forwarding from write buffer,"
+                    " addr %#x (unexpected size: %d,"
+                    " value ommitted)\n",
+                    addr, size);
+        }
     }
 
     return data;

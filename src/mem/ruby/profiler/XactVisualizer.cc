@@ -77,8 +77,8 @@ void XactVisualizer::printAnnotatedRegions(std::string& extraStr)
           panic("htm visualizer detected anomalous global system freeze: "
                 " Last state change was %ld cycles back (%ld)."
                 " Current tick is: %ld\n",
-                diff, cyclesToTicks(lastPrintCycle),
-                cyclesToTicks(g_system_ptr->curCycle()));
+                diff, g_system_ptr->cyclesToTicks(lastPrintCycle),
+                g_system_ptr->cyclesToTicks(g_system_ptr->curCycle()));
       }
   }
   lastPrintCycle = g_system_ptr->curCycle();

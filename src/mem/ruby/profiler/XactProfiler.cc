@@ -336,8 +336,9 @@ XactProfiler::profileRegionChange(int proc_no,
                 " Last state change was %ld cycles back (%ld)."
                 " Current tick is: %ld\n",
                 proc_no, diff,
-                cyclesToTicks(m_xactLastRegionChange[proc_no]),
-                cyclesToTicks(g_system_ptr->curCycle()));
+                g_system_ptr->
+                cyclesToTicks(Cycles(m_xactLastRegionChange[proc_no])),
+                g_system_ptr->cyclesToTicks(g_system_ptr->curCycle()));
       }
   }
   m_annotatedRegion[proc_no] = nextRegion;

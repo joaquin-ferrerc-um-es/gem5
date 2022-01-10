@@ -105,25 +105,37 @@ bool XactIsolationChecker::checkXACTIsolation(int proc, Addr addr, bool trans,
     // Processors that are in the process of aborting their
     // transactions.  It is ok to access the read/write sets belonging
     // to these transactions.
-    Tick since;
+    Tick since, sinceR;
     if (m_abortingProcessor[i]) continue;
     switch(accessType){
       case RubyRequestType_LD:
           if (existInWriteSet(i, addr, since)){
-           if (trans) {
-               DPRINTF(RubyHTM, "HTM: Isolation check failed addr %#x"
-                      " read from proc %d in"
-                      " write set of proc %d since %ld\n",
-                      addr, proc, i, since);
-               ok = false;
-           } else { // It is ok for non-transactional loads to use
-               // Data_Stale (inv seen while outstanding load
-               // miss)
-              DPRINTF(RubyHTM, "HTM: Non-transactional load"
-                      " to addr %#x from proc %d can use Data_Stale,"
-                      " now in write set of proc %d since %ld\n",
-                      addr, proc, i, since);
-           }
+              if (existInReadSet(proc, addr, sinceR)){
+                  assert(trans);
+                  DPRINTF(RubyHTM, "HTM: Isolation check failed addr %#x"
+                          " read from proc %d since %ld in"
+                          " write set of proc %d since %ld\n",
+                          addr, proc, sinceR,i, since);
+                  ok = false;
+              } else {
+                  if (trans) {
+                      // Address not in read set: this is a
+                      // speculative load that may have got Data_Stale
+                      // and wil be eventually squashed
+                      DPRINTF(RubyHTM, "HTM: Speculative transactional"
+                              " load to addr %#x from proc %d while "
+                              " addr in write set of proc %d since %ld\n",
+                              addr, proc, i, since);
+                  }
+                  else { // It is ok for non-transactional loads to use
+                      // Data_Stale (inv seen while outstanding load
+                      // miss)
+                      DPRINTF(RubyHTM, "HTM: Non-transactional load"
+                              " to addr %#x from proc %d can use Data_Stale,"
+                              " now in write set of proc %d since %ld\n",
+                              addr, proc, i, since);
+                  }
+              }
           }
           break;
       case RubyRequestType_ST:

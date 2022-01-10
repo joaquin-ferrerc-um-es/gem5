@@ -194,6 +194,10 @@ public:
   bool config_preciseReadSetTracking() const {
       return m_htm->params().precise_read_set_tracking;
   }
+  bool config_reloadIfStale() const {
+      return m_htm->params().reload_if_stale;
+  }
+
   bool config_enableValueChecker() const {
       return m_htm->params().value_checker;
   }

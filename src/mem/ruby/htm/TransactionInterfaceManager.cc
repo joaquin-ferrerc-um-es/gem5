@@ -485,7 +485,11 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
                         // (written blocks not part of the read set)
                         if (m_abortCause[thread] ==
                             HTMStats::AbortCause::FallbackLock) {
-                            assert(m_abortSourceNonTransactional[thread]);
+                            // Remote killer may be transactional if
+                            // reader mistaken for writer (downgrade
+                            // on L1 GETS disabled)
+                            assert(m_abortSourceNonTransactional[thread] ||
+                                   !RubySystem::enableL0DowngradeOnL1Gets());
                         } else if ((m_abortCause[thread] ==
                                    HTMStats::AbortCause::Conflict) ||
                                    (m_abortCause[thread] ==
@@ -703,6 +707,12 @@ TransactionInterfaceManager::addToRetiredReadSet(int thread,
                             physicalAddr);
     DPRINTF(RubyHTMverbose, "retiredTransactionLoad "
             "address=%x\n", physicalAddr);
+
+    if (config_enableIsolationChecker()) {
+        m_ruby_system->getXactIsolationChecker()->
+            addToReadSet(m_version,
+                         physicalAddr);
+    }
 }
 
 bool

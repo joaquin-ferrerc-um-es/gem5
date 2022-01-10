@@ -939,7 +939,7 @@ LSQUnit::writebackStores()
             // moved back due to an earlier nacked store.
             if (storeWBIt->committed()) {
                 // Nacked stores may move the storeWBIt backwards, so that
-                // "committed" SQ entries (already sent to cache)
+                // "committed" SQ entries (already sent to cache) are
                 // considered again by writebackStores. Simply skip
                 // them. This is only possible in non-TSO
                 assert(!needsTSO);
@@ -1334,8 +1334,11 @@ LSQUnit::completeNackedStore(typename StoreQueue::iterator store_idx)
         // Move WB pointer back to nacked store
         storeWBIt--;
         assert(inst == storeWBIt->instruction());
-        // This SQ entry is considered behind the storeWBIt, so it
-        // must be skipped by the ST2LD forwarding. Also,
+        // This SQ entry is no longer considered behind the storeWBIt,
+        // so it must be considered by the ST2LD forwarding logic
+        // until. This is important to prevent loads following the
+        // nacked store in program order to obtain the wrong data from
+        // cache while the store has not yet been retried. Also,
         // writebackStores expects skipWritebackReplay to be set also
         // for the store that got nacked
         storeWBIt->skipWritebackReplay() = true;
@@ -1653,12 +1656,10 @@ LSQUnit::read(LSQRequest *req, int load_idx)
         assert(store_it->valid());
         assert(store_it->instruction()->seqNum < load_inst->seqNum);
         if (store_it->skipWritebackReplay()) {
-            DPRINTF(HtmCpu, "LSQ::read skipping ST2LD forwarding for"
-                    " skipWriteBackReplay store idx:%i\n",
+            DPRINTF(HtmCpu, "LSQ:: ST2LD forwarding logic reconsiders"
+                    " replayed store idx:%i\n",
                     store_it.idx());
-            continue;
         }
-
         int store_size = store_it->size();
 
         // Cache maintenance instructions go down via the store

@@ -54,7 +54,7 @@ TransactionalSequencer::print(std::ostream& out) const
 }
 
 void
-TransactionalSequencer::setController(AbstractController* _cntrl) 
+TransactionalSequencer::setController(AbstractController* _cntrl)
 {
     m_controller = _cntrl;
     assert(m_xact_mgr);
@@ -234,11 +234,6 @@ TransactionalSequencer::notifyXactionEvent(PacketPtr pkt)
                   pkt->getAddr(),
                   makeLineAddress(pkt->getAddr()));
       }
-      if (m_xact_mgr->config_enableIsolationChecker()) {
-          m_ruby_system->getXactIsolationChecker()->
-              addToReadSet(m_version,
-                           makeLineAddress(pkt->getAddr()));
-        }
   } else {
     panic("Unsupported transactional MemCmd\n");
   }
@@ -405,7 +400,7 @@ TransactionalSequencer::makeRequest(PacketPtr pkt)
 
         // All HTM commands need to callback CPU immediately
         rubyHtmCallback(pkt);
-        
+
         // Pretend this request issued so that RubyPort does not try
         // to send it again later
         return RequestStatus_Issued;
@@ -442,6 +437,13 @@ TransactionalSequencer::makeRequest(PacketPtr pkt)
                                 pkt->req->getVaddr(),
                                 pkt->req->getPaddr());
                         if (m_xact_mgr->isEndLogUnrollSignal(pkt)) {
+                            // Wait for lingering stores to complete
+                            if (!m_logRequestTable.empty()) {
+                                DPRINTF(RubyHTMlog, "Log unroll must"
+                                        " wait for %d lingering log stores\n",
+                                        m_logRequestTable.size());
+                                return RequestStatus_BufferFull;
+                            }
                             assert(pkt->isWrite());
                            // "Magic value" written to logbase to
                            // signal log unroll completed without
@@ -719,7 +721,7 @@ TransactionalSequencer::hitCallback(SequencerRequest* srequest, DataBlock& data,
                      (srequest->m_type == RubyRequestType_Locked_RMW_Read) ||
                      (srequest->m_type == RubyRequestType_RMW_Read) ||
                      (srequest->m_type == RubyRequestType_IFETCH));
-        
+
         if (read) {
             handleTransactionalRead(srequest,
                                     data,
@@ -730,7 +732,7 @@ TransactionalSequencer::hitCallback(SequencerRequest* srequest, DataBlock& data,
                  srequest->m_type == RubyRequestType_Locked_RMW_Read) {
             // Handle RMW_Read's with care due to writeback of dirty data
             // before it gets speculatively modified
-            panic("Not tested!\n");        
+            panic("Not tested!\n");
             handleTransactionalRead(srequest,
                                     data,
                                     externalHit,
@@ -864,7 +866,7 @@ TransactionalSequencer::handleTransactionalWrite(SequencerRequest *request,
                                          respondingMach,
                                          pkt->getAddr(), pc,
                                          pkt->getSize());
-    
+
 }
 
 void
@@ -884,8 +886,8 @@ TransactionalSequencer::handleTransactionalRead(SequencerRequest *srequest,
     assert(m_xact_mgr);
     assert(pkt->req->hasPC());
     Addr pc = pkt->req->getPC();
-    m_xact_mgr->profileTransactionAccess(externalHit, false, 
-                                         respondingMach, 
+    m_xact_mgr->profileTransactionAccess(externalHit, false,
+                                         respondingMach,
                                          pkt->getAddr(),
                                          pc,
                                          pkt->getSize());

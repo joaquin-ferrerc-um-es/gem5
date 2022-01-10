@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "mem/ruby/profiler/annotated_regions.h"
+#include "mem/ruby/system/Sequencer.hh"
 
 namespace gem5
 {
@@ -29,6 +30,7 @@ public:
   void printAnnotatedRegions(std::string& extraStr);
 
   XactProfiler *m_xact_profiler;
+  Cycles lastPrintCycle;
   std::ostream*  m_xact_visualizer_output_file_ptr;
 };
 

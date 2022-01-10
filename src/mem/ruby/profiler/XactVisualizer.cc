@@ -13,8 +13,6 @@
 #include "debug/RubyHTM.hh"
 #include "mem/ruby/common/Global.hh"
 #include "mem/ruby/profiler/XactProfiler.hh"
-#include "mem/ruby/system/Sequencer.hh"
-
 
 namespace gem5
 {
@@ -55,6 +53,7 @@ XactVisualizer::XactVisualizer(XactProfiler* profiler, std::ostream* output) {
     // By default, dump to stderr
     m_xact_visualizer_output_file_ptr = output;
     m_xact_profiler = profiler;
+    lastPrintCycle = Cycles(0);
 }
 
 XactVisualizer::~XactVisualizer() {
@@ -63,7 +62,6 @@ XactVisualizer::~XactVisualizer() {
 
 void XactVisualizer::printAnnotatedRegions(std::string& extraStr)
 {
-
   for (int i = 0; i < m_xact_profiler->m_annotatedRegion.size(); i++)
     (* m_xact_visualizer_output_file_ptr) <<
       s_xactStateStructMap[m_xact_profiler->m_annotatedRegion[i]].outp << " ";
@@ -71,6 +69,16 @@ void XactVisualizer::printAnnotatedRegions(std::string& extraStr)
       curTick() << "   " << std::setw(12)  <<
       g_system_ptr->curCycle()-g_system_ptr->getStartCycle()  <<
       extraStr << std::endl;
+  // Record time of last print, and perform sanity checks
+  if (lastPrintCycle != Cycles(0)) {
+      // Global check
+      Cycles diff = g_system_ptr->curCycle() - lastPrintCycle;
+      if (diff > 1000000) { // One million cycles without changes??
+          panic("htm visualizer detected anomalous global system freeze: "
+                " Last state change was %ld cycles back\n", diff);
+      }
+  }
+  lastPrintCycle = g_system_ptr->curCycle();
 }
 
 } // namespace ruby

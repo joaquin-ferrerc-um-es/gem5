@@ -22,7 +22,6 @@ system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict, caches.cac
 system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf, caches.cache_baseline])
 
 system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf_dwng, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf_dwng_lazycd_magic, caches.cache_baseline])
 system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf_dwng_lazycd_magic_cw, caches.cache_baseline])
 system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf_dwng_lazycd_token, caches.cache_baseline])
 
@@ -44,7 +43,6 @@ processor_list.append(8)
 processor_list.append(4)
 processor_list.append(2)
 processor_list.append(1)
-
 
 detailed_simulation_cpu_model_list = []
 #detailed_simulation_cpu_model_list.append('TimingSimpleCPU')

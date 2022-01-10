@@ -88,7 +88,7 @@ cfg1_base[htm_allow_load_delaying]=False
 cfg1_base[htm_reload_if_stale]=False
 cfg1_base[htm_l0_downgrade_on_l1_gets]=False
 cfg1_base[htm_value_checker]=False
-cfg1_base[htm_isolation_checker]=False
+cfg1_base[htm_isolation_checker]=True
 cfg1_base[htm_visualizer]=True
 cfg1_base[htm_max_retries]=6
 cfg1_base[htm_max_backoff]=6
@@ -109,18 +109,34 @@ cfg1_l1rsetevict_pf[htm_heap_prefault]=True
 cfg1_l1rsetevict_pf_dwng = collections.OrderedDict(cfg1_l1rsetevict_pf)
 cfg1_l1rsetevict_pf_dwng[htm_l0_downgrade_on_l1_gets]=True
 
-cfg1_l1rsetevict_pf_dwng_lazycd_magic = collections.OrderedDict(cfg1_l1rsetevict_pf)
-cfg1_l1rsetevict_pf_dwng_lazycd_magic[htm_eager_cd]=False
-cfg1_l1rsetevict_pf_dwng_lazycd_magic[htm_lazy_arbitration]='magic'
-cfg1_l1rsetevict_pf_dwng_lazycd_magic[htm_lazy_validated_conf_res]='requester_wins'
 
-cfg1_l1rsetevict_pf_dwng_lazycd_magic_cw = collections.OrderedDict(cfg1_l1rsetevict_pf_dwng_lazycd_magic)
-cfg1_l1rsetevict_pf_dwng_lazycd_magic_cw[htm_lazy_validated_conf_res]='committer_wins'
+cfg1_pf_lazycd_magic_cw = collections.OrderedDict(cfg1_base)
+cfg1_pf_lazycd_magic_cw[htm_heap_prefault]=True
+cfg1_pf_lazycd_magic_cw[htm_eager_cd]=False
+cfg1_pf_lazycd_magic_cw[htm_lazy_arbitration]='magic'
+cfg1_pf_lazycd_magic_cw[htm_lazy_validated_conf_res]='committer_wins'
+cfg1_pf_lazycd_magic_cw[htm_isolation_checker]=False
+
+cfg1_pf_dwng_lazycd_magic_cw = collections.OrderedDict(cfg1_pf_lazycd_magic_cw)
+cfg1_pf_dwng_lazycd_magic_cw[htm_l0_downgrade_on_l1_gets]=True
+
+cfg1_l0rsetevict_pf_dwng_lazycd_magic_cw = collections.OrderedDict(cfg1_pf_dwng_lazycd_magic_cw)
+cfg1_l0rsetevict_pf_dwng_lazycd_magic_cw[htm_allow_read_set_l0_evictions]=True
+
+cfg1_l1rsetevict_pf_dwng_lazycd_magic_cw = collections.OrderedDict(cfg1_l0rsetevict_pf_dwng_lazycd_magic_cw)
+cfg1_l1rsetevict_pf_dwng_lazycd_magic_cw[htm_allow_read_set_l1_evictions]=True
+
+cfg1_l2rsetevict_pf_dwng_lazycd_magic_cw = collections.OrderedDict(cfg1_l1rsetevict_pf_dwng_lazycd_magic_cw)
+cfg1_l2rsetevict_pf_dwng_lazycd_magic_cw[htm_allow_read_set_l2_evictions]=True
+
+cfg1_l1rsetevict_pf_dwng_lazycd_magic_rw = collections.OrderedDict(cfg1_l1rsetevict_pf_dwng_lazycd_magic_cw)
+cfg1_l1rsetevict_pf_dwng_lazycd_magic_rw[htm_lazy_validated_conf_res]='requester_wins'
 
 cfg1_l1rsetevict_pf_dwng_lazycd_token = collections.OrderedDict(cfg1_l1rsetevict_pf)
 cfg1_l1rsetevict_pf_dwng_lazycd_token[htm_eager_cd]=False
 cfg1_l1rsetevict_pf_dwng_lazycd_token[htm_lazy_arbitration]='token'
 cfg1_l1rsetevict_pf_dwng_lazycd_token[htm_lazy_validated_conf_res]='requester_wins'
+cfg1_l1rsetevict_pf_dwng_lazycd_token[htm_isolation_checker]=False
 
 cfg1_l1rsetevict_pf_dwng_precise  = collections.OrderedDict(cfg1_l1rsetevict_pf_dwng)
 cfg1_l1rsetevict_pf_dwng_precise[htm_precise_read_set_tracking]=True

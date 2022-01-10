@@ -1395,7 +1395,9 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
           DPRINTF(RubyHTM,
                   "Aborting transaction due to conflict on pending load addr=0x%lx\n",
                   address);
-      } else { // No conflict
+      } else { // No conflict: L1 has handled the case where
+               // Data_Stale is discarded (precise read sets + reload
+               // if stale) as a nack, otherwise risk livelock
       }
   }
 

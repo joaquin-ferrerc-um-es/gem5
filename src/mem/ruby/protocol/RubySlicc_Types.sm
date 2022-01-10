@@ -173,6 +173,7 @@ structure (TransactionInterfaceManager, external = "yes") {
   void xactReplacement(Addr, MachineID, bool);
 
   void notifyMissCompleted(bool, bool);
+  void notifyReceiveNack(Addr, Cycles, MachineID);
 
   bool config_lazyVM();
   bool config_eagerCD();
@@ -184,6 +185,7 @@ structure (TransactionInterfaceManager, external = "yes") {
   bool config_allowReadSetLowerLevelCacheEvictions();
   bool config_allowWriteSetLowerLevelCacheEvictions();
   bool config_preciseReadSetTracking();
+  bool config_reloadIfStale();
 }
 
 structure(RubyRequest, desc="...", interface="Message", external="yes") {

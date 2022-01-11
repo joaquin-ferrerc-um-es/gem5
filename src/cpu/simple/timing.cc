@@ -1142,16 +1142,6 @@ TimingSimpleCPU::completeDataAccess(PacketPtr pkt)
             fault = std::make_shared<GenericHtmFailureFault>(
                 t_info->getHtmTransactionUid(),
                 HtmFailureFaultCause::LSQ);
-        } else if (htm_rc == HtmCacheFailure::NO_FAIL_RETRY) {
-            assert(pkt->req->isHTMCommit());
-            assert(!system->getHTM()->params().eager_cd);
-            // Lazy HTMs require additional actions at commit time, so
-            // commit is not instantaneous: re-execute until memory
-            // responds with HtmCacheFailure::NO_FAIL
-            fault = std::make_shared<ReExec>();
-            DPRINTF(HtmCpu,
-                "htmStop must retry rc=%u - htmUid=%d\n",
-                htmFailureToStr(htm_rc), pkt->getHtmTransactionUid());
         } else {
             panic("HTM - unhandled rc %s", htmFailureToStr(htm_rc));
         }

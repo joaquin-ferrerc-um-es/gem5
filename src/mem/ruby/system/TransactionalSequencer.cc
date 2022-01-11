@@ -29,7 +29,8 @@ TransactionalSequencer::TransactionalSequencer(const Params &p)
       m_failedCallback(false),
       m_stalled(false),
       m_lastStateBeforeStall(AnnotatedRegion_INVALID),
-      writeBufferHitEvent(this)
+      writeBufferHitEvent(this),
+      lazyCommitCheckEvent(this)
 
 {
     // TransactionalSequencer is only used by UMU protocols
@@ -117,6 +118,17 @@ TransactionalSequencer::notifyXactionEvent(PacketPtr pkt)
                   // misses), now rubyHtmCallback will signal abort
                   // via getHtmTransactionalReqResponseCode
                   m_commitPending = false;
+              } else {
+                  // If pending commit actions that prevent abort,
+                  // schedule event to complete the abort the such
+                  // outstanding actions are done
+                  if (!lazyCommitCheckEvent.scheduled()) {
+                      lazyCommitCheckEvent.setPacket(pkt);
+                      schedule(lazyCommitCheckEvent,
+                               clockEdge(Cycles(1)));
+                      DPRINTF(RubyHTM, "Scheduled lazy commit check"
+                              " event (abort)\n");
+                  }
               }
           }
       }
@@ -145,6 +157,16 @@ TransactionalSequencer::notifyXactionEvent(PacketPtr pkt)
           DPRINTFR(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s \n",
                    curTick(), m_version, "Seq",
                    "HTM_COMMIT_PENDING" , "", "");
+          // Schedule event to call makeRequest again on the next
+          // cycle with this commit packet. rubyHtmCallback next will
+          // observe commitPending active and thus will not delete the
+          // packet nor send a response back.
+          if (!lazyCommitCheckEvent.scheduled()) {
+              lazyCommitCheckEvent.setPacket(pkt);
+              schedule(lazyCommitCheckEvent,
+                       clockEdge(Cycles(1)));
+              DPRINTF(RubyHTM, "Scheduled lazy commit check event\n");
+          }
       }
   } else if (pkt->req->isHTMCancel()) {
       // Explicit abort originated from a user instruction
@@ -267,14 +289,6 @@ TransactionalSequencer::rubyHtmCallback(PacketPtr pkt)
     int thread = 0;
     assert(pkt->isRequest());
 
-    // First retrieve the request port from the sender State
-    RubyPort::SenderState *senderState =
-        safe_cast<RubyPort::SenderState *>(pkt->popSenderState());
-
-    MemResponsePort *port = safe_cast<MemResponsePort*>(senderState->port);
-    assert(port != nullptr);
-    delete senderState;
-
     // rubyHtmCallback called by:
     //  a) HTM commands after notifyXactionEvent
     //  b) mem accesses that find abort flag set
@@ -302,6 +316,7 @@ TransactionalSequencer::rubyHtmCallback(PacketPtr pkt)
 
     // turn packet around to go back to requestor if response expected
     if (pkt->needsResponse()) {
+        bool skip_response = false;
         // ArmISAInst::Tstart64::completeAcc expects that response
         // packets have data (payload is HtmFailedInCacheReason)
         uint8_t* dataptr = pkt->getPtr<uint8_t>();
@@ -315,7 +330,7 @@ TransactionalSequencer::rubyHtmCallback(PacketPtr pkt)
             && !pkt->req->isHTMStart()) { // HTM begin cannot fault
             if (m_commitPending) {
                 assert(pkt->req->isHTMCommit());
-                response_code = HtmCacheFailure::NO_FAIL_RETRY;
+                skip_response = true;
             } else {
                 response_code =
                     m_xact_mgr->getHtmTransactionalReqResponseCode(thread);
@@ -323,9 +338,24 @@ TransactionalSequencer::rubyHtmCallback(PacketPtr pkt)
         }
         *dataptr = (uint8_t) response_code;
 
-        pkt->makeHtmTransactionalReqResponse(response_code);
-        port->schedTimingResp(pkt, curTick());
+        if (!skip_response) {
+
+            // First retrieve the request port from the sender State
+            RubyPort::SenderState *senderState =
+                safe_cast<RubyPort::SenderState *>(pkt->popSenderState());
+
+            MemResponsePort *port =
+                safe_cast<MemResponsePort*>(senderState->port);
+            assert(port != nullptr);
+            delete senderState;
+            pkt->makeHtmTransactionalReqResponse(response_code);
+            port->schedTimingResp(pkt, curTick());
+        }
     } else {
+        // First retrieve the request port from the sender State
+        RubyPort::SenderState *senderState =
+            safe_cast<RubyPort::SenderState *>(pkt->popSenderState());
+        delete senderState;
         delete pkt;
     }
 
@@ -908,6 +938,14 @@ TransactionalSequencer::writeBufferEvent(PacketPtr pkt)
 {
     writeBufferHitEvent.clearPacket();
     ruby_hit_callback(pkt);
+    testDrainComplete();
+}
+
+void
+TransactionalSequencer::lazyCommitEvent(PacketPtr pkt)
+{
+    lazyCommitCheckEvent.clearPacket();
+    makeRequest(pkt);
     testDrainComplete();
 }
 

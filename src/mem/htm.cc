@@ -133,7 +133,6 @@ htmFailureToStr(HtmCacheFailure rc)
 {
     static const std::map<HtmCacheFailure, std::string> rc_to_str = {
         { HtmCacheFailure::NO_FAIL, "NO_FAIL" },
-        { HtmCacheFailure::NO_FAIL_RETRY, "NO_FAIL_RETRY" },
         { HtmCacheFailure::FAIL_SELF, "FAIL_SELF" },
         { HtmCacheFailure::FAIL_REMOTE, "FAIL_REMOTE" },
         { HtmCacheFailure::FAIL_OTHER, "FAIL_OTHER" }

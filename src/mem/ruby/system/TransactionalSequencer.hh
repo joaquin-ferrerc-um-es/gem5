@@ -93,6 +93,7 @@ class TransactionalSequencer : public Sequencer
 
     bool isWriteBufferHitEventScheduled() const
     { return writeBufferHitEvent.scheduled(); }
+
     bool notifyXactionEvent(PacketPtr pkt);
     void handleTransactionalRead(SequencerRequest *request,
                                    DataBlock& data, bool externalHit,
@@ -115,7 +116,9 @@ class TransactionalSequencer : public Sequencer
     // WriteBufferHitEvent models access latency of the transactional
     // write buffer
     void writeBufferEvent(PacketPtr _pkt);
+    void lazyCommitEvent(PacketPtr _pkt);
     bool m_commitPending;
+    PacketPtr m_commitPendingPkt;
     bool m_failedCallback;
     bool m_stalled;
     AnnotatedRegion m_lastStateBeforeStall;
@@ -150,6 +153,28 @@ class TransactionalSequencer : public Sequencer
         }
     };
     WriteBufferHitEvent writeBufferHitEvent;
+    class LazyCommitCheckEvent : public Event
+    {
+      private:
+        TransactionalSequencer *m_sequencer_ptr;
+        PacketPtr m_pkt;
+
+      public:
+        LazyCommitCheckEvent(TransactionalSequencer *_seq) :
+            m_sequencer_ptr(_seq), m_pkt(NULL) {}
+        void setPacket(PacketPtr _pkt) {
+            assert(m_pkt ==  NULL);
+            m_pkt = _pkt;
+        }
+        void clearPacket() {
+            assert(m_pkt !=  NULL);
+            m_pkt = NULL;
+        }
+        void process() {
+            m_sequencer_ptr->lazyCommitEvent(m_pkt);
+        }
+    };
+    LazyCommitCheckEvent lazyCommitCheckEvent;
 };
 
 

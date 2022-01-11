@@ -141,18 +141,6 @@ LSQUnit::completeDataAccess(PacketPtr pkt)
                 "in cache - addr=0x%lx - rc=%s - htmUid=%d\n",
                 pkt->getAddr(), htmFailureToStr(htm_rc),
                 pkt->getHtmTransactionUid());
-        } else if (pkt->req->isHTMCommit() &&
-                   htm_rc == HtmCacheFailure::NO_FAIL_RETRY) {
-            assert(!cpu->system->getHTM()->params().eager_cd);
-            // Lazy HTMs require additional actions at commit
-            // time, so commit is not instantaneous: Fault and
-            // re-execute until memory responds with
-            // HtmCacheFailure::NO_FAIL
-            inst->fault = std::make_shared<ReExec>();
-
-            DPRINTF(HtmCpu,
-                "htmStop must retry rc=%u - htmUid=%d\n",
-                htmFailureToStr(htm_rc), pkt->getHtmTransactionUid());
         } else {
             HtmFailureFaultCause fail_reason =
                 HtmFailureFaultCause::INVALID;

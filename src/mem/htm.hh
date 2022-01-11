@@ -164,7 +164,6 @@ enum class HtmFailureFaultCause : int
 enum class HtmCacheFailure
 {
     NO_FAIL,     // no failure in cache
-    NO_FAIL_RETRY, // no failure in cache, must retry
     FAIL_SELF,   // failed due local cache's replacement policy
     FAIL_REMOTE, // failed due remote invalidation
     FAIL_OTHER,  // failed due other circumstances

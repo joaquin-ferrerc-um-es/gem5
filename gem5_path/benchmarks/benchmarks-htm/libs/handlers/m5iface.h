@@ -15,10 +15,15 @@ void simCodeRegionEnd(unsigned long int codeRegionId);
 
 
 #define simEndLogUnroll(ptr) ({                                         \
-            __asm__ volatile (""                                        \
+            __asm__ volatile ("mov    x1, %0\n\t"                       \
+                              "movz x0, #0xcafe \n\t"                    \
+                              "movk x0, #0xbaad, lsl 16 \n\t"            \
+                              "movk x0, #0xc0de, lsl 32 \n\t"            \
+                              "movk x0, #0xdead, lsl 48 \n\t"            \
+                              "str    x0, [x1]\n\t"                     \
                               :                                         \
-                              :                                         \
-                              :                                             ); \
+                              : "r"(ptr)                                \
+                              : "x0", "x1");                            \
         })
 
 #elif defined X86

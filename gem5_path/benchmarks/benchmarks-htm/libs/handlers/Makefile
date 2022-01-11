@@ -15,7 +15,7 @@ $(info Building libaborthandlers: $$ARCH is [${ARCH}] and $$HANDLER is [${HANDLE
 ifeq ($(ARCH),aarch64)
 M5_ARCH := arm64
 CFLAGS += -DAARCH64
-#CFLAGS += -march=armv8-a+tme # TODO: should be set for all files, currently only used by htm.c because old versions of GCC do not support it
+CFLAGS += -march=armv8-a+tme # TODO: should be set for all files, currently only used by htm.c because old versions of GCC do not support it
 GCC_PREFIX := ${AARCH64_CROSS_GCC_PREFIX}
 
 # Hack to support building htm.c with a different version of

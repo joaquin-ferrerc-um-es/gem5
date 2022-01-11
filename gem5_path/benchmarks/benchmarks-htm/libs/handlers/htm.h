@@ -5,45 +5,41 @@
 
 #include "../isa/aarch64/abort_status.h"
 
-#define htm_start(arg) ({                                       \
-    uint64_t ret;                                               \
-            __asm__ volatile ("\n\t"                            \
-                              "\n\t"                            \
+#define htm_start(arg) ({                                      \
+            uint64_t ret;                                       \
+            __asm__ volatile ("tstart %0 \n\t"                     \
+                              : "=r"(ret)                       \
                               :                                 \
-                              :                                 \
-                              :);                               \
+                              : );                         \
             ret;                                                \
         })
 
+#define htm_commit(arg) ({                                \
+            __asm__ volatile ("tcommit\n\t"                \
+                              :                            \
+                              :                            \
+                              : );                         \
+        })
+
+// TODO: pass as imm CANCEL_TRANSACTION_DEFAULT_CODE
+#define htm_cancel(code) ({                                \
+    assert(code == CANCEL_TRANSACTION_DEFAULT_CODE);       \
+            __asm__ volatile ("tcancel  #254\n\t"          \
+                              :                            \
+                              :                            \
+                              : );                         \
+        })
+
+// TODO: pass as imm TME_CODE_FALLBACK_LOCK_LOCKED
+#define htm_cancel_lock_acquired() ({                      \
+            __asm__ volatile ("tcancel  #32767\n\t"        \
+                              :                            \
+                              :                            \
+                              : );                         \
+        })
+
 #define htm_started(status) (status == 0)
-
 #define htm_abort_undo_log(status) (status & _TMFAILURE_UNDO_LOG)
-
-#define htm_commit(arg) ({                              \
-            __asm__ volatile ("\n\t"                    \
-                              "\n\t"                    \
-                              :                         \
-                              :                         \
-                              : );                      \
-        })
-
-#define htm_cancel(code) ({                             \
-            __asm__ volatile ("\n\t"                    \
-                              "\n\t"                    \
-                              :                         \
-                              :                         \
-                              :);                       \
-        })
-// TODO: Pass abort code to simulator via imm instead of RDI.
-
-#define htm_cancel_lock_acquired() ({                   \
-            __asm__ volatile ("\n\t"                    \
-                              "\n\t"                    \
-                              :                         \
-                              :                         \
-                              :);                       \
-        })
-
 #define htm_abort_cause_conflict(status) (status & _TMFAILURE_MEM)
 #define htm_abort_cause_explicit(status) (status & _TMFAILURE_CNCL)
 #define htm_abort_cause_explicit_code(status) ( TME_FAILURE_REASON_DECODE(status))

@@ -74,7 +74,7 @@ void XactVisualizer::printAnnotatedRegions(std::string& extraStr)
       // Global check
       Cycles diff = g_system_ptr->curCycle() - lastPrintCycle;
       if (diff > 1000000) { // One million cycles without changes??
-          panic("htm visualizer detected anomalous global system freeze: "
+          warn ("htm visualizer detected anomalous global system freeze: "
                 " Last state change was %ld cycles back (%ld)."
                 " Current tick is: %ld\n",
                 diff, g_system_ptr->cyclesToTicks(lastPrintCycle),

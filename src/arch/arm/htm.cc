@@ -40,6 +40,7 @@
 #include "arch/arm/regs/int.hh"
 #include "arch/arm/regs/misc.hh"
 #include "cpu/thread_context.hh"
+#include "debug/HtmArch.hh"
 
 namespace gem5
 {
@@ -158,6 +159,8 @@ ArmISA::HTMCheckpoint::restore(ThreadContext *tc, HtmFailureFaultCause cause)
         //     break;
       case HtmFailureFaultCause::DISABLED:
           // Bits 63-24: Reserved
+          // See gem5_path/benchmarks/benchmarks-htm/libs/isa/aarch64/abort_status.h
+          // _TMFAILURE_DISABLED is bit 25
         replaceBits(error_code, 25, 1);
         assert(tc->forceHtmDisabled());
         if (tc->forceHtmRetryStatusBit()) {
@@ -175,6 +178,16 @@ ArmISA::HTMCheckpoint::restore(ThreadContext *tc, HtmFailureFaultCause cause)
         replaceBits(error_code, 15, 1);
     if (interrupt)
         replaceBits(error_code, 23, 1);
+    if (tc->getHtmUndoLogSize() > 0) {
+        // See gem5_path/benchmarks/benchmarks-htm/libs/isa/aarch64/abort_status.h
+        // _TMFAILURE_UNDO_LOG is bit 26
+        replaceBits(error_code, 26, 1);
+        uint64_t logsize = tc->getHtmUndoLogSize();
+        replaceBits(error_code, 63, 32, logsize);
+        DPRINTF(HtmArch, "Setting undo log bit in abort status, log size :%d\n",
+                logsize);
+
+    }
     tc->setIntReg(rt, error_code);
 
     // set next PC

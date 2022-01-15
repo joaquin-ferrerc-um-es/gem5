@@ -505,6 +505,9 @@ class LSQ
         packetSent()
         {
             flags.set(Flag::Sent);
+            if (flags.isSet(Flag::HtmFailedCacheAccess)) {
+                flags.clear(Flag::HtmFailedCacheAccess);
+            }
         }
         /** Update the status to reflect that a packet was not sent.
          * When a packet fails to be sent, we mark the request as needing a
@@ -515,7 +518,14 @@ class LSQ
         {
             flags.set(Flag::Retry);
             flags.clear(Flag::Sent);
-            flags.clear(Flag::HtmFailedCacheAccess);
+        }
+        /** Update the status to reflect that a packet was nacked.
+         */
+        void
+        packetNacked()
+        {
+            flags.clear(Flag::Sent);
+            assert(flags.isSet(Flag::HtmFailedCacheAccess));
         }
 
         void sendFragmentToTranslation(int i);

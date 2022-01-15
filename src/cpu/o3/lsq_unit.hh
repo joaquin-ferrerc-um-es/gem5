@@ -564,8 +564,15 @@ class LSQUnit
     /** The packet that needs to be retried. */
     PacketPtr retryPkt;
 
+    /** Set when a nacked store moves the storeWBIt backwards*/
+    bool nackedStoreAheadOfStoreBlocked;
+
     /** Whehter or not a store is blocked due to the memory system. */
     bool isStoreBlocked;
+
+    /** The store request that was blocked.
+     */
+    LSQRequest* isStoreBlockedReq;
 
     /** Whether or not a store is in flight. */
     bool storeInFlight;

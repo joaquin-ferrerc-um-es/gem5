@@ -9,14 +9,8 @@ class HTM(ClockedObject):
     cxx_class = 'gem5::HTM'
 
     # Hardware transactional memory model from University of Murcia.
-    # Replaces memory-side implementation of gem5-20.1 with an
-    # alternative, more flexible, less protocol-dependent
-    # implementation. Inspired by HTM support in GEMS, compatible with
-    # gem5-20 CPU API, replaces each HTMSequencer with a
-    # TransactionalSecuencer object, whose associated HTM manager
-    # (TransactionalInterfaceManager) is passed as argument to the
-    # L0/L1 cache controller. The xact mgr acts as interface to the
-    # different classes that provide the various mechanisms for HTM.
+    # Replaces memory-side implementation of gem5-21 with an
+    # alternative, highly flexible implementation.
 
     # Disable HTM support by forcing abort upon htm start instruction,
     # useful to run "single-global-lock" simulations using unmodified

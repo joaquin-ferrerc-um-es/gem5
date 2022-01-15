@@ -216,13 +216,11 @@ HTMChecker::isLock(Trace::InstRecord *traceData) const
         assert(traceData->getMemValid());
         if (isSC) { // lock
             assert(llsc);
-            assert(traceData->getIntData() == 0); // TODO: Check
-            assert(lastFallbackLockReadValue == 0);
-            // TODO: How to handle failed SC???
+            assert(traceData->getStaticInst()->getName() == "stxr");
+            // TODO: Handle failed SC
             return true;
         } else {
             assert(!llsc);
-            assert(traceData->getIntData() == 0); // TODO: Check
             return false;
         }
     } else {
@@ -235,7 +233,13 @@ bool
 HTMChecker::isUnlock(Trace::InstRecord *traceData) const
 {
     if (cpu->system->getArch() == Arch::X86ISA) {
-        return traceData->getIntData() == 0;
+        if (traceData->getIntData() == 0) {
+            assert(hasFallbackLock &&
+                   (lastFallbackLockReadValue == 1));
+            return true;
+        } else {
+            return false;
+        }
     } else if (cpu->system->getArch() == Arch::ArmISA) {
         bool isSC = traceData->getStaticInst()->isStoreConditional();
         unsigned flags = traceData->getFlags();
@@ -243,12 +247,11 @@ HTMChecker::isUnlock(Trace::InstRecord *traceData) const
         assert(traceData->getMemValid());
         if (isSC) { // lock
             assert(llsc);
-            assert(lastFallbackLockReadValue == 0);
+            assert(traceData->getStaticInst()->getName() == "stxr");
             return false;
         } else { // unlock done via stlr (store release)
             assert(!llsc);
-            assert(traceData->getIntData() == 0); // TODO: Check
-            assert(lastFallbackLockReadValue == 1);
+            assert(traceData->getStaticInst()->getName() == "stlrh");
             return true;
         }
     } else {
@@ -360,6 +363,14 @@ HTMChecker::retireInst(bool isMemRef, bool isTransactional,
                     DPRINTF(HTMChecker, "Skipping value recording while "
                             "handling interrupt/fault at PC %#x\n",
                             faultPC);
+#if 0 // Uncomment this code to debug segmentation faults: simulate
+      // commit on the recorder to allow the replayer to check the
+      // values up to the point where the segfault occurs
+                    recorder.commit(0);
+                    DPRINTF(HTMChecker, "Dumping recorder's committed values"
+                            " before segmentation fault at PC %#x\n",
+                            faultPC);
+#endif
                 }
             }
         }
@@ -375,8 +386,6 @@ HTMChecker::retireInst(bool isMemRef, bool isTransactional,
                 lastFallbackLockReadValue = getLockValue(traceData);
             } else {
                 if (isUnlock(traceData)) { // Unlock
-                    assert(hasFallbackLock &&
-                           (lastFallbackLockReadValue == 1));
                     DPRINTF(HTMChecker, "lock released\n");
                     // Check replayed values at end of critical section
                     if (cpu->system->getLockstepMode() == enums::replay) {
@@ -387,6 +396,7 @@ HTMChecker::retireInst(bool isMemRef, bool isTransactional,
                         // Record values of non-spec transaction
                         recorder.commit(0);
                     }
+                    assert(hasFallbackLock);
                     hasFallbackLock = false;
                 } else if (isLock(traceData)) { // Lock
                     DPRINTF(HTMChecker, "lock acquired\n");

@@ -129,7 +129,7 @@ public:
   bool isEndLogUnrollSignal(PacketPtr pkt);
   void setupLogTranslation(Addr vaddr, Addr paddr);
   Addr addLogEntry(Addr addr);
-  void commitLogEntry(Addr addr);
+  void commitLogEntry(int index, Addr storeAddr);
   int getLogNumEntries(int thread);
   bool isUnrollingLog(int thread);
   void endLogUnroll(int thread);

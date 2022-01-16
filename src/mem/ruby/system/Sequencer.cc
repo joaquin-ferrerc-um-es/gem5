@@ -638,8 +638,9 @@ Sequencer::hitCallback(SequencerRequest* srequest, DataBlock& data,
             DPRINTF(RubySequencer, "read data %s\n", data);
         } else if (pkt->cmd == MemCmd::SwapReq) {
             if (pkt->isAtomicOp()) {
-                // RISCV AMO support
-                assert(system->getArch() == Arch::RiscvISA);
+                // ARM/RISCV AMO support
+                assert(system->getArch() == Arch::RiscvISA ||
+                       system->getArch() == Arch::ArmISA);
                 // Command is swap but req doesn't have swap flag set (
                 assert(!pkt->req->isSwap());
                 // extract data from cache and save it into the data field in
@@ -702,13 +703,22 @@ Sequencer::empty() const
     return m_RequestTable.empty();
 }
 
-RequestStatus
-Sequencer::makeRequest(PacketPtr pkt)
+bool
+Sequencer::canMakeRequest(PacketPtr pkt)
 {
     // HTM abort signals must be allowed to reach the Sequencer
     // the same cycle they are issued. They cannot be retried.
     if ((m_outstanding_count >= m_max_outstanding_requests) &&
         !pkt->req->isHTMAbort()) {
+        return false;
+    } else {
+        return true;
+    }
+}
+RequestStatus
+Sequencer::makeRequest(PacketPtr pkt)
+{
+    if (!canMakeRequest(pkt)) {
         return RequestStatus_BufferFull;
     }
 

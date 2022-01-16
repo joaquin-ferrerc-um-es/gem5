@@ -126,6 +126,7 @@ class Sequencer : public RubyPort
                       const Cycles forwardRequestTime = Cycles(0),
                       const Cycles firstResponseTime = Cycles(0));
 
+    virtual bool canMakeRequest(PacketPtr pkt);
     RequestStatus makeRequest(PacketPtr pkt) override;
     virtual bool empty() const;
     int outstandingCount() const override { return m_outstanding_count; }
@@ -226,8 +227,10 @@ class Sequencer : public RubyPort
 
     CacheMemory* m_dataCache_ptr;
 
-  private:
+    int m_outstanding_count;
     int m_max_outstanding_requests;
+
+private:
 
     // The cache access latency for top-level caches (L0/L1). These are
     // currently assessed at the beginning of each memory access through the
@@ -237,7 +240,6 @@ class Sequencer : public RubyPort
     Cycles m_inst_cache_hit_latency;
 
     // Global outstanding request count, across all request tables
-    int m_outstanding_count;
     bool m_deadlock_check_scheduled;
 
     int m_coreId;

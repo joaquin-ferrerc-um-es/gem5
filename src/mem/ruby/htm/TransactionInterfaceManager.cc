@@ -562,6 +562,7 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
             // Restart conflict management
             getXactConflictManager()->restartTransaction(thread);
         } else {
+            assert(m_xactEagerVersionManager->isLogReadyToUnroll());
             // Only release isolation over read set
             getXactIsolationManager()->releaseReadIsolation(thread);
             if (config_enableIsolationChecker()) {
@@ -1358,9 +1359,11 @@ TransactionInterfaceManager::addLogEntry(Addr addr)
 }
 
 void
-TransactionInterfaceManager::commitLogEntry(Addr addr)
+TransactionInterfaceManager::commitLogEntry(int index,
+                                            Addr storeAddr)
 {
-    return m_xactEagerVersionManager->commitLogEntry(addr);
+    return m_xactEagerVersionManager->commitLogEntry(index,
+                                                     storeAddr);
 }
 
 int

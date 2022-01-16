@@ -46,6 +46,7 @@ CLASS_NS beginTransaction(int thread)
     assert(!m_logTLB.empty());
     assert(m_logNumCommittedEntries == 0);
     assert(m_addedLogDataPAddr.empty());
+    assert(m_committedIndices.empty());
 }
 
 void
@@ -53,6 +54,7 @@ CLASS_NS restartTransaction(int thread){
     m_logNumEntries = 0;
     m_logNumCommittedEntries = 0;
     m_addedLogDataPAddr.clear();
+    m_committedIndices.clear();
 }
 
 
@@ -62,6 +64,7 @@ CLASS_NS commitTransaction(int thread)
     m_logNumEntries = 0;
     m_logNumCommittedEntries = 0;
     m_addedLogDataPAddr.clear();
+    m_committedIndices.clear();
 }
 
 bool
@@ -71,6 +74,18 @@ CLASS_NS isAccessToLog(Addr addr) const
         return false;
     return (addr >= m_logBaseVAddr &&
             addr  < (m_logBaseVAddr + MAX_LOG_SIZE_BYTES));
+}
+
+bool
+CLASS_NS isLogReadyToUnroll() const
+{
+    // Sanity checks
+    for (int i=0; i < m_committedIndices.size(); ++i) {
+        assert(m_committedIndices[i]);
+    }
+    assert(m_committedIndices.size() == m_logNumCommittedEntries);
+    assert(m_logNumCommittedEntries == m_logNumEntries);
+    return true;
 }
 
 void
@@ -84,7 +99,11 @@ CLASS_NS setupLogTranslation(Addr vaddr, Addr paddr)
         assert(m_initStatus == LogInitStatus::V2PTranslations);
     }
     m_initStatus = LogInitStatus::V2PTranslations;
-    assert(m_logTLB.find(vaddr) == m_logTLB.end());
+    if (m_logTLB.find(vaddr) != m_logTLB.end()) {
+        // if store during walk_log (simSetLogBase) retried, ensure
+        // we find the same translation
+        assert(m_logTLB[vaddr] == paddr);
+    }
     m_logTLB[vaddr] = paddr;
     DPRINTF(RubyHTMlog,
             "Setting up log TLB vaddr %#x paddr %#x \n",
@@ -152,12 +171,20 @@ CLASS_NS addLogEntry(Addr storeAddr)
 
 
 void
-CLASS_NS commitLogEntry(Addr addr)
+CLASS_NS commitLogEntry(int index, Addr storeAddr)
 {
-    // Sanity checks: So far, at most one outstanding logged store in
-    // flight supported. TODO: Non-TSO support
-    assert(m_addedLogDataPAddr.back() == addr);
+    assert(storeAddr == makeLineAddress(storeAddr));
     ++m_logNumCommittedEntries;
+    if (index >= m_committedIndices.size()) {
+        m_committedIndices.resize(index+1);
+    }
+    DPRINTF(RubyHTMlog,
+            "PROC %d committed log entry at index %i for store"
+            " paddr %#x\n", m_version,
+            index, storeAddr);
+
+    assert(!m_committedIndices[index]);
+    m_committedIndices[index] = true;
 }
 
 bool

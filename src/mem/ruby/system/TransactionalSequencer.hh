@@ -10,7 +10,6 @@
 #include "mem/ruby/system/Sequencer.hh"
 #include "params/RubyTransactionalSequencer.hh"
 
-
 namespace gem5
 {
 
@@ -24,25 +23,28 @@ struct LogRequestInfo
 {
     PacketPtr logAddrPkt = NULL;
     PacketPtr logDataPkt = NULL;
+    Addr logAddr = 0;
+    Addr logData = 0;
     RequestStatus logAddrPktStatus = RequestStatus_NULL;
     RequestStatus logDataPktStatus = RequestStatus_NULL;
     //WriteCallbackArgs callbackArgs;
     /** Number of outstanding associated access to complete (LogTM) */
     int outstanding = 0;
     int completed = 0;
-    uint64_t htmTransactionUid = 0;
-    bool suppressed = false;
+    int logIndex = -1;
     Addr vaddr = 0; // Program store
     Addr paddr = 0; // Program store
     LogRequestInfo(PacketPtr _logAddrPkt,
                    PacketPtr _logDataPkt,
                    uint64_t _htmUid,
+                   int _logIndex,
                    Addr va, Addr pa)
         : logAddrPkt(_logAddrPkt),
           logDataPkt(_logDataPkt),
-          htmTransactionUid(_htmUid),
+          logAddr(_logAddrPkt->getAddr()),
+          logData(_logDataPkt->getAddr()),
+          logIndex(_logIndex),
           vaddr(va), paddr(pa)
-          //callbackArgs()
     {}
 };
 
@@ -59,6 +61,7 @@ class TransactionalSequencer : public Sequencer
     RequestStatus insertRequest(PacketPtr pkt,
                                 RubyRequestType primary_type,
                                 RubyRequestType secondary_type) override;
+    bool canMakeRequest(PacketPtr pkt) override;
     RequestStatus makeRequest(PacketPtr pkt);
     void setTransactionManager(TransactionInterfaceManager* xact_mgr);
     void setController(AbstractController* _cntrl);
@@ -101,11 +104,11 @@ class TransactionalSequencer : public Sequencer
     void handleTransactionalWrite(SequencerRequest *request,
                                   DataBlock& data, bool externalHit,
                                   const MachineType respondingMach);
-    LogRequestInfo buildLogPackets(PacketPtr mainPkt);
-    void makeLogRequests(LogRequestInfo &logreqinfo);
+    LogRequestInfo buildLogPackets(PacketPtr mainPkt, DataBlock& data);
+    bool makeLogRequests(LogRequestInfo &logreqinfo);
     void handleStoresToLog(Addr address, PacketPtr pkt,
                         DataBlock& data);
-    void cancelLogRequests();
+    void failedCallbackCleanup(Addr address, SequencerRequest* srequest);
     void handleLoggedStore(Addr address,
                            PacketPtr pkt,
                            DataBlock& data);
@@ -123,12 +126,14 @@ class TransactionalSequencer : public Sequencer
     bool m_stalled;
     AnnotatedRegion m_lastStateBeforeStall;
     uint64_t m_lastAbortHtmUid;
+    // TODO: Prevent load reordering while store is being retried
+    std::unordered_map<Addr, bool> m_failedStores;
 
     // LogTM (eager VM) RequestTable contains outstanding log requests
     // for pending program stores (per line address)
     std::unordered_map<Addr, std::list<LogRequestInfo>> m_logRequestTable;
-    // Address of logging requests generated (log addr/log data)
-    std::unordered_map<Addr, bool> m_logRequestAddr;
+    std::unordered_map<Addr, bool> m_pendingLogging;
+
 
     // Lazy-lazy HTM:
     class WriteBufferHitEvent : public Event

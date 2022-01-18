@@ -81,7 +81,6 @@ TransactionalSequencer::abortTransaction(PacketPtr pkt)
     m_lastStateBeforeStall = AnnotatedRegion_INVALID;
     m_xact_mgr->abortTransaction(thread, pkt);
     m_lastAbortHtmUid = pkt->getHtmTransactionUid();
-    m_failedStores.clear();
 }
 
 bool
@@ -149,7 +148,6 @@ TransactionalSequencer::notifyXactionEvent(PacketPtr pkt)
                    curTick(), m_version, "Seq",
                    "HTM_COMMIT", "", "");
           m_commitPending = false;
-          m_failedStores.clear();
       } else {
           m_xact_mgr->initiateCommitTransaction(thread, xid, pkt);
           m_commitPending = true;
@@ -275,8 +273,23 @@ TransactionalSequencer::failedCallback(Addr address,
                                   remote_timestamp,
                                   remote_nacker);
     if (write) {
-        m_failedStores[address] = true;
-        Sequencer::writeCallback(address, data);
+        // failed stores must not call hitCallback but instead be
+        // retried without CPU intervention
+        auto &seq_req_list = m_RequestTable[address];
+        assert(!seq_req_list.empty());
+        SequencerRequest &seq_req = seq_req_list.front();
+        PacketPtr pkt = seq_req.pkt;
+        assert(pkt->isWrite());
+        assert(m_failedStorePkt == NULL);
+        int thread = 0;
+        if (m_xact_mgr->isAborting(thread) &&
+            pkt->isHtmTransactional()) {
+            // Remove this and all aliased reqs from Sequencer
+            Sequencer::writeCallback(address, data);
+        } else {
+            m_failedStorePkt = pkt;
+            makeRequest(pkt);
+        }
     } else {
         Sequencer::readCallback(address, data);
     }
@@ -369,16 +382,11 @@ TransactionalSequencer::insertRequest(PacketPtr pkt,
                                       RubyRequestType secondary_type)
 {
     Addr address = makeLineAddress(pkt->getAddr());
-    if (m_failedStores.find(address) != m_failedStores.end()) {
-        if (secondary_type != RubyRequestType_ST) {
-            // Prevent reordering of loads w.r.t. earlier stores that
-            // have been nacked and not yet retried
-            DPRINTF(RubyHTM,
-                    "Cannot issue load %#x while pending failed store\n",
-                    address);
-            panic("Cannot issue load while pending failed store\n");
-
-        }
+    if (m_failedStorePkt == pkt) {
+        // Clear
+        m_failedStorePkt = NULL;
+        // Request already inserted, can (re)issue
+        return RequestStatus_Ready;
     }
 
     RequestStatus status = Sequencer::insertRequest(pkt,
@@ -500,6 +508,11 @@ TransactionalSequencer::canMakeRequest(PacketPtr pkt)
             num_reserved_mshrs -= 2;
         }
     }
+    // Failed stores can always issue since they have already an
+    // allocated MSHR (not removed  failedCallback)
+    if (m_failedStorePkt == pkt) {
+        return true;
+    }
     if ((m_outstanding_count +
          num_reserved_mshrs >= m_max_outstanding_requests) &&
         !pkt->req->isHTMAbort()) {
@@ -534,6 +547,7 @@ TransactionalSequencer::makeRequest(PacketPtr pkt)
         if (m_commitPending) {
             panic("Unexpected abort while commit pending!\n");
         }
+        assert(m_failedStorePkt == NULL);
         rubyHtmCallback(pkt);
         return RequestStatus_Issued;
     } else {
@@ -673,14 +687,13 @@ TransactionalSequencer::makeRequest(PacketPtr pkt)
 }
 
 void
-TransactionalSequencer::failedCallbackCleanup(Addr address,
-                                              SequencerRequest* srequest)
+TransactionalSequencer::failedCallbackCleanup(PacketPtr pkt)
 {
     assert(m_failedCallback);
     if (!m_htm->params().lazy_vm) { // LogTM: free reserved MSHRs via
                                     // "pendingLogging" map.
         // Done after ruby_hit_callback in case a request is retried
-        PacketPtr pkt = srequest->pkt;
+        Addr address = makeLineAddress(pkt->getAddr());
         bool needsLogging =
             m_pendingLogging.find(address) != m_pendingLogging.end();
         if (needsLogging) {
@@ -719,72 +732,95 @@ TransactionalSequencer::failedCallbackCleanup(Addr address,
         }
     }
 }
+
 void
-TransactionalSequencer::hitCallback(SequencerRequest* srequest, DataBlock& data,
+TransactionalSequencer::handleFailedCallback(SequencerRequest* srequest)
+{
+    int thread = 0;
+    PacketPtr pkt = srequest->pkt;
+    Addr address = makeLineAddress(pkt->getAddr());
+    assert(m_failedCallback);
+    if (pkt->isWrite()) {
+        // Failed writes should never go through this path unless we
+        // are aborting and want to "sink" them instead of retrying
+        assert(m_xact_mgr->isAborting(thread));
+        // Set the HtmTransactionFailedInCache in the packet, the CPU
+        // expects it set for writes with HtmFailedCacheAccess set
+        HtmCacheFailure reason =
+            m_xact_mgr->getHtmTransactionalReqResponseCode(thread);
+        pkt->setHtmTransactionFailedInCache(reason);
+    }
+    // Handle nacking of Locked_RMW accesses.
+    // address variable here is assumed to be a line address, so when
+    // blocking buffers, must check line addresses.
+    if (srequest->m_type == RubyRequestType_Locked_RMW_Read) {
+        assert(m_controller->isBlocked(address));
+        m_controller->unblock(address);
+        DPRINTF(RubyHTM,
+                "Failed callback for Locked_RMW_Read to addr %#x"
+                " - unblocking queue\n", address);
+    } else {
+        assert(!m_controller->isBlocked(address));
+    }
+    if (pkt->req->hasVaddr() &&
+        pkt->req->getVaddr() == m_htm->getFallbackLockVAddr()) {
+        DPRINTF(RubyHTM,
+                "Failed access to fallback lock!"
+                " - PC %#x vaddr %#x\n",
+                pkt->req->getPC(),
+                pkt->req->getVaddr());
+        // Requester-stalls policies that prevent the lock from
+        // being acquired/released are subject to deadlocks
+        // without adequate management of conflicts with a
+        // non-transactional requester
+        warn("Failed access to fallback lock!"
+             " - PC %#x vaddr %#x\n",
+             pkt->req->getPC(),
+             pkt->req->getVaddr());
+    }
+    // Skip all the following actions and do not call
+    // Sequencer::hitCallback
+    pkt->setHtmFailedCacheAccess(true);
+    if (pkt->isAtLSQHead() &&
+        !m_xact_mgr->isAborting(thread) &&
+        !m_stalled &&
+        (!pkt->isHtmTransactional() ||
+         m_lastAbortHtmUid != pkt->getHtmTransactionUid())) {
+        m_stalled = true;
+        assert(m_lastStateBeforeStall == AnnotatedRegion_INVALID);
+        m_lastStateBeforeStall = m_ruby_system->getProfiler()->
+            getXactProfiler()->getCurrentRegion(m_version);
+        Addr address = makeLineAddress(pkt->getAddr());
+        DPRINTF(RubyHTM,
+                "Stalled (nacked) thread after failing to perform"
+                " access to block addr %#x\n", address);
+        m_ruby_system->getProfiler()->
+            getXactProfiler()->moveTo(m_version,
+                                      pkt->isHtmTransactional() ?
+                                      AnnotatedRegion_STALLED :
+                                      AnnotatedRegion_STALLED_NONTRANS);
+    }
+    ruby_hit_callback(pkt);
+    failedCallbackCleanup(pkt);
+    testDrainComplete();
+    return;
+}
+
+void
+TransactionalSequencer::hitCallback(SequencerRequest* srequest,
+                                    DataBlock& data,
                                     bool llscSuccess,
-                                    const MachineType mach, const bool externalHit,
+                                    const MachineType mach,
+                                    const bool externalHit,
                                     const Cycles initialRequestTime,
                                     const Cycles forwardRequestTime,
                                     const Cycles firstResponseTime,
                                     const bool was_coalesced)
 {
-    PacketPtr pkt = srequest->pkt;
     int thread = 0;
+    PacketPtr pkt = srequest->pkt;
     if (m_failedCallback) {
-        // Handle nacking of Locked_RMW accesses.
-        // address variable here is assumed to be a line address, so when
-        // blocking buffers, must check line addresses.
-        Addr address = makeLineAddress(srequest->pkt->getAddr());
-        if (srequest->m_type == RubyRequestType_Locked_RMW_Read) {
-            assert(m_controller->isBlocked(address));
-            m_controller->unblock(address);
-            DPRINTF(RubyHTM,
-                    "Failed callback for Locked_RMW_Read to addr %#x"
-                    " - unblocking queue\n", address);
-        } else {
-            assert(!m_controller->isBlocked(address));
-        }
-        if (pkt->req->hasVaddr() &&
-            pkt->req->getVaddr() == m_htm->getFallbackLockVAddr()) {
-            DPRINTF(RubyHTM,
-                    "Failed access to fallback lock!"
-                    " - PC %#x vaddr %#x\n",
-                    pkt->req->getPC(),
-                    pkt->req->getVaddr());
-            // Requester-stalls policies that prevent the lock from
-            // being acquired/released are subject to deadlocks
-            // without adequate management of conflicts with a
-            // non-transactional requester
-            warn("Failed access to fallback lock!"
-                  " - PC %#x vaddr %#x\n",
-                  pkt->req->getPC(),
-                  pkt->req->getVaddr());
-        }
-        // Skip all the following actions and do not call
-        // Sequencer::hitCallback
-        pkt->setHtmFailedCacheAccess(true);
-        if (pkt->isAtLSQHead() &&
-            !m_xact_mgr->isAborting(thread) &&
-            !m_stalled &&
-            (!pkt->isHtmTransactional() ||
-             m_lastAbortHtmUid != pkt->getHtmTransactionUid())) {
-            m_stalled = true;
-            assert(m_lastStateBeforeStall == AnnotatedRegion_INVALID);
-            m_lastStateBeforeStall = m_ruby_system->getProfiler()->
-                getXactProfiler()->getCurrentRegion(m_version);
-            Addr address = makeLineAddress(pkt->getAddr());
-            DPRINTF(RubyHTM,
-                    "Stalled (nacked) thread after failing to perform"
-                    " access to block addr %#x\n", address);
-            m_ruby_system->getProfiler()->
-                getXactProfiler()->moveTo(m_version,
-                                          pkt->isHtmTransactional() ?
-                                          AnnotatedRegion_STALLED :
-                                          AnnotatedRegion_STALLED_NONTRANS);
-        }
-        ruby_hit_callback(pkt);
-        failedCallbackCleanup(address, srequest);
-        testDrainComplete();
+        handleFailedCallback(srequest);
         return;
     }
     if (pkt->isHtmStoreToLog()) {
@@ -831,10 +867,7 @@ TransactionalSequencer::hitCallback(SequencerRequest* srequest, DataBlock& data,
                      (srequest->m_type == RubyRequestType_RMW_Read) ||
                      (srequest->m_type == RubyRequestType_IFETCH));
 
-        Addr address = makeLineAddress(pkt->getAddr());
         if (read) {
-            // No reads while failed store pending to be retried
-            assert(m_failedStores.find(address) == m_failedStores.end());
             handleTransactionalRead(srequest,
                                     data,
                                     externalHit,
@@ -851,7 +884,6 @@ TransactionalSequencer::hitCallback(SequencerRequest* srequest, DataBlock& data,
                                     mach);
         }
         else {
-            m_failedStores.erase(address);
             handleTransactionalWrite(srequest,
                                      data,
                                      externalHit,

@@ -1,5 +1,5 @@
-#ifndef __MEM_RUBY_SYSTEM_TRANSACTIIONALSEQUENCER_HH__
-#define __MEM_RUBY_SYSTEM_TRANSACTIIONALSEQUENCER_HH__
+#ifndef __MEM_RUBY_SYSTEM_TRANSACTIONALSEQUENCER_HH__
+#define __MEM_RUBY_SYSTEM_TRANSACTIONALSEQUENCER_HH__
 
 #include <cassert>
 #include <iostream>
@@ -69,6 +69,8 @@ class TransactionalSequencer : public Sequencer
     void failedCallback(Addr address, DataBlock& data,
                         Cycles remote_timestamp,
                         MachineID nacker, bool write);
+    void handleFailedCallback(SequencerRequest* srequest);
+
     void writeCallback(Addr address,
                        DataBlock& data,
                        const bool externalHit = false,
@@ -108,26 +110,26 @@ class TransactionalSequencer : public Sequencer
     bool makeLogRequests(LogRequestInfo &logreqinfo);
     void handleStoresToLog(Addr address, PacketPtr pkt,
                         DataBlock& data);
-    void failedCallbackCleanup(Addr address, SequencerRequest* srequest);
+    void failedCallbackCleanup(PacketPtr pkt);
     void handleLoggedStore(Addr address,
                            PacketPtr pkt,
                            DataBlock& data);
-    HTM * m_htm;
-    TransactionInterfaceManager* m_xact_mgr;
+    HTM * m_htm = NULL;
+    TransactionInterfaceManager* m_xact_mgr = NULL;
     // LL (lazy CD) support
 
     // WriteBufferHitEvent models access latency of the transactional
     // write buffer
     void writeBufferEvent(PacketPtr _pkt);
     void lazyCommitEvent(PacketPtr _pkt);
-    bool m_commitPending;
-    PacketPtr m_commitPendingPkt;
-    bool m_failedCallback;
-    bool m_stalled;
-    AnnotatedRegion m_lastStateBeforeStall;
-    uint64_t m_lastAbortHtmUid;
-    // TODO: Prevent load reordering while store is being retried
-    std::unordered_map<Addr, bool> m_failedStores;
+    bool m_commitPending = false;
+    PacketPtr m_commitPendingPkt = NULL;
+    bool m_failedCallback = false;
+    PacketPtr m_failedStorePkt = NULL;
+    bool m_stalled = false;
+    AnnotatedRegion m_lastStateBeforeStall = AnnotatedRegion_INVALID;
+
+    uint64_t m_lastAbortHtmUid = 0;
 
     // LogTM (eager VM) RequestTable contains outstanding log requests
     // for pending program stores (per line address)
@@ -186,4 +188,4 @@ class TransactionalSequencer : public Sequencer
 } // namespace ruby
 } // namespace gem5
 
-#endif // __MEM_RUBY_SYSTEM_TRANSACTIIONALSEQUENCER_HH__
+#endif // __MEM_RUBY_SYSTEM_TRANSACTIONALSEQUENCER_HH__

@@ -124,7 +124,16 @@ LSQUnit::completeDataAccess(PacketPtr pkt)
         DPRINTF(HtmCpu,
                 "Access failed (nacked) in cache [sn:%lli]\n",
                 inst->seqNum);
-        inst->fault = std::make_shared<HtmFailedCacheAccess>();
+        if (pkt->isWrite()) {
+            // Stores that fail to complete in cache are retried
+            // without CPU intervention. We should only see a failed
+            // store in the CPU if the transaction is already aborting
+            assert(pkt->htmTransactionFailedInCache());
+        } else {
+            // Only loads that fail to perform in cache are handled by
+            // the CPU in order to retry:
+            inst->fault = std::make_shared<HtmFailedCacheAccess>();
+        }
     }
     // if in a HTM transaction, it's possible
     // to abort within the cache hierarchy.
@@ -1309,6 +1318,8 @@ LSQUnit::writeback(const DynInstPtr &inst, PacketPtr pkt)
 void
 LSQUnit::completeNackedStore(typename StoreQueue::iterator store_idx)
 {
+    panic("Dead code!\n");
+#if 0
     DynInstPtr inst = store_idx->instruction();
     assert(inst->fault != NoFault);
     // Only expect HtmFailedCacheAccess faults here generated in
@@ -1425,6 +1436,7 @@ LSQUnit::completeNackedStore(typename StoreQueue::iterator store_idx)
     DPRINTF(HtmCpu, "Uncommitting store idx:%i [sn:%lli]\n",
             store_idx.idx(), inst->seqNum);
     // Keep inst->data (value to be written in datablock)
+#endif
 }
 
 void

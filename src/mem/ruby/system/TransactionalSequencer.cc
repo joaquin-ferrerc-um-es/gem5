@@ -280,7 +280,8 @@ TransactionalSequencer::failedCallback(Addr address,
         SequencerRequest &seq_req = seq_req_list.front();
         PacketPtr pkt = seq_req.pkt;
         assert(pkt->isWrite() ||
-               (seq_req.m_type == RubyRequestType_RMW_Read));
+               (seq_req.m_type == RubyRequestType_RMW_Read) ||
+               (seq_req.m_type == RubyRequestType_Locked_RMW_Read));
         assert(m_failedStorePkt == NULL);
         int thread = 0;
         if (m_xact_mgr->isAborting(thread) &&
@@ -397,21 +398,25 @@ TransactionalSequencer::insertRequest(PacketPtr pkt,
         if (pkt->isWrite() &&
             pkt->isHtmTransactional() &&
             !m_xact_mgr->checkWriteSignature(address)) {
-            // Transactional store to block not in Wset
+            // Transactional store to block not in Wset: if issued,
+            // set pendingLogging, which reserves enough MSHRs to
+            // ensure that log requests can issue when this store
+            // completes
             if (status == RequestStatus_Ready) {
+                // Store miss
                 assert(m_pendingLogging.find(address) ==
                        m_pendingLogging.end());
                 m_pendingLogging[address]=true;
-            } else {
-                assert(status == RequestStatus_Aliased);
-                // No logging needed unless this is the first store to
-                // the block (aliased with load miss)
+            } else if (status == RequestStatus_Aliased) {
+                // Store aliased on pending miss: log if first store
+                // to block (aliased with earlier load)
                 auto &seq_req_list = m_RequestTable[address];
                 assert(seq_req_list.size() > 1);
                 int numStoresFound = numOutstandingWrites(address);
                 // At least the current store
                 assert(numStoresFound > 0);
                 if (numStoresFound == 1) {
+                    // This is the first store, needs logging
                     assert(m_pendingLogging.find(address) ==
                            m_pendingLogging.end());
                     m_pendingLogging[address]=true;
@@ -422,6 +427,8 @@ TransactionalSequencer::insertRequest(PacketPtr pkt,
                            m_logRequestTable.find(address) !=
                            m_logRequestTable.end());
                 }
+            } else { // Store was not issued
+                assert(status == RequestStatus_AliasedNotIssued);
             }
         }
     }

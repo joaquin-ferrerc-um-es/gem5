@@ -279,7 +279,8 @@ TransactionalSequencer::failedCallback(Addr address,
         assert(!seq_req_list.empty());
         SequencerRequest &seq_req = seq_req_list.front();
         PacketPtr pkt = seq_req.pkt;
-        assert(pkt->isWrite());
+        assert(pkt->isWrite() ||
+               (seq_req.m_type == RubyRequestType_RMW_Read));
         assert(m_failedStorePkt == NULL);
         int thread = 0;
         if (m_xact_mgr->isAborting(thread) &&
@@ -407,16 +408,7 @@ TransactionalSequencer::insertRequest(PacketPtr pkt,
                 // the block (aliased with load miss)
                 auto &seq_req_list = m_RequestTable[address];
                 assert(seq_req_list.size() > 1);
-                int numStoresFound = 0;
-                for (auto it=seq_req_list.begin();
-                     it != seq_req_list.end(); ++it) {
-                    SequencerRequest seq_req = *it;
-                    if ((seq_req.m_type != RubyRequestType_LD) &&
-                        (seq_req.m_type != RubyRequestType_Load_Linked) &&
-                        (seq_req.m_type != RubyRequestType_IFETCH)) {
-                        ++numStoresFound;
-                    }
-                }
+                int numStoresFound = numOutstandingWrites(address);
                 // At least the current store
                 assert(numStoresFound > 0);
                 if (numStoresFound == 1) {
@@ -709,16 +701,7 @@ TransactionalSequencer::failedCallbackCleanup(PacketPtr pkt)
                     m_pendingLogging.erase(address);
                 } else { // Aliased requests: if other stores
                     // coalesced into this miss, do not erase
-                    int numStoresFound = 0;
-                    for (auto it=seq_req_list.begin();
-                         it != seq_req_list.end(); ++it) {
-                        SequencerRequest seq_req = *it;
-                        if ((seq_req.m_type != RubyRequestType_LD) &&
-                            (seq_req.m_type != RubyRequestType_Load_Linked) &&
-                            (seq_req.m_type != RubyRequestType_IFETCH)) {
-                            ++numStoresFound;
-                        }
-                    }
+                    int numStoresFound = numOutstandingWrites(address);
                     if (numStoresFound == 1) {
                         // This is the only store, other aliased reqs are
                         // loads: erase from pending logging
@@ -1248,15 +1231,15 @@ TransactionalSequencer::writeCallback(Addr address, DataBlock& data,
 
         assert(!seq_req_list.empty());
         SequencerRequest &seq_req = seq_req_list.front();
-        assert(seq_req.pkt->isWrite());
-
+        assert(seq_req.pkt->isWrite() ||
+               (seq_req.m_type == RubyRequestType_RMW_Read) ||
+               (seq_req.m_type == RubyRequestType_Locked_RMW_Read));
         bool needsLogging =
             m_pendingLogging.find(address) != m_pendingLogging.end();
         if (needsLogging) {
             assert(seq_req.pkt->isHtmTransactional() &&
                    !m_xact_mgr->checkWriteSignature(address));
-        }
-        if (needsLogging) {
+            assert(numOutstandingWrites(address) > 0);
             // Lock this line in cache until logging done, we need it
             // for the callback
             m_dataCache_ptr->setHtmLogPending(address, true);
@@ -1313,6 +1296,22 @@ TransactionalSequencer::writeCallback(Addr address, DataBlock& data,
             }
         }
     }
+}
+
+int
+TransactionalSequencer::numOutstandingWrites(Addr address)
+{
+    int numStoresFound = 0;
+    assert(m_RequestTable.find(address) != m_RequestTable.end());
+    auto &seq_req_list = m_RequestTable[address];
+    for (auto it=seq_req_list.begin();
+         it != seq_req_list.end(); ++it) {
+        SequencerRequest seq_req = *it;
+        if (seq_req.pkt->isWrite()) {
+            ++numStoresFound;
+        }
+    }
+    return numStoresFound;
 }
 
 } // namespace ruby

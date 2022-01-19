@@ -114,6 +114,8 @@ class TransactionalSequencer : public Sequencer
     void handleLoggedStore(Addr address,
                            PacketPtr pkt,
                            DataBlock& data);
+    int numOutstandingWrites(Addr address);
+
     HTM * m_htm = NULL;
     TransactionInterfaceManager* m_xact_mgr = NULL;
     // LL (lazy CD) support

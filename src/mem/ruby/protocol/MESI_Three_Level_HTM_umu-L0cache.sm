@@ -505,7 +505,15 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
         } else if (in_msg.Class == CoherenceClass:WB_ACK) {
             trigger(Event:WB_Ack, in_msg.addr, cache_entry, tbe);
         } else if (in_msg.Class == CoherenceClass:INV_OWN) {
-            if (xact_mgr.checkWriteSignature(in_msg.addr)) {
+            if (is_valid(cache_entry) &&
+                cache_entry.getHtmLogPending()) {
+                // Nack L1 replacement of data log block while logging
+                // outstanding
+                assert(!xact_mgr.config_lazyVM()); // LogTM
+                assert(xact_mgr.checkWriteSignature(in_msg.addr));
+                trigger(Event:InvOwn_X,
+                        in_msg.addr, getCacheEntry(in_msg.addr), tbe);
+            } else if (xact_mgr.checkWriteSignature(in_msg.addr)) {
                 xact_mgr.xactReplacement(in_msg.addr, in_msg.Sender);
                 if (!xact_mgr.config_allowWriteSetL1CacheEvictions()) {
                     assert(xact_mgr.isDoomed(0));
@@ -524,13 +532,6 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
                     assert(xact_mgr.isDoomed(0));
                     trigger(Event:InvOwn, in_msg.addr, cache_entry, tbe);
                 }
-            } else if (is_valid(cache_entry) &&
-                       cache_entry.getHtmLogPending()) {
-                // Nack L1 replacement of data log block while logging
-                // outstanding
-                assert(!xact_mgr.config_lazyVM());
-                trigger(Event:InvOwn_X,
-                        in_msg.addr, getCacheEntry(in_msg.addr), tbe);
             } else {
                 trigger(Event:InvOwn, in_msg.addr, cache_entry, tbe);
             }
@@ -544,14 +545,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
                         in_msg.addr, getCacheEntry(in_msg.addr), tbe);
             }
             else if (machineIDToMachineType(in_msg.OriginalRequestor) == MachineType:L2Cache) {
-                if (is_valid(cache_entry) &&
-                    cache_entry.getHtmLogPending()) {
-                    // Nack L1 replacement of data log block while logging
-                    // outstanding
-                    assert(!xact_mgr.config_lazyVM());
-                    trigger(Event:InvElse_X,
-                            in_msg.addr, getCacheEntry(in_msg.addr), tbe);
-                } else if (xact_mgr.checkWriteSignature(in_msg.addr)) {
+                if (xact_mgr.checkWriteSignature(in_msg.addr)) {
                     if (xact_mgr.config_allowWriteSetL2CacheEvictions()) {
                             assert(!xact_mgr.config_lazyVM()); // LogTM
                             trigger(Event:InvElse, in_msg.addr,

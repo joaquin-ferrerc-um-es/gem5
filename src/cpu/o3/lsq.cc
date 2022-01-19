@@ -1189,12 +1189,19 @@ LSQ::SplitDataRequest::recvTimingResp(PacketPtr pkt)
         flags.set(Flag::HtmFailedCacheAccess);
     }
     if (numReceivedPackets == _packets.size()) {
+        HtmCacheFailure fail = HtmCacheFailure::NO_FAIL;
+        uint64_t htmuid = 0;
         if (isHtmFailedCacheAccess()) {
             // Needs to be retried: Reset state for all fragments
             // since buildPackets will not generate new packets
             for (i = 0; i < _packets.size(); ++i) {
                 _packets[i]->setHtmFailedCacheAccess(false);
                 _packets[i]->makePrevRequest(); // response back to request
+                if (_packets[i]->htmTransactionFailedInCache()) {
+                    assert(_packets[i]->isHtmTransactional());
+                    fail = _packets[i]->getHtmTransactionFailedInCacheRC();
+                    htmuid = _packets[i]->getHtmTransactionUid();
+                }
             }
         }
         /* Assemble packets. */
@@ -1206,6 +1213,11 @@ LSQ::SplitDataRequest::recvTimingResp(PacketPtr pkt)
         else
             resp->dataStatic(_data);
         resp->senderState = _senderState;
+        // Set failed in cache in assembled response packet
+        if (fail != HtmCacheFailure::NO_FAIL) {
+            resp->setHtmTransactional(htmuid);
+            resp->setHtmTransactionFailedInCache(fail);
+        }
         if (isHtmFailedCacheAccess()) {
             // Reset count of receive before retrying split access
             numReceivedPackets = 0;

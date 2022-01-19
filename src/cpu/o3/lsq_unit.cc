@@ -223,9 +223,7 @@ LSQUnit::LSQUnit(uint32_t lqEntries, uint32_t sqEntries)
       lastRetiredHtmUid(0),
       atHtmStopHtmUid(0),
       cacheBlockMask(0), stalled(false),
-      nackedStoreAheadOfStoreBlocked(false),
-      isStoreBlocked(false), isStoreBlockedReq(NULL),
-      storeInFlight(false), stats(nullptr)
+      isStoreBlocked(false), storeInFlight(false), stats(nullptr)
 {
 }
 
@@ -890,21 +888,9 @@ void
 LSQUnit::writebackBlockedStore()
 {
     assert(isStoreBlocked);
-    assert(isStoreBlockedReq != NULL);
-    if (needsTSO || !nackedStoreAheadOfStoreBlocked) {
-        assert(isStoreBlockedReq == storeWBIt->request());
-    } else {
-        // storeWBIt may have been moved backwards by
-        // completeNackedStore, so storeWBit may not point to the
-        // blocked store
-        assert(isStoreBlockedReq != storeWBIt->request());
-    }
-    isStoreBlockedReq->sendPacketToCache();
-    if (isStoreBlockedReq->isSent()){
-        assert(!isStoreBlocked);
-        storePostSend(); // Looks at nackedStoreAheadOfStoreBlocked
-        isStoreBlockedReq = NULL;
-        nackedStoreAheadOfStoreBlocked = false;
+    storeWBIt->request()->sendPacketToCache();
+    if (storeWBIt->request()->isSent()){
+        storePostSend();
     }
 }
 
@@ -944,28 +930,6 @@ LSQUnit::writebackStores()
             continue;
         }
 
-        if (storeWBIt->skipWritebackReplay()) {
-            // skipWritebackReplay: the storeWBIt was already moved
-            // past this SQ entry (sent to cache), but then it got
-            // moved back due to an earlier nacked store.
-            if (storeWBIt->committed()) {
-                // Nacked stores may move the storeWBIt backwards, so that
-                // "committed" SQ entries (already sent to cache) are
-                // considered again by writebackStores. Simply skip
-                // them. This is only possible in non-TSO
-                assert(!needsTSO);
-                DPRINTF(HtmCpu, "writebackStores skips already "
-                        " committed store idx:%i\n",
-                        storeWBIt.idx());
-                storeWBIt++;
-                continue;
-            } else {
-                // Not committed but skipWritebackReplay set: this is
-                // the nacked store that moved the storeWBIt backwards
-                assert(storeWBIt->request()->isHtmFailedCacheAccess());
-            }
-        }
-
         assert(storeWBIt->hasRequest());
         assert(!storeWBIt->committed());
 
@@ -988,23 +952,14 @@ LSQUnit::writebackStores()
 
         storeWBIt->committed() = true;
 
-        if (req->isHtmFailedCacheAccess()) {
-            DPRINTF(HtmCpu, "Committed nacked store [sn:%lli], idx:%i\n",
-                    inst->seqNum, storeWBIt.idx());
-            assert(storeWBIt->skipWritebackReplay());
-            /* Nacked store: The data to be written to memory was
-               already copied from this SQ entry to inst->memData
-             */
-            assert(inst->memData);
-        } else {
-            assert(!inst->memData);
-            inst->memData = new uint8_t[req->_size];
+        assert(!inst->memData);
+        inst->memData = new uint8_t[req->_size];
 
-            if (storeWBIt->isAllZeros())
-                memset(inst->memData, 0, req->_size);
-            else
-                memcpy(inst->memData, storeWBIt->data(), req->_size);
-        }
+        if (storeWBIt->isAllZeros())
+            memset(inst->memData, 0, req->_size);
+        else
+            memcpy(inst->memData, storeWBIt->data(), req->_size);
+
 
         if (req->senderState() == nullptr) {
             SQSenderState *state = new SQSenderState(storeWBIt);
@@ -1075,7 +1030,6 @@ LSQUnit::writebackStores()
         /* If successful, do the post send */
         if (req->isSent()) {
             storePostSend();
-            assert(!req->isHtmFailedCacheAccess());
         } else {
             DPRINTF(LSQUnit, "D-Cache became blocked when writing [sn:%lli], "
                     "will retry later\n",
@@ -1238,15 +1192,7 @@ LSQUnit::storePostSend()
         storeInFlight = true;
     }
 
-    if (storeWBIt->committed()) {
-        storeWBIt++;
-    } else { // We just sent the blocked store, but storeWBIt does not
-             // point to it, it was moved backwards due to a nacked
-             // store
-        assert(isStoreBlockedReq != NULL);
-        assert(nackedStoreAheadOfStoreBlocked);
-        DPRINTF(HtmCpu, "Store post send does not move storeWBIt\n");
-    }
+    storeWBIt++;
 }
 
 void
@@ -1316,143 +1262,9 @@ LSQUnit::writeback(const DynInstPtr &inst, PacketPtr pkt)
 }
 
 void
-LSQUnit::completeNackedStore(typename StoreQueue::iterator store_idx)
-{
-    panic("Dead code!\n");
-#if 0
-    DynInstPtr inst = store_idx->instruction();
-    assert(inst->fault != NoFault);
-    // Only expect HtmFailedCacheAccess faults here generated in
-    // completeDataAccess for isHtmFailedCacheAccess packets
-
-    assert(dynamic_cast<HtmFailedCacheAccess*>
-           (inst->fault.get()) != nullptr);
-
-    LSQRequest* req = store_idx->request();
-    // Sanity checks
-    assert(req->isHtmFailedCacheAccess());
-    if (req->isSplit()) {  // Handle split requests
-        // completeDataAccess->completeStore->completeNackedStore only
-        // called when all fragments have completed (either
-        // successfully or nacked/failed)
-        DPRINTF(HtmCpu, "Nacked split store [sn:%lli], idx:%i\n",
-                inst->seqNum, store_idx.idx());
-    }
-    DPRINTF(HtmCpu, "Completed nacked store [sn:%lli], idx:%i\n",
-            inst->seqNum, store_idx.idx());
-    assert(req->isSent());
-    // Request not marked as completed by LSQ::recvTimingResp if
-    // isHtmFailedCacheAccess set
-    assert(!req->isComplete());
-    // Intercepted before completedStore marks as LSQ entry
-    assert(!store_idx->completed());
-    // writebackStores marked SQ entry as committed
-    assert(store_idx->committed());
-    // inst has data allocated
-    assert(inst->memData);
-
-    if (needsTSO) {
-        assert(storeInFlight);
-        assert(!isStoreBlocked);
-        storeInFlight = false;
-        /* In TSO, we expect the nacked store to sit one entry earlier
-         * than storeWBIt.
-         */
-        // Move WB pointer back to nacked store
-        storeWBIt--;
-        assert(inst == storeWBIt->instruction());
-        // This SQ entry is no longer considered behind the storeWBIt,
-        // so it must be considered by the ST2LD forwarding logic
-        // until. This is important to prevent loads following the
-        // nacked store in program order to obtain the wrong data from
-        // cache while the store has not yet been retried. Also,
-        // writebackStores expects skipWritebackReplay to be set also
-        // for the store that got nacked
-        storeWBIt->skipWritebackReplay() = true;
-    } else {
-        /* Reverting the state so that a nacked store can be retried
-         * by writebackStores requires additional handling if multiple
-         * stores in flight allowed.
-         */
-        if (store_idx < storeWBIt) {
-            // Careful when moving storeWBIt since the logic to retry
-            // blocked stores assumed that the blocked store is
-            // invariably pointed by the storeWBIt
-            if (isStoreBlocked) {
-                if (nackedStoreAheadOfStoreBlocked) {
-                    DPRINTF(HtmCpu,
-                            "Completed nacked store [sn:%lli], ""idx:%i"
-                            " while store is blocked, another nacked"
-                            " store exists ahead of blocked store!\n",
-                            inst->seqNum, store_idx.idx());
-                } else {
-                    nackedStoreAheadOfStoreBlocked = true;
-                }
-                // Also mark the blocked store as skipWritebackReplay
-                // so that writebackStores does not try to resend it
-                storeWBIt->skipWritebackReplay() = true;
-                DPRINTF(HtmCpu,
-                        "Completed nacked store [sn:%lli], ""idx:%i"
-                        " while another store is blocked, moving"
-                        " storeWBit backwards!\n",
-                        inst->seqNum, store_idx.idx());
-            }
-            // Is nacked store is already behind storeWBIt, must move
-            // storeWBIt so that this nacked store is considered again
-            // by writebackStores.
-            assert(storeWBIt != store_idx);
-            do {
-                storeWBIt--;
-                // Earlier stores are either committed (sent to cache)
-                // or have been nacked and not yet retried
-                assert(storeWBIt->committed() ||
-                       storeWBIt->request()->isHtmFailedCacheAccess());
-                // Mark this entry as "skipWritebackReplay", for
-                // sanity checks (synonym of "committed")
-                storeWBIt->skipWritebackReplay() = true;
-                DPRINTF(HtmCpu, "Marking committed "
-                        " store idx:%i as skipWritebackReplay\n",
-                        storeWBIt.idx());
-            } while (inst != storeWBIt->instruction());
-            assert(storeWBIt == store_idx);
-        } else { // No need to move the storeWBIt since it's already
-                 // behind this nacked store
-            DPRINTF(HtmCpu, "Nacked store [sn:%lli], idx:%i is ahead "
-                    "of storeWBIt idx:%i\n",
-                    inst->seqNum, store_idx.idx(), storeWBIt.idx());
-        }
-    }
-
-    // Now, "revert" state so that store can be sent to cache by
-    // writebackStores
-
-    req->packetNacked(); // Clear sent flag retain isHtmFailedCacheAccess
-    assert(req->isHtmFailedCacheAccess());
-
-    // Clear inst fault
-    inst->fault = NoFault;
-    // Clear committed flag in SQ entry
-    store_idx->committed() = false;
-    DPRINTF(HtmCpu, "Uncommitting store idx:%i [sn:%lli]\n",
-            store_idx.idx(), inst->seqNum);
-    // Keep inst->data (value to be written in datablock)
-#endif
-}
-
-void
 LSQUnit::completeStore(typename StoreQueue::iterator store_idx)
 {
     assert(store_idx->valid());
-    if (store_idx->instruction()->fault != NoFault) {
-        /* Handle stores that completed with a fault: memory access
-         * was not performed in cache due to conflicts with remote
-         * transaction(s))
-         */
-        assert(cpu->system->getHTM()); // htm_model_umu
-        completeNackedStore(store_idx);
-        return;
-    }
-
     store_idx->completed() = true;
     --storesToWB;
     // A bit conservative because a store completion may not free up entries,
@@ -1547,17 +1359,8 @@ LSQUnit::trySendPacket(bool isLoad, PacketPtr data_pkt)
             ++stats.blockedByCache;
         }
         if (!isLoad) {
-            assert(state->request() == storeWBIt->request() ||
-                   // If the storeWBIt has been moved backwards while
-                   // a blocked store exists
-                   nackedStoreAheadOfStoreBlocked);
-            if (!isStoreBlocked) {
-                isStoreBlocked = true;
-                assert(isStoreBlockedReq == NULL);
-                isStoreBlockedReq = state->request();
-            } else { // We are trying to send the blocked store
-                assert(isStoreBlockedReq == state->request()); // TODO ???
-            }
+            assert(state->request() == storeWBIt->request());
+            isStoreBlocked = true;
         }
         state->request()->packetNotSent();
     }
@@ -1719,17 +1522,6 @@ LSQUnit::read(LSQRequest *req, int load_idx)
         store_it--;
         assert(store_it->valid());
         assert(store_it->instruction()->seqNum < load_inst->seqNum);
-        if (store_it->skipWritebackReplay()) {
-            if (store_it->completed()) {
-                DPRINTF(HtmCpu, "LSQ:: ST2LD forwarding logic skips"
-                        " replayed store idx:%i (completed in cache)\n",
-                    store_it.idx());
-                continue;
-            }
-            DPRINTF(HtmCpu, "LSQ:: ST2LD forwarding logic reconsiders"
-                    " replayed store idx:%i (not completed in cache)\n",
-                    store_it.idx());
-        }
         int store_size = store_it->size();
 
         // Cache maintenance instructions go down via the store

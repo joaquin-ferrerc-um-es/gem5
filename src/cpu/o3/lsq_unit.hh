@@ -159,11 +159,6 @@ class LSQUnit
         bool _canWB = false;
         /** Whether or not the store is committed. */
         bool _committed = false;
-        /** Whether or not this store should skip writeback (sanity
-         * check).  _comitted already indicates whether the store has
-         * been sent to cache. SQ entries with this flag set are not
-         * considered part of the SB when iterating from storeWBIt */
-        bool _skipWritebackReplay = false;
         /** Whether or not the store is completed. */
         bool _completed = false;
         /** Does this request write all zeros and thus doesn't
@@ -187,8 +182,6 @@ class LSQUnit
         {
             LSQEntry::clear();
             _canWB = _completed = _committed = _isAllZeros = false;
-            _skipWritebackReplay = false;
-
         }
 
         /** Member accessors. */
@@ -199,9 +192,6 @@ class LSQUnit
         const bool& completed() const { return _completed; }
         bool& committed() { return _committed; }
         const bool& committed() const { return _committed; }
-        bool& skipWritebackReplay() { return _skipWritebackReplay; }
-        const bool& skipWritebackReplay() const {
-            return _skipWritebackReplay; }
         bool& isAllZeros() { return _isAllZeros; }
         const bool& isAllZeros() const { return _isAllZeros; }
         char* data() { return _data; }
@@ -397,9 +387,6 @@ class LSQUnit
     /** Try to finish a previously blocked write back attempt */
     void writebackBlockedStore();
 
-    /** Handle nacked store, prepare it for retrying its writeback */
-    void completeNackedStore(typename StoreQueue::iterator store_idx);
-
     /** Completes the store at the specified index. */
     void completeStore(typename StoreQueue::iterator store_idx);
 
@@ -564,15 +551,8 @@ class LSQUnit
     /** The packet that needs to be retried. */
     PacketPtr retryPkt;
 
-    /** Set when a nacked store moves the storeWBIt backwards*/
-    bool nackedStoreAheadOfStoreBlocked;
-
     /** Whehter or not a store is blocked due to the memory system. */
     bool isStoreBlocked;
-
-    /** The store request that was blocked.
-     */
-    LSQRequest* isStoreBlockedReq;
 
     /** Whether or not a store is in flight. */
     bool storeInFlight;

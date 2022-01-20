@@ -93,6 +93,9 @@ Option("extra_detailed_args", str,
        gem5_option = None)
 Option("proc_maps_file", str,
        gem5_option = None)
+Option("disable_transparent_hugepages", bool,
+       gem5_option = None,
+       launchscript_option = "yes")
 
 
 # Boot options
@@ -236,14 +239,22 @@ Option("htm_eager_cd", bool,
        descr_abbrev = "ED")
 Option("htm_conflict_resolution", str,
        descr_abbrev = "CR")
-Option("htm_lazy_arbitration", str,
+Option("htm_lazy_arbitration", str, # magic or token
        descr_abbrev = "LArb")
 Option("htm_lazy_validated_conf_res", str,
        descr_abbrev = "LzCR")
-Option("htm_allow_read_set_l0_evictions", bool,
+Option("htm_allow_read_set_l0_cache_evictions", bool,
        descr_abbrev = "RSL0Ev")
-Option("htm_allow_read_set_l1_evictions", bool,
+Option("htm_allow_write_set_l0_cache_evictions", bool,
+       descr_abbrev = "WSL0Ev")
+Option("htm_allow_read_set_l1_cache_evictions", bool,
        descr_abbrev = "RSL1Ev")
+Option("htm_allow_write_set_l1_cache_evictions", bool,
+       descr_abbrev = "WSL1Ev")
+Option("htm_allow_read_set_l2_cache_evictions", bool,
+       descr_abbrev = "RSL2Ev")
+Option("htm_allow_write_set_l2_cache_evictions", bool,
+       descr_abbrev = "WSL2Ev")
 Option("htm_precise_read_set_tracking", bool,
        descr_abbrev = "RSPrec")
 Option("htm_trans_aware_l0_replacements", bool,
@@ -271,6 +282,11 @@ Option("htm_max_retries", int,
        descr_abbrev = "Rtry",
        gem5_option = None,
        launchscript_option = "export:HTM_MAX_RETRIES",
+       runscript_option = "omit")
+Option("htm_max_backoff", int,
+       descr_abbrev = "BO",
+       gem5_option = None,
+       launchscript_option = "export:HTM_MAX_BACKOFF",
        runscript_option = "omit")
 Option("htm_heap_prefault", int, # TODO: should be bool
        descr_abbrev = "Pflt",

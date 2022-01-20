@@ -11,9 +11,15 @@ configs_merge(templates.cache_baseline)
 
 configs_vary(
     templates.htm_cfg1_base,
-    templates.htm_cfg1_precise,
-    templates.htm_cfg1_reqstalls,
-    templates.htm_cfg1_rset_l0_evict,
+    templates.htm_cfg1_l0rsetevict, 
+    templates.htm_cfg1_l1rsetevict,
+    templates.htm_cfg1_l1rsetevict_pf,
+    templates.htm_cfg1_l1rsetevict_pf_dwng,
+    templates.htm_cfg1_l1rsetevict_pf_dwng_lazycd_magic,
+    templates.htm_cfg1_l1rsetevict_pf_dwng_lazycd_magic_cw,
+    templates.htm_cfg1_l1rsetevict_pf_dwng_lazycd_token,
+    templates.htm_cfg1_l1rsetevict_pf_dwng_precise,
+    templates.htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls,
 )
 
 configs_vary(*[ { num_processors: x } for x in [8, 4] ])
@@ -24,8 +30,8 @@ configs_merge({
 })
 
 configs_merge({
-    benchmark: Vary(*get_benchmarks(suite = "stamp", size = "small")),
-#    num_processors: Vary(2,4),
+    benchmark: Vary(*(get_benchmarks(suite = "stamp", size = "small")
+                      + get_benchmarks(suite = "stamp", size = "medium"))),
 })
 
 configs_merge({ random_seed: Vary(*range(3)) })

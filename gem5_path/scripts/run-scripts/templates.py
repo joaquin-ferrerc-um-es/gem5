@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-from gem5_run import merge, Derived, Vary, get_benchmarks
-from gem5_config_utils import config_describe, default_output_subdirectory, config_from_tasks_gem5, get_git_revision
+from gem5_run import merge, Derived, Vary, get_benchmarks, get_default_output_subdirectory
+from gem5_config_utils import config_describe, config_from_tasks_gem5, get_git_revision
 from options import *
 from options import gem5_root as gem5_root_option
 from gem5_run import gem5_root
@@ -16,7 +16,7 @@ base = {
     random_seed: 0,
 
     output_directory_root: Derived(lambda c: os.path.join(gem5_root_option(c), "results")),
-    output_directory_sub: Derived(lambda c: default_output_subdirectory(os.path.join(gem5_root_option(c), "results"))),
+    output_directory_sub: Derived(lambda c: get_default_output_subdirectory(os.path.join(gem5_root_option(c), "results"))),
     config_description: Derived(config_describe),
     output_directory: Derived(lambda c: os.path.join(output_directory_root(c), output_directory_sub(c), config_description(c))),
 
@@ -75,6 +75,7 @@ base = {
     exit_at_roi_end: True,
     extra_detailed_args: "",
     proc_maps_file: "ckpt/proc_maps",
+    disable_transparent_hugepages: False,
 
     # unnecesary options:
     launchscript_filename: "launch_script.rcS",
@@ -100,6 +101,14 @@ cache_baseline = {
     cache_l2_assoc: 16,
 }
 
+cache_test = merge(cache_baseline, {
+    cache_name: "TestCache",
+    cache_l0i_size: 8 * 1024,
+    cache_l0d_size: 8 * 1024,
+    cache_l1i_size: 32 * 1024,
+    cache_l1d_size: 32 * 1024,
+    cache_l2_size_per_cache: Derived(lambda c: 256 * 1024 // num_processors(c)),})
+
 cache_small = merge(cache_baseline, {
     cache_name: "SmallCache",
     cache_l0i_size: 4 * 1024,
@@ -119,6 +128,7 @@ cache_baseline_2level = merge(cache_baseline, {
 
 # HTM templates
 htm_cfg1_base = {
+    # TODO ? protocol: "MESI_Three_Level_HTM_umu", # These options don't work with e.g., MESI_Three_Level_HTM_umu
     htm_disable_speculation: False,
     htm_binary_suffix: '.htm.fallbacklock',
     htm_lazy_vm: True,
@@ -126,8 +136,12 @@ htm_cfg1_base = {
     htm_conflict_resolution: 'requester_wins',
     htm_lazy_arbitration: None,
     htm_lazy_validated_conf_res: None,
-    htm_allow_read_set_l0_evictions: False,
-    htm_allow_read_set_l1_evictions: False,
+    htm_allow_read_set_l0_cache_evictions: False,
+    htm_allow_write_set_l0_cache_evictions: False,
+    htm_allow_read_set_l1_cache_evictions: False,
+    htm_allow_write_set_l1_cache_evictions: False,
+    htm_allow_read_set_l2_cache_evictions: False,
+    htm_allow_write_set_l2_cache_evictions: False,
     htm_precise_read_set_tracking: False,
     htm_trans_aware_l0_replacements: False,
     htm_trans_aware_l1_replacements: False,
@@ -136,24 +150,73 @@ htm_cfg1_base = {
     htm_l0_downgrade_on_l1_gets: False,
     htm_value_checker: False,
     htm_isolation_checker: False,
-    htm_visualizer: True,
+    htm_visualizer: False, # True,
     htm_max_retries: 6,
+    htm_max_backoff: 8,
     htm_heap_prefault: 0,
     htm_fallback_lock_filename: "ckpt/fallback_lock",
 }
 
-htm_cfg1_precise = merge(htm_cfg1_base, {
+
+
+htm_cfg1_l0rsetevict = merge(htm_cfg1_base, {
+    htm_allow_read_set_l0_cache_evictions: True,
+})
+
+htm_cfg1_l1rsetevict = merge(htm_cfg1_l0rsetevict, {
+    htm_allow_read_set_l1_cache_evictions: True,
+})
+
+htm_cfg1_l1rsetevict_pf = merge(htm_cfg1_l1rsetevict, {
+    htm_heap_prefault: True,
+})
+
+htm_cfg1_l1rsetevict_pf_dwng = merge(htm_cfg1_l1rsetevict_pf, {
+    htm_l0_downgrade_on_l1_gets: True,
+})
+
+htm_cfg1_l1rsetevict_pf_dwng_lazycd_magic = merge(htm_cfg1_l1rsetevict_pf, {
+    htm_eager_cd: False,
+    htm_lazy_arbitration: 'magic',
+    htm_lazy_validated_conf_res: 'requester_wins',
+})
+
+htm_cfg1_l1rsetevict_pf_dwng_lazycd_magic_cw = merge(htm_cfg1_l1rsetevict_pf_dwng_lazycd_magic, {
+    htm_lazy_validated_conf_res: 'committer_wins',
+})
+
+htm_cfg1_l1rsetevict_pf_dwng_lazycd_token = merge(htm_cfg1_l1rsetevict_pf, {
+    htm_eager_cd: False,
+    htm_lazy_arbitration: 'token',
+    htm_lazy_validated_conf_res: 'requester_wins',
+})
+
+htm_cfg1_l1rsetevict_pf_dwng_precise  = merge(htm_cfg1_l1rsetevict_pf_dwng, {
     htm_precise_read_set_tracking: True,
 })
 
-htm_cfg1_reqstalls = merge(htm_cfg1_base, {
-    htm_conflict_resolution: "requester_stalls_cda_hybrid",
+htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls  = merge(htm_cfg1_l1rsetevict_pf_dwng_precise, {
+    htm_conflict_resolution: 'requester_stalls_cda_base',
 })
 
-htm_cfg1_rset_l0_evict = merge(htm_cfg1_base, {
-    htm_allow_read_set_l0_evictions: True,
+htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls_reload = merge(htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls, {
+    htm_reload_if_stale: True,
 })
 
-htm_cfg1_replace_nontx = merge(htm_cfg1_base, {
-    htm_trans_aware_l0_replacements: True,
+htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls_retry64 = merge(htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls, {
+    htm_max_retries: 64,
 })
+
+htm_cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm = merge(htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls, {
+    htm_lazy_vm: False,
+    htm_allow_read_set_l2_cache_evictions: True,
+    htm_allow_write_set_l0_cache_evictions: True,
+    htm_allow_write_set_l1_cache_evictions: True,
+    htm_allow_write_set_l2_cache_evictions: True,
+    htm_isolation_checker: True,
+})
+
+htm_cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm_reload = merge(htm_cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm, {
+    htm_reload_if_stale: True,
+})
+

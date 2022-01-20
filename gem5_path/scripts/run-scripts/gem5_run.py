@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import time
 
 gem5_root = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
@@ -282,4 +283,19 @@ def config_describe(conf):
     dirs = [d for d in [c.descr_dir_text_value(conf) for c in config_options(conf)] if d != ""]
     abbrevs = [a for a in [c.descr_abbrev_text_value(conf) for c in config_options(conf)] if a != ""]
     return os.path.join("/".join(dirs), "_".join(abbrevs))
+
+default_output_subdirectory = None
+def set_default_output_subdirectory(d):
+    global default_output_subdirectory
+    default_output_subdirectory = d
+
+def get_default_output_subdirectory(root_dir):
+    if default_output_subdirectory == None: # By default, automatically choose a nonexisting subdirectory name using the current date and a sequence number
+        t = time.strftime("%Y-%m-%d")
+        s = 0
+        while os.path.exists(os.path.join(root_dir, f"{t}-{s:03d}")):
+            s = s + 1
+        set_default_output_subdirectory(f"{t}-{s:03d}")
+        
+    return default_output_subdirectory
 

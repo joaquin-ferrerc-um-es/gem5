@@ -4,14 +4,34 @@
 import os
 
 import options
-from gem5_run import get_configs, config_list_options, print_config, error
+from gem5_run import get_configs, config_list_options, print_config, error, known_options, Vary
 
 def create_direcory(d):
     if not os.path.exists(d): 
         os.makedirs(d)
-        #print(f"Created ‘{d}’")
+        print(f"Created ‘{d}’")
     else:
         print(f"‘{d}’ already exists")
+
+def compare_configs(configs):
+    ret = {}
+    for o in known_options:
+        vals = []
+        for c in configs:
+            if o in c:
+                v = o(c)
+            else:
+                v = "missing"
+                
+            if not v in vals:
+                vals.append(v)
+        if len(vals) == 1:
+            if vals[0] != "missing":
+                ret[o] = vals[0]
+        else:
+            ret[o] = Vary(*vals)
+    return ret
+        
     
 def check_duplicate_outputs(configs):
     m = {}
@@ -21,7 +41,8 @@ def check_duplicate_outputs(configs):
         m[od].append(conf)
     for i in m:
         if len(m[i]) != 1:
-            error(f"Duplicate output_directory: {[options.output_directory(c) for c in m[i]]}")
+            print_config(compare_configs(m[i]))
+            error(f"Duplicate output_directory: {options.output_directory(m[i][0])}")
 
 def gen_scripts(c):
     # TODO: eval Derived in c
@@ -44,6 +65,10 @@ if [ "${benchmarks_mount_image}" = "True" ] ; then
     cd "${benchmarks_image_mountpoint}"
 fi
 sync
+
+if [ "${disable_transparent_hugepages:-False}" == "True" ] ; then
+    echo never > /sys/kernel/mm/transparent_hugepage/enabled
+fi
 
 if [ "${enable_kvm:-False}" == "False" ] ; then
       sleep 0.${RANDOM_SEED} # Generate variability via sleep
@@ -82,7 +107,23 @@ sleep 2
             runscript_file.write(runscript_template_file.read())
         
     os.chmod(runscript_filename, 0o755)
+
+import subprocess
     
+def enqueue(c):
+# TODO
+# --exclude               
+#if submit_mode:
+#  config.copy_gem5_binary_tmp_dir = 1 # Copy binary to tmp dir to prevent overwriting it
+    assert(options.htm_visualizer(c) == False)
+    assert(options.run_gdb(c) == False)
+    od = options.output_directory(c)
+    stderr = os.path.join(od, "stderr")
+    stdout = os.path.join(od, "stdout")
+    runscript_filename = os.path.join(od, options.runscript_filename(c))
+    cmd = f"sbatch -J {options.config_description(c)} -e {stderr} -o {stdout} {runscript_filename}"
+    subprocess.run(cmd, shell=True, check=True)
+
 
 import argparse
 
@@ -105,4 +146,7 @@ else:
     check_duplicate_outputs(configs)
     for c in get_configs():
         gen_scripts(c)
+    if args.enqueue:
+        for c in get_configs():
+            enqueue(c)
 

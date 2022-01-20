@@ -19,7 +19,7 @@ Benchmark("kmeans-h", "stamp",   "small", "-p", "-m15 -n15 -t0.05 -i inputs/rand
 Benchmark("ssca2", "stamp",      "small", "-t", "-s13 -i1.0 -u1.0 -l3 -p3",       dir_stamp + "/ssca2",    "ssca2")
 Benchmark("vacation-l", "stamp", "small", "-c", "-n2 -q90 -u98 -r16384 -t4096",   dir_stamp + "/vacation", "vacation")
 Benchmark("vacation-h", "stamp", "small", "-c", "-n4 -q60 -u90 -r16384 -t4096",   dir_stamp + "/vacation", "vacation")
-#Benchmark("yada", "stamp",       "small", "-t", "-a20 -i inputs/633.2",           dir_stamp + "/yada",     "yada")
+Benchmark("yada", "stamp",       "small", "-t", "-a20 -i inputs/633.2",           dir_stamp + "/yada",     "yada")
 #Benchmark("bayes", "stamp",      "small", "-t", "-v32 -r1024 -n2 -p20 -i2 -e2", dir_stamp + "/bayes",   "bayes")
 #Benchmark("labyrinth", "stamp",  "small", "-t", "-i inputs/random-x32-y32-z3-n96.txt", dir_stamp + "/labyrinth", "labyrinth")
 

@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*-
 
 import os
-import time
 import subprocess
 from gem5_run import gem5_root, config_list_options
 
 def config_describe(conf):
+    # TODO: allow to order things better
     dirs = [d for d in [c.descr_dir_text_value(conf) for c in config_list_options(conf)] if d != ""]
     abbrevs = [a for a in [c.descr_abbrev_text_value(conf) for c in config_list_options(conf)] if a != ""]
     return os.path.join("/".join(dirs), "_".join(abbrevs))
@@ -15,6 +15,7 @@ def config_describe(conf):
 option_value_abbreviations = {
     "requester_wins": "rw",
     "magic": "mg",
+    "token": "tkn",
     "committer_wins": "cw",
     "requester_stalls_cda_base": "cdab",
     "requester_stalls_cda_base_ntx": "cdabntx",
@@ -27,13 +28,6 @@ def abbrev_option_value(s):
         return option_value_abbreviations[s]
     else:
         return s
-
-
-def default_output_subdirectory(conf):
-    t = time.strftime("%Y-%m-%d")
-    s = "XXX" # TODO
-    return f"{t}-{s}"
-
 
 cache_config_from_tasks_gem5 = {}
 def config_from_tasks_gem5(s):

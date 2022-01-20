@@ -206,9 +206,9 @@ def get_benchmarks(name = None, suite = None, size = None):
 # list_or_conf1 if it is a list.  Returns a config (dict) if
 # list_or_conf1 is a config (dict), or retruns a list of configs if
 # list_or_conf1 is a list of configs
-def merge(list_or_conf1, conf2: dict):
+def update(list_or_conf1, conf2: dict):
     if isinstance(list_or_conf1, list):
-        return [merge(c, conf2) for c in list_or_conf1]
+        return [update(c, conf2) for c in list_or_conf1]
     else:
         r = list_or_conf1.copy()
         r.update(conf2)
@@ -220,9 +220,9 @@ def merge(list_or_conf1, conf2: dict):
 # element and returns a list with all the combinations.
 def vary(list_or_conf1, conf_variations: list):
     if isinstance(list_or_conf1, list):
-        return [merge(c, v) for c in list_or_conf1 for v in conf_variations]
+        return [update(c, v) for c in list_or_conf1 for v in conf_variations]
     else:
-        return [merge(list_or_conf1, v) for v in conf_variations]
+        return [update(list_or_conf1, v) for v in conf_variations]
 
 # Process Vary values
 def expand_variations(list_or_conf1):
@@ -256,9 +256,9 @@ def configs_set(*confs):
 def configs_add(*confs):
     configs.extend(confs)
     
-def configs_merge(conf2: dict):
+def configs_update(conf2: dict):
     global configs
-    configs = merge(configs, conf2)
+    configs = update(configs, conf2)
 
 def configs_vary(*conf_variations: list):
     global configs

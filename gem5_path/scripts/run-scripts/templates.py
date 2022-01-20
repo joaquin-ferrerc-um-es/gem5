@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-from gem5_run import merge, Derived, Vary, get_benchmarks, get_default_output_subdirectory
+from gem5_run import update, Derived, Vary, get_benchmarks, get_default_output_subdirectory
 from gem5_config_utils import config_describe, config_from_tasks_gem5, get_git_revision
 from options import *
 from options import gem5_root as gem5_root_option
@@ -101,7 +101,7 @@ cache_baseline = {
     cache_l2_assoc: 16,
 }
 
-cache_test = merge(cache_baseline, {
+cache_test = update(cache_baseline, {
     cache_name: "TestCache",
     cache_l0i_size: 8 * 1024,
     cache_l0d_size: 8 * 1024,
@@ -109,7 +109,7 @@ cache_test = merge(cache_baseline, {
     cache_l1d_size: 32 * 1024,
     cache_l2_size_per_cache: Derived(lambda c: 256 * 1024 // num_processors(c)),})
 
-cache_small = merge(cache_baseline, {
+cache_small = update(cache_baseline, {
     cache_name: "SmallCache",
     cache_l0i_size: 4 * 1024,
     cache_l0d_size: 4 * 1024,
@@ -117,7 +117,7 @@ cache_small = merge(cache_baseline, {
     cache_l1d_size: 32 * 1024,
 })
 
-cache_baseline_2level = merge(cache_baseline, {
+cache_baseline_2level = update(cache_baseline, {
     cache_name: "DefaultTwoLevelCache",
     cache_l0i_size: 0,
     cache_l0d_size: 0,
@@ -159,55 +159,55 @@ htm_cfg1_base = {
 
 
 
-htm_cfg1_l0rsetevict = merge(htm_cfg1_base, {
+htm_cfg1_l0rsetevict = update(htm_cfg1_base, {
     htm_allow_read_set_l0_cache_evictions: True,
 })
 
-htm_cfg1_l1rsetevict = merge(htm_cfg1_l0rsetevict, {
+htm_cfg1_l1rsetevict = update(htm_cfg1_l0rsetevict, {
     htm_allow_read_set_l1_cache_evictions: True,
 })
 
-htm_cfg1_l1rsetevict_pf = merge(htm_cfg1_l1rsetevict, {
+htm_cfg1_l1rsetevict_pf = update(htm_cfg1_l1rsetevict, {
     htm_heap_prefault: True,
 })
 
-htm_cfg1_l1rsetevict_pf_dwng = merge(htm_cfg1_l1rsetevict_pf, {
+htm_cfg1_l1rsetevict_pf_dwng = update(htm_cfg1_l1rsetevict_pf, {
     htm_l0_downgrade_on_l1_gets: True,
 })
 
-htm_cfg1_l1rsetevict_pf_dwng_lazycd_magic = merge(htm_cfg1_l1rsetevict_pf, {
+htm_cfg1_l1rsetevict_pf_dwng_lazycd_magic = update(htm_cfg1_l1rsetevict_pf, {
     htm_eager_cd: False,
     htm_lazy_arbitration: 'magic',
     htm_lazy_validated_conf_res: 'requester_wins',
 })
 
-htm_cfg1_l1rsetevict_pf_dwng_lazycd_magic_cw = merge(htm_cfg1_l1rsetevict_pf_dwng_lazycd_magic, {
+htm_cfg1_l1rsetevict_pf_dwng_lazycd_magic_cw = update(htm_cfg1_l1rsetevict_pf_dwng_lazycd_magic, {
     htm_lazy_validated_conf_res: 'committer_wins',
 })
 
-htm_cfg1_l1rsetevict_pf_dwng_lazycd_token = merge(htm_cfg1_l1rsetevict_pf, {
+htm_cfg1_l1rsetevict_pf_dwng_lazycd_token = update(htm_cfg1_l1rsetevict_pf, {
     htm_eager_cd: False,
     htm_lazy_arbitration: 'token',
     htm_lazy_validated_conf_res: 'requester_wins',
 })
 
-htm_cfg1_l1rsetevict_pf_dwng_precise  = merge(htm_cfg1_l1rsetevict_pf_dwng, {
+htm_cfg1_l1rsetevict_pf_dwng_precise  = update(htm_cfg1_l1rsetevict_pf_dwng, {
     htm_precise_read_set_tracking: True,
 })
 
-htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls  = merge(htm_cfg1_l1rsetevict_pf_dwng_precise, {
+htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls  = update(htm_cfg1_l1rsetevict_pf_dwng_precise, {
     htm_conflict_resolution: 'requester_stalls_cda_base',
 })
 
-htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls_reload = merge(htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls, {
+htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls_reload = update(htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls, {
     htm_reload_if_stale: True,
 })
 
-htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls_retry64 = merge(htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls, {
+htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls_retry64 = update(htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls, {
     htm_max_retries: 64,
 })
 
-htm_cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm = merge(htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls, {
+htm_cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm = update(htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls, {
     htm_lazy_vm: False,
     htm_allow_read_set_l2_cache_evictions: True,
     htm_allow_write_set_l0_cache_evictions: True,
@@ -216,7 +216,7 @@ htm_cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm = merge(htm_cfg1_l1rsete
     htm_isolation_checker: True,
 })
 
-htm_cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm_reload = merge(htm_cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm, {
+htm_cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm_reload = update(htm_cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm, {
     htm_reload_if_stale: True,
 })
 

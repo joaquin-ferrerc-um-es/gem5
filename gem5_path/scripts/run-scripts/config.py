@@ -2,12 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import templates
-from gem5_run import configs_set, configs_merge, configs_vary, Vary, get_benchmarks
+from gem5_run import configs_set, configs_update, configs_vary, Vary, get_benchmarks
 from options import *
 
 configs_set(templates.base)
 
-configs_merge(templates.cache_baseline)
+configs_update(templates.cache_baseline)
 
 configs_vary(
     templates.htm_cfg1_base,
@@ -22,17 +22,15 @@ configs_vary(
     templates.htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls,
 )
 
-configs_vary(*[ { num_processors: x } for x in [8, 4] ])
+#configs_vary(*[ { num_processors: x } for x in [8, 4] ])
 
-configs_merge({
+configs_update({
     build_type: "opt",
-#    num_processors: Vary(8, 4),
-})
 
-configs_merge({
-    benchmark: Vary(*(get_benchmarks(suite = "stamp", size = "small")
-                      + get_benchmarks(suite = "stamp", size = "medium"))),
-})
+    num_processors: Vary(8, 4),
+    benchmark: Vary(*(  get_benchmarks(suite = "stamp", size = "small"))
+                      + get_benchmarks(suite = "stamp", size = "medium")),
 
-configs_merge({ random_seed: Vary(*range(3)) })
+    random_seed: Vary(*range(3)),
+})
 

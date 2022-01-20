@@ -128,6 +128,7 @@ public:
   bool isAccessToLog(Addr addr);
   bool isEndLogUnrollSignal(PacketPtr pkt);
   void setupLogTranslation(Addr vaddr, Addr paddr);
+  Addr translateLogAddress(Addr vaddr) const;
   Addr addLogEntry(Addr addr);
   void commitLogEntry(int index, Addr storeAddr);
   int getLogNumEntries(int thread);

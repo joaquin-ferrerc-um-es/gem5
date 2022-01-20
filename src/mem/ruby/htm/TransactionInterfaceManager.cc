@@ -1353,6 +1353,12 @@ TransactionInterfaceManager::setupLogTranslation(Addr vaddr,
 }
 
 Addr
+TransactionInterfaceManager::translateLogAddress(Addr vaddr) const
+{
+    return m_xactEagerVersionManager->translateLogAddress(vaddr);
+}
+
+Addr
 TransactionInterfaceManager::addLogEntry(Addr addr)
 {
     return m_xactEagerVersionManager->addLogEntry(addr);

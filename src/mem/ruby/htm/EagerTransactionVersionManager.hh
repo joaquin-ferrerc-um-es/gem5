@@ -40,6 +40,7 @@ public:
   bool isAccessToLog(Addr addr) const;
   bool isLogReadyToUnroll() const;
   void setupLogTranslation(Addr vaddr, Addr paddr);
+  void shutdownLog();
   void setLogBaseVirtualAddress(Addr addr);
   Addr getLogBaseVirtualAddress() const {
       assert(m_initStatus >= LogInitStatus::BaseAddress);

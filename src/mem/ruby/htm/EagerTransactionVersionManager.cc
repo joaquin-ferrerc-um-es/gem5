@@ -206,5 +206,13 @@ CLASS_NS isEndLogUnrollSignal(PacketPtr pkt)
     return false;
 }
 
+void
+CLASS_NS shutdownLog()
+{
+    assert(m_initStatus = LogInitStatus::Ready);
+    m_initStatus = LogInitStatus::Invalid;
+    m_logTLB.clear();
+}
+
 } // namespace ruby
 } // namespace gem5

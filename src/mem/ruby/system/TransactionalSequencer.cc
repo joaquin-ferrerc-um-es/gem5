@@ -81,6 +81,9 @@ TransactionalSequencer::abortTransaction(PacketPtr pkt)
     m_lastStateBeforeStall = AnnotatedRegion_INVALID;
     m_xact_mgr->abortTransaction(thread, pkt);
     m_lastAbortHtmUid = pkt->getHtmTransactionUid();
+    if (!m_htm->params().lazy_vm) { // LogTM
+        assert(m_logRequestTable.empty());
+    }
 }
 
 bool
@@ -290,6 +293,11 @@ TransactionalSequencer::failedCallback(Addr address,
             Sequencer::writeCallback(address, data);
         } else {
             m_failedStorePkt = pkt;
+            // Prevent deadlock event check: update issue time
+            for (auto it=seq_req_list.begin();
+                 it != seq_req_list.end(); ++it) {
+                (*it).issue_time = curCycle();
+            }
             makeRequest(pkt);
         }
     } else {
@@ -555,54 +563,11 @@ TransactionalSequencer::makeRequest(PacketPtr pkt)
                 // Intercept access to fallback lock and obtain physical addr
                 m_htm->setFallbackLockPAddr(pkt->req->getPaddr());
             } else if (!m_htm->params().lazy_vm) {
-                assert(m_xact_mgr);
-                // LogTM: Intercept access to undo log and setup
-                // log TLB translations
-                if (m_xact_mgr->isAccessToLog(pkt->req->getVaddr())) {
-                    if (!m_xact_mgr->isLogReady()) {
-                        m_xact_mgr->setupLogTranslation(pkt->req->getVaddr(),
-                                                        pkt->req->getPaddr());
-                    } else if (m_xact_mgr->isUnrollingLog(thread)) {
-                        // We can have lingering transactional
-                        // loads immediately abort signal from CPU
-                        DPRINTF(RubyHTMlog, "Log access during unroll "
-                                "vaddr %#x paddr %#x\n",
-                                pkt->req->getVaddr(),
-                                pkt->req->getPaddr());
-                        if (m_xact_mgr->isEndLogUnrollSignal(pkt)) {
-                            // Wait for lingering stores to complete
-                            if (!m_logRequestTable.empty()) {
-                                DPRINTF(RubyHTMlog, "Log unroll must"
-                                        " wait for %d lingering log stores\n",
-                                        m_logRequestTable.size());
-                                return RequestStatus_BufferFull;
-                            }
-                            assert(pkt->isWrite());
-                           // "Magic value" written to logbase to
-                           // signal log unroll completed without
-                           // writing to the stack (call m5xxx)
-                            m_xact_mgr->endLogUnroll(thread);
-                            DPRINTF(RubyHTMlog, "Log unroll completed\n");
-                            // No need to perform memory access in cache
-                            ruby_hit_callback(pkt);
-                            testDrainComplete();
-                            return RequestStatus_Issued;
-                        } else {
-                            assert(!pkt->isWrite());
-                        }
-                    } else {
-                        if (pkt->isWrite()) {
-                            panic("Unexpected write to undo log!\n");
-                        } else {
-                            // Speculative from mispredicted paths may
-                            // read from log locations immediately
-                            // after unroll has completed
-                            warn("Unexpected load to undo log!"
-                                 " - PC %#x vaddr %#x\n",
-                                 pkt->req->getPC(),
-                                 pkt->req->getVaddr());
-                        }
-                    }
+                bool noaccess = interceptLogAccess(pkt);
+                if (noaccess) { // No cache access required
+                    ruby_hit_callback(pkt);
+                    testDrainComplete();
+                    return RequestStatus_Issued;
                 }
             }
         }
@@ -661,26 +626,7 @@ TransactionalSequencer::makeRequest(PacketPtr pkt)
                         pkt->req->getVaddr(),
                         pkt->req->getPaddr());
             }
-        } else if (!m_htm->params().lazy_vm) { // LogTM
-            Addr line_addr = makeLineAddress(pkt->getAddr());
-            if (pkt->isHtmTransactional() &&
-                pkt->isWrite()) {
-            } else { // Not a transactional write
-                for (auto it = m_logRequestTable.begin();
-                    it != m_logRequestTable.end(); ++it) {
-                    auto &log_req_list =(*it).second;
-                    assert(log_req_list.size() == 1);
-                    LogRequestInfo &log_req = log_req_list.back();
-                    if ((line_addr == makeLineAddress(log_req.logAddr)) ||
-                        (line_addr == makeLineAddress(log_req.logData))) {
-                        // Access to log while logging
-                        panic("Unexpected access to the"
-                              " undo log while logging!\n");
-                    }
-                }
-            }
-
-        }// Logtm
+        }
         return Sequencer::makeRequest(pkt);
     }
 }
@@ -1305,6 +1251,61 @@ TransactionalSequencer::writeCallback(Addr address, DataBlock& data,
     }
 }
 
+bool
+TransactionalSequencer::interceptLogAccess(PacketPtr pkt)
+{
+    int thread = 0;
+    // LogTM: Intercept access to undo log and setup
+    assert(!m_htm->params().lazy_vm);
+    assert(m_xact_mgr);
+    assert(pkt->req->hasVaddr());
+    // log TLB translations
+    if (m_xact_mgr->isAccessToLog(pkt->req->getVaddr())) {
+        if (!m_xact_mgr->isLogReady()) {
+            m_xact_mgr->setupLogTranslation(pkt->req->getVaddr(),
+                                            pkt->req->getPaddr());
+        } else if (m_xact_mgr->isUnrollingLog(thread)) {
+            DPRINTF(RubyHTMlog, "Log access during unroll "
+                    "vaddr %#x paddr %#x\n",
+                    pkt->req->getVaddr(),
+                    pkt->req->getPaddr());
+            if (m_xact_mgr->isEndLogUnrollSignal(pkt)) {
+                assert(pkt->isWrite());
+                // "Magic value" written to logbase to
+                // signal log unroll completed without
+                // writing to the stack (call m5xxx)
+                m_xact_mgr->endLogUnroll(thread);
+                DPRINTF(RubyHTMlog, "Log unroll completed\n");
+                // No need to perform memory access in cache
+                return true;
+            } else {
+                // We can have lingering transactional
+                // loads immediately abort signal from CPU
+                assert(!pkt->isWrite());
+            }
+        } else {
+            // Speculative from mispredicted paths may
+            // read from log locations immediately
+            // after unroll has completed
+            warn("Unexpected %s to undo log!"
+                 " - PC %#x vaddr %#x\n",
+                 pkt->isWrite() ? "write" : "read",
+                 pkt->req->getPC(),
+                 pkt->req->getVaddr());
+        }
+        // Sanity checks: Detect if the OS ever tries to move the log
+        // after it has been set up
+        Addr paddr = m_xact_mgr->
+            translateLogAddress(pkt->req->getVaddr());
+        if (pkt->getAddr() != paddr) {
+            panic("Unexpected v2p translation for log access -"
+                  " vaddr %#x paddr %#x (expected paddr %#x)\n",
+                  pkt->req->getVaddr(), pkt->getAddr(),
+                  paddr);
+        }
+    }
+    return false;
+}
 int
 TransactionalSequencer::numOutstandingWrites(Addr address)
 {

@@ -114,6 +114,7 @@ class TransactionalSequencer : public Sequencer
     void handleLoggedStore(Addr address,
                            PacketPtr pkt,
                            DataBlock& data);
+    bool interceptLogAccess(PacketPtr pkt);
     int numOutstandingWrites(Addr address);
 
     HTM * m_htm = NULL;

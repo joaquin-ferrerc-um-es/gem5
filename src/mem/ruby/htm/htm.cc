@@ -63,11 +63,21 @@ RubyHTM::setupLog(int cpuId, Addr addr)
     if (g_system_ptr->
         getTransactionInterfaceManager(cpuId)->
         getXactEagerVersionManager()->isReady()) {
-        Addr baseAddr = g_system_ptr->
-            getTransactionInterfaceManager(cpuId)->
-            getXactEagerVersionManager()->getLogBaseVirtualAddress();
-        // Sanity checks
-        assert(baseAddr == addr);
+        if (addr == 0) { // Shutdown log signal
+            for (int i = 0;
+                 i < g_system_ptr->params().num_of_sequencers;
+                 ++i) {
+                g_system_ptr->
+                    getTransactionInterfaceManager(i)->
+                    getXactEagerVersionManager()->shutdownLog();
+            }
+        } else {
+            Addr baseAddr = g_system_ptr->
+                getTransactionInterfaceManager(cpuId)->
+                getXactEagerVersionManager()->getLogBaseVirtualAddress();
+            // Sanity checks
+            assert(baseAddr == addr);
+        }
         return false;
     } else {
         g_system_ptr->

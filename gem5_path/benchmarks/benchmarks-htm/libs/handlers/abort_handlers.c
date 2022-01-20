@@ -45,6 +45,10 @@ void initGlobals(int nthreads)
 
 // Call at the end of the workload, outside parallel section
 void deleteGlobals () {
+    // Calling simSetLogBase with a NULL ptr when the log is ready is
+    // used to shutdown the log in all CPUs to stop stop monitoring
+    // the virtual addresses allocated to the log (sanity checks)
+    simSetLogBase(NULL);
 }
 
 // "Touch" function in STAMPs memory allocator

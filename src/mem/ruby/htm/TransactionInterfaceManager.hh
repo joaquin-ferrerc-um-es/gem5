@@ -150,9 +150,6 @@ public:
   std::string config_conflictResPolicy() const {
       return m_htm->params().conflict_resolution;
   }
-  std::string config_lazyValidatedConflictResPolicy() const {
-      return m_htm->params().lazy_validated_conf_res;
-  }
   bool config_lazyVM() const {
       return m_htm->params().lazy_vm;
   }

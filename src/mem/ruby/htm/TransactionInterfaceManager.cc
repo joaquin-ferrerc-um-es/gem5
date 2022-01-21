@@ -463,11 +463,6 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
                     if (m_xactLazyVersionManager->committed()) {
                         DPRINTF(RubyHTM, "Aborted after write buffer"
                                 " completely flushed \n");
-                        // Only possible if conflict resolution is
-                        // requester wins or interrupt
-                        assert(cause == HtmFailureFaultCause::INTERRUPT ||
-                               m_htm->params().conflict_resolution ==
-                               HtmPolicyStrings::requester_wins);
                     }
                     // Discard cache lines already written during
                     // write buffer flush
@@ -494,7 +489,7 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
                                    HTMStats::AbortCause::Conflict) ||
                                    (m_abortCause[thread] ==
                                     HTMStats::AbortCause::ConflictStale)) {
-                            assert(m_htm->params().lazy_validated_conf_res ==
+                            assert(m_htm->params().conflict_resolution ==
                                    HtmPolicyStrings::requester_wins);
                             //assert(m_abortSourceNonTransactional[thread]);
                         } else if (m_abortCause[thread] ==
@@ -598,7 +593,7 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
         // aborting lazy transaction that has reached commit
         if (m_xactLazyCommitArbiter->validated()) {
             assert(m_xactLazyCommitArbiter->shouldValidateTransaction());
-            assert(config_lazyValidatedConflictResPolicy() !=
+            assert(config_conflictResPolicy() !=
                    HtmPolicyStrings::committer_wins);
         } else if (m_xactLazyCommitArbiter->shouldValidateTransaction()) {
             // Abort before tx validated

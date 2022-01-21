@@ -29,14 +29,10 @@ class HTM(ClockedObject):
     conflict_resolution = Param.String("requester_wins",
         "Set conflict resolution policy")
     # Commit arbitration scheme used by systems with lazy conflict
-    # detection.  The 'lazy_validated_conf_res' parameter
-    # determines how conflicts are resolved by a committing (already
-    # validated) transaction)
+    # detection.
     lazy_arbitration = Param.String("magic",
         "Lazy validation policy")
     # Conflict resolution for validated transactions in lazy_cd
-    lazy_validated_conf_res = Param.String("committer_wins",
-        "Conflict resolution for lazy validated transactions")
     lazy_commit_width = Param.Unsigned(4, "Maximum number of"
         " outstanding write-set block requests during lazy commit")
     # Whether the L0 cache cache allows evictions of cache blocks in

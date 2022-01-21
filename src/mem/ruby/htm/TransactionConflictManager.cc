@@ -73,7 +73,6 @@ TransactionConflictManager(TransactionInterfaceManager *xact_mgr,
   } else {
       m_policy_nack_non_transactional = false;
   }
-  m_lazy_validated_policy = xact_mgr->config_lazyValidatedConflictResPolicy();
 }
 
 TransactionConflictManager::~TransactionConflictManager() {
@@ -273,19 +272,15 @@ TransactionConflictManager::shouldNackLoad(Addr addr,
               shouldNack = true;
           }
       } else if (!m_xact_mgr->config_eagerCD() && // Lazy conflict detection
-                 m_xact_mgr->getXactLazyCommitArbiter()->validated()) {
-          if (m_lazy_validated_policy == HtmPolicyStrings::committer_wins) {
-              shouldNack = true;
-          } else if (m_lazy_validated_policy ==
-                     HtmPolicyStrings::requester_wins) {
-              shouldNack = false;
-          } else {
-              panic("Unknown lazy validation policy"
-                    " for lazy transaction\n");
-          }
+                 m_xact_mgr->getXactLazyCommitArbiter()->validated() &&
+                 conflict_res_policy == HtmPolicyStrings::committer_wins) {
+          shouldNack = true;
       }
       else {
-          assert(conflict_res_policy == HtmPolicyStrings::requester_wins);
+          assert(conflict_res_policy ==
+                 HtmPolicyStrings::requester_wins ||
+                 (!m_xact_mgr->config_eagerCD() &&
+                  !m_xact_mgr->getXactLazyCommitArbiter()->validated()));
           DPRINTF(RubyHTM, "Conflict (%s):  Local writer"
                   " %d vs remote reader %d for addr %#lx\n",
                   conflict_res_policy, getProcID(),
@@ -406,19 +401,14 @@ TransactionConflictManager::shouldNackStore(Addr addr,
               }
           }
       } else if (!m_xact_mgr->config_eagerCD() && // Lazy conflict detection
-                 m_xact_mgr->getXactLazyCommitArbiter()->validated()) {
-          if (m_lazy_validated_policy == HtmPolicyStrings::committer_wins) {
-              shouldNack = true;
-          } else if (m_lazy_validated_policy ==
-                     HtmPolicyStrings::requester_wins) {
-              shouldNack = false;
-          } else {
-              panic("Unknown lazy validation policy"
-                    " for lazy transaction\n");
-          }
+                 m_xact_mgr->getXactLazyCommitArbiter()->validated() &&
+                 conflict_res_policy == HtmPolicyStrings::committer_wins) {
+          shouldNack = true;
       } else {
           assert(conflict_res_policy ==
-                 HtmPolicyStrings::requester_wins);
+                 HtmPolicyStrings::requester_wins ||
+                 (!m_xact_mgr->config_eagerCD() &&
+                  !m_xact_mgr->getXactLazyCommitArbiter()->validated()));
 
           DPRINTF(RubyHTM, "Conflict (%s):  Local %d %d "
                   "vs remote writer %d for addr %#lx\n",

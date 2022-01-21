@@ -293,11 +293,13 @@ TransactionalSequencer::failedCallback(Addr address,
             Sequencer::writeCallback(address, data);
         } else {
             m_failedStorePkt = pkt;
+#if 0
             // Prevent deadlock event check: update issue time
             for (auto it=seq_req_list.begin();
                  it != seq_req_list.end(); ++it) {
                 (*it).issue_time = curCycle();
             }
+#endif
             makeRequest(pkt);
         }
     } else {
@@ -1199,6 +1201,11 @@ TransactionalSequencer::writeCallback(Addr address, DataBlock& data,
             // Add to write set in order to start detecting conflicts
             int thread = 0;
             m_xact_mgr->isolateTransactionStore(thread, address);
+            DPRINTF(RubyHTM,
+                    "Store to %#x (%#x) adds block"
+                    " address to write set\n",
+                    seq_req.pkt->getAddr(),
+                    makeLineAddress(seq_req.pkt->getAddr()));
             /* Generate log requests and use
                Sequencer::makeRequest(pkt) to handle them. Once both
                log requests completed, then callback CPU to complete the

@@ -20,7 +20,9 @@ namespace gem5
 namespace ruby
 {
 
-typedef struct {AnnotatedRegion entry; char outp;}XactStateStruct;
+typedef struct
+{
+    AnnotatedRegion entry; char outp;}XactStateStruct;
 
 XactStateStruct s_xactStateStructMap[AnnotatedRegion_NUM] = {
   // Make sure the order of this map matches annotated_regions.h

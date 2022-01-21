@@ -145,6 +145,7 @@ class RubySystem : public ClockedObject
         schedule(e, tick);
     }
 
+    std::vector<int> getLowestTimestampTransactionManager();
   private:
     // Private copy constructor and assignment operator
     RubySystem(const RubySystem& obj);

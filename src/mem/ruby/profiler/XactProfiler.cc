@@ -27,9 +27,7 @@ namespace gem5
 namespace ruby
 {
 
-static const bool m_showPriority = false;
-static const bool m_showTags = true;
-
+static const bool m_showPriority = true;
 
 XactProfiler::XactProfiler(RubySystem *rs)
 
@@ -189,15 +187,9 @@ void XactProfiler::moveTo(int proc_no, AnnotatedRegion newState){
 
     if (m_visualizer) {
         std::vector<int> vec;
-#if 0
         if (m_showPriority) {
             vec = g_system_ptr->getLowestTimestampTransactionManager();
         }
-        else if (m_showTags) {
-            int thread = 0;
-            vec = g_system_ptr->getTransactionTags(thread);
-        }
-#endif
         std::ostringstream oss;
         oss << std::hex;
         // Convert all but the last element to avoid a trailing ","

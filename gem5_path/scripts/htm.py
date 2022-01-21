@@ -14,7 +14,6 @@ htm_lazy_vm                    = HtmOption("htm_lazy_vm",                       
 htm_eager_cd                   = HtmOption("htm_eager_cd",                      "ED",       "eager-cd",                          True,  True , True  )
 htm_conflict_resolution        = HtmOption("htm_conflict_resolution",           "CR",       "conflict-resolution",               False, True , True  )
 htm_lazy_arbitration           = HtmOption("htm_lazy_arbitration",              "LArb",     "lazy-arbitration",                  False, True , True  ) 
-htm_lazy_validated_conf_res    = HtmOption("htm_lazy_validated_conf_res",       "LzCR",     "lazy-validated-conf-res",           False, True , True  )
 htm_allow_read_set_l0_evictions= HtmOption("htm_allow_read_set_l0_evictions",   "RSL0Ev",   "allow-read-set-l0-cache-evictions", True,  True , True  )
 htm_allow_read_set_l1_evictions= HtmOption("htm_allow_read_set_l1_evictions",   "RSL1Ev",   "allow-read-set-l1-cache-evictions", True,  True , True  )
 htm_allow_write_set_l0_evictions= HtmOption("htm_allow_write_set_l0_evictions", "WSL0Ev",   "allow-write-set-l0-cache-evictions", True,  True , True  )
@@ -42,7 +41,6 @@ htm_config_options.append(htm_lazy_vm)
 htm_config_options.append(htm_eager_cd)
 htm_config_options.append(htm_conflict_resolution)
 htm_config_options.append(htm_lazy_arbitration)
-htm_config_options.append(htm_lazy_validated_conf_res)
 htm_config_options.append(htm_allow_read_set_l0_evictions)
 htm_config_options.append(htm_allow_read_set_l1_evictions)
 htm_config_options.append(htm_allow_write_set_l0_evictions)
@@ -74,7 +72,6 @@ cfg1_base[htm_lazy_vm]=True
 cfg1_base[htm_eager_cd]=True
 cfg1_base[htm_conflict_resolution]='requester_wins'
 cfg1_base[htm_lazy_arbitration]=None
-cfg1_base[htm_lazy_validated_conf_res]=None
 cfg1_base[htm_allow_read_set_l0_evictions]=False
 cfg1_base[htm_allow_read_set_l1_evictions]=False
 cfg1_base[htm_allow_write_set_l0_evictions]=False
@@ -114,7 +111,7 @@ cfg1_pf_lazycd_magic_cw = collections.OrderedDict(cfg1_base)
 cfg1_pf_lazycd_magic_cw[htm_heap_prefault]=True
 cfg1_pf_lazycd_magic_cw[htm_eager_cd]=False
 cfg1_pf_lazycd_magic_cw[htm_lazy_arbitration]='magic'
-cfg1_pf_lazycd_magic_cw[htm_lazy_validated_conf_res]='committer_wins'
+cfg1_pf_lazycd_magic_cw[htm_conflict_resolution]='committer_wins'
 cfg1_pf_lazycd_magic_cw[htm_isolation_checker]=False
 
 cfg1_pf_dwng_lazycd_magic_cw = collections.OrderedDict(cfg1_pf_lazycd_magic_cw)
@@ -130,13 +127,10 @@ cfg1_l2rsetevict_pf_dwng_lazycd_magic_cw = collections.OrderedDict(cfg1_l1rsetev
 cfg1_l2rsetevict_pf_dwng_lazycd_magic_cw[htm_allow_read_set_l2_evictions]=True
 
 cfg1_l1rsetevict_pf_dwng_lazycd_magic_rw = collections.OrderedDict(cfg1_l1rsetevict_pf_dwng_lazycd_magic_cw)
-cfg1_l1rsetevict_pf_dwng_lazycd_magic_rw[htm_lazy_validated_conf_res]='requester_wins'
+cfg1_l1rsetevict_pf_dwng_lazycd_magic_rw[htm_conflict_resolution]='requester_wins'
 
-cfg1_l1rsetevict_pf_dwng_lazycd_token = collections.OrderedDict(cfg1_l1rsetevict_pf)
-cfg1_l1rsetevict_pf_dwng_lazycd_token[htm_eager_cd]=False
-cfg1_l1rsetevict_pf_dwng_lazycd_token[htm_lazy_arbitration]='token'
-cfg1_l1rsetevict_pf_dwng_lazycd_token[htm_lazy_validated_conf_res]='requester_wins'
-cfg1_l1rsetevict_pf_dwng_lazycd_token[htm_isolation_checker]=False
+cfg1_l1rsetevict_pf_dwng_lazycd_token_cw = collections.OrderedDict(cfg1_l1rsetevict_pf_dwng_lazycd_magic_cw)
+cfg1_l1rsetevict_pf_dwng_lazycd_token_cw[htm_lazy_arbitration]='token'
 
 cfg1_l1rsetevict_pf_dwng_precise  = collections.OrderedDict(cfg1_l1rsetevict_pf_dwng)
 cfg1_l1rsetevict_pf_dwng_precise[htm_precise_read_set_tracking]=True
@@ -157,6 +151,7 @@ cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm[htm_allow_write_set_l0_evict
 cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm[htm_allow_write_set_l1_evictions]=True
 cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm[htm_allow_write_set_l2_evictions]=True
 cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm[htm_isolation_checker]=True
+cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm[htm_max_retries]=128
 
 cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm_reload = collections.OrderedDict(cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm)
 cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm_reload[htm_reload_if_stale]=True

@@ -31,7 +31,7 @@ htm_isolation_checker          = HtmOption("htm_isolation_checker",             
 htm_visualizer                 = HtmOption("htm_visualizer",                    "Visual",   "visualizer",                        True,  False, False )
 # HTM library options
 htm_max_retries                = HtmOption("htm_max_retries",                   "Rtry",      None,                               False, True, True  )
-htm_max_backoff                = HtmOption("htm_max_backoff",                   "Bkoff",     None,                               False, True, True  )
+htm_backoff                    = HtmOption("htm_backoff",                       "Bkoff",     None,                               True,  True, True  )
 htm_heap_prefault              = HtmOption("htm_heap_prefault",                 "Pflt",      None,                               True,  True, True  )
 
 htm_config_options = []
@@ -57,7 +57,7 @@ htm_config_options.append(htm_value_checker)
 htm_config_options.append(htm_isolation_checker)
 htm_config_options.append(htm_visualizer)
 htm_config_options.append(htm_max_retries)
-htm_config_options.append(htm_max_backoff)
+htm_config_options.append(htm_backoff)
 htm_config_options.append(htm_heap_prefault)
 
 # To be used by non-UMU (non-HTM or gem5 HTM) system configurations
@@ -88,7 +88,7 @@ cfg1_base[htm_value_checker]=False
 cfg1_base[htm_isolation_checker]=True
 cfg1_base[htm_visualizer]=True
 cfg1_base[htm_max_retries]=6
-cfg1_base[htm_max_backoff]=6
+cfg1_base[htm_backoff]=True
 cfg1_base[htm_heap_prefault]=False
 
 # Vary one parameter at a time w.r.t. baseline, to determine its impact

@@ -280,7 +280,7 @@ for random_seed in seed_list:
       # to abort handler via environment
       launchscript_file.write("export HTM_MAX_RETRIES=%d\n" % htm_config[htm.htm_max_retries])
       launchscript_file.write("export HTM_HEAP_PREFAULT=%d\n" % htm_config[htm.htm_heap_prefault])
-      launchscript_file.write("export HTM_MAX_BACKOFF=%d\n" % htm_config[htm.htm_max_backoff])
+      launchscript_file.write("export HTM_BACKOFF=%d\n" % htm_config[htm.htm_backoff])
 
     launchscript_file.write("cat /sys/kernel/mm/transparent_hugepage/enabled \n")
     if config.disable_transparent_hugepage:

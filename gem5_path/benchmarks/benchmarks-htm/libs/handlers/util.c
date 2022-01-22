@@ -68,7 +68,6 @@ void setEnvGlobals(int numThreads) {
     env.config.inSimulator = 0;
     env.config.numCPUs = sysconf(_SC_NPROCESSORS_ONLN);
     env.config.htm_max_retries = DEFAULT_HTM_MAX_RETRIES;
-    env.config.htm_max_backoff = DEFAULT_HTM_MAX_BACKOFF;
 
     assert(env.config.numCPUs >= 1);
     bool set = parseBoolEnv(ENV_VAR_IN_SIMULATOR,
@@ -89,9 +88,10 @@ void setEnvGlobals(int numThreads) {
         fprintf(stderr, "WARNING %s env var is unset!\n",
                 ENV_VAR_HTM_HEAP_PREFAULT);
     }
-    set = parseLongIntEnv(ENV_VAR_HTM_MAX_BACKOFF, &result);
-    if (set) {
-        assert(result >= 0 && result < UINT8_MAX);
-        env.config.htm_max_backoff = (uint8_t) result;
+    set = parseBoolEnv(ENV_VAR_HTM_BACKOFF,
+                       &env.config.backoff);
+    if (!set) {
+        fprintf(stderr, "WARNING %s env var is unset!\n",
+                ENV_VAR_HTM_BACKOFF);
     }
 }

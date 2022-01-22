@@ -16,12 +16,11 @@
 #include "thread_context.h"
 
 #define DEFAULT_HTM_MAX_RETRIES 8
-#define DEFAULT_HTM_MAX_BACKOFF 0
 
 #define ENV_VAR_IN_SIMULATOR "M5_SIMULATOR"
 #define ENV_VAR_HTM_MAX_RETRIES "HTM_MAX_RETRIES"
 #define ENV_VAR_HTM_HEAP_PREFAULT "HTM_HEAP_PREFAULT"
-#define ENV_VAR_HTM_MAX_BACKOFF "HTM_MAX_BACKOFF"
+#define ENV_VAR_HTM_BACKOFF "HTM_BACKOFF"
 
 /* For performance reasons (avoid additional cache misses), keep in
    the same cache line all those read-only variables that act as
@@ -34,7 +33,7 @@ typedef struct {
     bool heapPrefault;
     uint8_t numCPUs;
     uint8_t htm_max_retries;
-    uint8_t htm_max_backoff;
+    bool backoff;
 } _env_config_t;
 
 typedef struct {
@@ -65,7 +64,7 @@ static inline int useHeapPrefault() {
 }
 
 static inline int useBackoff() {
-    return env.config.htm_max_backoff > 0;
+    return env.config.backoff;
 }
 
 

@@ -69,17 +69,8 @@ void handleHeapPrefault(int threadId) {
 }
 
 void doBackoff(int nretries) {
-    unsigned long rand;
-    int i, nbackoff = nretries;
-    u_int64_t exp, backoff;
     simBackoffBegin();
-    rand = genrand_int32_1(mt, &(mti));
-    if (nretries > env.config.htm_max_backoff) {
-        nbackoff = env.config.htm_max_backoff;
-    }
-    exp = 1 << nbackoff;
-    backoff = (rand % exp) * 117;
-    for (i = 0; i < backoff; i++);
+    randomized_backoff(nretries);
     simBackoffEnd();
 }
 

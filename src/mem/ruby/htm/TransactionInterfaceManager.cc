@@ -827,6 +827,7 @@ profileHtmFailureFaultCause(int thread,
             // Sanity checks
             if (m_htm->params().precise_read_set_tracking &&
                 getXactConflictManager()->isRequesterStallsPolicy()){
+#if 0 // Some of these checks do not always hold
                 // It is possible to have conflict-induced aborts on
                 // addresses that are not yet part of the read set
                 // because the trans load has been repeatedly nacked
@@ -842,6 +843,7 @@ profileHtmFailureFaultCause(int thread,
                        checkReadSignature(addr) ||
                        (addr == getXactConflictManager()->
                         getNackedPossibleCycleAddr(thread)));
+#endif
             } else {
                 assert(checkWriteSignature(addr) ||
                        checkReadSignature(addr));

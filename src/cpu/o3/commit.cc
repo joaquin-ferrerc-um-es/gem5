@@ -526,6 +526,7 @@ Commit::generateTrapEvent(ThreadID tid, Fault inst_fault)
         // TODO
         // latency = default abort/restore latency
         // could also do some kind of exponential back off if desired
+        squashFromAbort = true;
     }
 
     cpu->schedule(trap, cpu->clockEdge(latency));
@@ -567,6 +568,8 @@ Commit::squashAll(ThreadID tid)
     // squash.
     toIEW->commitInfo[tid].squash = true;
 
+    toIEW->commitInfo[tid].squashFromAbort = squashFromAbort;
+
     // Send back the rob squashing signal so other stages know that
     // the ROB is in the process of squashing.
     toIEW->commitInfo[tid].robSquashing = true;
@@ -588,6 +591,7 @@ Commit::squashFromTrap(ThreadID tid)
     thread[tid]->noSquashFromTC = false;
     trapInFlight[tid] = false;
 
+    squashFromAbort = false;
     trapSquash[tid] = false;
 
     commitStatus[tid] = ROBSquashing;

@@ -116,6 +116,7 @@ class TransactionalSequencer : public Sequencer
                            DataBlock& data);
     bool interceptLogAccess(PacketPtr pkt);
     int numOutstandingWrites(Addr address);
+    void suppressOutstandingRequests();
 
     HTM * m_htm = NULL;
     TransactionInterfaceManager* m_xact_mgr = NULL;

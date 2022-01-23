@@ -322,7 +322,6 @@ TransactionInterfaceManager::commitTransaction(int thread, int xid,
          * exclusive ownership before it completes, so commit can happen instantly.
          */
 
-        assert(!m_sequencer->isStalled());
         if (!m_atCommit[thread]) {
             // Move to committing unless we have already done so
             XACT_PROFILER->moveTo(getProcID(),
@@ -943,6 +942,7 @@ TransactionInterfaceManager::setAbortFlag(int thread, Addr addr,
                wasOvertakingRead(thread, addr));
         DPRINTF(RubyHTM, "HTM: setAbortFlag for address=%#x"
                 " with TL=0\n", addr);
+        panic("setAbortFlag with TL=0!");
     } else {
         if (config_enableIsolationChecker()) {
             if (checkReadSignature(addr)) {

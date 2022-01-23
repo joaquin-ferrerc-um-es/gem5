@@ -65,6 +65,7 @@ struct SequencerRequest
     RubyRequestType m_type;
     RubyRequestType m_second_type;
     Cycles issue_time;
+    bool suppressed = false;
     SequencerRequest(PacketPtr _pkt, RubyRequestType _m_type,
                      RubyRequestType _m_second_type, Cycles _issue_time)
                 : pkt(_pkt), m_type(_m_type), m_second_type(_m_second_type),

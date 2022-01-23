@@ -81,6 +81,7 @@ TransactionalSequencer::abortTransaction(PacketPtr pkt)
     m_lastStateBeforeStall = AnnotatedRegion_INVALID;
     m_xact_mgr->abortTransaction(thread, pkt);
     m_lastAbortHtmUid = pkt->getHtmTransactionUid();
+    suppressOutstandingRequests();
     if (!m_htm->params().lazy_vm) { // LogTM
         assert(m_logRequestTable.empty());
     }
@@ -287,8 +288,9 @@ TransactionalSequencer::failedCallback(Addr address,
                (seq_req.m_type == RubyRequestType_Locked_RMW_Read));
         assert(m_failedStorePkt == NULL);
         int thread = 0;
-        if (m_xact_mgr->isAborting(thread) &&
-            pkt->isHtmTransactional()) {
+        if (seq_req.suppressed ||
+            (m_xact_mgr->isAborting(thread) &&
+             pkt->isHtmTransactional())) {
             // Remove this and all aliased reqs from Sequencer
             Sequencer::writeCallback(address, data);
         } else {
@@ -327,7 +329,8 @@ TransactionalSequencer::rubyHtmCallback(PacketPtr pkt)
     }
     else {
         assert(pkt->isHtmTransactional()); // Check: may fail...
-        assert(m_xact_mgr->isAborting(thread));
+        assert(m_xact_mgr->isAborting(thread) ||
+               m_lastAbortHtmUid == pkt->getHtmTransactionUid());
         if (pkt->isRead() && !pkt->req->isInstFetch()) {
             DPRINTF(RubyHTM, "rubyHtmcallback: load finds abort flag set\n");
         }
@@ -477,6 +480,7 @@ TransactionalSequencer::insertRequest(PacketPtr pkt,
                         m_xact_mgr->isolateTransactionLoad(thread, addr);
                     }
                 } else {
+                    panic("Transactional store outside boundaries!");
                     DPRINTF(RubyHTM,
                             "Transactional load to %#x (%#x)"
                             " outside transaction boundaries\n",
@@ -547,9 +551,11 @@ TransactionalSequencer::makeRequest(PacketPtr pkt)
         // to send it again later
         return RequestStatus_Issued;
     }
-    else if (m_xact_mgr->isAborting(thread) &&
-             pkt->isHtmTransactional()) {
-        // Transactional access finds abort flag set: Callback CPU
+    else if (pkt->isHtmTransactional() &&
+             (m_xact_mgr->isAborting(thread) ||
+              pkt->getHtmTransactionUid() == m_lastAbortHtmUid)) {
+        // Transactional access that finds abort flag set or lingering
+        // access after transaction has already aborted: Callback CPU
         // immediately. If access is load, abort signal sent back to
         // CPU by setting the htmReturnReason in the response packet
         // (ifetch and stores always return HtmCacheFailure::NO_FAIL)
@@ -1327,6 +1333,18 @@ TransactionalSequencer::numOutstandingWrites(Addr address)
         }
     }
     return numStoresFound;
+}
+
+void
+TransactionalSequencer::suppressOutstandingRequests()
+{
+    for (auto &table_entry : m_RequestTable) {
+        for (auto &seq_req : table_entry.second) {
+            if (seq_req.pkt->isHtmTransactional()) {
+                seq_req.suppressed = true;
+            }
+        }
+    }
 }
 
 } // namespace ruby

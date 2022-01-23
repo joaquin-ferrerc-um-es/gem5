@@ -71,12 +71,6 @@ class HTM(ClockedObject):
     trans_aware_l1_replacements = Param.Bool(False,
         "Replacement policy always chooses non-transactional blocks"
         " over transactional blocks as candidates (L1 cache)")
-    # To prevent conflicts to trigger an abort, transactional load
-    # can be delayed in the cpu until the trasaction is finished
-    # or there is no room in the lsq or rob.
-    allow_load_delaying = Param.Bool(False,
-        "Allow loads to stay more time in the rob without commiting"
-        " to prevent certaing aborts")
 
     # L0 downgrades from E/M to S when L1 receives remote
     # transactional GETS request (otherwise: invalidate L0 copy)

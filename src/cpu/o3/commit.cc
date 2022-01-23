@@ -1296,8 +1296,10 @@ Commit::commitHead(const DynInstPtr &head_inst, unsigned inst_num)
           DPRINTF(HtmCpu, "htmStop fence at the head of the ROB,"
                   " hasStoresToWB : %d \n",
                   iewStage->hasStoresToWB(tid));
-          iewStage->setAtHtmStopHtmUid(tid,
-                                       head_inst->getHtmTransactionUid());
+          if (head_inst->inHtmTransactionalState()) {
+              iewStage->setAtHtmStopHtmUid(tid,
+                                           head_inst->getHtmTransactionUid());
+          }
         }
         DPRINTF(Commit,
                 "Encountered a barrier or non-speculative "

@@ -39,7 +39,9 @@ def getBenchmarks(benchmark_groups):
         benchmark_list.append(("stamp", "ssca2",     "medium", "-t", "-s14 -i1.0 -u1.0 -l9 -p9",       "ssca2",    "ssca2"))
         benchmark_list.append(("stamp", "vacation-l","medium", "-c", "-n2 -q90 -u98 -r1048576 -t4096", "vacation", "vacation"))
         benchmark_list.append(("stamp", "vacation-h","medium", "-c", "-n4 -q60 -u90 -r1048576 -t4096", "vacation", "vacation"))
-        benchmark_list.append(("stamp", "yada",      "medium", "-t", "-a10 -i inputs/ttimeu10000.2",   "yada",     "yada"))
+        # NOTE: yada input 633.2 is the recommended small, but ttimeu10000 has much longer simulation times than the remaining medium inputs benchmarks...
+        benchmark_list.append(("stamp", "yada",      "medium", "-t", "-a20 -i inputs/633.2",           "yada",     "yada"))
+        #benchmark_list.append(("stamp", "yada",      "medium", "-t", "-a10 -i inputs/ttimeu10000.2",   "yada",     "yada"))
         #benchmark_list.append(("stamp", "bayes",     "medium", "-t", "-v32 -r4096 -n2 -p20 -i2 -e2",   "bayes",   "bayes"))
         #benchmark_list.append(("stamp", "labyrinth", "medium", "-t", "-i inputs/random-x48-y48-z3-n64.txt", "labyrinth", "labyrinth"))
 

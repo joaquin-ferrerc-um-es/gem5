@@ -23,16 +23,14 @@ system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf, caches.
 
 system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf_dwng, caches.cache_baseline])
 system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf_dwng_lazycd_magic_cw, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf_dwng_lazycd_token, caches.cache_baseline])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf_dwng_lazycd_magic_rw, caches.cache_baseline])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf_dwng_lazycd_token_cw, caches.cache_baseline])
 
 system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf_dwng_precise, caches.cache_baseline])
 system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf_dwng_precise_reqstalls, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf_dwng_precise_reqstalls_reload, caches.cache_baseline])
 system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf_dwng_precise_reqstalls_retry64, caches.cache_baseline])
 
 system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm_reload, caches.cache_baseline])
-
 
 processor_list = []
 
@@ -56,8 +54,8 @@ detailed_simulation_cpu_model_list.append('DerivO3CPU')
 
 benchmark_groups = []
 #benchmark_groups.append('test-progs-caps-small')
-benchmark_groups.append('stamp-small')
-#benchmark_groups.append('stamp-medium')
+#benchmark_groups.append('stamp-small')
+benchmark_groups.append('stamp-medium')
 
 benchmark_list = benchmarks.getBenchmarks(benchmark_groups)
 
@@ -67,7 +65,7 @@ simulation_list = []
 #############################################################
 # Simulation infrastructure options 
 #############################################################
-arch_name= "x86_64" # "{aarch64,x86_64}"
+arch_name= "aarch64" # {aarch64,x86_64}"
 
 if arch_name == "x86_64":
     arch = "X86"
@@ -151,9 +149,10 @@ preload="" #"/benchmarks/benchmarks-htm/Splash-3/libhooks_chkpoint.so"
 
 simulation_tag="" # In order to tag simulations when applying patches
 
-results_subdir="tests/" #load-delay" #splash" #tests" # The subdirectory inside "gem5/results"
-                             # for simulation scripts and results
-slurm_exclude_nodelist="erc07" # In case a node is faulty (erc07)
+results_subdir="tests" # The subdirectory inside "gem5/results" for
+                       # simulation scripts and results
+
+slurm_exclude_nodelist="" # "erc07" # In case a node is faulty (erc07)
 
 for processors in processor_list :
     for (protocol, htm_config, cache_config) in system_list:

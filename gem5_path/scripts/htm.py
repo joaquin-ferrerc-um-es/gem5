@@ -9,7 +9,7 @@ fallback_lock_file = "ckpt/fallback_lock"
 HtmOption = collections.namedtuple('HtmOption', ['name','abbrev','gem5opt','isbool','descr', 'siminfo'])
 # HTM config options:                       config name,                         abbrev,    gem5 option name,                 is bool, descr, simInfo
 htm_disable_speculation        = HtmOption("htm_disable_speculation",           "NoSpec",   "disable-speculation",               True,  False, True  )
-htm_binary_suffix              = HtmOption("htm_binary_suffix",                 "BinSfx",   None,                                False, True,  True  )
+htm_binary_suffix              = HtmOption("htm_binary_suffix",                 "BinSfx",   None,                                False, False,  True  )
 htm_lazy_vm                    = HtmOption("htm_lazy_vm",                       "LV",       "lazy-vm",                           True,  True , True  )
 htm_eager_cd                   = HtmOption("htm_eager_cd",                      "ED",       "eager-cd",                          True,  True , True  )
 htm_conflict_resolution        = HtmOption("htm_conflict_resolution",           "CR",       "conflict-resolution",               False, True , True  )
@@ -136,10 +136,7 @@ cfg1_l1rsetevict_pf_dwng_precise  = collections.OrderedDict(cfg1_l1rsetevict_pf_
 cfg1_l1rsetevict_pf_dwng_precise[htm_precise_read_set_tracking]=True
 
 cfg1_l1rsetevict_pf_dwng_precise_reqstalls  = collections.OrderedDict(cfg1_l1rsetevict_pf_dwng_precise)
-cfg1_l1rsetevict_pf_dwng_precise_reqstalls[htm_conflict_resolution]='requester_stalls_cda_base'
-
-cfg1_l1rsetevict_pf_dwng_precise_reqstalls_reload = collections.OrderedDict(cfg1_l1rsetevict_pf_dwng_precise_reqstalls)
-cfg1_l1rsetevict_pf_dwng_precise_reqstalls_reload[htm_reload_if_stale]=True
+cfg1_l1rsetevict_pf_dwng_precise_reqstalls[htm_conflict_resolution]='requester_stalls_cda_hybrid'
 
 cfg1_l1rsetevict_pf_dwng_precise_reqstalls_retry64 = collections.OrderedDict(cfg1_l1rsetevict_pf_dwng_precise_reqstalls)
 cfg1_l1rsetevict_pf_dwng_precise_reqstalls_retry64[htm_max_retries]=64
@@ -152,12 +149,6 @@ cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm[htm_allow_write_set_l1_evict
 cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm[htm_allow_write_set_l2_evictions]=True
 cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm[htm_isolation_checker]=True
 cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm[htm_max_retries]=128
-
-cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm_reload = collections.OrderedDict(cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm)
-cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm_reload[htm_reload_if_stale]=True
-
-
-
 
 ## Abbreviations used for HTM options string values, to generate more
 ## concise HTM config string description

@@ -25,7 +25,7 @@ help() {
      - GCC cross compiler for ARM (tested with GCC 9.2.0, currently not expected to work with later versions).
      - GCC cross compiler for ARM with TME support (tested with GCC 10.2.0).
      - scons and python 3
-     - Link/clone of the STAMP repository in '${GEM5_ROOT}/gem5_path/benchmarks/benchmarks-htm/stamp'.
+     - Link to the STAMP repository in '${GEM5_ROOT}/gem5_path/benchmarks/benchmarks-htm/stamp'.
 "
 }
 

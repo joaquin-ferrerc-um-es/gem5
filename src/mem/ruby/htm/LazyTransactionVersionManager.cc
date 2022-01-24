@@ -54,6 +54,8 @@ CLASS_NS beginTransaction(int thread, PacketPtr pkt)
     m_committed = false;
     m_committing = false;
     m_requestorID = pkt->req->requestorId();
+    assert(pkt->getHtmTransactionUid() > m_currentHtmUid);
+    m_currentHtmUid = pkt->getHtmTransactionUid();
     assert(!m_aborting);
 }
 
@@ -263,8 +265,7 @@ CLASS_NS flushWriteBuffer(int thread){
             PacketPtr pkt =  new Packet(req, MemCmd::WriteReq,
                                         RubySystem::getBlockSizeBytes());
             pkt->allocate();
-            uint64_t uid = 0; // TODO getHtmTransactionUid()
-            pkt->setHtmTransactional(uid);
+            pkt->setHtmTransactional(m_currentHtmUid);
 
             RequestStatus requestStatus =
                 m_xact_mgr->getSequencer()->makeRequest(pkt);

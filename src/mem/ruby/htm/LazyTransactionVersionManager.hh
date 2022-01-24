@@ -79,6 +79,7 @@ private:
   int m_version;
   CacheMemory *m_dataCache_ptr;
   RequestorID  m_requestorID;
+  uint64_t m_currentHtmUid = 0;
 };
 
 } // namespace ruby

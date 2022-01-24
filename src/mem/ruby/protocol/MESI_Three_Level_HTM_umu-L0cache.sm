@@ -1005,15 +1005,8 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     // evictions of Rset blocks (when modelling read-set signatures),
     // which are considered as conflicts caused by remote invalidations.
     if (send_evictions) {
-        if (xact_mgr.isDoomed(0)) {
-            // No need to send evictions in this case, avoid
-            // misclassification as "LSQ conflicts" of aborts due to
-            // local replacements (capacity aborts)
-            DPRINTF(RubyHTM, "Not sending invalidation for %#x to the CPU, transaction is aborting\n", address);
-        } else {
-      DPRINTF(RubySlicc, "Sending invalidation for %#x to the CPU\n", address);
-      sequencer.evictionCallback(address);
-        }
+        DPRINTF(RubySlicc, "Sending invalidation for %#x to the CPU\n", address);
+        sequencer.evictionCallback(address);
     }
   }
 

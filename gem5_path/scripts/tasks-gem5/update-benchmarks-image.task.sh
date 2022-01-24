@@ -29,6 +29,7 @@ VDS="${SCRIPT_DIR}/../virtual-disk-server"
 [[ -x "$VDS" ]] || error_and_exit "virtual-disk-server script not found ($VDS)"
 
 clean_benchmarks_all() {
+    check_stamp_gem5_directory_links
     "$(absolute_path "$BENCHMARKS_HTM_STAMP/make.all")" clean
 }
 

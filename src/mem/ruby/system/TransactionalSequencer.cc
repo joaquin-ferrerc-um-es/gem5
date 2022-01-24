@@ -152,6 +152,8 @@ TransactionalSequencer::notifyXactionEvent(PacketPtr pkt)
                    curTick(), m_version, "Seq",
                    "HTM_COMMIT", "", "");
           m_commitPending = false;
+          m_lastStateBeforeStall = AnnotatedRegion_INVALID;
+          m_stalled = false;
       } else {
           m_xact_mgr->initiateCommitTransaction(thread, xid, pkt);
           m_commitPending = true;

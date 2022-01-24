@@ -136,6 +136,14 @@ TransactionInterfaceManager::TransactionInterfaceManager(const Params &p)
             assert(!XACT_LAZY_VM);
         }
     }
+    if (m_htm->params().precise_read_set_tracking &&
+        getXactConflictManager()->isRequesterStallsPolicy()) {
+        // Reload if stale is not compatible with requester stalls as
+        // it can lead to livelocks due to an older reader repeatedly
+        // getting Data_Stale while preventing the progress of a
+        // younger writer
+        assert(!m_htm->params().reload_if_stale);
+    }
 
     m_htmstart_tick = 0;
     m_htmstart_instruction = 0;
@@ -223,7 +231,6 @@ TransactionInterfaceManager::beginTransaction(int thread, int xid,
         else { // LogTM
             m_xactEagerVersionManager->beginTransaction(thread);
         }
-        assert(!m_sequencer->isStalled());
         XACT_PROFILER->moveTo(getProcID(),
                               AnnotatedRegion_TRANSACTIONAL);
 
@@ -620,7 +627,6 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
         m_abortCause[thread] = HTMStats::AbortCause::Undefined;
         m_abortAddress[thread] = Addr(0);
     } else {
-        assert(!m_sequencer->isStalled());
         // CPU-triggered abort (fault, interrupt, lsq conflict)
         XACT_PROFILER->moveTo(getProcID(), AnnotatedRegion_ABORTING);
     }

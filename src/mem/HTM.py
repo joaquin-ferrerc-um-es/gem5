@@ -68,9 +68,6 @@ class HTM(ClockedObject):
     trans_aware_l0_replacements = Param.Bool(False,
         "Replacement policy always chooses non-transactional blocks"
         " over transactional blocks as candidates (L0 cache)")
-    trans_aware_l1_replacements = Param.Bool(False,
-        "Replacement policy always chooses non-transactional blocks"
-        " over transactional blocks as candidates (L1 cache)")
 
     # L0 downgrades from E/M to S when L1 receives remote
     # transactional GETS request (otherwise: invalidate L0 copy)

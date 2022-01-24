@@ -186,9 +186,6 @@ public:
   bool config_transAwareL0Replacements() const {
       return m_htm->params().trans_aware_l0_replacements;
   }
-  bool config_transAwareL1Replacements() const {
-      return m_htm->params().trans_aware_l1_replacements;
-  }
   bool config_preciseReadSetTracking() const {
       return m_htm->params().precise_read_set_tracking;
   }

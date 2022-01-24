@@ -22,7 +22,6 @@ htm_allow_read_set_l2_evictions = HtmOption("htm_allow_read_set_l2_evictions",  
 htm_allow_write_set_l2_evictions = HtmOption("htm_allow_write_set_l2_evictions","WSL2Ev",   "allow-write-set-l2-cache-evictions", True,  True , True  )
 htm_precise_read_set_tracking  = HtmOption("htm_precise_read_set_tracking",     "RSPrec",   "precise-read-set-tracking",         True,  True , True  )
 htm_trans_aware_l0_replacements= HtmOption("htm_trans_aware_l0_replacements",   "L0Repl",   "trans-aware-l0-replacements",       True,  True , True  )
-htm_trans_aware_l1_replacements= HtmOption("htm_trans_aware_l1_replacements",   "L1Repl",   "trans-aware-l1-replacements",       True,  True , True  )
 htm_allow_load_delaying        = HtmOption("htm_allow_load_delaying",           "LDelay",   "allow-load-delaying",               True,  True , True  )
 htm_reload_if_stale            = HtmOption("htm_reload_if_stale",               "RldStale", "reload-if-stale",                   True,  True , True  )
 htm_l0_downgrade_on_l1_gets    = HtmOption("htm_l0_downgrade_on_l1_gets",       "DwnG",     "l0-downgrade-on-l1-gets",           True,  True , True  )
@@ -49,7 +48,6 @@ htm_config_options.append(htm_allow_read_set_l2_evictions)
 htm_config_options.append(htm_allow_write_set_l2_evictions)
 htm_config_options.append(htm_precise_read_set_tracking)
 htm_config_options.append(htm_trans_aware_l0_replacements)
-htm_config_options.append(htm_trans_aware_l1_replacements)
 htm_config_options.append(htm_allow_load_delaying)
 htm_config_options.append(htm_reload_if_stale)
 htm_config_options.append(htm_l0_downgrade_on_l1_gets)
@@ -80,7 +78,6 @@ cfg1_base[htm_allow_read_set_l2_evictions]=False
 cfg1_base[htm_allow_write_set_l2_evictions]=False
 cfg1_base[htm_precise_read_set_tracking]=False
 cfg1_base[htm_trans_aware_l0_replacements]=False
-cfg1_base[htm_trans_aware_l1_replacements]=False
 cfg1_base[htm_allow_load_delaying]=False
 cfg1_base[htm_reload_if_stale]=False
 cfg1_base[htm_l0_downgrade_on_l1_gets]=False

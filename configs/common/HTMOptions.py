@@ -34,8 +34,6 @@ def setHTMOptions(htm, options):
         htm.precise_read_set_tracking = options.htm_precise_read_set_tracking
     if options.htm_trans_aware_l0_replacements != None:
         htm.trans_aware_l0_replacements = options.htm_trans_aware_l0_replacements
-    if options.htm_trans_aware_l1_replacements != None:
-        htm.trans_aware_l1_replacements = options.htm_trans_aware_l1_replacements
     if options.htm_l0_downgrade_on_l1_gets != None:
         htm.l0_downgrade_on_l1_gets = options.htm_l0_downgrade_on_l1_gets
     if options.htm_reload_if_stale != None:
@@ -108,10 +106,6 @@ def addHTMOptions(parser):
                       action="store_true", default=False,
                       help="Allow read-set L0/L1 cache evictions")
     parser.add_argument("--htm-trans-aware-l0-replacements",
-                      action="store_true", default=False,
-                      help="Avoid replacements of read-write set"
-                      " blocks when non-trans candidates present")
-    parser.add_argument("--htm-trans-aware-l1-replacements",
                       action="store_true", default=False,
                       help="Avoid replacements of read-write set"
                       " blocks when non-trans candidates present")

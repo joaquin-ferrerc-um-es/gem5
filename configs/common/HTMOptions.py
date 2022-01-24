@@ -12,8 +12,6 @@ def setHTMOptions(htm, options):
         htm.conflict_resolution = options.htm_conflict_resolution
     if options.htm_lazy_arbitration != None:
         htm.lazy_arbitration = options.htm_lazy_arbitration
-    if options.htm_lazy_validated_conf_res != None:
-        htm.lazy_validated_conf_res = options.htm_lazy_validated_conf_res
     if options.htm_allow_read_set_l0_cache_evictions != None:
         htm.allow_read_set_l0_cache_evictions = \
         options.htm_allow_read_set_l0_cache_evictions
@@ -38,8 +36,6 @@ def setHTMOptions(htm, options):
         htm.trans_aware_l0_replacements = options.htm_trans_aware_l0_replacements
     if options.htm_trans_aware_l1_replacements != None:
         htm.trans_aware_l1_replacements = options.htm_trans_aware_l1_replacements
-    if options.htm_allow_load_delaying != None:
-        htm.allow_load_delaying = options.htm_allow_load_delaying
     if options.htm_l0_downgrade_on_l1_gets != None:
         htm.l0_downgrade_on_l1_gets = options.htm_l0_downgrade_on_l1_gets
     if options.htm_reload_if_stale != None:
@@ -78,6 +74,7 @@ def addHTMOptions(parser):
                       help="Eager conflict detection")
     parser.add_argument("--htm-conflict-resolution", default="requester_wins",
                       choices=["requester_wins",
+                               "committer_wins",
                                "requester_stalls_cda_hybrid",
                                "requester_stalls_cda_hybrid_ntx",
                                "requester_stalls_cda_base_ntx",
@@ -89,10 +86,6 @@ def addHTMOptions(parser):
                       choices=["magic",
                                "token"],
                       help = "Lazy arbitration policy")
-    parser.add_argument("--htm-lazy-validated-conf-res",
-                      default="requester_wins",
-                      choices=["committer_wins", "requester_wins"],
-                      help = "Conf. res for lazy validated transactions")
     parser.add_argument("--htm-allow-read-set-l0-cache-evictions",
                       action="store_true", default=False,
                       help="Allow read-set L0 cache evictions")
@@ -122,10 +115,6 @@ def addHTMOptions(parser):
                       action="store_true", default=False,
                       help="Avoid replacements of read-write set"
                       " blocks when non-trans candidates present")
-    parser.add_argument("--htm-allow-load-delaying",
-                      action="store_true", default=False,
-                      help="Allow transactional loads to be"
-                      " delayed from commit")
     parser.add_argument("--htm-l0-downgrade-on-l1-gets",
                       action="store_true", default=False,
                       help="Downgrade L0 from E/M to S upon trans L1 GETS")

@@ -85,7 +85,6 @@ build_benchmarks_stamp() {
     elif [[ "$arch" == "aarch64" ]] ; then
         local build_arch="aarch64"
         export AARCH64_CROSS_GCC_PREFIX="${BENCHMARKS_ARCH_COMPILER_PREFIX[$arch]}"
-        export BENCHMARKS_AARCH64_TME_CROSS_HACK_GCC
     else
         error_and_exit "Architecture $arch not supported for stamp"
     fi

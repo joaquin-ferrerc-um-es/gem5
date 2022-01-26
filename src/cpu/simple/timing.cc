@@ -44,7 +44,6 @@
 #include "arch/locked_mem.hh"
 #include "base/compiler.hh"
 #include "config/the_isa.hh"
-#include "cpu/checker/htm_checker.hh"
 #include "cpu/exetrace.hh"
 #include "debug/Config.hh"
 #include "debug/Drain.hh"
@@ -260,40 +259,6 @@ TimingSimpleCPU::suspendContext(ThreadID thread_num)
     BaseCPU::suspendContext(thread_num);
 }
 
-void
-TimingSimpleCPU::handleReadPacketTransactional(PacketPtr pkt)
-{
-    if (system->getHTM() == nullptr) return;
-
-    if (!system->getHTM()->params().precise_read_set_tracking) {
-        // Loads isolated when sent to cache by
-        // TransactionalSequencer::insertRequest
-        return;
-    }
-
-    // Using UMU HTM model
-    const RequestPtr &req = pkt->req;
-    assert(!req->isHTMCmd());
-    assert(pkt->isHtmTransactional());
-
-    // Record pending transactional loads to detect conflicting inv's
-    // received for blocks with pending load misses. Read-set block
-    // are isolated when the load access completes successfully
-    if (pkt->senderState) {
-        // split load
-        SplitFragmentSenderState * send_state =
-            dynamic_cast<SplitFragmentSenderState *>(pkt->senderState);
-        assert(send_state);
-        int index = send_state->index;
-        assert(index >= 0 && index <= 1);
-        pendingTransactionalLoads[index] = req->getPaddr() & dcachePort.cacheBlockMask;
-    }
-    else { // not split access
-        pendingTransactionalLoads[0] = req->getPaddr() & dcachePort.cacheBlockMask;
-        pendingTransactionalLoads[1] = 0;
-    }
-}
-
 bool
 TimingSimpleCPU::handleReadPacket(PacketPtr pkt)
 {
@@ -306,9 +271,6 @@ TimingSimpleCPU::handleReadPacket(PacketPtr pkt)
     // sanity check
     if (req->isHTMCmd()) {
         assert(!req->isLocalAccess());
-    }
-    else if (pkt->isHtmTransactional()) {
-        handleReadPacketTransactional(pkt);
     }
 
     // We're about the issues a locked load, so tell the monitor
@@ -350,7 +312,6 @@ TimingSimpleCPU::sendData(const RequestPtr &req, uint8_t *data, uint64_t *res,
     if (is_htm_speculative || req->isHTMAbort()) {
         pkt->setHtmTransactional(t_info.getHtmTransactionUid());
     }
-    pkt->setAtLSQHead(true);
     if (req->isHTMAbort())
         DPRINTF(HtmCpu, "htmabort htmUid=%u\n", t_info.getHtmTransactionUid());
 
@@ -803,40 +764,10 @@ TimingSimpleCPU::advanceInst(const Fault &fault)
         // ensure that the transaction aborts
         if (t_info.inHtmTransactionalState() &&
             !std::dynamic_pointer_cast<GenericHtmFailureFault>(fault)) {
-            Fault tmfault;
-            if (std::dynamic_pointer_cast<ReExec>(fault)) {
-                // ReExec faults should not make the transaction fail,
-                // as they are not real (architectural) faults but
-                // signal flush/replays
-                DPRINTF(HtmCpu, "%s - ReExec fault within transaction"
-                        " - no transaction failure required\n",
-                        curStaticInst->getName());
-                tmfault = fault;
-            } else {
+            DPRINTF(HtmCpu, "fault (%s) occurred - "
+                "replacing with HTM abort fault htmUid=%u\n",
+                fault->name(), t_info.getHtmTransactionUid());
 
-                DPRINTF(HtmCpu, "fault (%s) occurred - "
-                        "replacing with HTM abort fault htmUid=%u\n",
-                        fault->name(), t_info.getHtmTransactionUid());
-
-                tmfault = std::make_shared<GenericHtmFailureFault>(
-                                t_info.getHtmTransactionUid(),
-                                HtmFailureFaultCause::EXCEPTION);
-            }
-            advancePC(tmfault);
-            reschedule(fetchEvent, clockEdge(), true);
-            _status = Faulting;
-            return;
-        }
-        if (t_info.inHtmTransactionalState() &&
-            curStaticInst && curStaticInst->isSyscall()) {
-            panic("Syscall within transaction not tested for"
-                  " timing CPU!\n");
-            warn("Syscall within transaction at PC %s"
-                 " (generating GenericHtmFailureFault)\n",
-                 t_info.thread->instAddr());
-            DPRINTF(HtmCpu, "Syscall within transaction at PC %s"
-                    " (generating GenericHtmFailureFault)\n",
-                    t_info.thread->instAddr());
             Fault tmfault = std::make_shared<GenericHtmFailureFault>(
                 t_info.getHtmTransactionUid(),
                 HtmFailureFaultCause::EXCEPTION);
@@ -913,10 +844,8 @@ TimingSimpleCPU::completeIfetch(PacketPtr pkt)
     if (curStaticInst && curStaticInst->isHtmStart()) {
         // if this HtmStart is not within a transaction,
         // then assign it a new htmTransactionUid
-        if (!t_info.inHtmTransactionalState()) {
+        if (!t_info.inHtmTransactionalState())
             t_info.newHtmTransactionUid();
-            htmChecker->begin(0);
-        }
         SimpleThread* thread = t_info.thread;
         thread->htmTransactionStarts++;
         DPRINTF(HtmCpu, "htmTransactionStarts++=%u\n",
@@ -947,12 +876,9 @@ TimingSimpleCPU::completeIfetch(PacketPtr pkt)
         Fault fault = curStaticInst->execute(&t_info, traceData);
 
         // keep an instruction count
-        if (fault == NoFault) {
-            // Record/check values if in transaction
-            retireInst(false, t_info.inHtmTransactionalState(),
-                       traceData);
+        if (fault == NoFault)
             countInst();
-        } else if (traceData) {
+        else if (traceData) {
             traceFault();
         }
 
@@ -1033,23 +959,6 @@ TimingSimpleCPU::completeDataAccess(PacketPtr pkt)
     updateCycleCounts();
     updateCycleCounters(BaseCPU::CPU_STATE_ON);
 
-    if (pkt->isHtmTransactional()) {
-        isolateTransactionLoad(pkt);
-    }
-
-    if (pkt->req->wasNacked()) {
-        if (pkt->htmTransactionFailedInCache()) {
-            panic("abort while retrying data access not tested!");
-            // Complete data access to signal abort via fault
-        } else {
-            if (handleNackedAccess(pkt)) {
-                // Successfully retried
-                return;
-            } else {
-                panic("cannot handle nacked access!");
-            }
-        }
-    }
     if (pkt->senderState) {
         // hardware transactional memory
         // There shouldn't be HtmCmds occurring in multipacket requests
@@ -1135,13 +1044,6 @@ TimingSimpleCPU::completeDataAccess(PacketPtr pkt)
             fault = std::make_shared<GenericHtmFailureFault>(
                 t_info->getHtmTransactionUid(),
                 HtmFailureFaultCause::MEMORY);
-        } else if (htm_rc == HtmCacheFailure::FAIL_OTHER) {
-            // Only cause for OTHER is conflicting snoop seen
-            assert(conflictingSnoopSeen[0] ||
-                   conflictingSnoopSeen[1]);
-            fault = std::make_shared<GenericHtmFailureFault>(
-                t_info->getHtmTransactionUid(),
-                HtmFailureFaultCause::LSQ);
         } else {
             panic("HTM - unhandled rc %s", htmFailureToStr(htm_rc));
         }
@@ -1151,21 +1053,12 @@ TimingSimpleCPU::completeDataAccess(PacketPtr pkt)
     }
 
     // hardware transactional memory
-    if (fault == NoFault) {
-        // Record/check values if in transaction
-        retireInst(true, t_info->inHtmTransactionalState(),
-                   traceData);
-
-        // Track HtmStop instructions,
-        // e.g. instructions which commit a transaction.
-        if (curStaticInst && curStaticInst->isHtmStop()) {
-            t_info->thread->htmTransactionStops++;
-            DPRINTF(HtmCpu, "htmTransactionStops++=%u\n",
-                    t_info->thread->htmTransactionStops);
-            if (!t_info->inHtmTransactionalState()) {
-                htmChecker->commit(0);
-            }
-        }
+    // Track HtmStop instructions,
+    // e.g. instructions which commit a transaction.
+    if (curStaticInst && curStaticInst->isHtmStop()) {
+        t_info->thread->htmTransactionStops++;
+        DPRINTF(HtmCpu, "htmTransactionStops++=%u\n",
+            t_info->thread->htmTransactionStops);
     }
 
     // keep an instruction count
@@ -1208,20 +1101,6 @@ TimingSimpleCPU::DcachePort::recvTimingSnoopReq(PacketPtr pkt)
     if (pkt->isInvalidate() || pkt->isWrite()) {
         for (auto &t_info : cpu->threadInfo) {
             TheISA::handleLockedSnoop(t_info->thread, pkt, cacheBlockMask);
-            const bool is_htm_speculative M5_VAR_USED =
-                t_info->inHtmTransactionalState();
-            if (pkt->isInvalidate() && is_htm_speculative) {
-                /* TimingSimpleCPU cannot execute transactional loads
-                   before CPU enters transactional state: If running a
-                   transaction, check if invalidated block has an
-                   outstanding load miss. If so, the data obtained may
-                   be stale and must not be used. The conflict may not
-                   have been detected when the invalidation arrived
-                   if the data block was not part of the read set
-                   yet. See transition(IS_I, Data_all_Acks, I)
-                */
-                cpu->checkSnoop(pkt);
-            }
         }
     }
 }
@@ -1260,7 +1139,6 @@ TimingSimpleCPU::DcachePort::recvTimingResp(PacketPtr pkt)
 void
 TimingSimpleCPU::DcachePort::DTickEvent::process()
 {
-    cpu->checkForConflictingSnoops(pkt);
     cpu->completeDataAccess(pkt);
 }
 
@@ -1357,6 +1235,10 @@ TimingSimpleCPU::initiateHtmCmd(Request::Flags flags)
 
     assert(req->isHTMCmd());
 
+    if (system->getHTM() != nullptr) {
+        panic("Configurable HTM support not tested for TimingSimpleCPU!");
+    }
+
     // Use the payload as a sanity check,
     // the memory subsystem will clear allocated data
     uint8_t *data = new uint8_t[size];
@@ -1404,15 +1286,6 @@ TimingSimpleCPU::htmSendAbortSignal(HtmFailureFaultCause cause)
     req->taskId(taskId());
     req->setInstCount(t_info.numInst);
     req->setHtmAbortCause(cause);
-    // Sanity checks
-    if (cause == HtmFailureFaultCause::LSQ) {
-        assert(system->getHTM() != nullptr);
-        assert(conflictingSnoopSeen[0] ||
-               conflictingSnoopSeen[1]);
-        // Reset
-        conflictingSnoopSeen[0] =
-            conflictingSnoopSeen[1] = false;
-    }
 
     assert(req->isHTMAbort());
 
@@ -1422,214 +1295,6 @@ TimingSimpleCPU::htmSendAbortSignal(HtmFailureFaultCause cause)
     memcpy (data, &rc, size);
 
     sendData(req, data, nullptr, true);
-}
-
-void
-TimingSimpleCPU::htmSendSignal(Addr addr, const Request::Flags flags)
-{
-    assert(system->getHTM() != nullptr); // htm_model_umu
-
-    SimpleExecContext& t_info = *threadInfo[curThread];
-    SimpleThread* thread = t_info.thread;
-
-    const Addr pc = thread->instAddr();
-    const int size = 8;
-
-    RequestPtr req = std::make_shared<Request>(
-        addr, size, flags, dataRequestorId());
-
-    req->setPC(pc);
-    req->setContext(thread->contextId());
-    req->taskId(taskId());
-    req->setInstCount(t_info.numInst);
-
-    assert(req->isHTMCmd());
-
-    uint8_t *data = new uint8_t[size];
-    assert(data);
-    uint64_t rc = 0lu;
-    memcpy (data, &rc, size);
-
-    sendData(req, data, nullptr, true);
-}
-
-bool
-TimingSimpleCPU::retryDataAccess(PacketPtr pkt)
-{
-    if (drainState() == DrainState::Draining) {
-        panic("drain while retrying data access not tested!");
-        DPRINTF(HtmCpu, "HTM: CPU was draining when detected "
-                " transactional conflict, addr %#x\n", pkt->getAddr());
-        if (tryCompleteDrain()) {
-            // CPU is drained, but not in the correct status
-            assert(_status == DcacheWaitResponse);
-            // Must switch to running so that drain() returns Drained
-            _status = Running;
-            return true;
-        }
-    }
-
-    assert(pkt->req->wasNacked());
-    assert(!pkt->htmTransactionFailedInCache());
-    assert(!pkt->isError());
-    assert(_status == DcacheWaitResponse);
-    // Turn back around packet into request
-    pkt->makePrevRequest();
-    pkt->req->setNacked(false);
-    if (!dcachePort.sendTimingReq(pkt)) {
-        _status = DcacheRetry;
-        dcache_pkt = pkt;
-    } else {
-        _status = DcacheWaitResponse;
-        // memory system takes ownership of packet
-        dcache_pkt = NULL;
-    }
-    return dcache_pkt == NULL;
-}
-
-bool
-TimingSimpleCPU::handleNackedAccess(PacketPtr pkt)
-{
-    assert(pkt->req->wasNacked());
-    assert(!pkt->htmTransactionFailedInCache());
-
-    if (checkInterrupts(curThread)) {
-        panic("Interrupts while nacked access not implemented!");
-    } else {
-        if (pkt->senderState) {
-            panic("Nacked split access not implemented!");
-        }
-        // retry access using this pkt
-        if (retryDataAccess(pkt)) {
-            assert(_status == BaseSimpleCPU::DcacheWaitResponse);
-            assert(dcache_pkt == NULL);
-        } else {
-            panic("Cannot retry nacked access!");
-        }
-    }
-    return true;
-}
-
-
-void
-TimingSimpleCPU::isolateTransactionLoad(PacketPtr pkt)
-{
-    if (system->getHTM() == nullptr) return;
-    assert(pkt->isHtmTransactional());
-
-    // Ignore HTM commands (HTM_START, etc.) in transactional packets
-    if (pkt->req->isHTMCmd()) return;
-
-    // Do not isolate if transaction has already failed
-    if (pkt->htmTransactionFailedInCache()) return;
-
-    // Loads added to read-set when sent to cache, but send signal
-    // now for profiling of "retired read set" blocks
-    if (pkt->isRead() &&
-        !pkt->req->wasNacked()) {
-        htmSendSignal(pkt->getAddr(), Request::HTM_ISOLATE);
-    }
-    if (system->getHTM()->params().precise_read_set_tracking) {
-        // After we isolate the load, clear pending trans loads
-        if (pkt->senderState) {
-            // split load
-            SplitFragmentSenderState * send_state =
-                dynamic_cast<SplitFragmentSenderState *>(pkt->senderState);
-            assert(send_state);
-            int index = send_state->index;
-            assert(index >= 0 && index <= 1);
-            pendingTransactionalLoads[index] = 0;
-        }
-        else {
-            pendingTransactionalLoads[0] = 0;
-            pendingTransactionalLoads[1] = 0;
-        }
-    }
-}
-
-void
-TimingSimpleCPU::checkSnoop(PacketPtr pkt)
-{
-    /* The HTM implementation in gem5 adds cache blocks to read set
-     * while load misses are served, and aborts transactions upon Inv
-     * seen for blocks in IS/IM. See transition({IS, IM}, InvElse)
-     * Thus, there is no need to check snoops against pending loads.
-     */
-    if (!system->getHTM() ||
-        !system->getHTM()->params().precise_read_set_tracking) {
-        // Loads isolated when sent to cache
-        return;
-    }
-
-    /* There's a time gap between the call to RubyPort::hitCallback
-     * and TimingSimpleCPU::completeDataAccess, during which an
-     * invalidation may arrive (see trace below) and miss a conflict
-     * if we don't check snoops also in the timing CPU (like we do for
-     * the O3CPU). This is the result of having the CPU isolate the
-     * load upon completion of the memory access (instead of upon
-     * initiation of memory access)
-     */
-
-    // Called from protocol when send_evictions enabled via
-    // sequencer::evictionCallback->DcachePort::recvTimingSnoopReq
-
-    // Sets the conflictingSnoopSeen flag
-    if (_status == DcacheWaitResponse) {
-        Addr addr = pkt->getAddr() & dcachePort.cacheBlockMask;
-        assert(addr);
-        if (pendingTransactionalLoads[0] == addr ||
-            pendingTransactionalLoads[1] == addr) {
-            if (pendingTransactionalLoads[0] == addr)
-                conflictingSnoopSeen[0] = true;
-            else
-                conflictingSnoopSeen[1] = true;
-
-            DPRINTF(HtmCpu, "Detected conflict on pending transactional"
-                    " load line addr %lx\n", addr);
-        }
-    }
-}
-
-void
-TimingSimpleCPU::checkForConflictingSnoops(PacketPtr pkt)
-{
-    if (!system->getHTM() ||
-        !system->getHTM()->params().precise_read_set_tracking) {
-        // Loads isolated when sent to cache
-        return;
-    }
-    // Using UMU HTM model
-
-    // Checks the conflictingSnoopSeen flag for each completed
-    // access. If conflict, signal conflict in request so that:
-    // a) load instruction is re-executed,  or
-    // b) transaction is aborted
-    for (int i=0; i<2; ++i) {
-        if (conflictingSnoopSeen[i]) {
-            Addr line_addr = pkt->getAddr() & dcachePort.cacheBlockMask;
-            if (line_addr == pendingTransactionalLoads[i]) {
-                if (system->getHTM()->params().reload_if_stale) {
-                    // Re-execute load
-                    pkt->req->setNacked(true);
-                }
-                else {
-                    // Invalidation seen for pending trans load miss: abort
-                    DPRINTF(HtmCpu, "Conflicting snoop for outstanding trans."
-                            "load to addr %#x causes transaction abort\n",
-                            pkt->getAddr());
-                    // Set failed in cache in packet to trigger abort
-                    // in completeDataAccess
-                    pkt->setHtmTransactionFailedInCache(
-                                       HtmCacheFailure::FAIL_OTHER);
-                }
-            }
-            else { // This is a split load, conflicting snoop seen on the other half
-                assert(line_addr == pendingTransactionalLoads[(i+1)%2]);
-                DPRINTF(HtmCpu, "Conflicting snoop for other half of this split trans load %#x\n",
-                        pkt->getAddr());
-            }
-        }
-    }
 }
 
 } // namespace gem5

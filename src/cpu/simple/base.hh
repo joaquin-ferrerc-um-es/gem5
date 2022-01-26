@@ -121,9 +121,6 @@ class BaseSimpleCPU : public BaseCPU
     };
 
     Status _status;
-    // HTM: detect conflicts on pending transactional loads
-    Addr pendingTransactionalLoads[2];
-    bool conflictingSnoopSeen[2];
 
     /**
      * Handler used when encountering a fault; its purpose is to

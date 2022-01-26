@@ -11,8 +11,13 @@ void simBackoffEnd();
 void simCodeRegionBegin(unsigned long int codeRegionId);
 void simCodeRegionEnd(unsigned long int codeRegionId);
 
-#if defined AARCH64
+// Instead of adding a new gem5op, we let the CPU know that the log
+// has been unrolled successfully by writing a 64-bit magic value into
+// the log base address. NOTE: This is essential for functional
+// correctness since the abort does not complete until the HTM logic
+// receives this signal (to release isolation over write-set, etc.)
 
+#if defined AARCH64
 
 #define simEndLogUnroll(ptr) ({                                         \
             __asm__ volatile ("mov    x1, %0\n\t"                       \

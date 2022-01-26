@@ -26,14 +26,12 @@ public:
 
   bool checkXACTIsolation(int proc, Addr addr, bool trans,
                           RubyRequestType accessType);
-  void addToReadSet(int proc, Addr addr, int xact_level);
   void addToReadSet(int proc, Addr addr);
-  void addToWriteSet(int proc, Addr addr, int xact_level);
   void addToWriteSet(int proc, Addr addr);
-  void clearReadSet(int proc, int xact_level);
-  void clearWriteSet(int proc, int xact_level);
-  void removeFromReadSet(int proc, Addr addr, int xact_level);
-  void removeFromWriteSet(int proc, Addr addr, int xact_level);
+  void clearReadSet(int proc);
+  void clearWriteSet(int proc);
+  void removeFromReadSet(int proc, Addr addr);
+  void removeFromWriteSet(int proc, Addr addr);
   bool existInReadSet(int proc, Addr addr, Tick &since);
   bool existInWriteSet(int proc, Addr addr, Tick &since);
   void setAbortingProcessor(int proc);
@@ -44,8 +42,8 @@ private:
   RubySystem *m_ruby_system;
   HTM *m_htm;
 
-  std::vector< std::vector< std::map<Addr, Tick> > > m_readSet;
-  std::vector< std::vector< std::map<Addr, Tick> > > m_writeSet;
+  std::vector< std::map<Addr, Tick> > m_readSet;
+  std::vector< std::map<Addr, Tick> > m_writeSet;
   std::vector<bool> m_abortingProcessor;
   int m_num_sequencers;
 };

@@ -26,22 +26,21 @@ public:
 
   void beginTransaction();
   void commitTransaction();
-  void abortTransaction(int new_xact_level);
-  void releaseIsolation(int xact_level);
+  void abortTransaction();
+  void releaseIsolation();
   void releaseReadIsolation();
 
   /* These functions query the perfect filter */
   bool isInReadSetPerfectFilter(Addr addr);
   bool isInWriteSetPerfectFilter(Addr addr);
-  void addToReadSetPerfectFilter(Addr addr,
-                                 int transactionLevel = 1);
+  void addToReadSetPerfectFilter(Addr addr);
   void removeFromReadSetPerfectFilter(Addr addr);
   void removeFromWriteSetPerfectFilter(Addr addr);
-  void addToWriteSetPerfectFilter(Addr addr, int transactionLevel);
-  void clearReadSetPerfectFilter(int transactionLevel = 1);
-  void clearWriteSetPerfectFilter(int transactionLevel);
-  void setFiltersToXactLevel(int new_xact_level,
-                             int old_xact_level);
+  void addToWriteSetPerfectFilter(Addr addr);
+  void clearReadSetPerfectFilter();
+  void clearWriteSetPerfectFilter();
+  void setFiltersToXactLevel(int new_xact_level = 0,
+                             int old_xact_level = 1);
 
   bool inRetiredReadSet(Addr addr); // Profiling
   void addToRetiredReadSet(Addr addr);
@@ -51,11 +50,11 @@ public:
   void redirectedStoreToWriteBuffer(Addr addr);
   bool isRedirectedStoreToWriteBuffer(Addr addr);
 
-  int  getReadSetSize(int xact_level);
-  int  getWriteSetSize(int xact_level);
+  int  getReadSetSize();
+  int  getWriteSetSize();
 
-  std::vector<Addr> *getReadSet(int xact_level = 1);
-  std::vector<Addr> *getWriteSet(int xact_level = 1);
+  std::vector<Addr> *getReadSet();
+  std::vector<Addr> *getWriteSet();
 
   void setVersion(int version);
   int getVersion() const;
@@ -66,8 +65,8 @@ private:
   TransactionInterfaceManager *m_xact_mgr;
   int m_version;
 
-  std::vector< std::map<Addr, char> > m_readSet;
-  std::vector< std::map<Addr, char> > m_writeSet;
+  std::map<Addr, char> m_readSet;
+  std::map<Addr, char> m_writeSet;
 
   // Lazy VM ideal write buffer
   std::map<Addr, char> m_writeSetInWriteBuffer;

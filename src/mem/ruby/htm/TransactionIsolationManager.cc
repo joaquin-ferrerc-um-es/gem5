@@ -56,33 +56,20 @@ int TransactionIsolationManager::getProcID() const{
 }
 
 void TransactionIsolationManager::beginTransaction(){
-  int xact_level = XACT_MGR->getTransactionLevel();
-  assert(xact_level == 1);
-  if (xact_level > m_readSet.size()){
-    m_readSet.resize(xact_level);
-  }
-  if (!m_readSet[xact_level - 1].empty()) {
+  if (!m_readSet.empty()) {
       // Do not clear Rset on beginTransaction since in O3CPU trans
       // loads may overtake the xbegin.
       DPRINTF(RubyHTM,"HTM: PROC %d beginTransaction finds"
               " non-empty read set\n", getProcID());
   }
-  //  m_readSet[xact_level - 1].clear();
-  if (xact_level > m_writeSet.size()){
-    m_writeSet.resize(xact_level);
-  }
-  m_writeSet[xact_level - 1].clear();
+  //  m_readSet.clear();
+  m_writeSet.clear();
 }
 
 void TransactionIsolationManager::commitTransaction(){
-  int old_xact_level = XACT_MGR->getTransactionLevel();
-  assert(old_xact_level >= 1);
-  int new_xact_level = old_xact_level - 1;
-
-  vector<Addr> readSet;
   for ( map<Addr, char>::iterator ii =
-            m_readSet[old_xact_level-1].begin();
-        ii!=m_readSet[old_xact_level-1].end(); ++ii) {
+            m_readSet.begin();
+        ii!=m_readSet.end(); ++ii) {
       Addr key=(*ii).first;
       if (XACT_MGR->config_preciseReadSetTracking()) {
           assert(ii->second == RETIRED_LOAD);
@@ -93,59 +80,28 @@ void TransactionIsolationManager::commitTransaction(){
                   "non-retired read set block addr %x (%c)\n",
                   getProcID(), key, ii->second);
       }
-      readSet.push_back(key);
   }
 
-  vector<Addr> writeSet;
-  for ( map<Addr, char>::iterator ii =
-            m_writeSet[old_xact_level-1].begin();
-        ii!=m_writeSet[old_xact_level-1].end(); ++ii) {
-      Addr key=(*ii).first;
-      writeSet.push_back(key);
-  }
+  clearReadSetPerfectFilter();
+  clearWriteSetPerfectFilter();
 
-  if (new_xact_level > 0){
-      for (int i = 0; i < readSet.size(); i++)
-          addToReadSetPerfectFilter(readSet[i], new_xact_level);
-      for (int i = 0; i < writeSet.size(); i++)
-          addToWriteSetPerfectFilter(writeSet[i], new_xact_level);
-  }
-
-  clearReadSetPerfectFilter(old_xact_level);
-  clearWriteSetPerfectFilter(old_xact_level);
-
-  setFiltersToXactLevel(new_xact_level, old_xact_level);
 }
 
-void TransactionIsolationManager::abortTransaction(int new_xact_level){
-  int old_xact_level = XACT_MGR->getTransactionLevel();
-  assert(old_xact_level >= 1);
-  assert(new_xact_level < old_xact_level);
-  assert(new_xact_level >= 0);
-
-  for (int i = new_xact_level; i < old_xact_level; i++){
-    clearReadSetPerfectFilter(i + 1);
-    clearWriteSetPerfectFilter(i + 1);
-  }
-
-  setFiltersToXactLevel(new_xact_level, old_xact_level);
+void TransactionIsolationManager::abortTransaction(){
+    clearReadSetPerfectFilter();
+    clearWriteSetPerfectFilter();
 }
 
-void TransactionIsolationManager::releaseIsolation(int xact_level){
-  assert(xact_level >= 0);
+void TransactionIsolationManager::releaseIsolation(){
 
-  clearReadSetPerfectFilter(xact_level);
-  clearWriteSetPerfectFilter(xact_level);
+  clearReadSetPerfectFilter();
+  clearWriteSetPerfectFilter();
 
-  setFiltersToXactLevel(xact_level - 1, xact_level);
 }
 
 void TransactionIsolationManager::releaseReadIsolation(){
 
-  int levels = XACT_MGR->getTransactionLevel();
-  for (int i = 0; i < levels; i++){
-    clearReadSetPerfectFilter(i + 1);
-  }
+  clearReadSetPerfectFilter();
 
   DPRINTF(RubyHTM,"HTM: PROC %d releaseReadIsolation (abort) \n",
           getProcID());
@@ -154,11 +110,10 @@ void TransactionIsolationManager::releaseReadIsolation(){
 
 bool
 TransactionIsolationManager::isInReadSetPerfectFilter(Addr addr) {
-  int transactionLevel = 1;
 
   map<Addr, char>::iterator it =
-      m_readSet[transactionLevel-1].find(makeLineAddress(addr));
-  if (it != m_readSet[transactionLevel-1].end()) {
+      m_readSet.find(makeLineAddress(addr));
+  if (it != m_readSet.end()) {
       if (XACT_MGR->getTransactionLevel() == 0) {
           // Trans loads cannot retire before htm_start instruction
           assert(it->second != RETIRED_LOAD);
@@ -174,10 +129,9 @@ TransactionIsolationManager::isInReadSetPerfectFilter(Addr addr) {
 
 bool
 TransactionIsolationManager::isInWriteSetPerfectFilter(Addr addr){
-  int transactionLevel = 1;
   map<Addr, char>::iterator it =
-      m_writeSet[transactionLevel-1].find(makeLineAddress(addr));
-  if (it != m_writeSet[transactionLevel-1].end()) {
+      m_writeSet.find(makeLineAddress(addr));
+  if (it != m_writeSet.end()) {
       assert(it->second == RETIRED_STORE);
       return true;
   } else {
@@ -186,10 +140,7 @@ TransactionIsolationManager::isInWriteSetPerfectFilter(Addr addr){
 }
 
 void
-TransactionIsolationManager::addToReadSetPerfectFilter(Addr address,
-                                                       int transactionLevel){
-  assert(transactionLevel > 0);
-  assert(transactionLevel <= m_readSet.size());
+TransactionIsolationManager::addToReadSetPerfectFilter(Addr address){
   Addr addr = makeLineAddress(address);
   char value = EXECUTED_LOAD;
   if (XACT_MGR->getTransactionLevel() == 0) {
@@ -198,24 +149,22 @@ TransactionIsolationManager::addToReadSetPerfectFilter(Addr address,
       value = OVERTAKING_LOAD; // (o)vertaking load
   }
 
-  if (m_readSet[transactionLevel - 1].find(addr) ==
-      m_readSet[transactionLevel - 1].end())
-    m_readSet[transactionLevel-1].
+  if (m_readSet.find(addr) ==
+      m_readSet.end())
+    m_readSet.
       insert(std::pair<Addr,char>(addr, value));
 
-  assert(m_readSet[transactionLevel-1].find(addr) !=
-         m_readSet[transactionLevel-1].end());
+  assert(m_readSet.find(addr) !=
+         m_readSet.end());
 
 }
 
 void
 TransactionIsolationManager::addToRetiredReadSet(Addr addr)
 {
-    int transactionLevel = 1;
-    assert(XACT_MGR->getTransactionLevel() == 1);
     map<Addr, char>::iterator it =
-        m_readSet[transactionLevel-1].find(makeLineAddress(addr));
-    assert(it != m_readSet[transactionLevel-1].end());
+        m_readSet.find(makeLineAddress(addr));
+    assert(it != m_readSet.end());
     if (it->second == OVERTAKING_LOAD) {
           // TODO: Executed load never retired: profile?
         DPRINTF(RubyHTM,
@@ -230,155 +179,101 @@ TransactionIsolationManager::addToRetiredReadSet(Addr addr)
 
 bool
 TransactionIsolationManager::inRetiredReadSet(Addr addr) {
-  int transactionLevel = 1;
   map<Addr, char>::iterator it =
-      m_readSet[transactionLevel-1].find(makeLineAddress(addr));
-  assert(it != m_readSet[transactionLevel-1].end());
+      m_readSet.find(makeLineAddress(addr));
+  assert(it != m_readSet.end());
   // Trans loads cannot retire before htm_start instruction
   return (it->second == RETIRED_LOAD);
 }
 
 bool
 TransactionIsolationManager::wasOvertakingRead(Addr addr) {
-    int transactionLevel = 1;
     map<Addr, char>::iterator it =
-        m_readSet[transactionLevel - 1].find(addr);
-    assert(it != m_readSet[transactionLevel - 1].end());
+        m_readSet.find(addr);
+    assert(it != m_readSet.end());
     return it->second == OVERTAKING_LOAD;
 }
 
 void
 TransactionIsolationManager::removeFromReadSetPerfectFilter(Addr address){
-  int transactionLevel = m_xact_mgr->getTransactionLevel();
-
-  assert(transactionLevel <= m_readSet.size());
-
   Addr addr = makeLineAddress(address);
 
   map<Addr, char>::iterator it =
-    m_readSet[transactionLevel - 1].find(addr);
-  if (it != m_readSet[transactionLevel - 1].end()) {
-    m_readSet[transactionLevel-1].erase(it);
+    m_readSet.find(addr);
+  if (it != m_readSet.end()) {
+    m_readSet.erase(it);
   }
   else { // release address not in Rset??
     assert(false);
   }
-  assert(m_readSet[transactionLevel-1].find(addr) ==
-         m_readSet[transactionLevel-1].end());
+  assert(m_readSet.find(addr) ==
+         m_readSet.end());
 }
 
 void
 TransactionIsolationManager::removeFromWriteSetPerfectFilter(Addr address){
-  int transactionLevel = m_xact_mgr->getTransactionLevel();
-  assert(transactionLevel <= m_writeSet.size());
-
   Addr addr = makeLineAddress(address);
 
   map<Addr, char>::iterator it =
-    m_writeSet[transactionLevel - 1].find(addr);
-  if (it != m_writeSet[transactionLevel - 1].end()) {
-    m_writeSet[transactionLevel-1].erase(it);
+    m_writeSet.find(addr);
+  if (it != m_writeSet.end()) {
+    m_writeSet.erase(it);
   }
   else { // release address not in Wset??
     assert(false);
   }
-  assert(m_writeSet[transactionLevel-1].find(addr) ==
-         m_writeSet[transactionLevel-1].end());
+  assert(m_writeSet.find(addr) ==
+         m_writeSet.end());
 }
 
 
 void
-TransactionIsolationManager::addToWriteSetPerfectFilter(Addr address,
-                                                        int transactionLevel){
-  assert(transactionLevel > 0);
-  assert(transactionLevel <= m_writeSet.size());
+TransactionIsolationManager::addToWriteSetPerfectFilter(Addr address){
   Addr addr = makeLineAddress(address);
 
-  if (m_writeSet[transactionLevel - 1].find(addr) ==
-      m_writeSet[transactionLevel - 1].end())
-    m_writeSet[transactionLevel-1].
+  if (m_writeSet.find(addr) ==
+      m_writeSet.end())
+    m_writeSet.
       insert(std::pair<Addr,char>(addr, RETIRED_STORE));
 
-  assert(m_writeSet[transactionLevel-1].find(addr) !=
-         m_writeSet[transactionLevel-1].end());
+  assert(m_writeSet.find(addr) !=
+         m_writeSet.end());
 }
 
 void
-TransactionIsolationManager::clearReadSetPerfectFilter(int transactionLevel){
-  assert(transactionLevel > 0);
-  assert(transactionLevel <= m_readSet.size());
-
-  m_readSet[transactionLevel - 1].clear();
-  assert(m_readSet[transactionLevel - 1].size() == 0);
+TransactionIsolationManager::clearReadSetPerfectFilter(){
+  m_readSet.clear();
+  assert(m_readSet.size() == 0);
 }
 
 void
-TransactionIsolationManager::clearWriteSetPerfectFilter(int transactionLevel){
-  assert(transactionLevel > 0);
-  assert(transactionLevel <= m_writeSet.size());
+TransactionIsolationManager::clearWriteSetPerfectFilter(){
 
-  m_writeSet[transactionLevel - 1].clear();
-  assert(m_writeSet[transactionLevel - 1] .size() == 0);
+  m_writeSet.clear();
+  assert(m_writeSet .size() == 0);
 
   m_writeSetInWriteBuffer.clear(); // ideal lazy VM
 }
 
-void
-TransactionIsolationManager::
-setFiltersToXactLevel(int new_xact_level, int old_xact_level){
-  assert((new_xact_level >= 0) &&
-         (new_xact_level <= m_readSet.size()) &&
-         (new_xact_level <= m_writeSet.size()));
 
-  for (int i = 0; i < new_xact_level; i++){
-
-    vector<Addr> readSet;
-    for ( map<Addr, char>::iterator ii=m_readSet[i].begin();
-          ii!=m_readSet[i].end();
-          ++ii) {
-      Addr key=(*ii).first;
-      readSet.push_back(key);
-    }
-
-    vector<Addr> writeSet;
-    for ( map<Addr, char>::iterator ii =
-            m_writeSet[i].begin();
-          ii!=m_writeSet[i].end();
-          ++ii) {
-      Addr key=(*ii).first;
-      writeSet.push_back(key);
-    }
-  }
-
-  DPRINTF(RubyHTM,"HTM: PROC %d setFiltersToXactLevel"
-          " (new level: %d) \n", getProcID(), new_xact_level);
+int TransactionIsolationManager::getReadSetSize(){
+  return m_readSet.size();
 }
 
-
-int TransactionIsolationManager::getReadSetSize(int xact_level){
-  assert(xact_level >= 1);
-  assert(xact_level <= m_readSet.size());
-  return m_readSet[xact_level - 1].size();
-}
-
-int TransactionIsolationManager::getWriteSetSize(int xact_level){
-  assert(xact_level >= 1);
-  assert(xact_level <= m_writeSet.size());
-  return m_writeSet[xact_level - 1].size();
+int TransactionIsolationManager::getWriteSetSize(){
+  return m_writeSet.size();
 }
 
 vector<Addr> *
-TransactionIsolationManager::getWriteSet(int xact_level)
+TransactionIsolationManager::getWriteSet()
 {
   // Allocates a new vector<Addr> with the write set and returns it
   // Caller must delete the object after it is done with it
-  assert(xact_level == 1);
-  assert(xact_level == m_writeSet.size());
 
   vector<Addr> *wset = new vector<Addr>();
   for ( map<Addr, char>::iterator ii =
-          m_writeSet[xact_level-1].begin();
-        ii!=m_writeSet[xact_level-1].end(); ++ii) {
+          m_writeSet.begin();
+        ii!=m_writeSet.end(); ++ii) {
     Addr key=(*ii).first;
     wset->push_back(key);
   }
@@ -386,17 +281,15 @@ TransactionIsolationManager::getWriteSet(int xact_level)
 }
 
 vector<Addr> *
-TransactionIsolationManager::getReadSet(int xact_level)
+TransactionIsolationManager::getReadSet()
 {
   // Allocates a new vector<Addr> with the read set and returns it
   // Caller must delete the object after it is done with it
-  assert(xact_level == 1);
-  assert(xact_level == m_readSet.size());
 
   vector<Addr> *rset = new vector<Addr>();
   for ( map<Addr, char>::iterator ii =
-          m_readSet[xact_level-1].begin();
-        ii!=m_readSet[xact_level-1].end(); ++ii) {
+          m_readSet.begin();
+        ii!=m_readSet.end(); ++ii) {
     Addr key=(*ii).first;
     rset->push_back(key);
   }

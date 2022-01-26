@@ -28,8 +28,6 @@ XactIsolationChecker::XactIsolationChecker(RubySystem *rs) {
   m_writeSet.resize(num_sequencers);
   m_abortingProcessor.resize(num_sequencers);
   for (int i = 0; i < num_sequencers; i++){
-    m_readSet[i].resize(1);
-    m_writeSet[i].resize(1);
     m_abortingProcessor[i] = false;
   }
   if (!m_htm->params().eager_cd) {
@@ -42,29 +40,21 @@ XactIsolationChecker::~XactIsolationChecker() {
 }
 
 bool XactIsolationChecker::existInReadSet(int proc, Addr addr, Tick &since){
-  int numLevels = m_readSet[proc].size();
   bool found = false;
 
-  for (int i = 0; i < numLevels; i++){
-    if (m_readSet[proc][i].find(addr) != m_readSet[proc][i].end()) {
+  if (m_readSet[proc].find(addr) != m_readSet[proc].end()) {
       found = true;
-      since = m_readSet[proc][i][addr];
-      break;
-    }
+      since = m_readSet[proc][addr];
   }
   return found;
 }
 
  bool XactIsolationChecker::existInWriteSet(int proc, Addr addr, Tick &since){
-  int numLevels = m_writeSet[proc].size();
   bool found = false;
 
-  for (int i = 0; i < numLevels; i++){
-    if (m_writeSet[proc][i].find(addr) != m_writeSet[proc][i].end()){
+  if (m_writeSet[proc].find(addr) != m_writeSet[proc].end()){
       found = true;
-      since = m_writeSet[proc][i][addr];
-      break;
-    }
+      since = m_writeSet[proc][addr];
   }
   return found;
 }
@@ -137,15 +127,9 @@ bool XactIsolationChecker::checkXACTIsolation(int proc, Addr addr, bool trans,
 }
 
 void XactIsolationChecker::addToReadSet(int proc, Addr addr){
-  addToReadSet(proc, addr, 1);
-}
-
-void XactIsolationChecker::addToReadSet(int proc, Addr addr, int xact_level){
-  assert(xact_level == 1);
-
-  if (m_readSet[proc][xact_level - 1].find(addr) ==
-      m_readSet[proc][xact_level - 1].end()) {
-      m_readSet[proc][xact_level-1].
+  if (m_readSet[proc].find(addr) ==
+      m_readSet[proc].end()) {
+      m_readSet[proc].
           insert(std::pair<Addr,Tick>(addr, curTick()));
       DPRINTF(RubyHTMverbose, "HTM: Isolation checker adds addr %#x"
               " to read set of proc %d \n",
@@ -155,15 +139,9 @@ void XactIsolationChecker::addToReadSet(int proc, Addr addr, int xact_level){
 }
 
 void XactIsolationChecker::addToWriteSet(int proc, Addr addr){
-  addToWriteSet(proc, addr, 1);
-}
-
-void XactIsolationChecker::addToWriteSet(int proc, Addr addr, int xact_level){
-  assert(xact_level == 1);
-
-  if (m_writeSet[proc][xact_level - 1].find(addr) ==
-      m_writeSet[proc][xact_level - 1].end()){
-      m_writeSet[proc][xact_level-1].
+  if (m_writeSet[proc].find(addr) ==
+      m_writeSet[proc].end()){
+      m_writeSet[proc].
           insert(std::pair<Addr,Tick>(addr, curTick()));
       DPRINTF(RubyHTMverbose, "HTM: Isolation checker adds addr %#x"
               " to write set of proc %d \n",
@@ -171,32 +149,26 @@ void XactIsolationChecker::addToWriteSet(int proc, Addr addr, int xact_level){
   }
 }
 
-void XactIsolationChecker::removeFromReadSet(int proc, Addr addr,
-                                             int xact_level){
-  assert(xact_level == 1);
-  if (m_readSet[proc][xact_level-1].find(addr) !=
-      m_readSet[proc][xact_level-1].end()){
-    m_readSet[proc][xact_level-1].erase(addr);
+void XactIsolationChecker::removeFromReadSet(int proc, Addr addr){
+  if (m_readSet[proc].find(addr) !=
+      m_readSet[proc].end()){
+    m_readSet[proc].erase(addr);
   }
 }
 
-void XactIsolationChecker::removeFromWriteSet(int proc, Addr addr,
-                                              int xact_level){
-  assert(xact_level == 1);
-  if (m_writeSet[proc][xact_level-1].find(addr) !=
-      m_writeSet[proc][xact_level-1].end()){
-    m_writeSet[proc][xact_level-1].erase(addr);
+void XactIsolationChecker::removeFromWriteSet(int proc, Addr addr){
+  if (m_writeSet[proc].find(addr) !=
+      m_writeSet[proc].end()){
+    m_writeSet[proc].erase(addr);
   }
 }
 
-void XactIsolationChecker::clearWriteSet(int proc, int xact_level){
-    assert(xact_level == 1);
-    m_writeSet[proc][xact_level-1].clear();
+void XactIsolationChecker::clearWriteSet(int proc){
+    m_writeSet[proc].clear();
 }
 
-void XactIsolationChecker::clearReadSet(int proc, int xact_level){
-    assert(xact_level == 1);
-    m_readSet[proc][xact_level-1].clear();
+void XactIsolationChecker::clearReadSet(int proc){
+    m_readSet[proc].clear();
 }
 
 void XactIsolationChecker::setAbortingProcessor(int proc) {
@@ -211,10 +183,9 @@ void XactIsolationChecker::printReadWriteSets(int proc) {
   std::cout << " PROCESSOR: " << proc << std::endl;
   std::cout << " READ SET: ";
   for (int i = 0; i < m_readSet[proc].size(); i++){
-    std::cout << " LEVEL " << i << ": ";
     for (std::map<Addr,Tick>::iterator it =
-           m_readSet[proc][i].begin();
-         it!=m_readSet[proc][i-1].end();
+           m_readSet[proc].begin();
+         it!=m_readSet[proc].end();
          ++it) {
       Addr addr = it->first;
       std::cout << addr << " ";
@@ -223,10 +194,9 @@ void XactIsolationChecker::printReadWriteSets(int proc) {
   std::cout << std::endl;
   std::cout << " WRITE SET: ";
   for (int i = 0; i < m_writeSet[proc].size(); i++){
-    std::cout << " LEVEL " << i << ": ";
     for (std::map<Addr,Tick>::iterator it =
-           m_writeSet[proc][i].begin();
-         it!=m_writeSet[proc][i-1].end();
+           m_writeSet[proc].begin();
+         it!=m_writeSet[proc].end();
          ++it) {
       Addr addr = it->first;
       std::cout << addr << " ";

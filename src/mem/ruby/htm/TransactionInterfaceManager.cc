@@ -340,9 +340,9 @@ TransactionInterfaceManager::commitTransaction(PacketPtr pkt)
         m_xactIsolationManager->commitTransaction();
         if (config_enableIsolationChecker()) {
             m_ruby_system->getXactIsolationChecker()->
-                clearReadSet(m_version, m_transactionLevel);
+                clearReadSet(m_version);
             m_ruby_system->getXactIsolationChecker()->
-                clearWriteSet(m_version, m_transactionLevel);
+                clearWriteSet(m_version);
         }
         assert(m_writeSetDiscarded.empty());
         assert(m_abortCause == HTMStats::AbortCause::Undefined);
@@ -369,9 +369,8 @@ TransactionInterfaceManager::commitTransaction(PacketPtr pkt)
 
 void
 TransactionInterfaceManager::discardWriteSetFromL1DataCache() {
-    int xact_level=getTransactionLevel();
     vector<Addr> *wset = getXactIsolationManager()->
-        getWriteSet(xact_level);
+        getWriteSet();
 
     for (int i=0; i < wset->size(); i++) {
         Addr addr=wset->at(i);
@@ -500,14 +499,12 @@ TransactionInterfaceManager::abortTransaction(PacketPtr pkt){
 
     if (XACT_LAZY_VM) {
         // Release isolation (clear filters/signatures)
-        for (int i = m_transactionLevel; i > 0; i--) {
-            getXactIsolationManager()->releaseIsolation(i);
-            if (config_enableIsolationChecker()) {
-                m_ruby_system->getXactIsolationChecker()->
-                    clearReadSet(m_version, i);
-                m_ruby_system->getXactIsolationChecker()->
-                    clearWriteSet(m_version, i);
-            }
+        getXactIsolationManager()->releaseIsolation();
+        if (config_enableIsolationChecker()) {
+            m_ruby_system->getXactIsolationChecker()->
+                clearReadSet(m_version);
+            m_ruby_system->getXactIsolationChecker()->
+                clearWriteSet(m_version);
         }
     }
     else { // LogTM
@@ -515,14 +512,12 @@ TransactionInterfaceManager::abortTransaction(PacketPtr pkt){
             // No log unroll required: abort completes now
 
             // Release isolation (clear filters/signatures)
-            for (int i = m_transactionLevel; i > 0; i--) {
-                getXactIsolationManager()->releaseIsolation(i);
-                if (config_enableIsolationChecker()) {
-                    m_ruby_system->getXactIsolationChecker()->
-                        clearReadSet(m_version, i);
-                    m_ruby_system->getXactIsolationChecker()->
-                        clearWriteSet(m_version, i);
-                }
+            getXactIsolationManager()->releaseIsolation();
+            if (config_enableIsolationChecker()) {
+                m_ruby_system->getXactIsolationChecker()->
+                    clearReadSet(m_version);
+                m_ruby_system->getXactIsolationChecker()->
+                    clearWriteSet(m_version);
             }
             // Reset log num entries
             m_xactEagerVersionManager->restartTransaction();
@@ -533,10 +528,10 @@ TransactionInterfaceManager::abortTransaction(PacketPtr pkt){
             getXactIsolationManager()->releaseReadIsolation();
             if (config_enableIsolationChecker()) {
                 m_ruby_system->getXactIsolationChecker()->
-                    clearReadSet(m_version, m_transactionLevel);
+                    clearReadSet(m_version);
             }
             int wsetsize = getXactIsolationManager()->
-                getWriteSetSize(m_transactionLevel);
+                getWriteSetSize();
             int logsize =m_xactEagerVersionManager->getLogNumEntries();
             if (wsetsize != logsize) {
                 // It is possible that a logged trans store does not
@@ -675,8 +670,7 @@ TransactionInterfaceManager::isolateTransactionStore(Addr addr){
     Addr physicalAddr = makeLineAddress(addr);
 
     m_xactIsolationManager->
-        addToWriteSetPerfectFilter(physicalAddr,
-                                   m_transactionLevel);
+        addToWriteSetPerfectFilter(physicalAddr);
     if (config_enableIsolationChecker()) {
         m_ruby_system->getXactIsolationChecker()->
             addToWriteSet(m_version, physicalAddr);
@@ -884,13 +878,11 @@ TransactionInterfaceManager::setAbortFlag(Addr addr,
         if (config_enableIsolationChecker()) {
             if (checkReadSignature(addr)) {
                 m_ruby_system->getXactIsolationChecker()->
-                    removeFromReadSet(m_version, addr,
-                                      m_transactionLevel);
+                    removeFromReadSet(m_version, addr);
             }
             if (checkWriteSignature(addr)) {
                 m_ruby_system->getXactIsolationChecker()->
-                    removeFromWriteSet(m_version, addr,
-                                       m_transactionLevel);
+                    removeFromWriteSet(m_version, addr);
             }
         }
     }
@@ -1320,14 +1312,12 @@ TransactionInterfaceManager::endLogUnroll(){
     getXactConflictManager()->restartTransaction();
 
     // Release isolation over write set
-    for (int i = m_transactionLevel; i > 0; i--) {
-        getXactIsolationManager()->releaseIsolation(i);
-        if (config_enableIsolationChecker()) {
-            m_ruby_system->getXactIsolationChecker()->
-                clearReadSet(m_version, i);
-            m_ruby_system->getXactIsolationChecker()->
-                clearWriteSet(m_version, i);
-        }
+    getXactIsolationManager()->releaseIsolation();
+    if (config_enableIsolationChecker()) {
+        m_ruby_system->getXactIsolationChecker()->
+            clearReadSet(m_version);
+        m_ruby_system->getXactIsolationChecker()->
+            clearWriteSet(m_version);
     }
 
     m_escapeLevel = 0;

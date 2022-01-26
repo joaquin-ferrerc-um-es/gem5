@@ -65,40 +65,36 @@ public:
                          MachineID remote_id);
   Cycles getOldestTimestamp();
 
-  void setAbortFlag(int thread, Addr addr,
+  void setAbortFlag(Addr addr,
                     MachineID abortSource,
                     bool remote_trans = false,
                     bool capacity = false, bool wset = false);
-  void cancelTransaction(int thread, PacketPtr pkt);
-  bool isCancelledTransaction(int thread);
+  void cancelTransaction(PacketPtr pkt);
+  bool isCancelledTransaction();
 
   void setAbortCause(HTMStats::AbortCause cause);
-  void profileHtmFailureFaultCause(int thread,
-                                   HtmFailureFaultCause cause);
-  HtmCacheFailure getHtmTransactionalReqResponseCode(int thread);
+  void profileHtmFailureFaultCause(HtmFailureFaultCause cause);
+  HtmCacheFailure getHtmTransactionalReqResponseCode();
 
-  AnnotatedRegion_t getWaitForRetryRegionFromPreviousAbortCause(int thread);
+  AnnotatedRegion_t getWaitForRetryRegionFromPreviousAbortCause();
   void setController(AbstractController *_ctrl)
   { m_controller = _ctrl; }
 
-  void beginTransaction(int thread, int xid, PacketPtr pkt);
-  bool canCommitTransaction(int thread, int xid, PacketPtr pkt) const;
-  void initiateCommitTransaction(int thread, int xid, PacketPtr pkt);
-  bool atCommit(int thread);
-  void commitTransaction(int thread, int xid, PacketPtr pkt);
-  void abortTransaction(int thread, PacketPtr pkt);
-  Addr getAbortAddress(int thread);
+  void beginTransaction(PacketPtr pkt);
+  bool canCommitTransaction(PacketPtr pkt) const;
+  void initiateCommitTransaction(PacketPtr pkt);
+  bool atCommit() const {    return m_atCommit; };
+  void commitTransaction(PacketPtr pkt);
+  void abortTransaction(PacketPtr pkt);
+  Addr getAbortAddress();
 
-  int getTransactionLevel(int thread);
-  int getXID(int thread);
-  void setXID(int thread, int xid); // Only for software transacitons
-  bool isValidXID(int thread);
+  int getTransactionLevel();
 
-  bool inTransaction(int thread);
-  void isolateTransactionLoad(int thread, Addr physicalAddr);
-  void addToRetiredReadSet(int thread, Addr physicalAddr);
-  bool inRetiredReadSet(int thread, Addr physicalAddr);
-  void isolateTransactionStore(int thread, Addr physicalAddr);
+  bool inTransaction();
+  void isolateTransactionLoad(Addr physicalAddr);
+  void addToRetiredReadSet(Addr physicalAddr);
+  bool inRetiredReadSet(Addr physicalAddr);
+  void isolateTransactionStore(Addr physicalAddr);
 
   void profileCommitCycle();
 
@@ -106,8 +102,8 @@ public:
                                 MachineType respondingMach,
                                 Addr addr, Addr pc, int bytes);
 
-  bool isAborting(int thread);
-  bool isDoomed(int thread); // Aborting or bound to abort
+  bool isAborting();
+  bool isDoomed(); // Aborting or bound to abort
 
   void setVersion(int version);
   int getVersion() const;
@@ -129,15 +125,14 @@ public:
   bool isEndLogUnrollSignal(PacketPtr pkt);
   void setupLogTranslation(Addr vaddr, Addr paddr);
   Addr translateLogAddress(Addr vaddr) const;
-  Addr addLogEntry(Addr addr);
-  void commitLogEntry(int index, Addr storeAddr);
-  int getLogNumEntries(int thread);
-  bool isUnrollingLog(int thread);
-  void endLogUnroll(int thread);
+  Addr addLogEntry();
+  int getLogNumEntries();
+  bool isUnrollingLog();
+  void endLogUnroll();
 
-  void beginEscapeAction(int thread);
-  void endEscapeAction(int thread);
-  bool inEscapeAction(int thread);
+  void beginEscapeAction();
+  void endEscapeAction();
+  bool inEscapeAction();
 
   std::string config_protocol() const {
       return m_ruby_system->getProtocol();
@@ -207,14 +202,11 @@ public:
 
   HTM* getHTM() const { return m_htm; };
 
-  /********/
-  static int numberofSMTThreads() { return 1; };
-
   int getProcID() const;
 
 
 private:
-  void discardWriteSetFromL1DataCache(int thread);
+  void discardWriteSetFromL1DataCache();
 
   const TransactionInterfaceManagerParams &_params;
   RubySystem *m_ruby_system;
@@ -227,22 +219,20 @@ private:
 
   TransactionIsolationManager     * m_xactIsolationManager;
   TransactionConflictManager      * m_xactConflictManager;
-  EagerTransactionVersionManager   * m_xactEagerVersionManager;
+  EagerTransactionVersionManager  * m_xactEagerVersionManager;
   LazyTransactionVersionManager   * m_xactLazyVersionManager;
   LazyTransactionCommitArbiter    * m_xactLazyCommitArbiter;
 
-  int*      m_transactionLevel; // nesting depth, where outermost has depth 1
-  int*      m_escapeLevel; // nesting depth, where outermost has depth 1
-  int*      m_xid;
-  int*      m_xidValid;
-  bool*     m_abortFlag;
-  bool*     m_unrollingLogFlag;
-  bool*     m_atCommit;
-  HTMStats::AbortCause *m_abortCause;
-  bool*     m_abortSourceNonTransactional;
-  HtmFailureFaultCause  *m_lastFailureCause;  // Cause of preceding abort
-  bool*     m_capacityAbortWriteSet; // For capacity aborts, whether Wset/Rset
-  Addr*     m_abortAddress;
+  int      m_transactionLevel; // nesting depth, where outermost has depth 1
+  int      m_escapeLevel; // nesting depth, where outermost has depth 1
+  bool     m_abortFlag;
+  bool     m_unrollingLogFlag;
+  bool     m_atCommit;
+  HTMStats::AbortCause m_abortCause;
+  bool     m_abortSourceNonTransactional;
+  HtmFailureFaultCause  m_lastFailureCause;  // Cause of preceding abort
+  bool     m_capacityAbortWriteSet; // For capacity aborts, whether Wset/Rset
+  Addr     m_abortAddress;
   // Sanity checks
   std::map<Addr, char> m_writeSetDiscarded;
 

@@ -96,7 +96,7 @@ RubyHTM::endLogUnroll(int cpuId)
     assert(g_system_ptr);
 
     g_system_ptr->
-        getTransactionInterfaceManager(cpuId)->endLogUnroll(0);
+        getTransactionInterfaceManager(cpuId)->endLogUnroll();
 }
 
 int
@@ -109,7 +109,7 @@ RubyHTM::getLogNumEntries(int cpuId)
 
     return g_system_ptr->
         getTransactionInterfaceManager(cpuId)->
-        getLogNumEntries(0);
+        getLogNumEntries();
 }
 
 } // namespace ruby

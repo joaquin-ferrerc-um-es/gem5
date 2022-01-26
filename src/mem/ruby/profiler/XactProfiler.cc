@@ -124,7 +124,7 @@ void XactProfiler::beginRegion(int proc_no, AnnotatedRegion region)
                 g_system_ptr->getTransactionInterfaceManager(proc_no);
 
             m_currentWaitForRetryRegion = mgr->
-                getWaitForRetryRegionFromPreviousAbortCause(0);
+                getWaitForRetryRegionFromPreviousAbortCause();
             // "Fix" state for those threads that have already moved
             // to ABORT_HANDLER
             for (int i=0; i < num_sequencers; i++) {
@@ -305,7 +305,7 @@ XactProfiler::profileRegionChange(int proc_no,
           // moveTo should be called after transaction level
           // increased in xact mgr
           assert(g_system_ptr->getTransactionInterfaceManager(proc_no)->
-                 getTransactionLevel(0) > 0);
+                 getTransactionLevel() > 0);
 
           if (!m_inTransaction[proc_no]) {
               // Fresh start of new trasaction (first attempt)

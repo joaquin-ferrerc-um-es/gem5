@@ -39,32 +39,23 @@ CLASS_NS ~EagerTransactionVersionManager() {
 }
 
 void
-CLASS_NS beginTransaction(int thread)
+CLASS_NS beginTransaction()
 {
     assert(m_logNumEntries == 0);
     assert(m_initStatus == LogInitStatus::Ready);
     assert(!m_logTLB.empty());
-    assert(m_logNumCommittedEntries == 0);
-    assert(m_addedLogDataPAddr.empty());
-    assert(m_committedIndices.empty());
 }
 
 void
-CLASS_NS restartTransaction(int thread){
+CLASS_NS restartTransaction(){
     m_logNumEntries = 0;
-    m_logNumCommittedEntries = 0;
-    m_addedLogDataPAddr.clear();
-    m_committedIndices.clear();
 }
 
 
 void
-CLASS_NS commitTransaction(int thread)
+CLASS_NS commitTransaction()
 {
     m_logNumEntries = 0;
-    m_logNumCommittedEntries = 0;
-    m_addedLogDataPAddr.clear();
-    m_committedIndices.clear();
 }
 
 bool
@@ -74,18 +65,6 @@ CLASS_NS isAccessToLog(Addr addr) const
         return false;
     return (addr >= m_logBaseVAddr &&
             addr  < (m_logBaseVAddr + MAX_LOG_SIZE_BYTES));
-}
-
-bool
-CLASS_NS isLogReadyToUnroll() const
-{
-    // Sanity checks
-    for (int i=0; i < m_committedIndices.size(); ++i) {
-        assert(m_committedIndices[i]);
-    }
-    assert(m_committedIndices.size() == m_logNumCommittedEntries);
-    assert(m_logNumCommittedEntries == m_logNumEntries);
-    return true;
 }
 
 void
@@ -152,40 +131,15 @@ CLASS_NS translateLogAddress(Addr vaddr) const {
     return ppageAddr | pageOffset;
 }
 
-Addr
-CLASS_NS addLogEntry(Addr storeAddr)
+int
+CLASS_NS addLogEntry()
 {
-    // storeAddr: target block vaddr of transactional store
-    // TODO: Keep track of logged virtual addresses??
     // Should never be called unless we have set the log base
     assert(m_initStatus = LogInitStatus::Ready);
-
-    // Returns vaddr of log entry to be used for logging this store,
-    // according to current number of entries, and increments number
-    // of entries
-    assert(m_addedLogDataPAddr.size() == m_logNumEntries);
-    Addr paddr = translateLogAddress(computeLogDataPointer(m_logNumEntries));
-    m_addedLogDataPAddr.push_back(paddr);
+    // Return next available index in the log
     return m_logNumEntries++;
 }
 
-
-void
-CLASS_NS commitLogEntry(int index, Addr storeAddr)
-{
-    assert(storeAddr == makeLineAddress(storeAddr));
-    ++m_logNumCommittedEntries;
-    if (index >= m_committedIndices.size()) {
-        m_committedIndices.resize(index+1);
-    }
-    DPRINTF(RubyHTMlog,
-            "PROC %d committed log entry at index %i for store"
-            " paddr %#x\n", m_version,
-            index, storeAddr);
-
-    assert(!m_committedIndices[index]);
-    m_committedIndices[index] = true;
-}
 
 bool
 CLASS_NS isEndLogUnrollSignal(PacketPtr pkt)

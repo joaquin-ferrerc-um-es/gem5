@@ -33,25 +33,21 @@ public:
                                 CacheMemory* dataCache_ptr);
   ~EagerTransactionVersionManager();
 
-  void beginTransaction(int thread);
-  void restartTransaction(int thread);
-  void commitTransaction(int thread);
+  void beginTransaction();
+  void restartTransaction();
+  void commitTransaction();
   bool isReady() const { return m_initStatus == LogInitStatus::Ready; };
   bool isAccessToLog(Addr addr) const;
-  bool isLogReadyToUnroll() const;
   void setupLogTranslation(Addr vaddr, Addr paddr);
   void shutdownLog();
   void setLogBaseVirtualAddress(Addr addr);
   Addr getLogBaseVirtualAddress() const {
       assert(m_initStatus >= LogInitStatus::BaseAddress);
       return m_logBaseVAddr; };
-  Addr addLogEntry(Addr addr);
-  void commitLogEntry(int index, Addr storeAddr);
+  int addLogEntry();
   int getLogNumEntries() const {
-      // Number of entries that were actually written to the log
-      // ("committed")
       assert(m_initStatus == LogInitStatus::Ready);
-      return m_logNumCommittedEntries;
+      return m_logNumEntries;
   };
   bool isEndLogUnrollSignal(PacketPtr pkt);
 
@@ -74,9 +70,6 @@ private:
   Addr m_logBaseVAddr;
   std::map<Addr, Addr> m_logTLB;
   int m_logNumEntries = 0;
-  int m_logNumCommittedEntries = 0;
-  std::vector<bool> m_committedIndices;
-  std::vector<Addr> m_addedLogDataPAddr;
 };
 
 } // namespace ruby

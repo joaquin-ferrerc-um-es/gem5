@@ -1,16 +1,16 @@
 
 declare_task "update-benchmarks-image" "Build benchmarks and update (or create) the benchmarks disk image. Options:
-        --architecure X: Build only architecture X
+        --architecture X: Build only architecture X
 "
 
 # TODO: Add options to choose what benchmarks should be built.
 
 task_update-benchmarks-image() {
     local -a archs=("${ENABLED_ARCHITECTURES[@]}")
-    options="$(simpler_getopt "architecure:" "$@")"
+    options="$(simpler_getopt "architecture:" "$@")"
     eval set -- "$options"
     while [[ $# -gt 0 ]] ; do
-        if [[ "--architecure" == "$1" ]] ; then
+        if [[ "--architecture" == "$1" ]] ; then
             shift
             archs=("$1")
         elif [[ "--" == "$1" ]] ; then

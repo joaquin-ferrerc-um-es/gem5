@@ -1,6 +1,6 @@
 
 declare_task "create-boot-checkpoints" "Build all configured boot checkpoints. Options:
-        --architecure X: Build only architecture X
+        --architecture X: Build only architecture X
         --num_cpus X: Build only for X cpus
         --overwrite: Overwrite existing checkpoints.
         --skip-existing: Generate only missing checkpoints.
@@ -13,10 +13,10 @@ task_create-boot-checkpoints() {
     local overwrite=no
     local skip_existing=no
     local disable_kvm=no
-    options="$(simpler_getopt "num_cpus:,architecure:,overwrite,skip-existing,disable-kvm" "$@")"
+    options="$(simpler_getopt "num_cpus:,architecture:,overwrite,skip-existing,disable-kvm" "$@")"
     eval set -- "$options"
     while [[ $# -gt 0 ]] ; do
-        if [[ "--architecure" == "$1" ]] ; then
+        if [[ "--architecture" == "$1" ]] ; then
             shift
             archs=("$1")
         elif [[ "--num_cpus" == "$1" ]] ; then

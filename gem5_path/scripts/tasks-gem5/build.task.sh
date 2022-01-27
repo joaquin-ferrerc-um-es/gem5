@@ -1,6 +1,6 @@
 
 declare_task "build" "Build all configured GEM5 binaries. Options:
-        --architecure X: Build only architecture X
+        --architecture X: Build only architecture X
         --protocol X: Build only protocol X
         --build_type X: Build only binary of type X
 "
@@ -9,10 +9,10 @@ task_build() {
     local -a archs=("${ENABLED_ARCHITECTURES[@]}")
     local -a protos=("${ENABLED_PROTOCOLS[@]}")
     local -a build_types=("${ENABLED_BUILD_TYPES[@]}")
-    options="$(simpler_getopt "build_type:,protocol:,architecure:" "$@")"
+    options="$(simpler_getopt "build_type:,protocol:,architecture:" "$@")"
     eval set -- "$options"
     while [[ $# -gt 0 ]] ; do
-        if [[ "--architecure" == "$1" ]] ; then
+        if [[ "--architecture" == "$1" ]] ; then
             shift
             archs=("$1")
         elif [[ "--protocol" == "$1" ]] ; then

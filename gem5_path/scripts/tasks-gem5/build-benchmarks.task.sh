@@ -1,6 +1,6 @@
 
 declare_task "build-benchmarks" "Build benchmarks in the host system. Options:
-        --architecure X: Build only architecture X
+        --architecture X: Build only architecture X
         BUG: Due to the way that becnhmarks are built, only one architecture can be built each time.
 "
 
@@ -18,19 +18,15 @@ BENCHMARKS=(
 
 # TODO: Add options to choose what sufixxes should be built.
 SUFIXES=(
-    "seq"
-    "htm.empty"
     "htm.fallbacklock"
-    "htm.fallbacklock2phase"
-    "htm.sgl"
 )
 
 task_build-benchmarks() {
     local -a archs=("${ENABLED_ARCHITECTURES[@]}")
-    options="$(simpler_getopt "architecure:" "$@")"
+    options="$(simpler_getopt "architecture:" "$@")"
     eval set -- "$options"
     while [[ $# -gt 0 ]] ; do
-        if [[ "--architecure" == "$1" ]] ; then
+        if [[ "--architecture" == "$1" ]] ; then
             shift
             archs=("$1")
         elif [[ "--" == "$1" ]] ; then

@@ -55,6 +55,6 @@ update_benchmarks_image() {
            --src "$GEM5_ROOT/gem5_path/benchmarks/benchmarks-htm/stamp/" --rsync-to "/mnt/sdb1/benchmarks-htm/stamp/" \
            --command "/mnt/sdb1/benchmarks-htm/stamp/prepare-inputs" \
            --src "$GEM5_ROOT/gem5_path/benchmarks/benchmarks-htm/libs/" --rsync-to "/mnt/sdb1/benchmarks-htm/libs/" \
-           --src "$GEM5_ROOT/util/m5/build/x86/out/m5" --copy-to "/mnt/sdb1/benchmarks-htm/" # TODO: the m5 binary should be arch dependent
+           --src "$GEM5_ROOT/util/m5/build/$(get_m5_arch_name "$arch")/out/m5" --copy-to "/mnt/sdb1/benchmarks-htm/" 
 }
 

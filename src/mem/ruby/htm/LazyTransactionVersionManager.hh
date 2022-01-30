@@ -47,6 +47,12 @@ public:
   void notifyCommittedTransaction();
   void mergeDataFromWriteBuffer(Addr address, DataBlock& data);
   void cancelWriteBufferFlush();
+  // Profiling
+  void profileRemotelyWrittenByte(Addr addr);
+  int getNumReadBytesWrittenRemotely() const {
+      return m_numReadBytesWrittenRemotely; };
+  int getNumWrittenBytesWrittenRemotely() const {
+      return m_numWrittenBytesWrittenRemotely; };
 
 private:
   enum WriteBufferBlockStatus {
@@ -59,6 +65,11 @@ private:
   bool existInWriteBuffer(Addr addr);
   uint8_t getDataFromWriteBuffer(Addr addr);
 
+  // Byte-level conflict detection (profiling)
+  map<Addr, bool> m_readBytes;
+  map<Addr, bool> m_writtenBytes;
+  int m_numReadBytesWrittenRemotely;
+  int m_numWrittenBytesWrittenRemotely;
   map<Addr, uint8_t> m_writeBuffer;
   map<Addr, WriteBufferBlockStatus> m_writeBufferBlocks;
   bool m_committed;

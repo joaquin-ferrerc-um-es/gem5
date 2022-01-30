@@ -71,6 +71,11 @@ CLASS_NS restartTransaction(){
     m_aborting = false;
     assert(m_issuedWriteBufferRequest == 0);
     discardWriteBuffer();
+    // Profiling
+    m_readBytes.clear();
+    m_writtenBytes.clear();
+    m_numReadBytesWrittenRemotely = 0;
+    m_numWrittenBytesWrittenRemotely = 0;
 }
 
 void
@@ -86,6 +91,10 @@ CLASS_NS notifyCommittedTransaction(){
     assert(m_issuedWriteBufferRequest == 0);
     assert(m_writeBufferBlocks.empty());
     assert(m_writeBuffer.empty());
+    m_readBytes.clear();
+    m_writtenBytes.clear();
+    m_numReadBytesWrittenRemotely = 0;
+    m_numWrittenBytesWrittenRemotely = 0;
 }
 
 void
@@ -95,6 +104,25 @@ CLASS_NS commitTransaction()
     assert(transactionLevel == 1);
     _unused(transactionLevel);
     assert(!m_committed);
+    if (!m_committing) {
+        // Only profile once
+        // Byte-level conflict detection for lazy-lazy HTMs
+        std::vector<TransactionInterfaceManager*> mgrs =
+            m_xact_mgr->getRemoteTransactionManagers();
+        for (int i=0; i < mgrs.size(); i++) {
+            TransactionInterfaceManager* mgr=mgrs[i];
+            if (m_xact_mgr == mgr) continue;
+            // Mark conflicts at byte-level for all remote transaction
+            for (map<Addr, uint8_t>::iterator it =
+                     m_writeBuffer.begin();
+                 it != m_writeBuffer.end();
+                 ++it) {
+                Addr addr =(*it).first;
+                mgr->getXactLazyVersionManager()->
+                    profileRemotelyWrittenByte(addr);
+            }
+        }
+    }
     m_committing = true;
     m_flushPending = false;
 
@@ -186,6 +214,9 @@ CLASS_NS forwardData(Addr addr, int size,
             data[i] = *(cacheBlock.getData(getOffset(addr + i), 1));
         }
         buffer[i] = data[i];
+        // Profiling
+        m_readBytes[addr + i] = false; // Will be set to true if
+                                       // conflict detected
     }
     if (forwarding) {
         uint64_t value = 0;
@@ -397,6 +428,25 @@ CLASS_NS discardWriteBuffer(){
     m_writeBuffer.clear();
     m_writeBufferBlocks.clear();
     DPRINTF(RubyHTM, "Discarding contents of write buffer upon abort\n");
+}
+
+void
+CLASS_NS profileRemotelyWrittenByte(Addr addr)
+{
+    if (m_readBytes.find(addr) !=
+        m_readBytes.end()) {
+        if (!m_readBytes[addr]) { // Conflict not yet signaled
+            ++m_numReadBytesWrittenRemotely;
+            m_readBytes[addr] = true;
+        }
+    }
+    if (m_writeBuffer.find(addr) !=
+        m_writeBuffer.end()) {
+        if (!m_writtenBytes[addr]) {
+            ++m_numWrittenBytesWrittenRemotely;
+            m_writtenBytes[addr] = true;
+        }
+    }
 }
 
 } // namespace ruby

@@ -799,6 +799,17 @@ profileHtmFailureFaultCause(HtmFailureFaultCause cause)
                 preciseFaultCause = HtmFailureFaultCause::MEMORY_STALEDATA;
             } else {
                 preciseFaultCause = HtmFailureFaultCause::MEMORY;
+                if (!XACT_EAGER_CD &&
+                    (m_htm->params().lazy_arbitration ==
+                     HtmPolicyStrings::token)) {
+                    if ((getXactLazyVersionManager()->
+                         getNumReadBytesWrittenRemotely() == 0) &&
+                        (getXactLazyVersionManager()->
+                         getNumWrittenBytesWrittenRemotely() == 0)) {
+                        preciseFaultCause =
+                            HtmFailureFaultCause::MEMORY_FALSESHARING;
+                    }
+                }
             }
         } else { // CPU has aborted for another reason before
                  // observing the conflict

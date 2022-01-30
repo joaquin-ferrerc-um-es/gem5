@@ -80,6 +80,7 @@ getIsaVisibleHtmFailureCause(HtmFailureFaultCause cause)
     case HtmFailureFaultCause::EXPLICIT_FALLBACKLOCK:
     case HtmFailureFaultCause::MEMORY_FALLBACKLOCK:
     case HtmFailureFaultCause::MEMORY_STALEDATA:
+    case HtmFailureFaultCause::MEMORY_FALSESHARING:
         isaVisibleCause = HtmFailureFaultCause::MEMORY;
         break;
     case HtmFailureFaultCause::SIZE_RSET:
@@ -121,6 +122,8 @@ htmFailureToStr(HtmFailureFaultCause cause)
           "memory_conflict_fallbacklock" },
         { HtmFailureFaultCause::MEMORY_STALEDATA,
           "memory_conflict_staledata" },
+        { HtmFailureFaultCause::MEMORY_FALSESHARING,
+          "memory_conflict_falsesharing" },
         { HtmFailureFaultCause::OTHER, "other" }
     };
 

@@ -9,14 +9,8 @@ class HTM(ClockedObject):
     cxx_class = 'gem5::HTM'
 
     # Hardware transactional memory model from University of Murcia.
-    # Replaces memory-side implementation of gem5-20.1 with an
-    # alternative, more flexible, less protocol-dependent
-    # implementation. Inspired by HTM support in GEMS, compatible with
-    # gem5-20 CPU API, replaces each HTMSequencer with a
-    # TransactionalSecuencer object, whose associated HTM manager
-    # (TransactionalInterfaceManager) is passed as argument to the
-    # L0/L1 cache controller. The xact mgr acts as interface to the
-    # different classes that provide the various mechanisms for HTM.
+    # Replaces memory-side implementation of gem5-21 with an
+    # alternative, highly flexible implementation.
 
     # Disable HTM support by forcing abort upon htm start instruction,
     # useful to run "single-global-lock" simulations using unmodified
@@ -35,14 +29,10 @@ class HTM(ClockedObject):
     conflict_resolution = Param.String("requester_wins",
         "Set conflict resolution policy")
     # Commit arbitration scheme used by systems with lazy conflict
-    # detection.  The 'lazy_validated_conf_res' parameter
-    # determines how conflicts are resolved by a committing (already
-    # validated) transaction)
+    # detection.
     lazy_arbitration = Param.String("magic",
         "Lazy validation policy")
     # Conflict resolution for validated transactions in lazy_cd
-    lazy_validated_conf_res = Param.String("committer_wins",
-        "Conflict resolution for lazy validated transactions")
     lazy_commit_width = Param.Unsigned(4, "Maximum number of"
         " outstanding write-set block requests during lazy commit")
     # Whether the L0 cache cache allows evictions of cache blocks in
@@ -78,15 +68,6 @@ class HTM(ClockedObject):
     trans_aware_l0_replacements = Param.Bool(False,
         "Replacement policy always chooses non-transactional blocks"
         " over transactional blocks as candidates (L0 cache)")
-    trans_aware_l1_replacements = Param.Bool(False,
-        "Replacement policy always chooses non-transactional blocks"
-        " over transactional blocks as candidates (L1 cache)")
-    # To prevent conflicts to trigger an abort, transactional load
-    # can be delayed in the cpu until the trasaction is finished
-    # or there is no room in the lsq or rob.
-    allow_load_delaying = Param.Bool(False,
-        "Allow loads to stay more time in the rob without commiting"
-        " to prevent certaing aborts")
 
     # L0 downgrades from E/M to S when L1 receives remote
     # transactional GETS request (otherwise: invalidate L0 copy)

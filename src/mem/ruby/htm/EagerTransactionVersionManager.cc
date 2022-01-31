@@ -39,29 +39,23 @@ CLASS_NS ~EagerTransactionVersionManager() {
 }
 
 void
-CLASS_NS beginTransaction(int thread)
+CLASS_NS beginTransaction()
 {
     assert(m_logNumEntries == 0);
     assert(m_initStatus == LogInitStatus::Ready);
     assert(!m_logTLB.empty());
-    assert(m_logNumCommittedEntries == 0);
-    assert(m_addedLogDataPAddr.empty());
 }
 
 void
-CLASS_NS restartTransaction(int thread){
+CLASS_NS restartTransaction(){
     m_logNumEntries = 0;
-    m_logNumCommittedEntries = 0;
-    m_addedLogDataPAddr.clear();
 }
 
 
 void
-CLASS_NS commitTransaction(int thread)
+CLASS_NS commitTransaction()
 {
     m_logNumEntries = 0;
-    m_logNumCommittedEntries = 0;
-    m_addedLogDataPAddr.clear();
 }
 
 bool
@@ -84,7 +78,11 @@ CLASS_NS setupLogTranslation(Addr vaddr, Addr paddr)
         assert(m_initStatus == LogInitStatus::V2PTranslations);
     }
     m_initStatus = LogInitStatus::V2PTranslations;
-    assert(m_logTLB.find(vaddr) == m_logTLB.end());
+    if (m_logTLB.find(vaddr) != m_logTLB.end()) {
+        // if store during walk_log (simSetLogBase) retried, ensure
+        // we find the same translation
+        assert(m_logTLB[vaddr] == paddr);
+    }
     m_logTLB[vaddr] = paddr;
     DPRINTF(RubyHTMlog,
             "Setting up log TLB vaddr %#x paddr %#x \n",
@@ -133,32 +131,15 @@ CLASS_NS translateLogAddress(Addr vaddr) const {
     return ppageAddr | pageOffset;
 }
 
-Addr
-CLASS_NS addLogEntry(Addr storeAddr)
+int
+CLASS_NS addLogEntry()
 {
-    // storeAddr: target block vaddr of transactional store
-    // TODO: Keep track of logged virtual addresses??
     // Should never be called unless we have set the log base
     assert(m_initStatus = LogInitStatus::Ready);
-
-    // Returns vaddr of log entry to be used for logging this store,
-    // according to current number of entries, and increments number
-    // of entries
-    assert(m_addedLogDataPAddr.size() == m_logNumEntries);
-    Addr paddr = translateLogAddress(computeLogDataPointer(m_logNumEntries));
-    m_addedLogDataPAddr.push_back(paddr);
+    // Return next available index in the log
     return m_logNumEntries++;
 }
 
-
-void
-CLASS_NS commitLogEntry(Addr addr)
-{
-    // Sanity checks: So far, at most one outstanding logged store in
-    // flight supported. TODO: Non-TSO support
-    assert(m_addedLogDataPAddr.back() == addr);
-    ++m_logNumCommittedEntries;
-}
 
 bool
 CLASS_NS isEndLogUnrollSignal(PacketPtr pkt)
@@ -177,6 +158,14 @@ CLASS_NS isEndLogUnrollSignal(PacketPtr pkt)
         }
     }
     return false;
+}
+
+void
+CLASS_NS shutdownLog()
+{
+    assert(m_initStatus = LogInitStatus::Ready);
+    m_initStatus = LogInitStatus::Invalid;
+    m_logTLB.clear();
 }
 
 } // namespace ruby

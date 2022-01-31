@@ -894,6 +894,10 @@ let {{
             uint8_t shiftAmt =
                 (op2 & ((dataSize == 8) ? mask(6) : mask(5)));
             uint8_t realShiftAmt = shiftAmt % (dataSize * 8 + 1);
+            if (realShiftAmt > dataSize * 8 - 1) {
+                fault = std::make_shared<GenericISA::M5PanicFault>(
+                        "rcr: wrong args when calling bitfield::bits\\n");
+            } else
             if (realShiftAmt) {
                 CCFlagBits flags = cfofBits;
                 uint64_t top = flags.cf << (dataSize * 8 - realShiftAmt);

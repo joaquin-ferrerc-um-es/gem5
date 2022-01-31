@@ -15,22 +15,8 @@ $(info Building libaborthandlers: $$ARCH is [${ARCH}] and $$HANDLER is [${HANDLE
 ifeq ($(ARCH),aarch64)
 M5_ARCH := arm64
 CFLAGS += -DAARCH64
-#CFLAGS += -march=armv8-a+tme # TODO: should be set for all files, currently only used by htm.c because old versions of GCC do not support it
+CFLAGS += -march=armv8-a+tme # TODO: check if this is really necessary with newer versions of GCC. TME may be enabled by default
 GCC_PREFIX := ${AARCH64_CROSS_GCC_PREFIX}
-
-# Hack to support building htm.c with a different version of
-# GCC. Currently, we have tested that everything works with GCC 9.2.0,
-# except htm.c which needs GCC 10.
-# TODO: Remove this once we check that there is no problem building everything with a recent GCC.
-$(info BENCHMARKS_AARCH64_TME_CROSS_HACK_GCC is $(BENCHMARKS_AARCH64_TME_CROSS_HACK_GCC))
-
-ifndef BENCHMARKS_AARCH64_TME_CROSS_HACK_GCC
-$(info All files will be compiled with $(GCC_PREFIX)gcc)
-CFLAGS += -march=armv8-a+tme # TODO: check if this is really necessary with newer versions of GCC
-else
-$(info htm.c will be compiled with $(BENCHMARKS_AARCH64_TME_CROSS_HACK_GCC), the rest with $(GCC_PREFIX)gcc without TME support)
-endif
-
 else ifeq ($(ARCH),x86_64)
 M5_ARCH := x86
 CFLAGS += -DX86
@@ -43,6 +29,8 @@ endif
 CC := $(GCC_PREFIX)gcc
 AR := $(GCC_PREFIX)ar
 LD := $(GCC_PREFIX)gcc
+
+$(info CC is $(shell which $(CC)))
 
 # Set HANDLER dependent variables
 ifeq ($(HANDLER),empty)
@@ -87,17 +75,6 @@ build/$(ARCH)/libaborthandlers-$(HANDLER).a: $(libaborthandlers-$(HANDLER)_OBJS)
 
 build/$(ARCH)/%-$(HANDLER).o: %.c *.h | build/$(ARCH)/
 	$(CC) $(CFLAGS) -c $< -o $@
-
-ifdef BENCHMARKS_AARCH64_TME_CROSS_HACK_GCC
-ifeq ($(ARCH),aarch64)
-# Hack to support building htm.c with a different version of
-# GCC. Currently, we have tested that everything works with GCC 9.2.0,
-# except htm.c which needs GCC 10.
-# TODO: Remove this once we check that there is no problem building everything with a recent GCC.
-build/$(ARCH)/htm-$(HANDLER).o: htm.c *.h | build/$(ARCH)/
-	$(BENCHMARKS_AARCH64_TME_CROSS_HACK_GCC) $(CFLAGS) -march=armv8-a+tme -c $< -o $@
-endif
-endif
 
 build/$(ARCH)/:
 	mkdir -p $@

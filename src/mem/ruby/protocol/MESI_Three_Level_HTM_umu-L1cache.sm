@@ -177,6 +177,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     DataBlock DataBlk,                desc="Buffer for the data block";
     bool Dirty, default="false",   desc="data is dirty";
     int pendingAcks, default="0", desc="number of pending acks";
+    bool HtmFromTransaction, default="false",   desc="Request from transaction";
     bool Nack, default="false",   desc="access was nacked";
     // Conservative deadlock avoidance based on timestamps
     Cycles    eldestNackerTimestamp, desc="";
@@ -611,6 +612,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
         out_msg.Prefetch := in_msg.Prefetch;
         out_msg.Transactional := in_msg.Transactional;
         out_msg.Timestamp := in_msg.Timestamp;
+        assert(is_valid(tbe));
+        tbe.HtmFromTransaction := in_msg.Transactional;
       }
     }
   }
@@ -631,6 +634,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
         out_msg.Prefetch := in_msg.Prefetch;
         out_msg.Transactional := in_msg.Transactional;
         out_msg.Timestamp := in_msg.Timestamp;
+        assert(is_valid(tbe));
+        tbe.HtmFromTransaction := in_msg.Transactional;
       }
     }
   }
@@ -650,6 +655,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
         out_msg.Prefetch := in_msg.Prefetch;
         out_msg.Transactional := in_msg.Transactional;
         out_msg.Timestamp := in_msg.Timestamp;
+        assert(is_valid(tbe));
+        tbe.HtmFromTransaction := in_msg.Transactional;
       }
     }
   }
@@ -1200,6 +1207,20 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     }
   }
 
+  action(nrn_notifyReceiveNack, "nrn", desc="") {
+      // Handle livelocks resulting from Data_Stale
+      peek(requestNetwork_in, RequestMsg) {
+          if (tbe.HtmFromTransaction) {
+              if (xact_mgr.config_reloadIfStale()) {
+                  assert(xact_mgr.config_preciseReadSetTracking());
+                  DPRINTF(RubyHTM, "Data_Stale for addr %#x treated as nack from proc %d with TS %ld\n", address, machineIDToNodeID(in_msg.Requestor), in_msg.Timestamp);
+                  xact_mgr.notifyReceiveNack(address,
+                                             in_msg.Timestamp,
+                                             in_msg.Requestor);
+              }
+          }
+      }
+  }
   //*****************************************************
   // TRANSITIONS
   //*****************************************************
@@ -1408,6 +1429,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   // Transitions from IS
   transition({IS,IS_I}, Inv, IS_I) {
     fi_sendInvAck;
+    nrn_notifyReceiveNack; // Treat as nack in case reload_if_stale enabled, prevent livelock
     l_popL2RequestQueue;
   }
 

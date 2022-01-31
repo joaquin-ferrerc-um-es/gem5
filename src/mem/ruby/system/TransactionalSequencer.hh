@@ -1,5 +1,5 @@
-#ifndef __MEM_RUBY_SYSTEM_TRANSACTIIONALSEQUENCER_HH__
-#define __MEM_RUBY_SYSTEM_TRANSACTIIONALSEQUENCER_HH__
+#ifndef __MEM_RUBY_SYSTEM_TRANSACTIONALSEQUENCER_HH__
+#define __MEM_RUBY_SYSTEM_TRANSACTIONALSEQUENCER_HH__
 
 #include <cassert>
 #include <iostream>
@@ -9,7 +9,6 @@
 #include "mem/ruby/system/RubyPort.hh"
 #include "mem/ruby/system/Sequencer.hh"
 #include "params/RubyTransactionalSequencer.hh"
-
 
 namespace gem5
 {
@@ -24,25 +23,28 @@ struct LogRequestInfo
 {
     PacketPtr logAddrPkt = NULL;
     PacketPtr logDataPkt = NULL;
+    Addr logAddr = 0;
+    Addr logData = 0;
     RequestStatus logAddrPktStatus = RequestStatus_NULL;
     RequestStatus logDataPktStatus = RequestStatus_NULL;
     //WriteCallbackArgs callbackArgs;
     /** Number of outstanding associated access to complete (LogTM) */
     int outstanding = 0;
     int completed = 0;
-    uint64_t htmTransactionUid = 0;
-    bool suppressed = false;
+    int logIndex = -1;
     Addr vaddr = 0; // Program store
     Addr paddr = 0; // Program store
     LogRequestInfo(PacketPtr _logAddrPkt,
                    PacketPtr _logDataPkt,
                    uint64_t _htmUid,
+                   int _logIndex,
                    Addr va, Addr pa)
         : logAddrPkt(_logAddrPkt),
           logDataPkt(_logDataPkt),
-          htmTransactionUid(_htmUid),
+          logAddr(_logAddrPkt->getAddr()),
+          logData(_logDataPkt->getAddr()),
+          logIndex(_logIndex),
           vaddr(va), paddr(pa)
-          //callbackArgs()
     {}
 };
 
@@ -59,6 +61,7 @@ class TransactionalSequencer : public Sequencer
     RequestStatus insertRequest(PacketPtr pkt,
                                 RubyRequestType primary_type,
                                 RubyRequestType secondary_type) override;
+    bool canMakeRequest(PacketPtr pkt) override;
     RequestStatus makeRequest(PacketPtr pkt);
     void setTransactionManager(TransactionInterfaceManager* xact_mgr);
     void setController(AbstractController* _cntrl);
@@ -66,6 +69,8 @@ class TransactionalSequencer : public Sequencer
     void failedCallback(Addr address, DataBlock& data,
                         Cycles remote_timestamp,
                         MachineID nacker, bool write);
+    void handleFailedCallback(SequencerRequest* srequest);
+
     void writeCallback(Addr address,
                        DataBlock& data,
                        const bool externalHit = false,
@@ -93,6 +98,7 @@ class TransactionalSequencer : public Sequencer
 
     bool isWriteBufferHitEventScheduled() const
     { return writeBufferHitEvent.scheduled(); }
+
     bool notifyXactionEvent(PacketPtr pkt);
     void handleTransactionalRead(SequencerRequest *request,
                                    DataBlock& data, bool externalHit,
@@ -100,32 +106,40 @@ class TransactionalSequencer : public Sequencer
     void handleTransactionalWrite(SequencerRequest *request,
                                   DataBlock& data, bool externalHit,
                                   const MachineType respondingMach);
-    LogRequestInfo buildLogPackets(PacketPtr mainPkt);
-    void makeLogRequests(LogRequestInfo &logreqinfo);
+    LogRequestInfo buildLogPackets(PacketPtr mainPkt, DataBlock& data);
+    bool makeLogRequests(LogRequestInfo &logreqinfo);
     void handleStoresToLog(Addr address, PacketPtr pkt,
                         DataBlock& data);
-    void cancelLogRequests();
+    void failedCallbackCleanup(PacketPtr pkt);
     void handleLoggedStore(Addr address,
                            PacketPtr pkt,
                            DataBlock& data);
-    HTM * m_htm;
-    TransactionInterfaceManager* m_xact_mgr;
+    bool interceptLogAccess(PacketPtr pkt);
+    int numOutstandingWrites(Addr address);
+    void suppressOutstandingRequests();
+
+    HTM * m_htm = NULL;
+    TransactionInterfaceManager* m_xact_mgr = NULL;
     // LL (lazy CD) support
 
     // WriteBufferHitEvent models access latency of the transactional
     // write buffer
     void writeBufferEvent(PacketPtr _pkt);
-    bool m_commitPending;
-    bool m_failedCallback;
-    bool m_stalled;
-    AnnotatedRegion m_lastStateBeforeStall;
-    uint64_t m_lastAbortHtmUid;
+    void lazyCommitEvent(PacketPtr _pkt);
+    bool m_commitPending = false;
+    PacketPtr m_commitPendingPkt = NULL;
+    bool m_failedCallback = false;
+    PacketPtr m_failedStorePkt = NULL;
+    bool m_stalled = false;
+    AnnotatedRegion m_lastStateBeforeStall = AnnotatedRegion_INVALID;
+
+    uint64_t m_lastAbortHtmUid = 0;
 
     // LogTM (eager VM) RequestTable contains outstanding log requests
     // for pending program stores (per line address)
     std::unordered_map<Addr, std::list<LogRequestInfo>> m_logRequestTable;
-    // Address of logging requests generated (log addr/log data)
-    std::unordered_map<Addr, bool> m_logRequestAddr;
+    std::unordered_map<Addr, bool> m_pendingLogging;
+
 
     // Lazy-lazy HTM:
     class WriteBufferHitEvent : public Event
@@ -150,10 +164,32 @@ class TransactionalSequencer : public Sequencer
         }
     };
     WriteBufferHitEvent writeBufferHitEvent;
+    class LazyCommitCheckEvent : public Event
+    {
+      private:
+        TransactionalSequencer *m_sequencer_ptr;
+        PacketPtr m_pkt;
+
+      public:
+        LazyCommitCheckEvent(TransactionalSequencer *_seq) :
+            m_sequencer_ptr(_seq), m_pkt(NULL) {}
+        void setPacket(PacketPtr _pkt) {
+            assert(m_pkt ==  NULL);
+            m_pkt = _pkt;
+        }
+        void clearPacket() {
+            assert(m_pkt !=  NULL);
+            m_pkt = NULL;
+        }
+        void process() {
+            m_sequencer_ptr->lazyCommitEvent(m_pkt);
+        }
+    };
+    LazyCommitCheckEvent lazyCommitCheckEvent;
 };
 
 
 } // namespace ruby
 } // namespace gem5
 
-#endif // __MEM_RUBY_SYSTEM_TRANSACTIIONALSEQUENCER_HH__
+#endif // __MEM_RUBY_SYSTEM_TRANSACTIONALSEQUENCER_HH__

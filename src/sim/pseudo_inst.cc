@@ -220,8 +220,6 @@ m5sum(ThreadContext *tc, uint64_t a, uint64_t b, uint64_t c,
             DPRINTF(PseudoInst,
                     "pseudo_inst::m5sum found dummy m5sum loop values but"
                     "--checkpoint-m5sum-kvm-hack not specified\n");
-            warn("pseudo_inst::m5sum found dummy m5sum loop values but"
-                 "--checkpoint-m5sum-kvm-hack not specified. Continuing..\n");
         }
         break;
     //////////////// checkpoint_m5sum_kvm_hack end ////////////////

@@ -27,9 +27,9 @@ public:
                              int version);
   ~TransactionConflictManager();
 
-  void beginTransaction(int thread);
-  void commitTransaction(int thread);
-  void restartTransaction(int thread);
+  void beginTransaction();
+  void commitTransaction();
+  void restartTransaction();
 
   bool shouldNackLoad(Addr addr,
                       MachineID remote_id,
@@ -41,12 +41,12 @@ public:
                        bool remote_trans,
                        bool local_is_exclusive);
 
-  bool possibleCycle(int thread);
-  void setPossibleCycle(int thread);
-  void clearPossibleCycle(int thread);
-  bool nackReceived(int thread);
-  bool doomed(int thread);
-  void setDoomed(int thread);
+  bool possibleCycle();
+  void setPossibleCycle();
+  void clearPossibleCycle();
+  bool nackReceived();
+  bool doomed();
+  void setDoomed();
 
   void notifySendNack(Addr physicalAddress, Cycles remote_timestamp,
                       MachineID remote_id);
@@ -54,37 +54,36 @@ public:
                          MachineID remote_id);
   bool hasHighestPriority();
 
-  Cycles getTimestamp(int thread);
+  Cycles getTimestamp();
   Cycles getOldestTimestamp();
   bool isRequesterStallsPolicy();
-  Addr getNackedPossibleCycleAddr(int thread) {
+  Addr getNackedPossibleCycleAddr() {
       assert(isRequesterStallsPolicy());
-      assert(m_sentNack[thread]);
-      return m_sentNackAddr[thread]; };
+      assert(m_sentNack);
+      return m_sentNackAddr; };
 
-  int getNumRetries(int thread);
+  int getNumRetries();
 
   void setVersion(int version);
   int getVersion() const;
-  bool isRemoteOlder(int thread, int remote_thread, Cycles local_timestamp,
+  bool isRemoteOlder(Cycles local_timestamp,
                      Cycles remote_timestamp,
                      MachineID remote_id);
 
 private:
   int getProcID() const;
-  int getLogicalProcID(int thread) const;
 
   TransactionInterfaceManager *m_xact_mgr;
   int m_version;
 
-  Cycles    *m_timestamp;
-  bool   *m_possible_cycle;
-  bool   *m_lock_timestamp;
-  int    *m_numRetries;
-  bool   *m_receivedNack;
-  bool   *m_sentNack;
-  Addr   *m_sentNackAddr;
-  bool   *m_doomed;
+  Cycles m_timestamp;
+  bool   m_possible_cycle;
+  bool   m_lock_timestamp;
+  int    m_numRetries;
+  bool   m_receivedNack;
+  bool   m_sentNack;
+  Addr   m_sentNackAddr;
+  bool   m_doomed;
   std::string    m_policy;
   std::string    m_lazy_validated_policy;
   bool m_policy_is_req_stalls_cda;

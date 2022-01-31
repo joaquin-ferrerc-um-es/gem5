@@ -204,25 +204,20 @@ HTMChecker::Recorder::abort()
 }
 
 bool
-HTMChecker::isLock(Trace::InstRecord *traceData) const
+HTMChecker::isLock(Trace::InstRecord *traceData)
 {
     if (cpu->system->getArch() == Arch::X86ISA) {
+        bool isStore = traceData->getStaticInst()->isStore();
+        bool isPrefetch = traceData->getStaticInst()->isPrefetch();
+        if (!isStore || isPrefetch) return false;
         return ((traceData->getIntData() == 1) &&
                 (lastFallbackLockReadValue == 0));
     } else if (cpu->system->getArch() == Arch::ArmISA) {
-        bool isSC = traceData->getStaticInst()->isStoreConditional();
-        unsigned flags = traceData->getFlags();
-        bool llsc = flags & Request::LLSC;
         assert(traceData->getMemValid());
-        if (isSC) { // lock
-            assert(llsc);
-            assert(traceData->getIntData() == 0); // TODO: Check
-            assert(lastFallbackLockReadValue == 0);
-            // TODO: How to handle failed SC???
+        if (lockStatus == ArmISALockStatus::Acquired) {
+            lockStatus = ArmISALockStatus::Locked;
             return true;
         } else {
-            assert(!llsc);
-            assert(traceData->getIntData() == 0); // TODO: Check
             return false;
         }
     } else {
@@ -232,24 +227,27 @@ HTMChecker::isLock(Trace::InstRecord *traceData) const
 }
 
 bool
-HTMChecker::isUnlock(Trace::InstRecord *traceData) const
+HTMChecker::isUnlock(Trace::InstRecord *traceData)
 {
     if (cpu->system->getArch() == Arch::X86ISA) {
-        return traceData->getIntData() == 0;
-    } else if (cpu->system->getArch() == Arch::ArmISA) {
-        bool isSC = traceData->getStaticInst()->isStoreConditional();
-        unsigned flags = traceData->getFlags();
-        bool llsc = flags & Request::LLSC;
-        assert(traceData->getMemValid());
-        if (isSC) { // lock
-            assert(llsc);
-            assert(lastFallbackLockReadValue == 0);
-            return false;
-        } else { // unlock done via stlr (store release)
-            assert(!llsc);
-            assert(traceData->getIntData() == 0); // TODO: Check
-            assert(lastFallbackLockReadValue == 1);
+        bool isStore = traceData->getStaticInst()->isStore();
+        bool isPrefetch = traceData->getStaticInst()->isPrefetch();
+        if (!isStore || isPrefetch) return false;
+        if (traceData->getIntData() == 0) {
+            assert(hasFallbackLock &&
+                   (lastFallbackLockReadValue == 1));
             return true;
+        } else {
+            return false;
+        }
+    } else if (cpu->system->getArch() == Arch::ArmISA) {
+        if (traceData->getStaticInst()->getName() == "stlrh") {
+            // unlock done via stlrh (store release)
+            assert(lockStatus == ArmISALockStatus::Locked);
+            lockStatus = ArmISALockStatus::NotAcquired;
+            return true;
+        } else {
+            return false;
         }
     } else {
         panic("Lockstep: unlock interception not tested in this ISA!");
@@ -258,32 +256,54 @@ HTMChecker::isUnlock(Trace::InstRecord *traceData) const
 }
 
 bool
-HTMChecker::foundLocked(Trace::InstRecord *traceData) const
+HTMChecker::foundLocked(Trace::InstRecord *traceData)
 {
     if (cpu->system->getArch() == Arch::X86ISA) {
         return (traceData->getIntData() == 1);
     } else if (cpu->system->getArch() == Arch::ArmISA) {
-        bool isSC = traceData->getStaticInst()->isStoreConditional();
-        assert(isSC);
-        return false;
+        // Simply ignore value
+        return true;
     } else {
         panic("Lockstep: lock interception not tested in this ISA!");
         return false;
    }
 }
 
-uint64_t
-HTMChecker::getLockValue(Trace::InstRecord *traceData) const
+void
+HTMChecker::getLockValue(Trace::InstRecord *traceData,
+                         uint64_t &value)
 {
     if (cpu->system->getArch() == Arch::X86ISA) {
-        return traceData->getIntData();
+        bool isStore = traceData->getStaticInst()->isStore();
+        bool isPrefetch = traceData->getStaticInst()->isPrefetch();
+        if (!isStore && !isPrefetch) {
+            value = traceData->getIntData();
+        }
     } else if (cpu->system->getArch() == Arch::ArmISA) {
-        bool isSC = traceData->getStaticInst()->isStoreConditional();
-        assert(!isSC);
-        return traceData->getIntData();
+        /* This hack to detect lock/unlock without having to look into
+           the lock value is dependant on the particular lock
+           implementation. See the ticket lock implemenation in :
+           gem5_path/benchmarks/benchmarks-htm/libs/handlers/spinlock.h
+           It is assumed that the instruction at the "unlock" tag sits
+           48 bytes (12 instructions) after the first instruction that
+           access the lock:
+        */
+        if (traceData->getStaticInst()->getName() == "prfm") {
+            // STEP 1: seen first instruction, record PC and set
+            // acquiring to start monitoring PC to detect successful
+            // acquisition via getLockValue
+            assert(lockStatus == ArmISALockStatus::NotAcquired);
+            prfmPC = traceData->getPCState().instAddr();
+            lockStatus = ArmISALockStatus::Acquiring;
+        } else if ((lockStatus == ArmISALockStatus::Acquiring) &&
+            traceData->getPCState().instAddr() == prfmPC+48) {
+            // STEP 2: Signal lock acquisition via lockStatus, will be
+            // eventually observed by isLock()
+            lockStatus = ArmISALockStatus::Acquired;
+        }
+        value = traceData->getIntData();
     } else {
         panic("Lockstep: lock interception not tested in this ISA!");
-        return traceData->getIntData();
     }
 }
 
@@ -360,56 +380,61 @@ HTMChecker::retireInst(bool isMemRef, bool isTransactional,
                     DPRINTF(HTMChecker, "Skipping value recording while "
                             "handling interrupt/fault at PC %#x\n",
                             faultPC);
+#if 0 // Uncomment this code to debug segmentation faults: simulate
+      // commit on the recorder to allow the replayer to check the
+      // values up to the point where the segfault occurs
+                    recorder.commit(0);
+                    DPRINTF(HTMChecker, "Dumping recorder's committed values"
+                            " before segmentation fault at PC %#x\n",
+                            faultPC);
+#endif
                 }
             }
         }
     }
     assert(traceData->getStaticInst()->isMemRef() == isMemRef);
 
-    if (isMemRef && !traceData->getStaticInst()->isPrefetch()) {
-        bool isStore =traceData->getStaticInst()->isStore();
+    if (isMemRef) {
         if (traceData->getStaticInst()->isHtmCmd()) {
             // Skip htm commands
-        } else if (traceData->getAddr() == fallbackLockVirtAddr) {
-            if (!isStore) {
-                lastFallbackLockReadValue = getLockValue(traceData);
-            } else {
-                if (isUnlock(traceData)) { // Unlock
-                    assert(hasFallbackLock &&
-                           (lastFallbackLockReadValue == 1));
-                    DPRINTF(HTMChecker, "lock released\n");
-                    // Check replayed values at end of critical section
-                    if (cpu->system->getLockstepMode() == enums::replay) {
-                        // Notify replayer
-                        replayer.commit(0);
-                    } else if (cpu->system->
-                               getLockstepMode() == enums::record) {
-                        // Record values of non-spec transaction
-                        recorder.commit(0);
-                    }
-                    hasFallbackLock = false;
-                } else if (isLock(traceData)) { // Lock
-                    DPRINTF(HTMChecker, "lock acquired\n");
-                    assert(!hasFallbackLock);
-                    hasFallbackLock = true;
-                    if (cpu->system->getLockstepMode() == enums::replay) {
-                        replayer.begin(0);
-                    } else if (cpu->system->
-                               getLockstepMode() == enums::record) {
-                        // Record values of non-spec transaction
-                        recorder.begin(0);
-                    }
-                } else if (foundLocked(traceData)) {
-                    /* Stored value may be 1 if read data was 1
-                       (lock already acquired), so need to check last
-                       value seen for lock in order to detect if this is a
-                       successful "acquire" */
-                    DPRINTF(HTMChecker, "Store found busy lock\n");
-                } else {
-                    panic("Unexpected value for fallback lock");
+        } else if ((traceData->getAddr() == fallbackLockVirtAddr) ||
+                   (lockStatus == ArmISALockStatus::Acquiring)) {
+            getLockValue(traceData, lastFallbackLockReadValue);
+            if (isUnlock(traceData)) { // Unlock
+                DPRINTF(HTMChecker, "lock released\n");
+                // Check replayed values at end of critical section
+                if (cpu->system->getLockstepMode() == enums::replay) {
+                    // Notify replayer
+                    replayer.commit(0);
+                } else if (cpu->system->
+                           getLockstepMode() == enums::record) {
+                    // Record values of non-spec transaction
+                    recorder.commit(0);
                 }
-            } // isStore
+                assert(hasFallbackLock);
+                hasFallbackLock = false;
+            } else if (isLock(traceData)) { // Lock
+                DPRINTF(HTMChecker, "lock acquired\n");
+                assert(!hasFallbackLock);
+                hasFallbackLock = true;
+                if (cpu->system->getLockstepMode() == enums::replay) {
+                    replayer.begin(0);
+                } else if (cpu->system->
+                           getLockstepMode() == enums::record) {
+                    // Record values of non-spec transaction
+                    recorder.begin(0);
+                }
+            } else if (foundLocked(traceData)) {
+                /* Stored value may be 1 if read data was 1
+                   (lock already acquired), so need to check last
+                   value seen for lock in order to detect if this is a
+                   successful "acquire" */
+                DPRINTF(HTMChecker, "Store found busy lock\n");
+            } else {
+                panic("Unexpected value for fallback lock");
+            }
         } else { // Not an access to the lock
+            bool isStore = traceData->getStaticInst()->isStore();
             if (cpu->system->getLockstepMode() == enums::record) {
                 if (isTransactional || hasFallbackLock) {
                     recorder.recordValue(isStore, traceData);

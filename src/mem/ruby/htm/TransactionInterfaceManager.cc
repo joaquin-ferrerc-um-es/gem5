@@ -38,9 +38,6 @@ TransactionInterfaceManager::TransactionInterfaceManager(const Params &p)
     : ClockedObject(p),
       _params(p)
 {
-    int smt_threads = numberofSMTThreads();
-    assert(smt_threads == 1); // No SMT support
-
     m_sequencer = p.sequencer;
     m_ruby_system = p.ruby_system;
     m_htm = m_ruby_system->params().system->getHTM();
@@ -88,32 +85,15 @@ TransactionInterfaceManager::TransactionInterfaceManager(const Params &p)
         assert(m_htm->params().allow_write_set_l2_cache_evictions);
     }
 
-    m_transactionLevel   = new int[smt_threads];
-    m_escapeLevel        = new int[smt_threads];
-    m_abortFlag          = new bool[smt_threads];
-    m_unrollingLogFlag    = new bool[smt_threads];
-    m_atCommit           = new bool[smt_threads];
-    m_abortCause         = new HTMStats::AbortCause[smt_threads];
-    m_abortSourceNonTransactional = new bool[smt_threads];
-    m_lastFailureCause      = new HtmFailureFaultCause[smt_threads];
-    m_capacityAbortWriteSet = new bool[smt_threads];
-    m_abortAddress       = new Addr[smt_threads];
-    m_xid                = new int[smt_threads];
-    m_xidValid                = new int[smt_threads];
-
-    for (int i = 0; i < smt_threads; i++){
-        m_transactionLevel[i]   = 0;
-        m_escapeLevel[i]        = 0;
-        m_abortFlag[i]          = false;
-        m_unrollingLogFlag[i]   = false;
-        m_atCommit[i]           = false;
-        m_abortCause[i]         = HTMStats::AbortCause::Undefined;
-        m_abortSourceNonTransactional[i] = false;
-        m_lastFailureCause[i]   = HtmFailureFaultCause::INVALID;
-        m_capacityAbortWriteSet[i] = false;
-        m_xid[i]                = 0;
-        m_xidValid[i]                = false;
-    }
+    m_transactionLevel   = 0;
+    m_escapeLevel        = 0;
+    m_abortFlag          = false;
+    m_unrollingLogFlag   = false;
+    m_atCommit           = false;
+    m_abortCause         = HTMStats::AbortCause::Undefined;
+    m_abortSourceNonTransactional = false;
+    m_lastFailureCause   = HtmFailureFaultCause::INVALID;
+    m_capacityAbortWriteSet = false;
     // Only supported HTM protocols by TransactionInterfaceManager
     assert(m_ruby_system->getProtocol() == "MESI_Two_Level_HTM_umu" ||
            m_ruby_system->getProtocol() == "MESI_Three_Level_HTM_umu");
@@ -135,6 +115,14 @@ TransactionInterfaceManager::TransactionInterfaceManager(const Params &p)
             // Evicting write set blocks requires eager versioning
             assert(!XACT_LAZY_VM);
         }
+    }
+    if (m_htm->params().precise_read_set_tracking &&
+        getXactConflictManager()->isRequesterStallsPolicy()) {
+        // Reload if stale is not compatible with requester stalls as
+        // it can lead to livelocks due to an older reader repeatedly
+        // getting Data_Stale while preventing the progress of a
+        // younger writer
+        assert(!m_htm->params().reload_if_stale);
     }
 
     m_htmstart_tick = 0;
@@ -194,59 +182,52 @@ TransactionInterfaceManager::getSequencer() {
 }
 
 void
-TransactionInterfaceManager::beginTransaction(int thread, int xid,
-                                              PacketPtr pkt)
+TransactionInterfaceManager::beginTransaction(PacketPtr pkt)
 {
-    assert(thread >= 0);
-
     // No nesting in STAMP: assume close nesting (flattening) though
     // support not yet tested
-    assert(m_transactionLevel[thread] == 0);
-    assert(m_escapeLevel[thread] == 0);
+    assert(m_transactionLevel == 0);
+    assert(m_escapeLevel == 0);
 
-    m_transactionLevel[thread]++;
-    if (m_transactionLevel[thread] == 1){
-        m_xid[thread]  = xid;
-        assert(!m_unrollingLogFlag[thread]);
+    m_transactionLevel++;
+    if (m_transactionLevel == 1){
+        assert(!m_unrollingLogFlag);
 
-        m_xactIsolationManager->beginTransaction(thread);
-        m_xactConflictManager->beginTransaction(thread);
+        m_xactIsolationManager->beginTransaction();
+        m_xactConflictManager->beginTransaction();
         if (XACT_LAZY_VM) {
             if (XACT_EAGER_CD) {
                 // EL system use the L1D cache to store speculative updates
             }
             else {
-                m_xactLazyVersionManager->beginTransaction(thread, pkt);
+                m_xactLazyVersionManager->beginTransaction(pkt);
                 m_xactLazyCommitArbiter->beginTransaction();
             }
         }
         else { // LogTM
-            m_xactEagerVersionManager->beginTransaction(thread);
+            m_xactEagerVersionManager->beginTransaction();
         }
-        assert(!m_sequencer->isStalled());
         XACT_PROFILER->moveTo(getProcID(),
                               AnnotatedRegion_TRANSACTIONAL);
 
 
-        if (getXactConflictManager()->getNumRetries(thread) == 0) {
+        if (getXactConflictManager()->getNumRetries() == 0) {
 
         }
         m_htmstart_tick = pkt->req->time();
         m_htmstart_instruction = pkt->req->getInstCount();
-        if (isAborting(thread)) {
+        if (isAborting()) {
             DPRINTF(RubyHTM, "HTM: beginTransaction found abort flag set\n");
             XACT_PROFILER->moveTo(getProcID(), AnnotatedRegion_ABORTING);
         }
     }
 
-    DPRINTF(RubyHTM, "HTM: beginTransaction xid=%d "
-            "xact_level=%d \n", xid,
-            m_transactionLevel[thread]);
+    DPRINTF(RubyHTM, "HTM: beginTransaction "
+            "xact_level=%d \n",  m_transactionLevel);
 }
 
 bool
-TransactionInterfaceManager::canCommitTransaction(int thread, int xid,
-                                                  PacketPtr pkt) const
+TransactionInterfaceManager::canCommitTransaction(PacketPtr pkt) const
 {
     if (XACT_EAGER_CD) {
         return true;
@@ -256,7 +237,7 @@ TransactionInterfaceManager::canCommitTransaction(int thread, int xid,
         } else if (m_xactLazyVersionManager->committing()) {
             return false;
         } else if (m_xactLazyCommitArbiter->shouldValidateTransaction()) {
-            if (m_abortFlag[thread]) {
+            if (m_abortFlag) {
                 return true; // Signal abort during validation
             } else if (m_xactLazyCommitArbiter->validated()) {
                 return false;
@@ -270,11 +251,10 @@ TransactionInterfaceManager::canCommitTransaction(int thread, int xid,
 }
 
 void
-TransactionInterfaceManager::initiateCommitTransaction(int thread, int xid,
-                                                       PacketPtr pkt)
+TransactionInterfaceManager::initiateCommitTransaction(PacketPtr pkt)
 {
     assert(!XACT_EAGER_CD);
-    m_atCommit[thread] = true;
+    m_atCommit = true;
     if (!m_xactLazyVersionManager->committed()) {
         if (m_xactLazyCommitArbiter->shouldValidateTransaction() &&
             !m_xactLazyCommitArbiter->validated()) {
@@ -291,39 +271,32 @@ TransactionInterfaceManager::initiateCommitTransaction(int thread, int xid,
             }
             // Arbitration passed, or not required (best-effort):
             // initiate commit actions
-            m_xactLazyVersionManager->commitTransaction(thread);
+            m_xactLazyVersionManager->commitTransaction();
         }
     }
 }
-bool
-TransactionInterfaceManager::atCommit(int thread)
-{
-    return m_atCommit[thread];
-}
 
 void
-TransactionInterfaceManager::commitTransaction(int thread, int xid,
-                                               PacketPtr pkt)
+TransactionInterfaceManager::commitTransaction(PacketPtr pkt)
 {
-    if (m_transactionLevel[thread] < 1){
+    if (m_transactionLevel < 1){
         DPRINTF(RubyHTM, "HTM: ERROR NOT IN XACT! commitTransaction "
-                "xid=%d xact_level=%d\n", xid,
-                m_transactionLevel[thread]);
+                "xact_level=%d\n",
+                m_transactionLevel);
         panic("HTM: Error not inside a transaction, cannot commit!");
     }
 
-    assert(m_transactionLevel[thread] >= 1);
-    assert(!m_abortFlag[thread]);
+    assert(m_transactionLevel >= 1);
+    assert(!m_abortFlag);
 
-    if (m_transactionLevel[thread] == 1){ // Outermost commit
+    if (m_transactionLevel == 1){ // Outermost commit
 
         /* EL SYSTEM: L1D cache is used for lazy versioning of speculative data.
          * Conflicts were resolved eagerly as each individual store acquires
          * exclusive ownership before it completes, so commit can happen instantly.
          */
 
-        assert(!m_sequencer->isStalled());
-        if (!m_atCommit[thread]) {
+        if (!m_atCommit) {
             // Move to committing unless we have already done so
             XACT_PROFILER->moveTo(getProcID(),
                                   AnnotatedRegion_COMMITTING);
@@ -336,7 +309,7 @@ TransactionInterfaceManager::commitTransaction(int thread, int xid,
         if (!config_allowReadSetLowerLevelCacheEvictions()) {
             // Sanity checks: All Rset blocks must be cached at commit
             vector<Addr> *rset = getXactIsolationManager()->
-                getReadSet(thread);
+                getReadSet();
             for (int i=0; i < rset->size(); i++) {
                 // Must have read access permissions
                 Addr addr = rset->at(i);
@@ -354,29 +327,29 @@ TransactionInterfaceManager::commitTransaction(int thread, int xid,
             }
             else {
                 // Clear committing/committed flags, sanity checks
-                assert(m_atCommit[thread]);
-                m_xactLazyVersionManager->notifyCommittedTransaction(thread);
+                assert(m_atCommit);
+                m_xactLazyVersionManager->notifyCommittedTransaction();
                 m_xactLazyCommitArbiter->commitTransaction();
-                m_atCommit[thread] = false;; // Reset
+                m_atCommit = false;; // Reset
             }
         } else {
-            m_xactEagerVersionManager->commitTransaction(thread);
+            m_xactEagerVersionManager->commitTransaction();
             m_dataCache_ptr->checkHtmLogPendingClear();
         }
-        m_xactConflictManager->commitTransaction(thread);
-        m_xactIsolationManager->commitTransaction(thread);
+        m_xactConflictManager->commitTransaction();
+        m_xactIsolationManager->commitTransaction();
         if (config_enableIsolationChecker()) {
             m_ruby_system->getXactIsolationChecker()->
-                clearReadSet(m_version, m_transactionLevel[thread]);
+                clearReadSet(m_version);
             m_ruby_system->getXactIsolationChecker()->
-                clearWriteSet(m_version, m_transactionLevel[thread]);
+                clearWriteSet(m_version);
         }
         assert(m_writeSetDiscarded.empty());
-        assert(m_abortCause[thread] == HTMStats::AbortCause::Undefined);
-        m_lastFailureCause[thread] = HtmFailureFaultCause::INVALID;
+        assert(m_abortCause == HTMStats::AbortCause::Undefined);
+        m_lastFailureCause = HtmFailureFaultCause::INVALID;
 
-        DPRINTF(RubyHTM, "HTM: commitTransaction xid=%d "
-                "xact_level=%d\n", xid, m_transactionLevel[thread]);
+        DPRINTF(RubyHTM, "HTM: commitTransaction "
+                "xact_level=%d\n", m_transactionLevel);
         Tick transaction_ticks = pkt->req->time() - m_htmstart_tick;
         Cycles transaction_cycles = ticksToCycles(transaction_ticks);
         m_htm_transaction_cycles.sample(transaction_cycles);
@@ -388,18 +361,16 @@ TransactionInterfaceManager::commitTransaction(int thread, int xid,
         m_htmstart_instruction = 0;
     }
 
-    assert(m_xid[thread] == xid);
-    m_transactionLevel[thread]--;
+    m_transactionLevel--;
     XACT_PROFILER->moveTo(getProcID(),
                           AnnotatedRegion_DEFAULT);
 }
 
 
 void
-TransactionInterfaceManager::discardWriteSetFromL1DataCache(int thread) {
-    int xact_level=getTransactionLevel(thread);
+TransactionInterfaceManager::discardWriteSetFromL1DataCache() {
     vector<Addr> *wset = getXactIsolationManager()->
-        getWriteSet(thread, xact_level);
+        getWriteSet();
 
     for (int i=0; i < wset->size(); i++) {
         Addr addr=wset->at(i);
@@ -429,19 +400,19 @@ TransactionInterfaceManager::discardWriteSetFromL1DataCache(int thread) {
 }
 
 void
-TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
+TransactionInterfaceManager::abortTransaction(PacketPtr pkt){
     /* RT: Called when Ruby receives a XactionAbort packet from the CPU.
      * The abort may have been initiated by Ruby via the setAbortFlag method,
      * or it may have been directly triggered by the CPU via txAbort instruction.
      * NOTE: This method shall NOT be used to signal an abort: use setAbortFlag.
      */
-    assert(m_transactionLevel[thread] == 1);
-    assert(m_escapeLevel[thread] == 0);
+    assert(m_transactionLevel == 1);
+    assert(m_escapeLevel == 0);
 
     // Profile before discarding speculative state so that we can
     // perform some sanity checks on read-write sets, etc.
     HtmFailureFaultCause cause = pkt->req->getHtmAbortCause();
-    profileHtmFailureFaultCause(thread, cause);
+    profileHtmFailureFaultCause(cause);
 
     if (XACT_LAZY_VM) {
         if (config_enableValueChecker()) {
@@ -450,28 +421,23 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
                 restartTransaction(getProcID());
         }
         if (XACT_EAGER_CD) {
-            discardWriteSetFromL1DataCache(thread);
+            discardWriteSetFromL1DataCache();
         }
         else {
-            if (m_atCommit[thread]) {
+            if (m_atCommit) {
                 if (getXactLazyVersionManager()->committing()) {
-                    if (!m_abortFlag[thread]) { // If CPU-triggered abort
+                    if (!m_abortFlag) { // If CPU-triggered abort
                         // cancel pending writes, if any left
                         getXactLazyVersionManager()->
-                            cancelWriteBufferFlush(thread);
+                            cancelWriteBufferFlush();
                     }
                     if (m_xactLazyVersionManager->committed()) {
                         DPRINTF(RubyHTM, "Aborted after write buffer"
                                 " completely flushed \n");
-                        // Only possible if conflict resolution is
-                        // requester wins or interrupt
-                        assert(cause == HtmFailureFaultCause::INTERRUPT ||
-                               m_htm->params().conflict_resolution ==
-                               HtmPolicyStrings::requester_wins);
                     }
                     // Discard cache lines already written during
                     // write buffer flush
-                    discardWriteSetFromL1DataCache(thread);
+                    discardWriteSetFromL1DataCache();
                 } else {
                     if (m_xactLazyCommitArbiter->validated()) {
                         // Only admitted cause of a abort for already
@@ -483,26 +449,30 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
                         // c) Capacity abort
                         // TODO: will fail for L0/L1 capacity aborts
                         // (written blocks not part of the read set)
-                        if (m_abortCause[thread] ==
+                        if (m_abortCause ==
                             HTMStats::AbortCause::FallbackLock) {
-                            assert(m_abortSourceNonTransactional[thread]);
-                        } else if ((m_abortCause[thread] ==
+                            // Remote killer may be transactional if
+                            // reader mistaken for writer (downgrade
+                            // on L1 GETS disabled)
+                            assert(m_abortSourceNonTransactional ||
+                                   !RubySystem::enableL0DowngradeOnL1Gets());
+                        } else if ((m_abortCause ==
                                    HTMStats::AbortCause::Conflict) ||
-                                   (m_abortCause[thread] ==
+                                   (m_abortCause ==
                                     HTMStats::AbortCause::ConflictStale)) {
-                            assert(m_htm->params().lazy_validated_conf_res ==
+                            assert(m_htm->params().conflict_resolution ==
                                    HtmPolicyStrings::requester_wins);
-                            //assert(m_abortSourceNonTransactional[thread]);
-                        } else if (m_abortCause[thread] ==
+                            //assert(m_abortSourceNonTransactional);
+                        } else if (m_abortCause ==
                                    HTMStats::AbortCause::L2Capacity) {
-                        } else if (m_abortCause[thread] ==
+                        } else if (m_abortCause ==
                                    HTMStats::AbortCause::L1Capacity) {
-                        } else if (m_abortCause[thread] ==
+                        } else if (m_abortCause ==
                                    HTMStats::AbortCause::L0Capacity) {
-                            assert(m_capacityAbortWriteSet[thread] ||
+                            assert(m_capacityAbortWriteSet ||
                                    !m_htm->params().
                                    allow_read_set_l0_cache_evictions);
-                        } else if (m_abortCause[thread] ==
+                        } else if (m_abortCause ==
                                    HTMStats::AbortCause::Undefined) {
                             // CPU-triggered abort
                         } else {
@@ -513,13 +483,13 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
                         assert(m_xactLazyCommitArbiter->validating());
                     }
                 }
-                m_atCommit[thread] = false;
+                m_atCommit = false;
             }
-            m_xactLazyVersionManager->restartTransaction(thread);
+            m_xactLazyVersionManager->restartTransaction();
             m_xactLazyCommitArbiter->restartTransaction();
         }
         // Restart conflict management
-        getXactConflictManager()->restartTransaction(thread);
+        getXactConflictManager()->restartTransaction();
     }
     else {
         // LogTM: we need to pass log size to the abort handler (as
@@ -529,14 +499,12 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
 
     if (XACT_LAZY_VM) {
         // Release isolation (clear filters/signatures)
-        for (int i = m_transactionLevel[thread]; i > 0; i--) {
-            getXactIsolationManager()->releaseIsolation(thread, i);
-            if (config_enableIsolationChecker()) {
-                m_ruby_system->getXactIsolationChecker()->
-                    clearReadSet(m_version, i);
-                m_ruby_system->getXactIsolationChecker()->
-                    clearWriteSet(m_version, i);
-            }
+        getXactIsolationManager()->releaseIsolation();
+        if (config_enableIsolationChecker()) {
+            m_ruby_system->getXactIsolationChecker()->
+                clearReadSet(m_version);
+            m_ruby_system->getXactIsolationChecker()->
+                clearWriteSet(m_version);
         }
     }
     else { // LogTM
@@ -544,28 +512,26 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
             // No log unroll required: abort completes now
 
             // Release isolation (clear filters/signatures)
-            for (int i = m_transactionLevel[thread]; i > 0; i--) {
-                getXactIsolationManager()->releaseIsolation(thread, i);
-                if (config_enableIsolationChecker()) {
-                    m_ruby_system->getXactIsolationChecker()->
-                        clearReadSet(m_version, i);
-                    m_ruby_system->getXactIsolationChecker()->
-                        clearWriteSet(m_version, i);
-                }
-            }
-            // Reset log num entries
-            m_xactEagerVersionManager->restartTransaction(thread);
-            // Restart conflict management
-            getXactConflictManager()->restartTransaction(thread);
-        } else {
-            // Only release isolation over read set
-            getXactIsolationManager()->releaseReadIsolation(thread);
+            getXactIsolationManager()->releaseIsolation();
             if (config_enableIsolationChecker()) {
                 m_ruby_system->getXactIsolationChecker()->
-                    clearReadSet(m_version, m_transactionLevel[thread]);
+                    clearReadSet(m_version);
+                m_ruby_system->getXactIsolationChecker()->
+                    clearWriteSet(m_version);
+            }
+            // Reset log num entries
+            m_xactEagerVersionManager->restartTransaction();
+            // Restart conflict management
+            getXactConflictManager()->restartTransaction();
+        } else {
+            // Only release isolation over read set
+            getXactIsolationManager()->releaseReadIsolation();
+            if (config_enableIsolationChecker()) {
+                m_ruby_system->getXactIsolationChecker()->
+                    clearReadSet(m_version);
             }
             int wsetsize = getXactIsolationManager()->
-                getWriteSetSize(thread, m_transactionLevel[thread]);
+                getWriteSetSize();
             int logsize =m_xactEagerVersionManager->getLogNumEntries();
             if (wsetsize != logsize) {
                 // It is possible that a logged trans store does not
@@ -579,21 +545,21 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
             // Keep detecting conflicts on Wset despite xact_level being
             // 0. We could use escape actions, but then we would need to
             // leave xact level > 0 until we get the "endLogUnroll" signal
-            m_unrollingLogFlag[thread] = true;
+            m_unrollingLogFlag = true;
             // All log unroll accesses will be escaped (not marked as
             // transactional)
-            m_escapeLevel[thread] = 1;
+            m_escapeLevel = 1;
             // Leaves xact level to 1 until log unrolled in order to
             // detect conflicts on Wset
-            assert(m_transactionLevel[thread] == 1);
+            assert(m_transactionLevel == 1);
         }
     }
 
-    if (!XACT_EAGER_CD && m_atCommit[thread]) {
+    if (!XACT_EAGER_CD && m_atCommit) {
         // aborting lazy transaction that has reached commit
         if (m_xactLazyCommitArbiter->validated()) {
             assert(m_xactLazyCommitArbiter->shouldValidateTransaction());
-            assert(config_lazyValidatedConflictResPolicy() !=
+            assert(config_conflictResPolicy() !=
                    HtmPolicyStrings::committer_wins);
         } else if (m_xactLazyCommitArbiter->shouldValidateTransaction()) {
             // Abort before tx validated
@@ -603,25 +569,24 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
             panic("Best-effort lazy commit not tested!\n");
         }
     } else {
-        assert(!m_atCommit[thread]);
+        assert(!m_atCommit);
     }
 
     // Update transaction level unless going into log unroll
-    if (!m_unrollingLogFlag[thread]) {
-        m_transactionLevel[thread] = 0;
+    if (!m_unrollingLogFlag) {
+        m_transactionLevel = 0;
     } else {
         assert(!XACT_LAZY_VM); // LogTM
-        assert(m_transactionLevel[thread] == 1);
+        assert(m_transactionLevel == 1);
         assert(m_xactEagerVersionManager->getLogNumEntries() > 0);
     }
 
-    if (m_abortFlag[thread]) {
+    if (m_abortFlag) {
         // This abort was triggered from ruby (conflict/overflow)
-        m_abortFlag[thread] = false; // Reset
-        m_abortCause[thread] = HTMStats::AbortCause::Undefined;
-        m_abortAddress[thread] = Addr(0);
+        m_abortFlag = false; // Reset
+        m_abortCause = HTMStats::AbortCause::Undefined;
+        m_abortAddress = Addr(0);
     } else {
-        assert(!m_sequencer->isStalled());
         // CPU-triggered abort (fault, interrupt, lsq conflict)
         XACT_PROFILER->moveTo(getProcID(), AnnotatedRegion_ABORTING);
     }
@@ -629,88 +594,64 @@ TransactionInterfaceManager::abortTransaction(int thread, PacketPtr pkt){
 }
 
 int
-TransactionInterfaceManager::getTransactionLevel(int thread){
-    return m_transactionLevel[thread];
-}
-
-int
-TransactionInterfaceManager::getXID(int thread){
-    assert(m_transactionLevel[thread] > 0 || m_xidValid[thread]);
-    return m_xid[thread];
+TransactionInterfaceManager::getTransactionLevel(){
+    return m_transactionLevel;
 }
 
 bool
-TransactionInterfaceManager::isValidXID(int thread){
-    return m_xidValid[thread];
-}
-
-void
-TransactionInterfaceManager::setXID(int thread, int xid){
-    assert(m_transactionLevel[thread] == 0);
-    if (xid >= 0) {
-        m_xidValid[thread] = true;
-    }
-    else {
-        m_xidValid[thread] = false;
-    }
-    m_xid[thread] = xid;
-}
-
-bool
-TransactionInterfaceManager::inTransaction(int thread){
-    return (m_transactionLevel[thread] > 0 && m_escapeLevel[thread] == 0);
+TransactionInterfaceManager::inTransaction(){
+    return (m_transactionLevel > 0 && m_escapeLevel == 0);
 }
 
 Addr
-TransactionInterfaceManager::getAbortAddress(int thread){
-    assert(m_abortAddress[thread] != Addr(0));
-    return m_abortAddress[thread];
+TransactionInterfaceManager::getAbortAddress(){
+    assert(m_abortAddress != Addr(0));
+    return m_abortAddress;
 }
 
 
 void
-TransactionInterfaceManager::isolateTransactionLoad(int thread,
-                                                    Addr addr){
+TransactionInterfaceManager::isolateTransactionLoad(Addr addr){
     // Ignore transaction level (may be 0) since trans loads may
     // overtake xbegin in O3CPU if not using precise read set tracking
     // (loads isolated as soon as issued by sequencer)
-    if (m_transactionLevel[thread] == 0) {
+    if (m_transactionLevel == 0) {
         assert(!m_htm->params().precise_read_set_tracking);
     } else {
         // Nesting not tested
-        assert(m_transactionLevel[thread] == 1);
+        assert(m_transactionLevel == 1);
     }
 
     Addr physicalAddr = makeLineAddress(addr);
 
     m_xactIsolationManager->
-        addToReadSetPerfectFilter(thread,
-                                  physicalAddr); // default TL is 1
-    m_xactIsolationManager->addToReadSetFilter(thread,
-                                               physicalAddr);
+        addToReadSetPerfectFilter(physicalAddr); // default TL is 1
 
     DPRINTF(RubyHTMverbose, "isolateTransactionLoad "
             "address=%x\n", physicalAddr);
 }
 
 void
-TransactionInterfaceManager::addToRetiredReadSet(int thread,
-                                                    Addr addr){
-    assert(m_transactionLevel[thread] == 1);
+TransactionInterfaceManager::addToRetiredReadSet(Addr addr){
+    assert(m_transactionLevel == 1);
     Addr physicalAddr = makeLineAddress(addr);
     m_xactIsolationManager->
-        addToRetiredReadSet(thread,
-                            physicalAddr);
+        addToRetiredReadSet(physicalAddr);
     DPRINTF(RubyHTMverbose, "retiredTransactionLoad "
             "address=%x\n", physicalAddr);
+
+    if (config_enableIsolationChecker()) {
+        m_ruby_system->getXactIsolationChecker()->
+            addToReadSet(m_version,
+                         physicalAddr);
+    }
 }
 
 bool
-TransactionInterfaceManager::inRetiredReadSet(int thread,
-                                                      Addr addr)
+TransactionInterfaceManager::inRetiredReadSet(Addr addr)
 {
     return m_xactIsolationManager->
-        inRetiredReadSet(thread, makeLineAddress(addr));
+        inRetiredReadSet(makeLineAddress(addr));
 }
 
 void
@@ -723,17 +664,13 @@ TransactionInterfaceManager::profileTransactionAccess(bool miss, bool isWrite,
 
 
 void
-TransactionInterfaceManager::isolateTransactionStore(int thread,
-                                                     Addr addr){
-    assert(m_transactionLevel[thread] > 0);
+TransactionInterfaceManager::isolateTransactionStore(Addr addr){
+    assert(m_transactionLevel > 0);
 
     Addr physicalAddr = makeLineAddress(addr);
 
     m_xactIsolationManager->
-        addToWriteSetPerfectFilter(thread,
-                                   physicalAddr,
-                                   m_transactionLevel[thread]);
-    m_xactIsolationManager->addToWriteSetFilter(thread, physicalAddr);
+        addToWriteSetPerfectFilter(physicalAddr);
     if (config_enableIsolationChecker()) {
         m_ruby_system->getXactIsolationChecker()->
             addToWriteSet(m_version, physicalAddr);
@@ -744,18 +681,17 @@ TransactionInterfaceManager::isolateTransactionStore(int thread,
 
 void
 TransactionInterfaceManager::
-profileHtmFailureFaultCause(int thread,
-                            HtmFailureFaultCause cause)
+profileHtmFailureFaultCause(HtmFailureFaultCause cause)
 {
     assert(cause != HtmFailureFaultCause::INVALID);
 
     HtmFailureFaultCause preciseFaultCause = cause;
-    m_lastFailureCause[thread] = cause;
+    m_lastFailureCause = cause;
 
-    switch (m_abortCause[thread]) {
+    switch (m_abortCause) {
     case HTMStats::AbortCause::Undefined:
         // CPU-triggered abort due to fault, interrupt, lsq conflict
-        assert(!isAborting(thread));
+        assert(!isAborting());
         assert((cause == HtmFailureFaultCause::EXCEPTION) ||
                (cause == HtmFailureFaultCause::INTERRUPT) ||
                (cause == HtmFailureFaultCause::DISABLED) ||
@@ -783,14 +719,14 @@ profileHtmFailureFaultCause(int thread,
     case HTMStats::AbortCause::WrongL0:
         // Capacity
         if (cause == HtmFailureFaultCause::SIZE) {
-            if (m_abortCause[thread] == HTMStats::AbortCause::L2Capacity) {
+            if (m_abortCause == HTMStats::AbortCause::L2Capacity) {
                 preciseFaultCause = HtmFailureFaultCause::SIZE_LLC;
-            } else if (m_abortCause[thread] == HTMStats::AbortCause::WrongL0) {
+            } else if (m_abortCause == HTMStats::AbortCause::WrongL0) {
                 preciseFaultCause = HtmFailureFaultCause::SIZE_WRONG_CACHE;
             } else if (m_ruby_system->getProtocol() == "MESI_Three_Level_HTM_umu" &&
-                       m_abortCause[thread] == HTMStats::AbortCause::L1Capacity) {
+                       m_abortCause == HTMStats::AbortCause::L1Capacity) {
                 preciseFaultCause = HtmFailureFaultCause::SIZE_L1PRIV;
-            } else if (m_capacityAbortWriteSet[thread]) {
+            } else if (m_capacityAbortWriteSet) {
                 preciseFaultCause = HtmFailureFaultCause::SIZE_WSET;
             } else {
                 preciseFaultCause = HtmFailureFaultCause::SIZE_RSET ;
@@ -817,10 +753,11 @@ profileHtmFailureFaultCause(int thread,
             // found outstanding load in lsq (see checkSnoop) and
             // HTM config says not to reload stale data
             (cause == HtmFailureFaultCause::LSQ)) {
-            Addr addr = m_abortAddress[thread];
+            Addr addr = m_abortAddress;
             // Sanity checks
             if (m_htm->params().precise_read_set_tracking &&
                 getXactConflictManager()->isRequesterStallsPolicy()){
+#if 0 // Some of these checks do not always hold
                 // It is possible to have conflict-induced aborts on
                 // addresses that are not yet part of the read set
                 // because the trans load has been repeatedly nacked
@@ -829,13 +766,14 @@ profileHtmFailureFaultCause(int thread,
                       HtmPolicyStrings::requester_stalls_cda_hybrid) ||
                      (config_conflictResPolicy() ==
                       HtmPolicyStrings::requester_stalls_cda_hybrid_ntx));
-                assert(getXactConflictManager()->nackReceived(thread) ||
+                assert(getXactConflictManager()->nackReceived() ||
                        (hybrid_policy  && !checkWriteSignature(addr)) ||
-                       m_abortSourceNonTransactional[thread]);
+                       m_abortSourceNonTransactional);
                 assert(checkWriteSignature(addr) ||
                        checkReadSignature(addr) ||
                        (addr == getXactConflictManager()->
-                        getNackedPossibleCycleAddr(thread)));
+                        getNackedPossibleCycleAddr()));
+#endif
             } else {
                 assert(checkWriteSignature(addr) ||
                        checkReadSignature(addr));
@@ -854,13 +792,24 @@ profileHtmFailureFaultCause(int thread,
                 assert(!m_htm->params().reload_if_stale);
             }
 
-            if (m_abortCause[thread] == HTMStats::AbortCause::FallbackLock) {
+            if (m_abortCause == HTMStats::AbortCause::FallbackLock) {
                 preciseFaultCause = HtmFailureFaultCause::MEMORY_FALLBACKLOCK;
-            } else if (m_abortCause[thread] ==
+            } else if (m_abortCause ==
                        HTMStats::AbortCause::ConflictStale) {
                 preciseFaultCause = HtmFailureFaultCause::MEMORY_STALEDATA;
             } else {
                 preciseFaultCause = HtmFailureFaultCause::MEMORY;
+                if (!XACT_EAGER_CD &&
+                    (m_htm->params().lazy_arbitration ==
+                     HtmPolicyStrings::token)) {
+                    if ((getXactLazyVersionManager()->
+                         getNumReadBytesWrittenRemotely() == 0) &&
+                        (getXactLazyVersionManager()->
+                         getNumWrittenBytesWrittenRemotely() == 0)) {
+                        preciseFaultCause =
+                            HtmFailureFaultCause::MEMORY_FALSESHARING;
+                    }
+                }
             }
         } else { // CPU has aborted for another reason before
                  // observing the conflict
@@ -882,11 +831,11 @@ profileHtmFailureFaultCause(int thread,
 }
 
 HtmCacheFailure
-TransactionInterfaceManager::getHtmTransactionalReqResponseCode(int thread)
+TransactionInterfaceManager::getHtmTransactionalReqResponseCode()
 {
-    switch (m_abortCause[thread]) {
+    switch (m_abortCause) {
     case HTMStats::AbortCause::Undefined:
-        assert(!isAborting(thread));
+        assert(!isAborting());
         return HtmCacheFailure::NO_FAIL;
     case HTMStats::AbortCause::Explicit:
         // HTMCancel: Must return NO_FAIL for CPU to call
@@ -909,7 +858,7 @@ TransactionInterfaceManager::getHtmTransactionalReqResponseCode(int thread)
 }
 
 void
-TransactionInterfaceManager::setAbortFlag(int thread, Addr addr,
+TransactionInterfaceManager::setAbortFlag(Addr addr,
                                           MachineID abortSource,
                                           bool remoteTrans,
                                           bool capacity, bool wset)
@@ -929,36 +878,35 @@ TransactionInterfaceManager::setAbortFlag(int thread, Addr addr,
      * TransactionalSequencer::notifyXactionEvent(PacketPtr), which
      * then calls xact_mgr->abortTransaction.
      */
-    if (m_transactionLevel[thread] == 0) {
+    if (m_transactionLevel == 0) {
         assert(!m_htm->params().precise_read_set_tracking);
         assert(getXactIsolationManager()->
-               wasOvertakingRead(thread, addr));
+               wasOvertakingRead(addr));
         DPRINTF(RubyHTM, "HTM: setAbortFlag for address=%#x"
                 " with TL=0\n", addr);
+        panic("setAbortFlag with TL=0!");
     } else {
         if (config_enableIsolationChecker()) {
             if (checkReadSignature(addr)) {
                 m_ruby_system->getXactIsolationChecker()->
-                    removeFromReadSet(m_version, addr,
-                                      m_transactionLevel[thread]);
+                    removeFromReadSet(m_version, addr);
             }
             if (checkWriteSignature(addr)) {
                 m_ruby_system->getXactIsolationChecker()->
-                    removeFromWriteSet(m_version, addr,
-                                       m_transactionLevel[thread]);
+                    removeFromWriteSet(m_version, addr);
             }
         }
     }
 
     if (!XACT_LAZY_VM) { // LogTM
-        assert(!isUnrollingLog(thread));
+        assert(!isUnrollingLog());
     }
-    if (!m_abortFlag[thread]) { // Only send abort signal to CPU once
-        m_abortFlag[thread] = true;
+    if (!m_abortFlag) { // Only send abort signal to CPU once
+        m_abortFlag = true;
 
-        m_abortAddress[thread] = makeLineAddress(addr);
+        m_abortAddress = makeLineAddress(addr);
 
-        if (m_transactionLevel[thread] > 0) {
+        if (m_transactionLevel > 0) {
             // Do not move to aborting until  TL > 0
             XACT_PROFILER->moveTo(getProcID(), AnnotatedRegion_ABORTING);
         }
@@ -966,10 +914,10 @@ TransactionInterfaceManager::setAbortFlag(int thread, Addr addr,
             if (getXactLazyVersionManager()->committing()) {
                 // cancel pending writes, if any left
                 getXactLazyVersionManager()->
-                    cancelWriteBufferFlush(thread);
+                    cancelWriteBufferFlush();
             }
         }
-        assert(m_abortCause[thread] == HTMStats::AbortCause::Undefined);
+        assert(m_abortCause == HTMStats::AbortCause::Undefined);
 
         MachineType machTypeSpecVersioning;
         HTMStats::AbortCause abortCauseCapacity;
@@ -990,14 +938,14 @@ TransactionInterfaceManager::setAbortFlag(int thread, Addr addr,
                 if (!capacity) {
                     // Transactional block evicted because it was in the
                     // wrong L0 cache (e.g. trans ST to Rset block in Icache)
-                    m_abortCause[thread] = HTMStats::AbortCause::WrongL0;
+                    m_abortCause = HTMStats::AbortCause::WrongL0;
                     DPRINTF(RubyHTM, "HTM: setAbortFlag for address=%#x"
                             " in wrong L0 cache\n", addr);
                 } else {
                     // Source of abort is self at cache level used for
                     // speculative versioning: L0/L1 overflow
-                    m_abortCause[thread] = abortCauseCapacity;
-                    m_capacityAbortWriteSet[thread] = wset;
+                    m_abortCause = abortCauseCapacity;
+                    m_capacityAbortWriteSet = wset;
                 }
             } else {
                 // L1 replacement of L0 transactional block
@@ -1006,36 +954,36 @@ TransactionInterfaceManager::setAbortFlag(int thread, Addr addr,
                 assert(m_ruby_system->getProtocol() ==
                        "MESI_Three_Level_HTM_umu");
                 assert(!capacity); // L1 overflows not signaled as capacity
-                m_abortCause[thread] = HTMStats::AbortCause::L1Capacity;
+                m_abortCause = HTMStats::AbortCause::L1Capacity;
             }
         } else if (machineIDToMachineType(abortSource) ==
                    MachineType_L2Cache) {
-            m_abortCause[thread] = HTMStats::AbortCause::L2Capacity;
+            m_abortCause = HTMStats::AbortCause::L2Capacity;
         } else if (machineIDToNodeID(abortSource) != getProcID()) {
             // Remote conflicting requestor, for now assume L1 cache
             assert(machineIDToMachineType(abortSource) == MachineType_L1Cache);
-            m_abortSourceNonTransactional[thread] = !remoteTrans;
+            m_abortSourceNonTransactional = !remoteTrans;
             // Conflict-induced aborts are split into fallback-lock
             // conflicts vs rest
-            assert(m_abortAddress[thread]);
-            if (m_abortAddress[thread] == m_htm->getFallbackLockPAddr()) {
-                m_abortCause[thread] = HTMStats::AbortCause::FallbackLock;
+            assert(m_abortAddress);
+            if (m_abortAddress == m_htm->getFallbackLockPAddr()) {
+                m_abortCause = HTMStats::AbortCause::FallbackLock;
             }
             else if (machineIDToNodeID(abortSource) ==
                      machineCount(MachineType_L1Cache)) {
                 // Stale_Data events (conflicting invalidation by L1 for
                 // pending load miss) are distinguishable via abortSource
                 // {L1Cache:machineCount}
-                m_abortCause[thread] = HTMStats::AbortCause::ConflictStale;
-            } else if (!checkWriteSignature(m_abortAddress[thread]) &&
-                       checkReadSignature(m_abortAddress[thread]) &&
-                       !inRetiredReadSet(thread, m_abortAddress[thread])) {
+                m_abortCause = HTMStats::AbortCause::ConflictStale;
+            } else if (!checkWriteSignature(m_abortAddress) &&
+                       checkReadSignature(m_abortAddress) &&
+                       !inRetiredReadSet(m_abortAddress)) {
                 // Conflict on read-set block that is not part of the
                 // "retired read set", i.e. referenced by outstanding
                 // load(s) but data not yet "consumed" by the transaction
-                m_abortCause[thread] = HTMStats::AbortCause::ConflictStale;
+                m_abortCause = HTMStats::AbortCause::ConflictStale;
             } else {
-                m_abortCause[thread] = HTMStats::AbortCause::Conflict;
+                m_abortCause = HTMStats::AbortCause::Conflict;
 #if 0
                 // Add this abort to the remote killer's remote abort count
                 TransactionInterfaceManager *remote_mgr =
@@ -1049,7 +997,7 @@ TransactionInterfaceManager::setAbortFlag(int thread, Addr addr,
         // notified to CPU upon subsequent memory access or HTM command
         DPRINTF(RubyHTM, "HTM: setAbortFlag cause=%s address=%#x"
                 " source=%d\n",
-                HTMStats::AbortCause_to_string(m_abortCause[thread]),
+                HTMStats::AbortCause_to_string(m_abortCause),
                 addr, machineIDToNodeID(abortSource));
     }
     else {
@@ -1060,50 +1008,49 @@ TransactionInterfaceManager::setAbortFlag(int thread, Addr addr,
 }
 
 void
-TransactionInterfaceManager::cancelTransaction(int thread, PacketPtr pkt)
+TransactionInterfaceManager::cancelTransaction(PacketPtr pkt)
 {
-    assert(!m_abortFlag[thread]);
-    m_abortFlag[thread] = true;
-    assert(m_abortCause[thread] == HTMStats::AbortCause::Undefined);
-    m_abortCause[thread] = HTMStats::AbortCause::Explicit;
+    assert(!m_abortFlag);
+    m_abortFlag = true;
+    assert(m_abortCause == HTMStats::AbortCause::Undefined);
+    m_abortCause = HTMStats::AbortCause::Explicit;
     XACT_PROFILER->moveTo(getProcID(), AnnotatedRegion_ABORTING);
     DPRINTF(RubyHTM, "HTM: cancelTransaction explicitly aborts transaction\n");
 }
 
 bool
-TransactionInterfaceManager::isCancelledTransaction(int thread)
+TransactionInterfaceManager::isCancelledTransaction()
 {
-    return (m_abortFlag[thread] &&
-            m_abortCause[thread] == HTMStats::AbortCause::Explicit);
+    return (m_abortFlag &&
+            m_abortCause == HTMStats::AbortCause::Explicit);
 }
 
 void
 TransactionInterfaceManager::setAbortCause(HTMStats::AbortCause cause)
 {
-    int thread = 0;
-    if (!m_abortFlag[thread]) { // CPU-triggered abort
-        m_abortCause[thread] = cause;
+    if (!m_abortFlag) { // CPU-triggered abort
+        m_abortCause = cause;
     }
     else { // Ruby-triggered abort, cause already set
-        if (m_abortCause[thread] != cause) {
+        if (m_abortCause != cause) {
             warn("HTM: setAbortCause found mismatch in causes: "
                  "CPU cause is %s, Ruby cause is %s\n",
                  HTMStats::AbortCause_to_string(cause),
-                 HTMStats::AbortCause_to_string(m_abortCause[thread]));
+                 HTMStats::AbortCause_to_string(m_abortCause));
         }
     }
 }
 
 AnnotatedRegion_t
 TransactionInterfaceManager::
-getWaitForRetryRegionFromPreviousAbortCause(int thread)
+getWaitForRetryRegionFromPreviousAbortCause()
 {
     // Meant to be called when fallback lock acquired, to figure out
     // reason for taking fallback path
-    assert(m_transactionLevel[thread] == 0);
-    if (m_lastFailureCause[thread] == HtmFailureFaultCause::SIZE) {
+    assert(m_transactionLevel == 0);
+    if (m_lastFailureCause == HtmFailureFaultCause::SIZE) {
         return AnnotatedRegion_ABORT_HANDLER_WAITFORRETRY_SIZE;
-    } else if (m_lastFailureCause[thread] == HtmFailureFaultCause::EXCEPTION) {
+    } else if (m_lastFailureCause == HtmFailureFaultCause::EXCEPTION) {
         return AnnotatedRegion_ABORT_HANDLER_WAITFORRETRY_EXCEPTION;
     } else {
         return AnnotatedRegion_ABORT_HANDLER_WAITFORRETRY_THRESHOLD;
@@ -1112,26 +1059,25 @@ getWaitForRetryRegionFromPreviousAbortCause(int thread)
 
 
 bool
-TransactionInterfaceManager::isAborting(int thread) {
-    return inTransaction(thread) && m_abortFlag[thread];
+TransactionInterfaceManager::isAborting() {
+    return inTransaction() && m_abortFlag;
 }
 
-bool TransactionInterfaceManager::isDoomed(int thread) {
+bool TransactionInterfaceManager::isDoomed() {
     if (!XACT_LAZY_VM) { // LogTM
-        if (isUnrollingLog(thread)) {
+        if (isUnrollingLog()) {
             // Abort flag already cleared but TL>0 so consider it
             // doomed
-            assert(!m_abortFlag[thread]);
+            assert(!m_abortFlag);
             return true;
         }
     }
-    return m_abortFlag[thread];
+    return m_abortFlag;
 }
 
 void
 TransactionInterfaceManager::xactReplacement(Addr addr, MachineID source,
                                              bool capacity) {
-    int thread = 0;
     bool wset = false;
     assert(makeLineAddress(addr) == addr);
     if (checkWriteSignature(addr)) {
@@ -1156,7 +1102,7 @@ TransactionInterfaceManager::xactReplacement(Addr addr, MachineID source,
         DPRINTF(RubyHTM, "HTM: xactReplacement "
                 "for read-set address=%x \n", addr);
         if (!XACT_LAZY_VM) { // LogTM
-            if (isUnrollingLog(thread)) {
+            if (isUnrollingLog()) {
                 DPRINTF(RubyHTMlog, "HTM: read-set eviction"
                         " during log unroll is ignored\n");
                 return;
@@ -1182,7 +1128,7 @@ TransactionInterfaceManager::xactReplacement(Addr addr, MachineID source,
             }
         }
     }
-    setAbortFlag(thread, addr, source, false, capacity, wset);
+    setAbortFlag(addr, source, false, capacity, wset);
 }
 
 void
@@ -1235,13 +1181,13 @@ TransactionInterfaceManager::getOldestTimestamp()
 bool
 TransactionInterfaceManager::checkReadSignature(Addr addr)
 {
-    return getXactIsolationManager()->isInReadSetFilterSummary(addr);
+    return getXactIsolationManager()->isInReadSetPerfectFilter(addr);
 }
 
 bool
 TransactionInterfaceManager::checkWriteSignature(Addr addr)
 {
-    return getXactIsolationManager()->isInWriteSetFilterSummary(addr);
+    return getXactIsolationManager()->isInWriteSetPerfectFilter(addr);
 }
 
 bool
@@ -1255,11 +1201,10 @@ void
 TransactionInterfaceManager::redirectStoreToWriteBuffer(PacketPtr pkt)
 {
     Addr addr = pkt->getAddr();
-    int thread = 0;
 
-    assert(getTransactionLevel(thread) > 0);
+    assert(getTransactionLevel() > 0);
     getXactLazyVersionManager()->
-        addToWriteBuffer(thread, addr, pkt->getSize(),
+        addToWriteBuffer(addr, pkt->getSize(),
                          pkt->getPtr<uint8_t>());
 
     DPRINTF(RubyHTM, "Redirecting store to lazy write buffer,"
@@ -1282,9 +1227,8 @@ TransactionInterfaceManager::bypassLoadFromWriteBuffer(PacketPtr pkt,
   _unused(buffer);
   bool forwarding = false;
   assert(pkt->isRead() && !pkt->req->isInstFetch());
-  int thread = 0;
   std::vector<uint8_t> data = getXactLazyVersionManager()->
-      forwardData(thread, pkt->getAddr(),
+      forwardData(pkt->getAddr(),
                   pkt->getSize(),
                   datablock,
                   forwarding);
@@ -1310,10 +1254,9 @@ void
 TransactionInterfaceManager::mergeDataFromWriteBuffer(PacketPtr pkt,
                                                       DataBlock& datablock)
 {
-    int thread = 0;
     Addr address = pkt->getAddr();
     getXactLazyVersionManager()->
-        mergeDataFromWriteBuffer(thread, address, datablock);
+        mergeDataFromWriteBuffer(address, datablock);
 }
 
 bool
@@ -1342,57 +1285,55 @@ TransactionInterfaceManager::setupLogTranslation(Addr vaddr,
 }
 
 Addr
-TransactionInterfaceManager::addLogEntry(Addr addr)
+TransactionInterfaceManager::translateLogAddress(Addr vaddr) const
 {
-    return m_xactEagerVersionManager->addLogEntry(addr);
+    return m_xactEagerVersionManager->translateLogAddress(vaddr);
 }
 
-void
-TransactionInterfaceManager::commitLogEntry(Addr addr)
+Addr
+TransactionInterfaceManager::addLogEntry()
 {
-    return m_xactEagerVersionManager->commitLogEntry(addr);
+    return m_xactEagerVersionManager->addLogEntry();
 }
 
 int
-TransactionInterfaceManager::getLogNumEntries(int thread)
+TransactionInterfaceManager::getLogNumEntries()
 {
     return m_xactEagerVersionManager->getLogNumEntries();
 }
 
 bool
-TransactionInterfaceManager::isUnrollingLog(int thread){
+TransactionInterfaceManager::isUnrollingLog(){
     if (!XACT_LAZY_VM) // LogTM
-        return m_unrollingLogFlag[thread];
+        return m_unrollingLogFlag;
     else
         return false;
 }
 
 void
-TransactionInterfaceManager::endLogUnroll(int thread){
-    assert(m_transactionLevel[thread] == 1);
-    assert(m_escapeLevel[thread] == 1);
+TransactionInterfaceManager::endLogUnroll(){
+    assert(m_transactionLevel == 1);
+    assert(m_escapeLevel == 1);
     assert(!XACT_LAZY_VM); // LogTM
-    assert(m_unrollingLogFlag[thread]);
+    assert(m_unrollingLogFlag);
 
     // Reset log num entries
-    m_xactEagerVersionManager->restartTransaction(thread);
+    m_xactEagerVersionManager->restartTransaction();
     // Restart conflict management
-    getXactConflictManager()->restartTransaction(thread);
+    getXactConflictManager()->restartTransaction();
 
     // Release isolation over write set
-    for (int i = m_transactionLevel[thread]; i > 0; i--) {
-        getXactIsolationManager()->releaseIsolation(thread, i);
-        if (config_enableIsolationChecker()) {
-            m_ruby_system->getXactIsolationChecker()->
-                clearReadSet(m_version, i);
-            m_ruby_system->getXactIsolationChecker()->
-                clearWriteSet(m_version, i);
-        }
+    getXactIsolationManager()->releaseIsolation();
+    if (config_enableIsolationChecker()) {
+        m_ruby_system->getXactIsolationChecker()->
+            clearReadSet(m_version);
+        m_ruby_system->getXactIsolationChecker()->
+            clearWriteSet(m_version);
     }
 
-    m_escapeLevel[thread] = 0;
-    m_transactionLevel[thread] = 0;
-    m_unrollingLogFlag[thread] = false;
+    m_escapeLevel = 0;
+    m_transactionLevel = 0;
+    m_unrollingLogFlag = false;
     DPRINTF(RubyHTMlog, "HTM: done unrolling log, abort"
             " is now complete!\n");
 
@@ -1404,23 +1345,23 @@ TransactionInterfaceManager::endLogUnroll(int thread){
 }
 
 void
-TransactionInterfaceManager::beginEscapeAction(int thread)
+TransactionInterfaceManager::beginEscapeAction()
 {
-    assert(m_escapeLevel[thread] == 0);
-    m_escapeLevel[thread]++;
+    assert(m_escapeLevel == 0);
+    m_escapeLevel++;
 }
 
 void
-TransactionInterfaceManager::endEscapeAction(int thread)
+TransactionInterfaceManager::endEscapeAction()
 {
-    assert(m_escapeLevel[thread] == 1);
-    m_escapeLevel[thread]--;
+    assert(m_escapeLevel == 1);
+    m_escapeLevel--;
 }
 
 bool
-TransactionInterfaceManager::inEscapeAction(int thread)
+TransactionInterfaceManager::inEscapeAction()
 {
-    return m_escapeLevel[thread] > 0;
+    return m_escapeLevel > 0;
 }
 
 void

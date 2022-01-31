@@ -474,6 +474,8 @@ class Commit
     int htmStarts[MaxThreads];
     int htmStops[MaxThreads];
     bool atHtmStop[MaxThreads];
+    bool squashFromAbort = false;
+
 
     struct CommitStats : public statistics::Group
     {

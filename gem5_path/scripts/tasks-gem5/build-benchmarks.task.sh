@@ -1,6 +1,6 @@
 
 declare_task "build-benchmarks" "Build benchmarks in the host system. Options:
-        --architecure X: Build only architecture X
+        --architecture X: Build only architecture X
         BUG: Due to the way that becnhmarks are built, only one architecture can be built each time.
 "
 
@@ -18,19 +18,15 @@ BENCHMARKS=(
 
 # TODO: Add options to choose what sufixxes should be built.
 SUFIXES=(
-    "seq"
-    "htm.empty"
     "htm.fallbacklock"
-    "htm.fallbacklock2phase"
-    "htm.sgl"
 )
 
 task_build-benchmarks() {
     local -a archs=("${ENABLED_ARCHITECTURES[@]}")
-    options="$(simpler_getopt "architecure:" "$@")"
+    options="$(simpler_getopt "architecture:" "$@")"
     eval set -- "$options"
     while [[ $# -gt 0 ]] ; do
-        if [[ "--architecure" == "$1" ]] ; then
+        if [[ "--architecture" == "$1" ]] ; then
             shift
             archs=("$1")
         elif [[ "--" == "$1" ]] ; then
@@ -85,18 +81,11 @@ build_benchmarks_stamp() {
     elif [[ "$arch" == "aarch64" ]] ; then
         local build_arch="aarch64"
         export AARCH64_CROSS_GCC_PREFIX="${BENCHMARKS_ARCH_COMPILER_PREFIX[$arch]}"
-        export BENCHMARKS_AARCH64_TME_CROSS_HACK_GCC
     else
         error_and_exit "Architecture $arch not supported for stamp"
     fi
 
-    if [[ ! -d "$(absolute_path "$BENCHMARKS_HTM_STAMP")" || ! -L "${GEM5_ROOT}/${BENCHMARKS_HTM_STAMP}" ]] ; then
-        error_and_exit "Stamp directory symlink '$(absolute_path "$BENCHMARKS_HTM_STAMP")' not found. Clone the repository in a directory out of ${GEM5_ROOT} and create a symbolic link to it in '$(dirname "$(absolute_path "$BENCHMARKS_HTM_STAMP")")'."
-    fi
-    
-    if [[ ! -d "$(absolute_path "$BENCHMARKS_HTM_STAMP")/gem5" ]] ; then
-        ln -s "$GEM5_ROOT" "$(absolute_path "$BENCHMARKS_HTM_STAMP")/gem5"
-    fi
+    check_stamp_gem5_directory_links
     
     for b in "${BENCHMARKS[@]}" ; do
         for s in "${SUFIXES[@]}" ; do
@@ -113,3 +102,12 @@ build_benchmarks_stamp() {
     done
 }
 
+check_stamp_gem5_directory_links() {
+    if [[ ! -d "$(absolute_path "$BENCHMARKS_HTM_STAMP")" || ! -L "${GEM5_ROOT}/${BENCHMARKS_HTM_STAMP}" ]] ; then
+        error_and_exit "Stamp directory symlink '$(absolute_path "$BENCHMARKS_HTM_STAMP")' not found. Clone the repository in a directory out of ${GEM5_ROOT} and create a symbolic link to it in '$(dirname "$(absolute_path "$BENCHMARKS_HTM_STAMP")")'."
+    fi
+
+    if [[ ! -d "$(absolute_path "$BENCHMARKS_HTM_STAMP")/gem5" ]] ; then
+        ln -s "$GEM5_ROOT" "$(absolute_path "$BENCHMARKS_HTM_STAMP")/gem5"
+    fi
+}

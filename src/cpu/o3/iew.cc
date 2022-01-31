@@ -718,6 +718,11 @@ IEW::checkSignalsAndUpdate(ThreadID tid)
     if (fromCommit->commitInfo[tid].squash) {
         squash(tid);
 
+        if (fromCommit->commitInfo[tid].squashFromAbort) {
+            // Reset when abort squash initiates, not before
+            ldstQueue.resetHtmStartsStops(tid);
+            DPRINTF(HtmCpu, "Execute: squashFromAbort detected");
+        }
         if (dispatchStatus[tid] == Blocked ||
             dispatchStatus[tid] == Unblocking) {
             toRename->iewUnblock[tid] = true;

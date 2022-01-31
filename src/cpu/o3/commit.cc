@@ -526,6 +526,7 @@ Commit::generateTrapEvent(ThreadID tid, Fault inst_fault)
         // TODO
         // latency = default abort/restore latency
         // could also do some kind of exponential back off if desired
+        squashFromAbort = true;
     }
 
     cpu->schedule(trap, cpu->clockEdge(latency));
@@ -567,6 +568,8 @@ Commit::squashAll(ThreadID tid)
     // squash.
     toIEW->commitInfo[tid].squash = true;
 
+    toIEW->commitInfo[tid].squashFromAbort = squashFromAbort;
+
     // Send back the rob squashing signal so other stages know that
     // the ROB is in the process of squashing.
     toIEW->commitInfo[tid].robSquashing = true;
@@ -588,6 +591,7 @@ Commit::squashFromTrap(ThreadID tid)
     thread[tid]->noSquashFromTC = false;
     trapInFlight[tid] = false;
 
+    squashFromAbort = false;
     trapSquash[tid] = false;
 
     commitStatus[tid] = ROBSquashing;
@@ -1291,10 +1295,11 @@ Commit::commitHead(const DynInstPtr &head_inst, unsigned inst_num)
         if (head_inst->isHtmStopFence()) {
           DPRINTF(HtmCpu, "htmStop fence at the head of the ROB,"
                   " hasStoresToWB : %d \n",
-                  head_inst->staticInst->getName(),
                   iewStage->hasStoresToWB(tid));
-          iewStage->setAtHtmStopHtmUid(tid,
-                                       head_inst->getHtmTransactionUid());
+          if (head_inst->inHtmTransactionalState()) {
+              iewStage->setAtHtmStopHtmUid(tid,
+                                           head_inst->getHtmTransactionUid());
+          }
         }
         DPRINTF(Commit,
                 "Encountered a barrier or non-speculative "

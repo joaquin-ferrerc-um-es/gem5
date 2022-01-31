@@ -29,7 +29,8 @@ TransactionalSequencer::TransactionalSequencer(const Params &p)
       m_failedCallback(false),
       m_stalled(false),
       m_lastStateBeforeStall(AnnotatedRegion_INVALID),
-      writeBufferHitEvent(this)
+      writeBufferHitEvent(this),
+      lazyCommitCheckEvent(this)
 
 {
     // TransactionalSequencer is only used by UMU protocols
@@ -54,7 +55,7 @@ TransactionalSequencer::print(std::ostream& out) const
 }
 
 void
-TransactionalSequencer::setController(AbstractController* _cntrl) 
+TransactionalSequencer::setController(AbstractController* _cntrl)
 {
     m_controller = _cntrl;
     assert(m_xact_mgr);
@@ -73,25 +74,23 @@ setTransactionManager(TransactionInterfaceManager* xact_mgr)
 void
 TransactionalSequencer::abortTransaction(PacketPtr pkt)
 {
-    int thread = 0;
-    assert(m_xact_mgr->isAborting(thread) ||
+    assert(m_xact_mgr->isAborting() ||
            pkt->req->isHTMAbort());
-    if (!m_htm->params().lazy_vm) {
-        cancelLogRequests();
-    }
     m_stalled = false;
     m_lastStateBeforeStall = AnnotatedRegion_INVALID;
-    m_xact_mgr->abortTransaction(thread, pkt);
+    m_xact_mgr->abortTransaction(pkt);
     m_lastAbortHtmUid = pkt->getHtmTransactionUid();
+    suppressOutstandingRequests();
+    if (!m_htm->params().lazy_vm) { // LogTM
+        assert(m_logRequestTable.empty());
+    }
 }
 
 bool
 TransactionalSequencer::notifyXactionEvent(PacketPtr pkt)
 {
 
-  uint64_t xid = pkt->getAddr(), thread = 0;
-
-  if (m_xact_mgr->isAborting(thread)) {
+  if (m_xact_mgr->isAborting()) {
       // Only abort command accepted
       if (pkt->req->isHTMAbort()) {
           DPRINTFR(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s \n",
@@ -112,11 +111,22 @@ TransactionalSequencer::notifyXactionEvent(PacketPtr pkt)
                    "HTM_CMD" , "", "",  "(abort flag set)");
           if (m_commitPending) {
               assert(pkt->req->isHTMCommit());
-              if (m_xact_mgr->canCommitTransaction(thread, xid, pkt)) {
+              if (m_xact_mgr->canCommitTransaction(pkt)) {
                   // All commit actions completed (e.g. pending write
                   // misses), now rubyHtmCallback will signal abort
                   // via getHtmTransactionalReqResponseCode
                   m_commitPending = false;
+              } else {
+                  // If pending commit actions that prevent abort,
+                  // schedule event to complete the abort the such
+                  // outstanding actions are done
+                  if (!lazyCommitCheckEvent.scheduled()) {
+                      lazyCommitCheckEvent.setPacket(pkt);
+                      schedule(lazyCommitCheckEvent,
+                               clockEdge(Cycles(1)));
+                      DPRINTF(RubyHTM, "Scheduled lazy commit check"
+                              " event (abort)\n");
+                  }
               }
           }
       }
@@ -124,7 +134,7 @@ TransactionalSequencer::notifyXactionEvent(PacketPtr pkt)
   }
   if (pkt->req->isHTMStart()) {
       DPRINTF(RubyHTM, "HTM_BEGIN\n");
-      m_xact_mgr->beginTransaction(thread, xid, pkt);
+      m_xact_mgr->beginTransaction(pkt);
       DPRINTFR(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s \n",
                curTick(), m_version, "Seq",
                "HTM_START" , "", "");
@@ -133,18 +143,30 @@ TransactionalSequencer::notifyXactionEvent(PacketPtr pkt)
       // Store value returned by canCommit, used to signal CPU whether
       // xend must fault. Prevent calling canCommit again after
       // initiateCommitTransaction since it changes the returned value
-      if (m_xact_mgr->canCommitTransaction(thread, xid, pkt)) {
-          m_xact_mgr->commitTransaction(thread, xid, pkt);
+      if (m_xact_mgr->canCommitTransaction(pkt)) {
+          m_xact_mgr->commitTransaction(pkt);
           DPRINTFR(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s \n",
                    curTick(), m_version, "Seq",
                    "HTM_COMMIT", "", "");
           m_commitPending = false;
+          m_lastStateBeforeStall = AnnotatedRegion_INVALID;
+          m_stalled = false;
       } else {
-          m_xact_mgr->initiateCommitTransaction(thread, xid, pkt);
+          m_xact_mgr->initiateCommitTransaction(pkt);
           m_commitPending = true;
           DPRINTFR(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s \n",
                    curTick(), m_version, "Seq",
                    "HTM_COMMIT_PENDING" , "", "");
+          // Schedule event to call makeRequest again on the next
+          // cycle with this commit packet. rubyHtmCallback next will
+          // observe commitPending active and thus will not delete the
+          // packet nor send a response back.
+          if (!lazyCommitCheckEvent.scheduled()) {
+              lazyCommitCheckEvent.setPacket(pkt);
+              schedule(lazyCommitCheckEvent,
+                       clockEdge(Cycles(1)));
+              DPRINTF(RubyHTM, "Scheduled lazy commit check event\n");
+          }
       }
   } else if (pkt->req->isHTMCancel()) {
       // Explicit abort originated from a user instruction
@@ -153,7 +175,7 @@ TransactionalSequencer::notifyXactionEvent(PacketPtr pkt)
                curTick(), m_version, "Seq",
                "HTM_CANCEL" , "", "");
       assert(m_xact_mgr->getProcID() == m_version);
-      m_xact_mgr->cancelTransaction(thread, pkt);
+      m_xact_mgr->cancelTransaction(pkt);
   } else if (pkt->req->isHTMAbort()) {
       // CPU may only trigger HTM_ABORT before Ruby has set abort flag
       // for aborts whose cause is LSQ conflict or exception/interrupt
@@ -176,7 +198,6 @@ TransactionalSequencer::notifyXactionEvent(PacketPtr pkt)
       abortTransaction(pkt);
   } else if (pkt->req->isHTMIsolate()) {
       Addr addr = makeLineAddress(pkt->getAddr());
-      int thread = 0;
       if (!m_htm->params().precise_read_set_tracking) {
           /* With imprecise read sets, HTM_ISOLATE signal must always
              find the block already in the read set. This signal will
@@ -212,33 +233,28 @@ TransactionalSequencer::notifyXactionEvent(PacketPtr pkt)
            * "imprecisely" set SR bits for blocks targeted by loads
            * coming from mispredicted paths.
            */
-          m_xact_mgr->isolateTransactionLoad(thread, addr);
+          m_xact_mgr->isolateTransactionLoad(addr);
 
           // With precise read sets, if block not in the read set this
           // far, then it cannot be part of retired read set
-          assert(!m_xact_mgr->inRetiredReadSet(thread, addr));
+          assert(!m_xact_mgr->inRetiredReadSet(addr));
           DPRINTF(RubyHTM,
                   "Committed load to %#x (%#x) adding block"
                   " address to read set\n",
                   pkt->getAddr(),
                   makeLineAddress(pkt->getAddr()));
       }
-      if (!m_xact_mgr->inRetiredReadSet(thread, addr)) {
+      if (!m_xact_mgr->inRetiredReadSet(addr)) {
           // Regardless of whether loads are isolated on issue or
           // retirement, always keep track of blocks referenced by
           // retired loads ("retired read set")
-          m_xact_mgr->addToRetiredReadSet(thread, addr);
+          m_xact_mgr->addToRetiredReadSet(addr);
           DPRINTF(RubyHTM,
                   "Committed load to %#x (%#x) adding block"
                   " address to retired read set\n",
                   pkt->getAddr(),
                   makeLineAddress(pkt->getAddr()));
       }
-      if (m_xact_mgr->config_enableIsolationChecker()) {
-          m_ruby_system->getXactIsolationChecker()->
-              addToReadSet(m_version,
-                           makeLineAddress(pkt->getAddr()));
-        }
   } else {
     panic("Unsupported transactional MemCmd\n");
   }
@@ -259,7 +275,32 @@ TransactionalSequencer::failedCallback(Addr address,
                                   remote_timestamp,
                                   remote_nacker);
     if (write) {
-        Sequencer::writeCallback(address, data);
+        // failed stores must not call hitCallback but instead be
+        // retried without CPU intervention
+        auto &seq_req_list = m_RequestTable[address];
+        assert(!seq_req_list.empty());
+        SequencerRequest &seq_req = seq_req_list.front();
+        PacketPtr pkt = seq_req.pkt;
+        assert(pkt->isWrite() ||
+               (seq_req.m_type == RubyRequestType_RMW_Read) ||
+               (seq_req.m_type == RubyRequestType_Locked_RMW_Read));
+        assert(m_failedStorePkt == NULL);
+        if (seq_req.suppressed ||
+            (m_xact_mgr->isAborting() &&
+             pkt->isHtmTransactional())) {
+            // Remove this and all aliased reqs from Sequencer
+            Sequencer::writeCallback(address, data);
+        } else {
+            m_failedStorePkt = pkt;
+#if 0
+            // Prevent deadlock event check: update issue time
+            for (auto it=seq_req_list.begin();
+                 it != seq_req_list.end(); ++it) {
+                (*it).issue_time = curCycle();
+            }
+#endif
+            makeRequest(pkt);
+        }
     } else {
         Sequencer::readCallback(address, data);
     }
@@ -269,16 +310,7 @@ TransactionalSequencer::failedCallback(Addr address,
 void
 TransactionalSequencer::rubyHtmCallback(PacketPtr pkt)
 {
-    int thread = 0;
     assert(pkt->isRequest());
-
-    // First retrieve the request port from the sender State
-    RubyPort::SenderState *senderState =
-        safe_cast<RubyPort::SenderState *>(pkt->popSenderState());
-
-    MemResponsePort *port = safe_cast<MemResponsePort*>(senderState->port);
-    assert(port != nullptr);
-    delete senderState;
 
     // rubyHtmCallback called by:
     //  a) HTM commands after notifyXactionEvent
@@ -293,7 +325,8 @@ TransactionalSequencer::rubyHtmCallback(PacketPtr pkt)
     }
     else {
         assert(pkt->isHtmTransactional()); // Check: may fail...
-        assert(m_xact_mgr->isAborting(thread));
+        assert(m_xact_mgr->isAborting() ||
+               m_lastAbortHtmUid == pkt->getHtmTransactionUid());
         if (pkt->isRead() && !pkt->req->isInstFetch()) {
             DPRINTF(RubyHTM, "rubyHtmcallback: load finds abort flag set\n");
         }
@@ -307,6 +340,7 @@ TransactionalSequencer::rubyHtmCallback(PacketPtr pkt)
 
     // turn packet around to go back to requestor if response expected
     if (pkt->needsResponse()) {
+        bool skip_response = false;
         // ArmISAInst::Tstart64::completeAcc expects that response
         // packets have data (payload is HtmFailedInCacheReason)
         uint8_t* dataptr = pkt->getPtr<uint8_t>();
@@ -320,17 +354,32 @@ TransactionalSequencer::rubyHtmCallback(PacketPtr pkt)
             && !pkt->req->isHTMStart()) { // HTM begin cannot fault
             if (m_commitPending) {
                 assert(pkt->req->isHTMCommit());
-                response_code = HtmCacheFailure::NO_FAIL_RETRY;
+                skip_response = true;
             } else {
                 response_code =
-                    m_xact_mgr->getHtmTransactionalReqResponseCode(thread);
+                    m_xact_mgr->getHtmTransactionalReqResponseCode();
             }
         }
         *dataptr = (uint8_t) response_code;
 
-        pkt->makeHtmTransactionalReqResponse(response_code);
-        port->schedTimingResp(pkt, curTick());
+        if (!skip_response) {
+
+            // First retrieve the request port from the sender State
+            RubyPort::SenderState *senderState =
+                safe_cast<RubyPort::SenderState *>(pkt->popSenderState());
+
+            MemResponsePort *port =
+                safe_cast<MemResponsePort*>(senderState->port);
+            assert(port != nullptr);
+            delete senderState;
+            pkt->makeHtmTransactionalReqResponse(response_code);
+            port->schedTimingResp(pkt, curTick());
+        }
     } else {
+        // First retrieve the request port from the sender State
+        RubyPort::SenderState *senderState =
+            safe_cast<RubyPort::SenderState *>(pkt->popSenderState());
+        delete senderState;
         delete pkt;
     }
 
@@ -343,9 +392,55 @@ TransactionalSequencer::insertRequest(PacketPtr pkt,
                                       RubyRequestType primary_type,
                                       RubyRequestType secondary_type)
 {
+    Addr address = makeLineAddress(pkt->getAddr());
+    if (m_failedStorePkt == pkt) {
+        // Clear
+        m_failedStorePkt = NULL;
+        // Request already inserted, can (re)issue
+        return RequestStatus_Ready;
+    }
+
     RequestStatus status = Sequencer::insertRequest(pkt,
                                                     primary_type,
                                                     secondary_type);
+    if (!m_htm->params().lazy_vm) { // LogTM
+        if (pkt->isWrite() &&
+            pkt->isHtmTransactional() &&
+            !m_xact_mgr->checkWriteSignature(address)) {
+            // Transactional store to block not in Wset: if issued,
+            // set pendingLogging, which reserves enough MSHRs to
+            // ensure that log requests can issue when this store
+            // completes
+            if (status == RequestStatus_Ready) {
+                // Store miss
+                assert(m_pendingLogging.find(address) ==
+                       m_pendingLogging.end());
+                m_pendingLogging[address]=true;
+            } else if (status == RequestStatus_Aliased) {
+                // Store aliased on pending miss: log if first store
+                // to block (aliased with earlier load)
+                auto &seq_req_list = m_RequestTable[address];
+                assert(seq_req_list.size() > 1);
+                int numStoresFound = numOutstandingWrites(address);
+                // At least the current store
+                assert(numStoresFound > 0);
+                if (numStoresFound == 1) {
+                    // This is the first store, needs logging
+                    assert(m_pendingLogging.find(address) ==
+                           m_pendingLogging.end());
+                    m_pendingLogging[address]=true;
+                } else { // Coalesced into a previous store that
+                         // already booked the MSHRs for logging
+                    assert(m_pendingLogging.find(address) !=
+                           m_pendingLogging.end() ||
+                           m_logRequestTable.find(address) !=
+                           m_logRequestTable.end());
+                }
+            } else { // Store was not issued
+                assert(status == RequestStatus_AliasedNotIssued);
+            }
+        }
+    }
 
     if (!m_htm->params().precise_read_set_tracking) {
         /* If no precise read-set tracking, cache blocks are added to
@@ -366,9 +461,8 @@ TransactionalSequencer::insertRequest(PacketPtr pkt,
             if ((status == RequestStatus_Ready) ||
                 (status == RequestStatus_Aliased)) {
 
-                int thread = 0;
                 Addr addr = makeLineAddress(pkt->getAddr());
-                if (m_xact_mgr->inTransaction(thread)) {
+                if (m_xact_mgr->inTransaction()) {
                     if (m_xact_mgr->checkReadSignature(addr)) {
                         DPRINTF(RubyHTMverbose,
                                 "Load to %#x (%#x) already in read set\n",
@@ -378,47 +472,90 @@ TransactionalSequencer::insertRequest(PacketPtr pkt,
                                 "Issued load to %#x (%#x), adding block"
                                 " address to read set\n",
                                 pkt->getAddr(), addr);
-                        m_xact_mgr->isolateTransactionLoad(thread, addr);
+                        m_xact_mgr->isolateTransactionLoad(addr);
                     }
                 } else {
+                    panic("Transactional store outside boundaries!");
                     DPRINTF(RubyHTM,
                             "Transactional load to %#x (%#x)"
                             " outside transaction boundaries\n",
                             pkt->getAddr(),
                             makeLineAddress(pkt->getAddr()));
-                    m_xact_mgr->isolateTransactionLoad(thread, addr);
+                    m_xact_mgr->isolateTransactionLoad(addr);
                 }
             }
         }
     }
     return status;
 }
+bool
+TransactionalSequencer::canMakeRequest(PacketPtr pkt)
+{
+    // HTM abort signals must be allowed to reach the Sequencer
+    // the same cycle they are issued. They cannot be retried.
+    int num_reserved_mshrs = 0;
+    if (!m_htm->params().lazy_vm) { // LogTM
+        // Need two extra MSHRs for each store with log actions
+        // pending.
+        num_reserved_mshrs = 2*m_pendingLogging.size();
+        if (pkt->isWrite() &&
+            pkt->isHtmTransactional()) {
+            Addr address = makeLineAddress(pkt->getAddr());
+            if (!m_xact_mgr->checkWriteSignature(address) &&
+                m_pendingLogging.find(address) == m_pendingLogging.end()) {
+                // This trans store can issue if it can reserve 2 extra
+                // MSHRs for its logging actions
+                num_reserved_mshrs += 2;
+            }
+        } else if (pkt->isHtmStoreToLog()) {
+            assert(!pkt->isHtmTransactional());
+            Addr store_addr = makeLineAddress(pkt->getHtmLoggedStoreAddr());
+            // These are the two logging requests: a pair of the
+            // reserved mshrs was allocated for them, so exclude them
+            assert(m_pendingLogging[store_addr]);
+            num_reserved_mshrs -= 2;
+        }
+    }
+    // Failed stores can always issue since they have already an
+    // allocated MSHR (not removed  failedCallback)
+    if (m_failedStorePkt == pkt) {
+        return true;
+    }
+    if ((m_outstanding_count +
+         num_reserved_mshrs >= m_max_outstanding_requests) &&
+        !pkt->req->isHTMAbort()) {
+        return false;
+    } else {
+        return true;
+    }
+}
 
 RequestStatus
 TransactionalSequencer::makeRequest(PacketPtr pkt)
 {
-    int thread = 0;
-
     if (pkt->req->isHTMCmd()) {
         // HTM command: Intercept and notify transaction manager
         notifyXactionEvent(pkt);
 
         // All HTM commands need to callback CPU immediately
         rubyHtmCallback(pkt);
-        
+
         // Pretend this request issued so that RubyPort does not try
         // to send it again later
         return RequestStatus_Issued;
     }
-    else if (m_xact_mgr->isAborting(thread) &&
-             pkt->isHtmTransactional()) {
-        // Transactional access finds abort flag set: Callback CPU
+    else if (pkt->isHtmTransactional() &&
+             (m_xact_mgr->isAborting() ||
+              pkt->getHtmTransactionUid() == m_lastAbortHtmUid)) {
+        // Transactional access that finds abort flag set or lingering
+        // access after transaction has already aborted: Callback CPU
         // immediately. If access is load, abort signal sent back to
         // CPU by setting the htmReturnReason in the response packet
         // (ifetch and stores always return HtmCacheFailure::NO_FAIL)
         if (m_commitPending) {
             panic("Unexpected abort while commit pending!\n");
         }
+        assert(m_failedStorePkt == NULL);
         rubyHtmCallback(pkt);
         return RequestStatus_Issued;
     } else {
@@ -427,47 +564,11 @@ TransactionalSequencer::makeRequest(PacketPtr pkt)
                 // Intercept access to fallback lock and obtain physical addr
                 m_htm->setFallbackLockPAddr(pkt->req->getPaddr());
             } else if (!m_htm->params().lazy_vm) {
-                assert(m_xact_mgr);
-                // LogTM: Intercept access to undo log and setup
-                // log TLB translations
-                if (m_xact_mgr->isAccessToLog(pkt->req->getVaddr())) {
-                    if (!m_xact_mgr->isLogReady()) {
-                        m_xact_mgr->setupLogTranslation(pkt->req->getVaddr(),
-                                                        pkt->req->getPaddr());
-                    } else if (m_xact_mgr->isUnrollingLog(thread)) {
-                        // We can have lingering transactional
-                        // loads immediately abort signal from CPU
-                        DPRINTF(RubyHTMlog, "Log access during unroll "
-                                "vaddr %#x paddr %#x\n",
-                                pkt->req->getVaddr(),
-                                pkt->req->getPaddr());
-                        if (m_xact_mgr->isEndLogUnrollSignal(pkt)) {
-                            assert(pkt->isWrite());
-                           // "Magic value" written to logbase to
-                           // signal log unroll completed without
-                           // writing to the stack (call m5xxx)
-                            m_xact_mgr->endLogUnroll(thread);
-                            DPRINTF(RubyHTMlog, "Log unroll completed\n");
-                            // No need to perform memory access in cache
-                            ruby_hit_callback(pkt);
-                            testDrainComplete();
-                            return RequestStatus_Issued;
-                        } else {
-                            assert(!pkt->isWrite());
-                        }
-                    } else {
-                        if (pkt->isWrite()) {
-                            panic("Unexpected write to undo log!\n");
-                        } else {
-                            // Speculative from mispredicted paths may
-                            // read from log locations immediately
-                            // after unroll has completed
-                            warn("Unexpected load to undo log!"
-                                 " - PC %#x vaddr %#x\n",
-                                 pkt->req->getPC(),
-                                 pkt->req->getVaddr());
-                        }
-                    }
+                bool noaccess = interceptLogAccess(pkt);
+                if (noaccess) { // No cache access required
+                    ruby_hit_callback(pkt);
+                    testDrainComplete();
+                    return RequestStatus_Issued;
                 }
             }
         }
@@ -491,7 +592,7 @@ TransactionalSequencer::makeRequest(PacketPtr pkt)
             pkt->isHtmTransactional()) {
             if (pkt->isWrite()) {
                 assert(m_xact_mgr);
-                if (m_xact_mgr->atCommit(thread)) {
+                if (m_xact_mgr->atCommit()) {
                     // LL: write buffer contents being written back to cache,
                     // issue write request
                     DPRINTF(RubyHTM,
@@ -526,178 +627,159 @@ TransactionalSequencer::makeRequest(PacketPtr pkt)
                         pkt->req->getVaddr(),
                         pkt->req->getPaddr());
             }
-        } else if (!m_htm->params().lazy_vm) { // LogTM
-            Addr line_addr = makeLineAddress(pkt->getAddr());
-            if (pkt->isHtmTransactional() &&
-                pkt->isWrite()) {
-                assert(m_htm->params().eager_cd);
-                if (m_xact_mgr->checkWriteSignature(pkt->getAddr())) {
-                    // Store to block already in wset
-                    DPRINTF(RubyHTMlog, "Store to vaddr %#x"
-                            " block paddr %#x already logged\n",
-                            pkt->req->getVaddr(),
-                            makeLineAddress(pkt->req->getPaddr()));
-                    assert(m_logRequestTable.find(pkt->getAddr()) ==
-                           m_logRequestTable.end());
-                } else {
-                    /* Generate log requests and use
-                       Sequencer::makeRequest(pkt) to handle them. Once both
-                       log requests issued, then let it thru to make request
-                       for program store. Need to keep track of each
-                       "oustanding" store and its associated log requests.
-                    */
-                    // Check if there is any outstanding log request for the
-                    // cache line targeted by this write.
-                    if (m_logRequestTable.find(line_addr) !=
-                        m_logRequestTable.end()) {
-                        auto &log_req_list = m_logRequestTable[line_addr];
-                        assert(!log_req_list.empty());
-                        // Outstanding log request
-                        LogRequestInfo &log_req = log_req_list.back();
-                        if (log_req.htmTransactionUid !=
-                            pkt->getHtmTransactionUid()) {
-                            // Wait for lingering log store from
-                            // already aborted transaction
-                            assert(log_req.suppressed);
-                            DPRINTF(RubyHTMlog, "Cannot make request for"
-                                    " store to vaddr - Outstanding"
-                                    " lingering stores from htmUid %ld\n",
-                                    log_req.htmTransactionUid);
-                            return RequestStatus_WaitUntilLogged;
-                        }
-                        if (log_req.completed + log_req.outstanding < 2) {
-                            makeLogRequests(log_req);
-                        }
-                        if (log_req.completed < 2) {
-                            DPRINTF(RubyHTMlog, "Cannot make request for"
-                                    " store to vaddr %#x paddr %#x (%#x)"
-                                    " - %d/%d outstanding/completed\n",
-                                    pkt->req->getVaddr(),
-                                    pkt->req->getPaddr(),
-                                    line_addr,
-                                    log_req.outstanding,
-                                    log_req.completed);
-                            return RequestStatus_WaitUntilLogged;
-                        }
-                        // Complete
-                        DPRINTF(RubyHTMlog, "Done adding log entry for"
-                                " store to vaddr %#x paddr %#x\n",
-                                pkt->req->getVaddr(),
-                                pkt->req->getPaddr());
-                        // Will call makeRequest for program store next
-                    } else {
-                        // Create log requests/packets
-                        LogRequestInfo log_req = buildLogPackets(pkt);
-                        // Try to issue them to cache
-                        makeLogRequests(log_req);
-                        // Record their status via logReqTable
-                        auto &log_req_list = m_logRequestTable[line_addr];
-                        assert(log_req_list.empty());
-                        log_req_list.emplace_back(log_req);
-                        DPRINTF(RubyHTMlog, "Store to vaddr %#x paddr %#x"
-                                "(%#x) must wait until log requests done\n",
-                                pkt->req->getVaddr(),
-                                pkt->req->getPaddr(),
-                                line_addr);
-
-
-                        return RequestStatus_WaitUntilLogged;
-                    }
-                }
-            } else { // Not a transactional write
-                if (m_logRequestAddr.find(line_addr) !=
-                    m_logRequestAddr.end()) {
-                    // Prevent accesses the log while logging is ongoing
-
-                    DPRINTF(RubyHTMlog, "%strans %s to paddr %#x"
-                            "(%#x) must wait until log requests done\n",
-                            pkt->isHtmTransactional() ? "" : "non-",
-                            pkt->isWrite() ? "write" : "read",
-                            pkt->getAddr(),
-                            line_addr);
-                    // Prevent processor from accessing the log while logging
-                    return RequestStatus_WaitUntilLogged;
-                }
-            }
-        }// Logtm
+        }
         return Sequencer::makeRequest(pkt);
     }
 }
 
 void
-TransactionalSequencer::hitCallback(SequencerRequest* srequest, DataBlock& data,
+TransactionalSequencer::failedCallbackCleanup(PacketPtr pkt)
+{
+    assert(m_failedCallback);
+    if (!m_htm->params().lazy_vm) { // LogTM: free reserved MSHRs via
+                                    // "pendingLogging" map.
+        // Done after ruby_hit_callback in case a request is retried
+        Addr address = makeLineAddress(pkt->getAddr());
+        bool needsLogging =
+            m_pendingLogging.find(address) != m_pendingLogging.end();
+        if (needsLogging) {
+            auto &seq_req_list = m_RequestTable[address];
+            if (!pkt->isWrite()) { // Aliased loads on nacked store miss
+                assert(seq_req_list.size() > 1);
+            } else { // Nacked write
+                assert(pkt->isHtmTransactional() &&
+                       !m_xact_mgr->checkWriteSignature(address));
+                if (seq_req_list.size() == 1) { // Only write
+                    // Clear from pending to free "reserved MSHRs"
+                    // see (canMakeRequest)
+                    m_pendingLogging.erase(address);
+                } else { // Aliased requests: if other stores
+                    // coalesced into this miss, do not erase
+                    int numStoresFound = numOutstandingWrites(address);
+                    if (numStoresFound == 1) {
+                        // This is the only store, other aliased reqs are
+                        // loads: erase from pending logging
+                        m_pendingLogging.erase(address);
+                    } else { // There are other stores apart from this
+                        // one that failed: retain entry
+                        assert(numStoresFound > 1);
+                    }
+                }
+            }
+        }
+    }
+}
+
+void
+TransactionalSequencer::handleFailedCallback(SequencerRequest* srequest)
+{
+    PacketPtr pkt = srequest->pkt;
+    Addr address = makeLineAddress(pkt->getAddr());
+    assert(m_failedCallback);
+    if (pkt->isWrite()) {
+        // Failed writes should never go through this path unless we
+        // are aborting and want to "sink" them instead of retrying
+        assert(m_xact_mgr->isAborting());
+        // Set the HtmTransactionFailedInCache in the packet, the CPU
+        // expects it set for writes with HtmFailedCacheAccess set
+        HtmCacheFailure reason =
+            m_xact_mgr->getHtmTransactionalReqResponseCode();
+        pkt->setHtmTransactionFailedInCache(reason);
+    }
+    // Handle nacking of Locked_RMW accesses.
+    // address variable here is assumed to be a line address, so when
+    // blocking buffers, must check line addresses.
+    if (srequest->m_type == RubyRequestType_Locked_RMW_Read) {
+        assert(m_controller->isBlocked(address));
+        m_controller->unblock(address);
+        DPRINTF(RubyHTM,
+                "Failed callback for Locked_RMW_Read to addr %#x"
+                " - unblocking queue\n", address);
+    } else {
+        assert(!m_controller->isBlocked(address));
+    }
+    if (pkt->req->hasVaddr() &&
+        pkt->req->getVaddr() == m_htm->getFallbackLockVAddr()) {
+        DPRINTF(RubyHTM,
+                "Failed access to fallback lock!"
+                " - PC %#x vaddr %#x\n",
+                pkt->req->getPC(),
+                pkt->req->getVaddr());
+        // Requester-stalls policies that prevent the lock from
+        // being acquired/released are subject to deadlocks
+        // without adequate management of conflicts with a
+        // non-transactional requester
+        warn("Failed access to fallback lock!"
+             " - PC %#x vaddr %#x\n",
+             pkt->req->getPC(),
+             pkt->req->getVaddr());
+    }
+    // Skip all the following actions and do not call
+    // Sequencer::hitCallback
+    pkt->setHtmFailedCacheAccess(true);
+    if (pkt->isAtLSQHead() &&
+        !m_xact_mgr->isAborting() &&
+        !m_stalled &&
+        (!pkt->isHtmTransactional() ||
+         m_lastAbortHtmUid != pkt->getHtmTransactionUid())) {
+        m_stalled = true;
+        assert(m_lastStateBeforeStall == AnnotatedRegion_INVALID);
+        m_lastStateBeforeStall = m_ruby_system->getProfiler()->
+            getXactProfiler()->getCurrentRegion(m_version);
+        Addr address = makeLineAddress(pkt->getAddr());
+        DPRINTF(RubyHTM,
+                "Stalled (nacked) thread after failing to perform"
+                " access to block addr %#x\n", address);
+        m_ruby_system->getProfiler()->
+            getXactProfiler()->moveTo(m_version,
+                                      pkt->isHtmTransactional() ?
+                                      AnnotatedRegion_STALLED :
+                                      AnnotatedRegion_STALLED_NONTRANS);
+    }
+    ruby_hit_callback(pkt);
+    failedCallbackCleanup(pkt);
+    testDrainComplete();
+    return;
+}
+
+void
+TransactionalSequencer::hitCallback(SequencerRequest* srequest,
+                                    DataBlock& data,
                                     bool llscSuccess,
-                                    const MachineType mach, const bool externalHit,
+                                    const MachineType mach,
+                                    const bool externalHit,
                                     const Cycles initialRequestTime,
                                     const Cycles forwardRequestTime,
                                     const Cycles firstResponseTime,
                                     const bool was_coalesced)
 {
     PacketPtr pkt = srequest->pkt;
-    int thread = 0;
     if (m_failedCallback) {
-        // Handle nacking of Locked_RMW accesses.
-        // address variable here is assumed to be a line address, so when
-        // blocking buffers, must check line addresses.
-        Addr address = makeLineAddress(srequest->pkt->getAddr());
-        if (srequest->m_type == RubyRequestType_Locked_RMW_Read) {
-            assert(m_controller->isBlocked(address));
-            m_controller->unblock(address);
-            DPRINTF(RubyHTM,
-                    "Failed callback for Locked_RMW_Read to addr %#x"
-                    " - unblocking queue\n", address);
-        } else {
-            assert(!m_controller->isBlocked(address));
-        }
-        if (pkt->req->hasVaddr() &&
-            pkt->req->getVaddr() == m_htm->getFallbackLockVAddr()) {
-            DPRINTF(RubyHTM,
-                    "Failed access to fallback lock!"
-                    " - PC %#x vaddr %#x\n",
-                    pkt->req->getPC(),
-                    pkt->req->getVaddr());
-            // Requester-stalls policies that prevent the lock from
-            // being acquired/released are subject to deadlocks
-            // without adequate management of conflicts with a
-            // non-transactional requester
-            warn("Failed access to fallback lock!"
-                  " - PC %#x vaddr %#x\n",
-                  pkt->req->getPC(),
-                  pkt->req->getVaddr());
-        }
-        // Skip all the following actions and do not call
-        // Sequencer::hitCallback
-        pkt->setHtmFailedCacheAccess(true);
-        if (pkt->isAtLSQHead() &&
-            !m_xact_mgr->isAborting(thread) &&
-            !m_stalled &&
-            (!pkt->isHtmTransactional() ||
-             m_lastAbortHtmUid != pkt->getHtmTransactionUid())) {
-            m_stalled = true;
-            assert(m_lastStateBeforeStall == AnnotatedRegion_INVALID);
-            m_lastStateBeforeStall = m_ruby_system->getProfiler()->
-                getXactProfiler()->getCurrentRegion(m_version);
-            Addr address = makeLineAddress(pkt->getAddr());
-            DPRINTF(RubyHTM,
-                    "Stalled (nacked) thread after failing to perform"
-                    " access to block addr %#x\n", address);
-            m_ruby_system->getProfiler()->
-                getXactProfiler()->moveTo(m_version,
-                                          pkt->isHtmTransactional() ?
-                                          AnnotatedRegion_STALLED :
-                                          AnnotatedRegion_STALLED_NONTRANS);
-        }
-        ruby_hit_callback(pkt);
-        testDrainComplete();
+        handleFailedCallback(srequest);
         return;
     }
+    if (pkt->isHtmStoreToLog()) {
+        ///////////
+        // Intercept stores to the log
+        assert(!m_failedCallback);
+        // Logging stores (addr + data): one copies old value into
+        // the log and the other the virtual address targeted by
+        // the program store. When both are complete, will
+        // directly callback Sequencer::writeCallback
+        Addr address = makeLineAddress(pkt->getAddr());
+        handleStoresToLog(address, pkt, data);
+        // No callback needed
+        delete pkt;
+        return;
+    }
+
     if (m_stalled && pkt->isAtLSQHead() &&
-        !m_xact_mgr->isAborting(thread) &&
+        !m_xact_mgr->isAborting() &&
         (!pkt->isHtmTransactional() ||
          m_lastAbortHtmUid != pkt->getHtmTransactionUid())) {
 
         if (pkt->isHtmTransactional()) {
-            assert(m_xact_mgr->inTransaction(thread));
+            assert(m_xact_mgr->inTransaction());
             assert(m_lastStateBeforeStall == AnnotatedRegion_TRANSACTIONAL);
         }
         m_ruby_system->getProfiler()->
@@ -719,7 +801,7 @@ TransactionalSequencer::hitCallback(SequencerRequest* srequest, DataBlock& data,
                      (srequest->m_type == RubyRequestType_Locked_RMW_Read) ||
                      (srequest->m_type == RubyRequestType_RMW_Read) ||
                      (srequest->m_type == RubyRequestType_IFETCH));
-        
+
         if (read) {
             handleTransactionalRead(srequest,
                                     data,
@@ -730,7 +812,7 @@ TransactionalSequencer::hitCallback(SequencerRequest* srequest, DataBlock& data,
                  srequest->m_type == RubyRequestType_Locked_RMW_Read) {
             // Handle RMW_Read's with care due to writeback of dirty data
             // before it gets speculatively modified
-            panic("Not tested!\n");        
+            panic("Not tested!\n");
             handleTransactionalRead(srequest,
                                     data,
                                     externalHit,
@@ -745,7 +827,7 @@ TransactionalSequencer::hitCallback(SequencerRequest* srequest, DataBlock& data,
         if (m_htm->params().lazy_vm &&
             !m_htm->params().eager_cd) {
             // LL system
-            if (m_xact_mgr->atCommit(thread)) {
+            if (m_xact_mgr->atCommit()) {
                 if (read) {
                     // Corner case: in O3CPU, transactional loads from
                     // mispredicted paths can cause misses that
@@ -802,7 +884,7 @@ TransactionalSequencer::hitCallback(SequencerRequest* srequest, DataBlock& data,
         }
     }
     if (m_xact_mgr->config_enableIsolationChecker() &&
-        !m_xact_mgr->isAborting(thread)) {
+        !m_xact_mgr->isAborting()) {
         bool passed = m_ruby_system->getXactIsolationChecker()->
             checkXACTIsolation(m_version, pkt->getAddr(),
                                pkt->isHtmTransactional(),
@@ -829,12 +911,11 @@ TransactionalSequencer::handleTransactionalWrite(SequencerRequest *request,
                                           DataBlock& data, bool externalHit,
                                           const MachineType respondingMach)
 {
-    int thread=0; // The thread id within this CPU (SMT compliance)
     PacketPtr pkt = request->pkt;
     Addr request_address(pkt->getAddr()); // Word address
     assert(pkt->isWrite());
     assert(pkt->isHtmTransactional());
-    assert(m_xact_mgr->inTransaction(thread));
+    assert(m_xact_mgr->inTransaction());
 
     if (m_xact_mgr->checkWriteSignature(pkt->getAddr())) {
         DPRINTF(RubyHTMverbose,
@@ -847,7 +928,7 @@ TransactionalSequencer::handleTransactionalWrite(SequencerRequest *request,
                 " address to write set\n",
                 pkt->getAddr(),
                 makeLineAddress(pkt->getAddr()));
-        m_xact_mgr->isolateTransactionStore(thread, request_address);
+        m_xact_mgr->isolateTransactionStore(request_address);
     }
     Addr pc = Addr(0);
     if (pkt->req->hasPC()) {
@@ -856,7 +937,7 @@ TransactionalSequencer::handleTransactionalWrite(SequencerRequest *request,
     } else { // LL flushing write buffer
         assert(m_htm->params().lazy_vm &&
                !m_htm->params().eager_cd);
-        assert(m_xact_mgr->atCommit(thread));
+        assert(m_xact_mgr->atCommit());
         // Whole block
         assert(pkt->getSize() == RubySystem::getBlockSizeBytes());
     }
@@ -864,7 +945,7 @@ TransactionalSequencer::handleTransactionalWrite(SequencerRequest *request,
                                          respondingMach,
                                          pkt->getAddr(), pc,
                                          pkt->getSize());
-    
+
 }
 
 void
@@ -878,24 +959,22 @@ TransactionalSequencer::handleTransactionalRead(SequencerRequest *srequest,
             (srequest->m_type == RubyRequestType_RMW_Read) ||
             (srequest->m_type == RubyRequestType_IFETCH));
     PacketPtr pkt = srequest->pkt;
-    int thread=0; // The thread id within this CPU (SMT compliance)
-    _unused(thread);
     assert(pkt->isHtmTransactional());
     assert(m_xact_mgr);
     assert(pkt->req->hasPC());
     Addr pc = pkt->req->getPC();
-    m_xact_mgr->profileTransactionAccess(externalHit, false, 
-                                         respondingMach, 
+    m_xact_mgr->profileTransactionAccess(externalHit, false,
+                                         respondingMach,
                                          pkt->getAddr(),
                                          pc,
                                          pkt->getSize());
     // Trans loads isolated (i.e. SR bit set) when when cache access
     // begins or when retired from ROB
-    if (m_xact_mgr->isAborting(thread)) {
+    if (m_xact_mgr->isAborting()) {
         HtmCacheFailure reason =
-            m_xact_mgr->getHtmTransactionalReqResponseCode(thread);
+            m_xact_mgr->getHtmTransactionalReqResponseCode();
         assert(reason != HtmCacheFailure::NO_FAIL ||
-               m_xact_mgr->isCancelledTransaction(thread));
+               m_xact_mgr->isCancelledTransaction());
         pkt->setHtmTransactionFailedInCache(reason);
         DPRINTF(RubyHTM, "Transactional read callback finds abort flag set\n");
     }
@@ -909,26 +988,30 @@ TransactionalSequencer::writeBufferEvent(PacketPtr pkt)
     testDrainComplete();
 }
 
+void
+TransactionalSequencer::lazyCommitEvent(PacketPtr pkt)
+{
+    lazyCommitCheckEvent.clearPacket();
+    makeRequest(pkt);
+    testDrainComplete();
+}
+
 LogRequestInfo
-TransactionalSequencer::buildLogPackets(PacketPtr mainPkt) {
+TransactionalSequencer::buildLogPackets(PacketPtr mainPkt,
+                                        DataBlock& datablock) {
   assert(mainPkt->isHtmTransactional());
   assert(mainPkt->req->hasVaddr());
 
-#if 0
-  /* TODO: Let CPU notify Ruby about which stores need to be logged,
-     and provide v2p translations for required log accesses.
-   */
-  Addr logDataPtr =  mainPkt->getLogAddr();
-#else
-  int numEntry = m_xact_mgr->addLogEntry(mainPkt->getAddr());
+  int logIndex = m_xact_mgr->addLogEntry();
   Addr logDataVPtr = m_xact_mgr->getXactEagerVersionManager()->
-      computeLogDataPointer(numEntry);
+      computeLogDataPointer(logIndex);
   Addr logDataPtr = m_xact_mgr->getXactEagerVersionManager()->
       translateLogAddress(logDataVPtr);
   DPRINTF(RubyHTMlog,
-          "Logging store to paddr %#x - log %d vaddr %#x log paddr %#x \n",
-          mainPkt->getAddr(), numEntry, logDataVPtr, logDataPtr);
-#endif
+          "Logging store to paddr %#x -"
+          " log index %d vaddr %#x log paddr %#x \n",
+          mainPkt->getAddr(), logIndex, logDataVPtr, logDataPtr);
+
   assert(logDataPtr == makeLineAddress(logDataPtr));
   Addr logAddressPtr = (Addr)logtm_compute_addr_ptr_from_data_ptr(logDataPtr);
 
@@ -961,9 +1044,10 @@ TransactionalSequencer::buildLogPackets(PacketPtr mainPkt) {
   logAddrPkt->setHtmStoreToLog(true, mainPkt);
   logDataPkt->setHtmStoreToLog(true, mainPkt);
 
-  // Allocate packet data, will copy values to be logged upon program
-  // store writeCallback
+  // Allocate packet data and copy values to be logged
   logDataPkt->allocate();
+  logDataPkt->setData(datablock.getData(0, RubySystem::getBlockSizeBytes()));
+
   // Allocate packet data and copy program store's target virtual line address
   logAddrPkt->allocate();
   Addr vaddr = makeLineAddress(mainPkt->req->getVaddr());
@@ -976,55 +1060,38 @@ TransactionalSequencer::buildLogPackets(PacketPtr mainPkt) {
 
   return LogRequestInfo(logAddrPkt, logDataPkt,
                         mainPkt->getHtmTransactionUid(),
+                        logIndex,
                         mainPkt->req->getVaddr(),
                         makeLineAddress(mainPkt->getAddr()));
 }
 
-void
+bool
 TransactionalSequencer::makeLogRequests(LogRequestInfo &logreqinfo)
 {
-    if (m_logRequestTable.size() > m_dataCache_ptr->getCacheAssoc()/2) {
-        /* Since logging requires locking the destination (log data
-           block) until the store is ready to perform in cache, we
-           must always leave room in the set for other cache lines
-           apart from the locked log lines.
-         */
-        DPRINTF(RubyHTMlog, "Too many outstanding log requests (%d)"
-                " - cannot issue log requests for store paddr %#x\n",
-                m_logRequestTable.size(),
-                logreqinfo.paddr);
-        return;
-    }
-
-    assert(!logreqinfo.suppressed);
 
     if (logreqinfo.logAddrPktStatus != RequestStatus_Issued) {
         logreqinfo.logAddrPktStatus =
             Sequencer::makeRequest(logreqinfo.logAddrPkt);
-        if (logreqinfo.logAddrPktStatus == RequestStatus_Issued) {
-            DPRINTF(RubyHTMlog, "Issued log address request:"
-                    " - paddr %#x (addr)\n",
-                    logreqinfo.logAddrPkt->getAddr());
-            ++logreqinfo.outstanding;
-            Addr line_address =
-                makeLineAddress(logreqinfo.logAddrPkt->getAddr());
-            m_logRequestAddr[line_address]='y';
+        if (logreqinfo.logAddrPktStatus != RequestStatus_Issued) {
+            return false;
         }
+        DPRINTF(RubyHTMlog, "Issued log address request:"
+                " - paddr %#x (addr)\n",
+                logreqinfo.logAddrPkt->getAddr());
+        ++logreqinfo.outstanding;
     }
     if (logreqinfo.logDataPktStatus != RequestStatus_Issued) {
         logreqinfo.logDataPktStatus =
             Sequencer::makeRequest(logreqinfo.logDataPkt);
-        if (logreqinfo.logDataPktStatus == RequestStatus_Issued) {
-            DPRINTF(RubyHTMlog, "Issued log data request:"
-                    " - paddr %#x (addr)\n",
-                    logreqinfo.logDataPkt->getAddr());
-            ++logreqinfo.outstanding;
-            Addr line_address =
-                makeLineAddress(logreqinfo.logDataPkt->getAddr());
-            m_logRequestAddr[line_address]='y';
+        if (logreqinfo.logDataPktStatus != RequestStatus_Issued) {
+            return false;
         }
+        DPRINTF(RubyHTMlog, "Issued log data request:"
+                " - paddr %#x (addr)\n",
+                logreqinfo.logDataPkt->getAddr());
+        ++logreqinfo.outstanding;
     }
-
+    return true;
 }
 
 void
@@ -1043,152 +1110,55 @@ TransactionalSequencer::handleStoresToLog(Addr address,
 
     --log.outstanding;
     ++log.completed;
-    bool found = m_logRequestAddr.erase(address);
-    assert(found);
-
-    if (pkt == log.logAddrPkt) {
-        // Copy virtual address to address log
+    if (pkt == log.logAddrPkt) { // This is the callback for the log
+                                 // address block
+        // Will copy virtual address to log when program store
+        // completes. For now, set it to zero to indicate that the
+        // data log is not valid. This is essential for correctness
+        // since the program store may never complete leaving "gaps",
+        // and the unroll must skip restoring memory in that case
         const uint64_t *vaddrPtr = pkt->getConstPtr<uint64_t>();
+        assert(*vaddrPtr == makeLineAddress(log.vaddr));
         data.setData(pkt->getConstPtr<uint8_t>(),
                      getOffset(pkt->getAddr()), pkt->getSize());
         DPRINTF(RubyHTMlog, "Log address block at paddr %#x"
-                " written with vaddr %#x\n",
-                *vaddrPtr, pkt->getAddr());
+                " written with vaddr %#x"
+                " targeted by program store (%#x)\n",
+                pkt->getAddr(), *vaddrPtr, log.paddr);
     }
-    else {
-        // We cannot copy to the data log, we may not yet have the
-        // data block from the program store
+    else { // This is the callback for the log data block
         assert(pkt == log.logDataPkt);
-        // However, we need to set pending log store bit to
-        // prevent replacements on this line: need both program
-        // (src) and data log (dest) blocks cached
-        m_dataCache_ptr->setHtmLogPending(address, true);
-        DPRINTF(RubyHTMlog, "Log data block paddr %#x pinned in cache"
-                " until data from vaddr %#x (paddr %#x) copied\n",
-                address, log.vaddr, log.paddr);
+        assert(pkt->getSize() == RubySystem::getBlockSizeBytes());
+        // Write non-speculative values from log buffer
+        // to data log cache block
+        data.setData(pkt->getConstPtr<uint8_t>(),
+                     0 /*offset*/,
+                     RubySystem::getBlockSizeBytes() /*len*/);
+        DPRINTF(RubyHTMlog, "Successfully logged program store "
+                "  vaddr %#x (paddr %#x) into log paddr %#x\n",
+                log.vaddr, log.paddr, address);
     }
-    if (log.suppressed) {
-        // Transaction aborted while outstanding log requests: ignore
-        DPRINTF(RubyHTMlog, "Ignored log requests for "
-                " cancelled store to paddr %#x due to abort "
-                " - %d/%d outstanding/completed\n", store_addr,
-                log.outstanding, log.completed);
-        // Erase entry if no more outstanding stores to log
-        if (log.outstanding == 0) {
-            // Release lock on log data block
-            m_dataCache_ptr->
-                setHtmLogPending(log.logDataPkt->getAddr(), false);
-            // Erase entry from log request table
-            bool found = m_logRequestTable.erase(store_addr);
-            assert(found);
-            // Delete packets
-#if 0
-            delete log.logAddrPkt;
-            delete log.logDataPkt;
-#endif
+
+    if (log.outstanding == 0 && log.completed == 2) {
+        DPRINTF(RubyHTMlog, "Done logging store to paddr %#x\n",
+                store_addr);
+        // Unlock block targeted by program store
+        m_dataCache_ptr->setHtmLogPending(store_addr, false);
+        DataBlock* storeDataPtr;
+        bool hit = m_dataCache_ptr->
+            tryCacheAccess(store_addr, RubyRequestType_ST,
+                           storeDataPtr, false);
+        assert(hit);
+        Sequencer::writeCallback(store_addr, *storeDataPtr);
+        if (m_xact_mgr->config_enableValueChecker()) {
+            // Record old value we just logged
+            m_ruby_system->getXactValueChecker()->
+                notifyLoggedDataBlock(m_version,address, data);
         }
-    }
-}
 
-void
-TransactionalSequencer::handleLoggedStore(Addr address,
-                                          PacketPtr pkt,
-                                          DataBlock& data)
-{
-    assert(pkt->isHtmTransactional());
-    assert(pkt->isWrite());
-    auto &log_req_list = m_logRequestTable[address];
-    assert(log_req_list.size() == 1);
-    LogRequestInfo &log = log_req_list.back();
-    assert(log.outstanding == 0 && log.completed == 2);
-    assert(!log.suppressed);
-    PacketPtr logPkt = log.logDataPkt;
-    assert(logPkt->getSize() == RubySystem::getBlockSizeBytes());
-    // get a pointer to the data log cache block, then write values
-    // tryCacheAccess must find a write hit, and return pointer
-    if (!m_dataCache_ptr->isHtmLogPending(logPkt->getAddr())) {
-        // TODO: Prevent replacements of entries with htmLogPending
-        // flag set
-      panic("Undo log data entry has been evicted "
-            "Transactional store cannot be logged!\n");
-    }
-    // Unblock the data log cache block now..
-    m_dataCache_ptr->setHtmLogPending(logPkt->getAddr(), false);
-    DataBlock* logDatablockPtr;
-    bool hit = m_dataCache_ptr->
-        tryCacheAccess(makeLineAddress(logPkt->getAddr()),
-                       RubyRequestType_ST,
-                       logDatablockPtr, false);
-    _unused(hit);
-    assert(hit);
-    // Should only log blocks that have not yet been written
-    assert(!m_xact_mgr->checkWriteSignature(address));
-    // Finally, write non-speculative values from current data block
-    // (target of transactional store) to data log cache block
-    logDatablockPtr->setData(data.getData(0,RubySystem::getBlockSizeBytes()),
-                             0 /*offset*/,
-                             RubySystem::getBlockSizeBytes() /*len*/);
-
-    DPRINTF(RubyHTMlog, "Successfully logged store to vaddr"
-            " %#x paddr %#x old value %s\n",
-            makeLineAddress(pkt->req->getVaddr()),
-            makeLineAddress(pkt->getAddr()),
-            logDatablockPtr->toString());
-    // Finally, commit this entry into the log.
-    m_xact_mgr->commitLogEntry(log.logDataPkt->getAddr());
-
-    if (m_xact_mgr->config_enableValueChecker()) {
-        // Record old value we just logged
-        m_ruby_system->getXactValueChecker()->
-            notifyLoggedDataBlock(m_version,address, data);
-    }
-
-    // Delete packets
-#if 0
-    delete log.logAddrPkt;
-    delete log.logDataPkt;
-#endif
-    // Erase log request
-    bool found = m_logRequestTable.erase(address);
-    assert(found);
-}
-
-void
-TransactionalSequencer::cancelLogRequests()
-{
-    // Careful when erasing from a map while iterating it. Must avoid
-    // using iterator after erasing
-    auto it = m_logRequestTable.begin();
-    for (auto next_it = it;
-         it != m_logRequestTable.end(); it = next_it) {
-        ++next_it;
-        auto &log_req_list =(*it).second;
-        assert(log_req_list.size() == 1);
-        LogRequestInfo &log_req = log_req_list.back();
-        DPRINTF(RubyHTMlog, "Lingering logging of store"
-                " to paddr %#x\n",
-                (*it).first);
-        if (log_req.outstanding == 0) {
-            // Release lock on log data block for transactional stores
-            // that have not completed before the abort.
-            PacketPtr logPkt = log_req.logDataPkt;
-            m_dataCache_ptr->setHtmLogPending(logPkt->getAddr(), false);
-            // Erase entry from log request table
-#if 0
-            delete log_req.logAddrPkt;
-            delete log_req.logDataPkt;
-#endif
-            bool found = m_logRequestTable.erase((*it).first);
-            assert(found);
-        } else {
-            // Signal that the log req entry is to be erased and the
-            // lock on the cache released by handleStoresToLog when
-            // the outstanding log store completes
-            log_req.suppressed = true;
-            DPRINTF(RubyHTMlog, "Lingering logging of store"
-                    " to paddr %#x has outstanding request\n",
-                    (*it).first);
-        }
+        // Erase log request
+        bool found = m_logRequestTable.erase(store_addr);
+        assert(found);
     }
 }
 
@@ -1200,53 +1170,63 @@ TransactionalSequencer::writeCallback(Addr address, DataBlock& data,
                          const Cycles firstResponseTime,
                          const bool noCoales)
 {
+    assert(!m_failedCallback);
     if (!m_htm->params().lazy_vm) { // LogTM
-        // Intercept stores to the log
+        assert(m_htm->params().eager_cd);
         assert(address == makeLineAddress(address));
         assert(m_RequestTable.find(address) != m_RequestTable.end());
         auto &seq_req_list = m_RequestTable[address];
 
         assert(!seq_req_list.empty());
         SequencerRequest &seq_req = seq_req_list.front();
-        if (seq_req.pkt->isHtmStoreToLog()) {
-            // Logging stores (addr + data)
-            handleStoresToLog(address, seq_req.pkt, data);
-            // Remove this request from Sequencer structures
-            assert(seq_req_list.size() == 1);
-            seq_req_list.pop_front();
-            m_RequestTable.erase(address);
-            markRemoved();
-            // Do not callback CPU
-            // Wake up program store or store to log pending to be issued
-            trySendRetries();
-            return;
-        } else if (m_logRequestTable.find(address) !=
-                   m_logRequestTable.end()) {
-            // Must check all outstanding requests for this address to
-            // handle logged store that needs
-            bool isWrite = false;
-            bool isRMWRead = false;
-            PacketPtr writePkt;
-            for (auto it=seq_req_list.begin();
-                 it != seq_req_list.end(); ++it) {
-                if ((*it).pkt->isWrite()) {
-                    isWrite = true;
-                    writePkt = (*it).pkt;
-                    break;
-                } else if ((*it).m_type == RubyRequestType_RMW_Read) {
-                    isRMWRead = true;
-                }
-            }
-            // Can we have a writeCallback for an address in the
-            // logRequestTable if we don't have a write?
-            if (isWrite) {
-                // Transactional store with outstanding logging actions
-                handleLoggedStore(address, writePkt, data);
-                // Fall thru to erase and callback CPU...
+        assert(seq_req.pkt->isWrite() ||
+               (seq_req.m_type == RubyRequestType_RMW_Read) ||
+               (seq_req.m_type == RubyRequestType_Locked_RMW_Read));
+        bool needsLogging =
+            m_pendingLogging.find(address) != m_pendingLogging.end();
+        if (needsLogging) {
+            assert(seq_req.pkt->isHtmTransactional() &&
+                   !m_xact_mgr->checkWriteSignature(address));
+            assert(numOutstandingWrites(address) > 0);
+            // Lock this line in cache until logging done, we need it
+            // for the callback
+            m_dataCache_ptr->setHtmLogPending(address, true);
+            // Add to write set in order to start detecting conflicts
+            m_xact_mgr->isolateTransactionStore(address);
+            DPRINTF(RubyHTM,
+                    "Store to %#x (%#x) adds block"
+                    " address to write set\n",
+                    seq_req.pkt->getAddr(),
+                    makeLineAddress(seq_req.pkt->getAddr()));
+            /* Generate log requests and use
+               Sequencer::makeRequest(pkt) to handle them. Once both
+               log requests completed, then callback CPU to complete the
+               program store. Need to keep track of each
+               "oustanding" store and its associated log requests.
+            */
+            // Check if there  outstanding log request for the
+            // cache line targeted by this write.
+            assert(m_logRequestTable.find(address) ==
+                   m_logRequestTable.end());
+
+            // Create log requests/packets
+            LogRequestInfo log_req = buildLogPackets(seq_req.pkt, data);
+            // Try to issue them to cache
+            if (makeLogRequests(log_req)) {
+                bool found = m_pendingLogging.erase(address);
+                assert(found);
+                // Record their status via logReqTable
+                auto &log_req_list = m_logRequestTable[address];
+                assert(log_req_list.empty());
+                log_req_list.emplace_back(log_req);
+                DPRINTF(RubyHTMlog, "Store to paddr %#x"
+                        " must wait until log requests done\n",
+                        address);
+                // Do not call hitCallback until log requests done. Will
+                // be done by handleStoresToLog when logging completes
+                return;
             } else {
-                // This callback is for a prior RMW_Read to the same
-                // line that has a later store pending to be logged
-                assert(isRMWRead);
+                panic("Cannot make log requests!\n");
             }
         }
     }
@@ -1256,15 +1236,96 @@ TransactionalSequencer::writeCallback(Addr address, DataBlock& data,
                              firstResponseTime,
                              noCoales);
     if (!m_htm->params().lazy_vm) { // LogTM
-        int thread = 0;
         if (m_xact_mgr->config_enableValueChecker() &&
-            m_xact_mgr->isUnrollingLog(thread)) {
+            m_xact_mgr->isUnrollingLog()) {
             if (m_xact_mgr->checkWriteSignature(address)) {
                 // Restoring old value from log into wset block: Save
                 // datablock and check when unroll completes. Must do
                 // it after writeCallback observe written value
                 m_ruby_system->getXactValueChecker()->
                     notifyUnrolledDataBlock(m_version, address, data);
+            }
+        }
+    }
+}
+
+bool
+TransactionalSequencer::interceptLogAccess(PacketPtr pkt)
+{
+    // LogTM: Intercept access to undo log and setup
+    assert(!m_htm->params().lazy_vm);
+    assert(m_xact_mgr);
+    assert(pkt->req->hasVaddr());
+    // log TLB translations
+    if (m_xact_mgr->isAccessToLog(pkt->req->getVaddr())) {
+        if (!m_xact_mgr->isLogReady()) {
+            m_xact_mgr->setupLogTranslation(pkt->req->getVaddr(),
+                                            pkt->req->getPaddr());
+        } else if (m_xact_mgr->isUnrollingLog()) {
+            DPRINTF(RubyHTMlog, "Log access during unroll "
+                    "vaddr %#x paddr %#x\n",
+                    pkt->req->getVaddr(),
+                    pkt->req->getPaddr());
+            if (m_xact_mgr->isEndLogUnrollSignal(pkt)) {
+                assert(pkt->isWrite());
+                // "Magic value" written to logbase to
+                // signal log unroll completed without
+                // writing to the stack (call m5xxx)
+                m_xact_mgr->endLogUnroll();
+                DPRINTF(RubyHTMlog, "Log unroll completed\n");
+                // No need to perform memory access in cache
+                return true;
+            } else {
+                // We can have lingering transactional
+                // loads immediately abort signal from CPU
+                assert(!pkt->isWrite());
+            }
+        } else {
+            // Speculative from mispredicted paths may
+            // read from log locations immediately
+            // after unroll has completed
+            warn("Unexpected %s to undo log!"
+                 " - PC %#x vaddr %#x\n",
+                 pkt->isWrite() ? "write" : "read",
+                 pkt->req->getPC(),
+                 pkt->req->getVaddr());
+        }
+        // Sanity checks: Detect if the OS ever tries to move the log
+        // after it has been set up
+        Addr paddr = m_xact_mgr->
+            translateLogAddress(pkt->req->getVaddr());
+        if (pkt->getAddr() != paddr) {
+            panic("Unexpected v2p translation for log access -"
+                  " vaddr %#x paddr %#x (expected paddr %#x)\n",
+                  pkt->req->getVaddr(), pkt->getAddr(),
+                  paddr);
+        }
+    }
+    return false;
+}
+int
+TransactionalSequencer::numOutstandingWrites(Addr address)
+{
+    int numStoresFound = 0;
+    assert(m_RequestTable.find(address) != m_RequestTable.end());
+    auto &seq_req_list = m_RequestTable[address];
+    for (auto it=seq_req_list.begin();
+         it != seq_req_list.end(); ++it) {
+        SequencerRequest seq_req = *it;
+        if (seq_req.pkt->isWrite()) {
+            ++numStoresFound;
+        }
+    }
+    return numStoresFound;
+}
+
+void
+TransactionalSequencer::suppressOutstandingRequests()
+{
+    for (auto &table_entry : m_RequestTable) {
+        for (auto &seq_req : table_entry.second) {
+            if (seq_req.pkt->isHtmTransactional()) {
+                seq_req.suppressed = true;
             }
         }
     }

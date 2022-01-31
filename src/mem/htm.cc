@@ -80,6 +80,7 @@ getIsaVisibleHtmFailureCause(HtmFailureFaultCause cause)
     case HtmFailureFaultCause::EXPLICIT_FALLBACKLOCK:
     case HtmFailureFaultCause::MEMORY_FALLBACKLOCK:
     case HtmFailureFaultCause::MEMORY_STALEDATA:
+    case HtmFailureFaultCause::MEMORY_FALSESHARING:
         isaVisibleCause = HtmFailureFaultCause::MEMORY;
         break;
     case HtmFailureFaultCause::SIZE_RSET:
@@ -121,6 +122,8 @@ htmFailureToStr(HtmFailureFaultCause cause)
           "memory_conflict_fallbacklock" },
         { HtmFailureFaultCause::MEMORY_STALEDATA,
           "memory_conflict_staledata" },
+        { HtmFailureFaultCause::MEMORY_FALSESHARING,
+          "memory_conflict_falsesharing" },
         { HtmFailureFaultCause::OTHER, "other" }
     };
 
@@ -133,7 +136,6 @@ htmFailureToStr(HtmCacheFailure rc)
 {
     static const std::map<HtmCacheFailure, std::string> rc_to_str = {
         { HtmCacheFailure::NO_FAIL, "NO_FAIL" },
-        { HtmCacheFailure::NO_FAIL_RETRY, "NO_FAIL_RETRY" },
         { HtmCacheFailure::FAIL_SELF, "FAIL_SELF" },
         { HtmCacheFailure::FAIL_REMOTE, "FAIL_REMOTE" },
         { HtmCacheFailure::FAIL_OTHER, "FAIL_OTHER" }

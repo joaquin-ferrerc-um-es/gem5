@@ -1730,7 +1730,8 @@ CPU::htmSendAbortSignal(ThreadID tid, uint64_t htm_uid,
       Request::PHYSICAL|Request::STRICT_ORDER|Request::HTM_ABORT;
 
     // O3-specific actions
-    iew.ldstQueue.resetHtmStartsStops(tid);
+    // iew.ldstQueue.resetHtmStartsStops done when squash takes place to
+    // prevent issuing lingering memory accesses as non-transactional
     commit.resetHtmStartsStops(tid);
 
     // notify l1 d-cache (ruby) that core has aborted transaction

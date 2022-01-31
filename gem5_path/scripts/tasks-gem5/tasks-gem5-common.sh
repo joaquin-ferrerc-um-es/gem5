@@ -101,6 +101,20 @@ get_gem5_arch_name() {
     fi
 }
 
+# Get the arch name used by m5 (i.e, x86 instead of x86_64)
+get_m5_arch_name() {
+    local arch="$1"
+    if [[ "$arch" == "x86_64" ]] ; then
+        echo "x86"
+    elif [[ "$arch" == "aarch64" ]] ; then
+        echo "arm64"
+    elif [[ "$arch" == "riscv" ]] ; then
+        echo "riscv"
+    else
+        error_and_exit "Unknown architecture '$arch'"
+    fi
+}
+
 # returns the path relative to $GEM5_ROOT to the GEM5 executable for a given architecture, protocol and build_type
 get_gem5_binary() {
     local arch="$1"

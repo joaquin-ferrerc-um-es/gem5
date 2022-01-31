@@ -13,7 +13,7 @@ all      qemu-server qemu-server.img                /home/users/caps/qemu-server
 " | grep -v '^ *#.*' | grep -v '^ *$' | tr -s ' ')
 
 declare_task "get-base-resources" "Get base resources (disk images, kernels…). Options:
-        --architecure X: Get only architecture X
+        --architecture X: Get only architecture X
         --overwrite: Overwrite existing files.
         --download: Download resources from th web.
         --use-shared-caps: Use files from ${PATH_IN_ECHO_PREFIX} (default if possible)
@@ -25,10 +25,10 @@ task_get-base-resources() {
     local overwrite=no
     local mode=auto
     local get_common=yes
-    options="$(simpler_getopt "architecure:,overwrite,download,use-shared-echo,no-common" "$@")"
+    options="$(simpler_getopt "architecture:,overwrite,download,use-shared-echo,no-common" "$@")"
     eval set -- "$options"
     while [[ $# -gt 0 ]] ; do
-        if [[ "--architecure" == "$1" ]] ; then
+        if [[ "--architecture" == "$1" ]] ; then
             shift
             archs=("$1")
         elif [[ "--overwrite" == "$1" ]] ; then

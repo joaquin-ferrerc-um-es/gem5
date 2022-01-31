@@ -505,10 +505,18 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
         } else if (in_msg.Class == CoherenceClass:WB_ACK) {
             trigger(Event:WB_Ack, in_msg.addr, cache_entry, tbe);
         } else if (in_msg.Class == CoherenceClass:INV_OWN) {
-            if (xact_mgr.checkWriteSignature(in_msg.addr)) {
+            if (is_valid(cache_entry) &&
+                cache_entry.getHtmLogPending()) {
+                // Nack L1 replacement of data log block while logging
+                // outstanding
+                assert(!xact_mgr.config_lazyVM()); // LogTM
+                assert(xact_mgr.checkWriteSignature(in_msg.addr));
+                trigger(Event:InvOwn_X,
+                        in_msg.addr, getCacheEntry(in_msg.addr), tbe);
+            } else if (xact_mgr.checkWriteSignature(in_msg.addr)) {
                 xact_mgr.xactReplacement(in_msg.addr, in_msg.Sender);
                 if (!xact_mgr.config_allowWriteSetL1CacheEvictions()) {
-                    assert(xact_mgr.isDoomed(0));
+                    assert(xact_mgr.isDoomed());
                     trigger(Event:Inv_Discard, in_msg.addr, cache_entry, tbe);
                 } else {
                     trigger(Event:InvOwn_Wset, in_msg.addr, cache_entry, tbe);
@@ -521,16 +529,9 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
                     trigger(Event:InvOwn_Rset, in_msg.addr, cache_entry, tbe);
                 } else {
                     xact_mgr.xactReplacement(in_msg.addr, in_msg.Sender);
-                    assert(xact_mgr.isDoomed(0));
+                    assert(xact_mgr.isDoomed());
                     trigger(Event:InvOwn, in_msg.addr, cache_entry, tbe);
                 }
-            } else if (is_valid(cache_entry) &&
-                       cache_entry.getHtmLogPending()) {
-                // Nack L1 replacement of data log block while logging
-                // outstanding
-                assert(!xact_mgr.config_lazyVM());
-                trigger(Event:InvOwn_X,
-                        in_msg.addr, getCacheEntry(in_msg.addr), tbe);
             } else {
                 trigger(Event:InvOwn, in_msg.addr, cache_entry, tbe);
             }
@@ -544,14 +545,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
                         in_msg.addr, getCacheEntry(in_msg.addr), tbe);
             }
             else if (machineIDToMachineType(in_msg.OriginalRequestor) == MachineType:L2Cache) {
-                if (is_valid(cache_entry) &&
-                    cache_entry.getHtmLogPending()) {
-                    // Nack L1 replacement of data log block while logging
-                    // outstanding
-                    assert(!xact_mgr.config_lazyVM());
-                    trigger(Event:InvElse_X,
-                            in_msg.addr, getCacheEntry(in_msg.addr), tbe);
-                } else if (xact_mgr.checkWriteSignature(in_msg.addr)) {
+                if (xact_mgr.checkWriteSignature(in_msg.addr)) {
                     if (xact_mgr.config_allowWriteSetL2CacheEvictions()) {
                             assert(!xact_mgr.config_lazyVM()); // LogTM
                             trigger(Event:InvElse, in_msg.addr,
@@ -560,7 +554,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
                         // L2 replacements of L1 blocks in Wset should discard
                         // writeback
                         xact_mgr.xactReplacement(in_msg.addr, in_msg.OriginalRequestor);
-                        assert(xact_mgr.isDoomed(0));
+                        assert(xact_mgr.isDoomed());
                         trigger(Event:Inv_Discard, in_msg.addr, getCacheEntry(in_msg.addr), tbe);
                     }
                 } else {
@@ -569,7 +563,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
                 }
             }
             else if (xact_mgr.checkReadSignature(in_msg.addr) &&
-                     !xact_mgr.isDoomed(0)) {
+                     !xact_mgr.isDoomed()) {
                 // Sanity check: Conflict on a Rset block, if this
                 // remote req is not nacked, xact_mgr must have set
                 // the abort flag..
@@ -719,7 +713,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
                   // Eviction of speculatively modified data
                   xact_mgr.xactReplacement(victimAddr, machineID, true);
                   if (!xact_mgr.config_allowWriteSetL1CacheEvictions()) {
-                      assert(xact_mgr.isDoomed(0));
+                      assert(xact_mgr.isDoomed());
                       // Wset eviction: discard data, xact mgr will abort
                       trigger(Event:L0_Replacement_Wset_Discard, victimAddr,
                               getICacheEntry(victimAddr),
@@ -742,7 +736,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
                   else {
                       // Eviction of speculatively read data: abort
                       xact_mgr.xactReplacement(victimAddr, machineID, true);
-                      assert(xact_mgr.isDoomed(0));
+                      assert(xact_mgr.isDoomed());
                       trigger(Event:L0_Replacement, victimAddr,
                               getICacheEntry(victimAddr),
                               TBEs[victimAddr]);
@@ -805,7 +799,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
                               assert(!xact_mgr.checkWriteSignature(in_msg.LineAddress));
                           }
                           if (!xact_mgr.config_allowReadSetLowerLevelCacheEvictions()) {
-                              assert(xact_mgr.isDoomed(0));
+                              assert(xact_mgr.isDoomed());
                               // The block is in the wrong L0, put the request on the queue to the private L1
                               // Make sure it has not been speculatively written while in the Icache,
                               trigger(Event:L0_Replacement, in_msg.LineAddress,
@@ -838,7 +832,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
                     // Eviction of speculatively modified data
                     xact_mgr.xactReplacement(victimAddr, machineID, true);
                     if (xact_mgr.config_lazyVM()) {
-                        assert(xact_mgr.isDoomed(0));
+                        assert(xact_mgr.isDoomed());
                         // Wset eviction: discard data, xact mgr will abort
                         trigger(Event:L0_Replacement_Wset_Discard, victimAddr,
                                 getDCacheEntry(victimAddr),
@@ -860,7 +854,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
                     else {
                         // Eviction of speculatively read data: abort
                         xact_mgr.xactReplacement(victimAddr, machineID, true);
-                        assert(xact_mgr.isDoomed(0));
+                        assert(xact_mgr.isDoomed());
                         trigger(Event:L0_Replacement, victimAddr,
                                 getDCacheEntry(victimAddr),
                                 TBEs[victimAddr]);
@@ -895,9 +889,6 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
           out_msg.Transactional := true;
           out_msg.Timestamp := xact_mgr.getOldestTimestamp();
           APPEND_TRANSITION_COMMENT(" trans");
-	  if (xact_mgr.inTransaction(0) == false) {
-	    APPEND_TRANSITION_COMMENT(" WARNING TxLoad while CPU not in transaction ");
-	  }
 	} else {
            out_msg.Timestamp := curCycle();
         }
@@ -1011,15 +1002,8 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     // evictions of Rset blocks (when modelling read-set signatures),
     // which are considered as conflicts caused by remote invalidations.
     if (send_evictions) {
-        if (xact_mgr.isDoomed(0)) {
-            // No need to send evictions in this case, avoid
-            // misclassification as "LSQ conflicts" of aborts due to
-            // local replacements (capacity aborts)
-            DPRINTF(RubyHTM, "Not sending invalidation for %#x to the CPU, transaction is aborting\n", address);
-        } else {
-      DPRINTF(RubySlicc, "Sending invalidation for %#x to the CPU\n", address);
-      sequencer.evictionCallback(address);
-        }
+        DPRINTF(RubySlicc, "Sending invalidation for %#x to the CPU\n", address);
+        sequencer.evictionCallback(address);
     }
   }
 
@@ -1391,11 +1375,13 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
                   address);
       } else if (xact_mgr.checkReadSignature(address)) {
           // Requester wins
-          assert(xact_mgr.isDoomed(0)); // set by shouldNackStore
+          assert(xact_mgr.isDoomed()); // set by shouldNackStore
           DPRINTF(RubyHTM,
                   "Aborting transaction due to conflict on pending load addr=0x%lx\n",
                   address);
-      } else { // No conflict
+      } else { // No conflict: L1 has handled the case where
+               // Data_Stale is discarded (precise read sets + reload
+               // if stale) as a nack, otherwise risk livelock
       }
   }
 
@@ -1629,6 +1615,11 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
   }
 
   transition({IS, IM, Inst_IS}, {InvOwn_Rset, InvOwn_Wset}) {
+    fi_sendInvAck;
+    l_popRequestQueue;
+  }
+
+  transition({SM}, {InvOwn_Rset}, IM) {
     fi_sendInvAck;
     l_popRequestQueue;
   }

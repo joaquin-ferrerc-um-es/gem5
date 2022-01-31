@@ -1,16 +1,16 @@
 
 declare_task "update-benchmarks-image" "Build benchmarks and update (or create) the benchmarks disk image. Options:
-        --architecure X: Build only architecture X
+        --architecture X: Build only architecture X
 "
 
 # TODO: Add options to choose what benchmarks should be built.
 
 task_update-benchmarks-image() {
     local -a archs=("${ENABLED_ARCHITECTURES[@]}")
-    options="$(simpler_getopt "architecure:" "$@")"
+    options="$(simpler_getopt "architecture:" "$@")"
     eval set -- "$options"
     while [[ $# -gt 0 ]] ; do
-        if [[ "--architecure" == "$1" ]] ; then
+        if [[ "--architecture" == "$1" ]] ; then
             shift
             archs=("$1")
         elif [[ "--" == "$1" ]] ; then
@@ -29,6 +29,7 @@ VDS="${SCRIPT_DIR}/../virtual-disk-server"
 [[ -x "$VDS" ]] || error_and_exit "virtual-disk-server script not found ($VDS)"
 
 clean_benchmarks_all() {
+    check_stamp_gem5_directory_links
     "$(absolute_path "$BENCHMARKS_HTM_STAMP/make.all")" clean
 }
 
@@ -54,6 +55,6 @@ update_benchmarks_image() {
            --src "$GEM5_ROOT/gem5_path/benchmarks/benchmarks-htm/stamp/" --rsync-to "/mnt/sdb1/benchmarks-htm/stamp/" \
            --command "/mnt/sdb1/benchmarks-htm/stamp/prepare-inputs" \
            --src "$GEM5_ROOT/gem5_path/benchmarks/benchmarks-htm/libs/" --rsync-to "/mnt/sdb1/benchmarks-htm/libs/" \
-           --src "$GEM5_ROOT/util/m5/build/x86/out/m5" --copy-to "/mnt/sdb1/benchmarks-htm/" # TODO: the m5 binary should be arch dependent
+           --src "$GEM5_ROOT/util/m5/build/$(get_m5_arch_name "$arch")/out/m5" --copy-to "/mnt/sdb1/benchmarks-htm/" 
 }
 

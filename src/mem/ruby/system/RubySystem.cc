@@ -791,5 +791,28 @@ RubySystem::functionalWrite(PacketPtr pkt)
     return true;
 }
 
+std::vector<int>
+RubySystem::getLowestTimestampTransactionManager() {
+    std::vector< std::pair <int, int> > result_ts;
+    std::vector< int > result;
+
+    result_ts.resize(m_xact_mgr_vec.size());
+
+    for (int i = 0; i < m_xact_mgr_vec.size(); i++) {
+        result_ts[i] = std::make_pair(m_xact_mgr_vec[i]->getOldestTimestamp(),
+                                 m_xact_mgr_vec[i]->getVersion());
+    }
+    // Sort by timestamp
+    sort(result_ts.begin(), result_ts.end());
+
+    result.resize(m_xact_mgr_vec.size());
+    // Now extract xact mgr index
+    for (int i = 0; i < m_xact_mgr_vec.size(); i++) {
+        result[i] = result_ts[i].second;
+    }
+
+    return result;
+}
+
 } // namespace ruby
 } // namespace gem5

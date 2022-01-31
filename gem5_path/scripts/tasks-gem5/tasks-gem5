@@ -18,14 +18,16 @@ help() {
     echo "
     Configuration will be read from '${SCRIPT_DIR}/tasks-gem5.defaults.config' and '${SCRIPT_DIR}/tasks-gem5.config'.
 
-    After configuration, the usual order of tasks is as follows: get-base-resources, build, update-benchmarks-image, create-boot-checkpoints, generate-simulation-scipts
+    After configuration, the usual order of tasks is as follows:
+        get-base-resources, build, build-benchmarks, update-benchmarks-image, create-boot-checkpoints, generate-simulation-scripts
+
+    Simulation status can be monitored with ${GEM5_ROOT}/gem5_path/scripts/check_simulations.sh
     
     Prerequisites:
      - Native GCC (x86_64) for Gem5 and x86_64 benchmarks (tested with GCC 9.2.0).
-     - GCC cross compiler for ARM (tested with GCC 9.2.0, currently not expected to work with later versions).
-     - GCC cross compiler for ARM with TME support (tested with GCC 10.2.0).
+     - GCC cross compiler for ARM (tested with GCC 10.2.0).
      - scons and python 3
-     - Link/clone of the STAMP repository in '${GEM5_ROOT}/gem5_path/benchmarks/benchmarks-htm/stamp'.
+     - Link to the STAMP repository in '${GEM5_ROOT}/gem5_path/benchmarks/benchmarks-htm/stamp'.
 "
 }
 

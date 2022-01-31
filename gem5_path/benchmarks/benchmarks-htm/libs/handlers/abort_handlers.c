@@ -45,6 +45,10 @@ void initGlobals(int nthreads)
 
 // Call at the end of the workload, outside parallel section
 void deleteGlobals () {
+    // Calling simSetLogBase with a NULL ptr when the log is ready is
+    // used to shutdown the log in all CPUs to stop stop monitoring
+    // the virtual addresses allocated to the log (sanity checks)
+    simSetLogBase(NULL);
 }
 
 // "Touch" function in STAMPs memory allocator
@@ -65,17 +69,8 @@ void handleHeapPrefault(int threadId) {
 }
 
 void doBackoff(int nretries) {
-    unsigned long rand;
-    int i, nbackoff = nretries;
-    u_int64_t exp, backoff;
     simBackoffBegin();
-    rand = genrand_int32_1(mt, &(mti));
-    if (nretries > env.config.htm_max_backoff) {
-        nbackoff = env.config.htm_max_backoff;
-    }
-    exp = 1 << nbackoff;
-    backoff = (rand % exp) * 117;
-    for (i = 0; i < backoff; i++);
+    randomized_backoff(nretries);
     simBackoffEnd();
 }
 
@@ -242,6 +237,6 @@ void cancelTransactionWithAbortCode(long abort_code) {
     htm_cancel(abort_code);
 }
 void cancelTransaction() {
-    htm_cancel(XABORT_CODE_DEFAULT);
+    htm_cancel(CANCEL_TRANSACTION_DEFAULT_CODE);
 }
 

@@ -33,21 +33,26 @@ public:
   ~LazyTransactionVersionManager();
 
 
-  void addToWriteBuffer(int thread, Addr addr, int size, uint8_t *data);
-  vector<uint8_t> forwardData(int thread, Addr addr, int size,
+  void addToWriteBuffer(Addr addr, int size, uint8_t *data);
+  vector<uint8_t> forwardData(Addr addr, int size,
                               DataBlock& data, bool& forwarding);
-  void flushWriteBuffer(int thread);
-  void discardWriteBuffer(int thread);
+  void flushWriteBuffer();
+  void discardWriteBuffer();
 
-  void beginTransaction(int thread, PacketPtr pkt);
-  void restartTransaction(int thread);
-  void commitTransaction(int thread);
+  void beginTransaction(PacketPtr pkt);
+  void restartTransaction();
+  void commitTransaction();
   bool committed() { return m_committed; };
   bool committing() { return m_committing; };
-  void notifyCommittedTransaction(int thread);
-  void mergeDataFromWriteBuffer(int thread, Addr address, DataBlock& data);
-  void cancelWriteBufferFlush(int thread);
-  bool shouldResumeFlush() { return m_shouldResumeFlush; };
+  void notifyCommittedTransaction();
+  void mergeDataFromWriteBuffer(Addr address, DataBlock& data);
+  void cancelWriteBufferFlush();
+  // Profiling
+  void profileRemotelyWrittenByte(Addr addr);
+  int getNumReadBytesWrittenRemotely() const {
+      return m_numReadBytesWrittenRemotely; };
+  int getNumWrittenBytesWrittenRemotely() const {
+      return m_numWrittenBytesWrittenRemotely; };
 
 private:
   enum WriteBufferBlockStatus {
@@ -56,21 +61,20 @@ private:
       Cancelled
   };
   int getProcID() const;
-  int getLogicalProcID(int thread) const;
 
-  void takeCheckpoint(int thread);
-  bool existInWriteBuffer(int thread, Addr addr);
-  uint8_t getDataFromWriteBuffer(int thread, Addr addr);
+  bool existInWriteBuffer(Addr addr);
+  uint8_t getDataFromWriteBuffer(Addr addr);
 
-  /** Contents of write buffer (byte-addressable) */
-  vector < map<Addr, uint8_t> > m_writeBuffer;
-    /** Block addresses in write buffer, set to true when write
-        request issued during lazy commit */
-  vector < map<Addr, WriteBufferBlockStatus> > m_writeBufferBlocks;
+  // Byte-level conflict detection (profiling)
+  map<Addr, bool> m_readBytes;
+  map<Addr, bool> m_writtenBytes;
+  int m_numReadBytesWrittenRemotely;
+  int m_numWrittenBytesWrittenRemotely;
+  map<Addr, uint8_t> m_writeBuffer;
+  map<Addr, WriteBufferBlockStatus> m_writeBufferBlocks;
   bool m_committed;
   bool m_committing;
   bool m_flushPending;
-  bool m_shouldResumeFlush;
   bool m_aborting;
 
   Addr m_issuedWriteBufferRequest;
@@ -79,6 +83,7 @@ private:
   int m_version;
   CacheMemory *m_dataCache_ptr;
   RequestorID  m_requestorID;
+  uint64_t m_currentHtmUid = 0;
 };
 
 } // namespace ruby

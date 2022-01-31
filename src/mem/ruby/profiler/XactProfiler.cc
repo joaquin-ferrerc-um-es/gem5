@@ -27,9 +27,7 @@ namespace gem5
 namespace ruby
 {
 
-static const bool m_showPriority = false;
-static const bool m_showTags = true;
-
+static const bool m_showPriority = true;
 
 XactProfiler::XactProfiler(RubySystem *rs)
 
@@ -126,7 +124,7 @@ void XactProfiler::beginRegion(int proc_no, AnnotatedRegion region)
                 g_system_ptr->getTransactionInterfaceManager(proc_no);
 
             m_currentWaitForRetryRegion = mgr->
-                getWaitForRetryRegionFromPreviousAbortCause(0);
+                getWaitForRetryRegionFromPreviousAbortCause();
             // "Fix" state for those threads that have already moved
             // to ABORT_HANDLER
             for (int i=0; i < num_sequencers; i++) {
@@ -189,15 +187,9 @@ void XactProfiler::moveTo(int proc_no, AnnotatedRegion newState){
 
     if (m_visualizer) {
         std::vector<int> vec;
-#if 0
         if (m_showPriority) {
             vec = g_system_ptr->getLowestTimestampTransactionManager();
         }
-        else if (m_showTags) {
-            int thread = 0;
-            vec = g_system_ptr->getTransactionTags(thread);
-        }
-#endif
         std::ostringstream oss;
         oss << std::hex;
         // Convert all but the last element to avoid a trailing ","
@@ -313,7 +305,7 @@ XactProfiler::profileRegionChange(int proc_no,
           // moveTo should be called after transaction level
           // increased in xact mgr
           assert(g_system_ptr->getTransactionInterfaceManager(proc_no)->
-                 getTransactionLevel(0) > 0);
+                 getTransactionLevel() > 0);
 
           if (!m_inTransaction[proc_no]) {
               // Fresh start of new trasaction (first attempt)
@@ -328,6 +320,18 @@ XactProfiler::profileRegionChange(int proc_no,
   // Update current region and cycle of last region change
   if (m_annotatedRegion[proc_no] != nextRegion) {
       m_xactLastRegionChange[proc_no] = g_system_ptr->curCycle();
+  } else { // No change
+      Cycles diff = g_system_ptr->curCycle() -
+          Cycles(m_xactLastRegionChange[proc_no]);
+      if (diff > 2000000) { // Two million cycles without changes??
+          warn ("htm visualizer detected anomalous freeze in cpu %d: "
+                " Last state change was %ld cycles back (%ld)."
+                " Current tick is: %ld\n",
+                proc_no, diff,
+                g_system_ptr->
+                cyclesToTicks(Cycles(m_xactLastRegionChange[proc_no])),
+                g_system_ptr->cyclesToTicks(g_system_ptr->curCycle()));
+      }
   }
   m_annotatedRegion[proc_no] = nextRegion;
   m_xactLastRegionProfile[proc_no] = g_system_ptr->curCycle();

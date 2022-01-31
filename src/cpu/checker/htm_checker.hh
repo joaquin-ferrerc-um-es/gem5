@@ -115,10 +115,11 @@ public:
 private:
     void openFifos();
     void createFifos();
-    bool isLock(Trace::InstRecord *traceData) const;
-    bool isUnlock(Trace::InstRecord *traceData) const;
-    bool foundLocked(Trace::InstRecord *traceData) const;
-    uint64_t getLockValue(Trace::InstRecord *traceData) const;
+    bool isLock(Trace::InstRecord *traceData);
+    bool isUnlock(Trace::InstRecord *traceData);
+    bool foundLocked(Trace::InstRecord *traceData);
+    void getLockValue(Trace::InstRecord *traceData,
+                      uint64_t &value);
     bool isReturnToUserMode(Trace::InstRecord *traceData);
     bool isLeavingUserMode(Trace::InstRecord *traceData);
 
@@ -148,6 +149,16 @@ private:
      * transaction execution, used to disable recording during faults
      * (i.e. not in user code) */
     Addr faultPC;
+    // ARM specific stuff
+    Addr prfmPC;
+  enum ArmISALockStatus
+  {
+      NotAcquired,
+      Acquiring,
+      Acquired,
+      Locked
+  };
+    ArmISALockStatus lockStatus = ArmISALockStatus::NotAcquired;
 
 };
 

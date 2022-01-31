@@ -16,7 +16,7 @@
 #define _TMFAILURE_INT        0x00800000u
 #define _TMFAILURE_TRIVIAL    0x01000000u
 #define _TMFAILURE_DISABLED   0x02000000u
-
+#define _TMFAILURE_UNDO_LOG   0x04000000u
 #endif
 
 #endif

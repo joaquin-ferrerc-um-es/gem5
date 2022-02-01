@@ -135,7 +135,6 @@ htm_cfg1_base = {
     htm_eager_cd: True,
     htm_conflict_resolution: 'requester_wins',
     htm_lazy_arbitration: None,
-    htm_lazy_validated_conf_res: None,
     htm_allow_read_set_l0_cache_evictions: False,
     htm_allow_write_set_l0_cache_evictions: False,
     htm_allow_read_set_l1_cache_evictions: False,
@@ -144,16 +143,14 @@ htm_cfg1_base = {
     htm_allow_write_set_l2_cache_evictions: False,
     htm_precise_read_set_tracking: False,
     htm_trans_aware_l0_replacements: False,
-    htm_trans_aware_l1_replacements: False,
-    htm_allow_load_delaying: False,
     htm_reload_if_stale: False,
     htm_l0_downgrade_on_l1_gets: False,
     htm_value_checker: False,
-    htm_isolation_checker: False,
-    htm_visualizer: False, # True,
+    htm_isolation_checker: True,
+    htm_visualizer: True,
     htm_max_retries: 6,
-    htm_max_backoff: 8,
-    htm_heap_prefault: 0,
+    htm_backoff: True,
+    htm_heap_prefault: False,
     htm_fallback_lock_filename: "ckpt/fallback_lock",
 }
 
@@ -175,20 +172,38 @@ htm_cfg1_l1rsetevict_pf_dwng = update(htm_cfg1_l1rsetevict_pf, {
     htm_l0_downgrade_on_l1_gets: True,
 })
 
-htm_cfg1_l1rsetevict_pf_dwng_lazycd_magic = update(htm_cfg1_l1rsetevict_pf, {
+
+htm_cfg1_pf_lazycd_magic_cw = update(htm_cfg1_base, {
+    htm_heap_prefault: True,
     htm_eager_cd: False,
     htm_lazy_arbitration: 'magic',
-    htm_lazy_validated_conf_res: 'requester_wins',
+    htm_conflict_resolution: 'committer_wins',
+    htm_isolation_checker: False,
+})
+    
+htm_cfg1_pf_dwng_lazycd_magic_cw = update(htm_cfg1_pf_lazycd_magic_cw, {
+    htm_l0_downgrade_on_l1_gets: True,
+})
+    
+
+htm_cfg1_l0rsetevict_pf_dwng_lazycd_magic_cw = update(htm_cfg1_pf_dwng_lazycd_magic_cw, {
+    htm_allow_read_set_l0_cache_evictions: True,
 })
 
-htm_cfg1_l1rsetevict_pf_dwng_lazycd_magic_cw = update(htm_cfg1_l1rsetevict_pf_dwng_lazycd_magic, {
-    htm_lazy_validated_conf_res: 'committer_wins',
+htm_cfg1_l1rsetevict_pf_dwng_lazycd_magic_cw = update(htm_cfg1_l0rsetevict_pf_dwng_lazycd_magic_cw, {
+    htm_allow_read_set_l1_cache_evictions: True,
 })
 
-htm_cfg1_l1rsetevict_pf_dwng_lazycd_token = update(htm_cfg1_l1rsetevict_pf, {
-    htm_eager_cd: False,
+htm_cfg1_l2rsetevict_pf_dwng_lazycd_magic_cw = update(htm_cfg1_l1rsetevict_pf_dwng_lazycd_magic_cw, {
+    htm_allow_read_set_l2_cache_evictions: True,
+})
+
+htm_cfg1_l1rsetevict_pf_dwng_lazycd_magic_rw = update(htm_cfg1_l1rsetevict_pf_dwng_lazycd_magic_cw, {
+    htm_conflict_resolution: 'requester_wins',
+})
+
+htm_cfg1_l1rsetevict_pf_dwng_lazycd_token_cw = update(htm_cfg1_l1rsetevict_pf_dwng_lazycd_magic_cw, {
     htm_lazy_arbitration: 'token',
-    htm_lazy_validated_conf_res: 'requester_wins',
 })
 
 htm_cfg1_l1rsetevict_pf_dwng_precise  = update(htm_cfg1_l1rsetevict_pf_dwng, {
@@ -196,11 +211,7 @@ htm_cfg1_l1rsetevict_pf_dwng_precise  = update(htm_cfg1_l1rsetevict_pf_dwng, {
 })
 
 htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls  = update(htm_cfg1_l1rsetevict_pf_dwng_precise, {
-    htm_conflict_resolution: 'requester_stalls_cda_base',
-})
-
-htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls_reload = update(htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls, {
-    htm_reload_if_stale: True,
+    htm_conflict_resolution: 'requester_stalls_cda_hybrid',
 })
 
 htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls_retry64 = update(htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls, {
@@ -214,9 +225,6 @@ htm_cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm = update(htm_cfg1_l1rset
     htm_allow_write_set_l1_cache_evictions: True,
     htm_allow_write_set_l2_cache_evictions: True,
     htm_isolation_checker: True,
-})
-
-htm_cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm_reload = update(htm_cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm, {
-    htm_reload_if_stale: True,
+    htm_max_retries: 128,
 })
 

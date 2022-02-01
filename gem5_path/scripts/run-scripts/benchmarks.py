@@ -30,7 +30,9 @@ Benchmark("kmeans-h", "stamp",   "medium", "-p", "-m15 -n15 -t0.05 -i inputs/ran
 Benchmark("ssca2", "stamp",      "medium", "-t", "-s14 -i1.0 -u1.0 -l9 -p9",       dir_stamp + "/ssca2",    "ssca2")
 Benchmark("vacation-l", "stamp", "medium", "-c", "-n2 -q90 -u98 -r1048576 -t4096", dir_stamp + "/vacation", "vacation")
 Benchmark("vacation-h", "stamp", "medium", "-c", "-n4 -q60 -u90 -r1048576 -t4096", dir_stamp + "/vacation", "vacation")
-Benchmark("yada", "stamp",       "medium", "-t", "-a10 -i inputs/ttimeu10000.2",   dir_stamp + "/yada",     "yada")
+# NOTE: yada input 633.2 is the recommended small, but ttimeu10000 has much longer simulation times than the remaining medium inputs benchmarks...
+Benchmark("yada", "stamp",       "medium", "-t", "-a20 -i inputs/633.2",   dir_stamp + "/yada",     "yada")
+#Benchmark("yada", "stamp",       "medium", "-t", "-a10 -i inputs/ttimeu10000.2",   dir_stamp + "/yada",     "yada")        
 #Benchmark("bayes", "stamp",      "medium", "-t", "-v32 -r4096 -n2 -p20 -i2 -e2",   dir_stamp + "/bayes",   "bayes")
 #Benchmark("labyrinth", "stamp",  "medium", "-t", "-i inputs/random-x48-y48-z3-n64.txt", dir_stamp + "/labyrinth", "labyrinth")
 

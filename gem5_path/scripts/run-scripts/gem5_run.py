@@ -21,7 +21,7 @@ class Option:
     def __init__(self, name, tipe,
                  gem5_option = "%same_s/_/-/g",
                  launchscript_option = "omit", # one of "omit", "export:VARNAME", "yes[:VARNAME]"
-                 runscript_option = "yes_if_no_gem5_option", # one of "omit", "export:VARNAME", "yes[:VARNAME]", "yes_if_no_gem5_option"
+                 runscript_option = "yes_if_no_gem5_option", # one of "omit", "export:VARNAME", "export_formatted:FORMAT:VARNAME", "yes[:VARNAME]", "yes_if_no_gem5_option"
                  siminfo_exclude = False,
                  descr_dir = None, # str, {name} and {value} replaced
                  descr_abbrev = None # str 
@@ -39,6 +39,8 @@ class Option:
         if launchscript_option == "omit":
             self.launchscript_option = "omit"
         elif launchscript_option.startswith("export:"):
+            self.launchscript_option = launchscript_option
+        elif launchscript_option.startswith("export_formatted:"):
             self.launchscript_option = launchscript_option
         elif launchscript_option == "yes" or launchscript_option.startswith("yes:"):
             self.launchscript_option = launchscript_option
@@ -98,6 +100,12 @@ class Option:
         elif self.launchscript_option.startswith("export:"):
             name = self.launchscript_option[7:]
             return f"export {name}='{v}'\n"
+        elif self.launchscript_option.startswith("export_formatted:"):
+            format_end = self.launchscript_option.index(":", 17)
+            format = self.launchscript_option[17:format_end]
+            v_formatted = ("{:" + format + "}").format(v)
+            name = self.launchscript_option[(format_end + 1):]
+            return f"export {name}='{v_formatted}'\n"
         elif self.launchscript_option == "yes" or self.launchscript_option.startswith("yes:"):
             if self.launchscript_option == "yes":
                 name = self.name

@@ -226,7 +226,7 @@ Option("htm_disable_speculation", bool,
        descr_abbrev = "NoSpec")
 Option("htm_precise_read_set_tracking", bool,
        descr_abbrev = "RSPrec")
-Option("htm_conflict_resolution", str,
+Option("htm_conflict_resolution", str, # requester_wins, committer_wins, requester_stalls_cda_hybrid, requester_stalls_cda_hybrid_ntx, requester_stalls_cda_base_ntx, requester_stalls_cda_base
        descr_abbrev = "CR")
 Option("htm_binary_suffix", str,
        descr_abbrev = "BinSfx",
@@ -241,8 +241,6 @@ Option("htm_conflict_resolution", str,
        descr_abbrev = "CR")
 Option("htm_lazy_arbitration", str, # magic or token
        descr_abbrev = "LArb")
-Option("htm_lazy_validated_conf_res", str,
-       descr_abbrev = "LzCR")
 Option("htm_allow_read_set_l0_cache_evictions", bool,
        descr_abbrev = "RSL0Ev")
 Option("htm_allow_write_set_l0_cache_evictions", bool,
@@ -259,10 +257,6 @@ Option("htm_precise_read_set_tracking", bool,
        descr_abbrev = "RSPrec")
 Option("htm_trans_aware_l0_replacements", bool,
        descr_abbrev = "L0Repl")
-Option("htm_trans_aware_l1_replacements", bool,
-       descr_abbrev = "L1Repl")
-Option("htm_allow_load_delaying", bool,
-       descr_abbrev = "LDelay")
 Option("htm_reload_if_stale", bool,
        descr_abbrev = "RldStale")
 Option("htm_l0_downgrade_on_l1_gets", bool,
@@ -283,15 +277,15 @@ Option("htm_max_retries", int,
        gem5_option = None,
        launchscript_option = "export:HTM_MAX_RETRIES",
        runscript_option = "omit")
-Option("htm_max_backoff", int,
+Option("htm_backoff", bool,
        descr_abbrev = "BO",
        gem5_option = None,
-       launchscript_option = "export:HTM_MAX_BACKOFF",
+       launchscript_option = "export_formatted:d:HTM_BACKOFF",
        runscript_option = "omit")
-Option("htm_heap_prefault", int, # TODO: should be bool
+Option("htm_heap_prefault", bool,
        descr_abbrev = "Pflt",
        gem5_option = None,
-       launchscript_option = "export:HTM_HEAP_PREFAULT",
+       launchscript_option = "export_formatted:d:HTM_HEAP_PREFAULT",
        runscript_option = "omit")
 Option("htm_fallback_lock_filename", str, # unnecesary
        gem5_option = None)

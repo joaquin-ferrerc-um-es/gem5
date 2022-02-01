@@ -48,17 +48,17 @@ base = {
     
     # other
     gem5_root_option: gem5_root,
-    kernel_binary: os.path.join(gem5_root, "gem5_path/x86_64/binaries/vmlinux-5.4.49"), # TODO
-    root_device: "/dev/hda1",
-    os_disk_image: os.path.join(gem5_root, "gem5_path/x86_64/disks/ubuntu-18-04.img"), # TODO
+    kernel_binary: Derived(lambda c: os.path.join(gem5_root, config_from_tasks_gem5(f"$(get_kernel {arch(c)})"))),
+    bootloader: Derived(lambda c: "" if config_from_tasks_gem5(f"$(get_bootloader {arch(c)})") == "" else os.path.join(gem5_root, config_from_tasks_gem5(f"$(get_bootloader {arch(c)})"))),
+    
+    root_device: Derived(lambda c: config_from_tasks_gem5(f"${{ARCH_ROOT_DEVICE[{arch(c)}]}}")),
+    os_disk_image: Derived(lambda c: os.path.join(gem5_root, config_from_tasks_gem5(f"$(get_base_image {arch(c)})"))),
     git_revision: Derived(get_git_revision),
     terminal_filename: Derived(lambda c: {"x86_64": "system.pc.com_1.device",
                                           "aarch64": "system.terminal",
                                           "riscv": "TODO"}[arch(c)] ),
-    arch_specific_opts: Derived(lambda c: {"x86_64": "",
-                                           "aarch64": " --machine-type=VExpress_GEM5_V2 --enable-tme",
-                                           "riscv": "TODO"}[arch(c)] ),
-    checkpoint_boot_root_dir: os.path.join(gem5_root, "gem5_path", "x86_64", "checkpoints", "booted"), # TODO
+    arch_specific_opts: Derived(lambda c: config_from_tasks_gem5(f"${{ARCH_EXTRA_OPTIONS[{arch(c)}]}}")),
+    checkpoint_boot_root_dir: Derived(lambda c: os.path.join(gem5_root, "gem5_path", arch(c), "checkpoints", "booted")), # TODO
     
     network_model: "simple", # or 'garnet2.0'
     memory_type: "DDR3_1600_8x8", # or 'DDR3_200cycles'

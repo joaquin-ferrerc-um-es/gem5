@@ -242,6 +242,7 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
         --checkpoint-dir=${CHECKPOINT_DIR} \
         -r ${CHECKPOINT_RESTORE_NUM} \
         --kernel=${kernel_binary} \
+        ${bootloader:+"--bootloader=$bootloader"} \
         --disk-image=${os_disk_image} \
         --root-device=${root_device} \
         --disk-image=${benchmarks_disk_image} \

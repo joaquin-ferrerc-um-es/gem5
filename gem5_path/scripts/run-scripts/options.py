@@ -102,6 +102,9 @@ Option("disable_transparent_hugepages", bool,
 Option("kernel_binary", str,
        gem5_option = None,
        siminfo_exclude = True)
+Option("bootloader", str,
+       gem5_option = None,
+       siminfo_exclude = True)
 Option("root_device", str,
        gem5_option = None,
        siminfo_exclude = True)

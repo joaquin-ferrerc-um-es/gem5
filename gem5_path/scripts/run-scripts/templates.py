@@ -82,7 +82,8 @@ base = {
     launchscript_filename: "launch_script.rcS",
     siminfo_filename: "simulate.info",
     runscript_filename: "simulate",
-    runscript_template_filename: os.path.join(gem5_root, "gem5_path/scripts/run-scripts/simulate.common"), # TODO
+    runscript_template_filename: os.path.join(gem5_root, "gem5_path/scripts/run-scripts/simulate.template"),
+    launchscript_template_filename: os.path.join(gem5_root, "gem5_path/scripts/run-scripts/launchscript.template"),
     checkpoint_init_subdir: "ckpt",
 }
 

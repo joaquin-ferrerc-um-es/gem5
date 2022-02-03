@@ -1,3 +1,13 @@
+#!/bin/bash
+SCRIPT_DIR="$(realpath "$(dirname "$0")")"
+SCRIPT_COMMAND="$(basename "$0")"
+
+set -o nounset
+set -o pipefail
+set -o errexit
+trap 'echo "$SCRIPT_COMMAND: error $? at line $LINENO"' ERR
+
+{{{variables}}}
 
 # Lockstep mode global switch
 LOCKSTEP_MODE=0

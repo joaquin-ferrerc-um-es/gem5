@@ -1,0 +1,28 @@
+#!/bin/bash
+### @launchscript@ ###
+
+{{{variables}}}
+
+export M5_SIMULATOR=1
+if [ "${benchmarks_mount_image}" = "True" ] ; then
+    mkdir -p "${benchmarks_image_mountpoint}"
+    mount "${benchmarks_image_device}" "${benchmarks_image_mountpoint}"
+    cd "${benchmarks_image_mountpoint}"
+fi
+sync
+
+if [ "${disable_transparent_hugepages:-False}" == "True" ] ; then
+    echo never > /sys/kernel/mm/transparent_hugepage/enabled
+fi
+
+if [ "${enable_kvm:-False}" == "False" ] ; then
+      sleep 0.${RANDOM_SEED} # Generate variability via sleep
+fi
+cd "${benchmark_subdir}"
+
+"./${benchmark_binary_filename_base}.${arch}${benchmark_binary_suffix}" ${benchmark_num_threads_option}${num_processors} ${benchmark_args_string}
+echo 'Launch script done ($?='"$?"'). Exiting simulation... (m5 exit)'
+
+sync
+sleep 2
+/sbin/m5 exit

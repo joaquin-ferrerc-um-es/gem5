@@ -64,6 +64,10 @@ Option("runscript_template_filename", str, # unnecesary
        gem5_option = None,
        runscript_option = "omit",
        siminfo_exclude = True)
+Option("launchscript_template_filename", str, # unnecesary
+       gem5_option = None,
+       runscript_option = "omit",
+       siminfo_exclude = True)
 
 Option("gem5_exec_path", str,
        gem5_option = None,

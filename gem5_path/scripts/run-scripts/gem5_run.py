@@ -94,16 +94,16 @@ class Option:
         else:
             return f"{self.name}={self(conf)}\n"
 
-    def launchscript_text_value(self, v):
+    def launchscript_text_value(self, conf):
         if self.launchscript_option == "omit":
             return ""
         elif self.launchscript_option.startswith("export:"):
             name = self.launchscript_option[7:]
-            return f"export {name}='{v}'\n"
+            return f"export {name}='{self(conf)}'\n"
         elif self.launchscript_option.startswith("export_formatted:"):
             format_end = self.launchscript_option.index(":", 17)
             format = self.launchscript_option[17:format_end]
-            v_formatted = ("{:" + format + "}").format(v)
+            v_formatted = ("{:" + format + "}").format(self(conf))
             name = self.launchscript_option[(format_end + 1):]
             return f"export {name}='{v_formatted}'\n"
         elif self.launchscript_option == "yes" or self.launchscript_option.startswith("yes:"):
@@ -111,7 +111,7 @@ class Option:
                 name = self.name
             else:
                 name = self.launchscript_option[4:]
-            return f"{name}='{v}'\n"
+            return f"{name}='{self(conf)}'\n"
         else:
             assert False, "Invalid value for launchscript_option"
     

@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import os
-
+from gem5_run import gem5_root, get_configs, config_list_options, print_config, error, known_options, mix_configs, Vary
 import options
-from gem5_run import get_configs, config_list_options, print_config, error, known_options, Vary
+
+import os
+import subprocess   
+import argparse
+import importlib.util
 
 def create_direcory(d):
     if not os.path.exists(d): 
@@ -13,26 +16,6 @@ def create_direcory(d):
     else:
         print(f"‘{d}’ already exists")
 
-def compare_configs(configs):
-    ret = {}
-    for o in known_options:
-        vals = []
-        for c in configs:
-            if o in c:
-                v = o(c)
-            else:
-                v = "missing"
-                
-            if not v in vals:
-                vals.append(v)
-        if len(vals) == 1:
-            if vals[0] != "missing":
-                ret[o] = vals[0]
-        else:
-            ret[o] = Vary(*vals)
-    return ret
-        
-    
 def check_duplicate_outputs(configs):
     m = {}
     for conf in configs:
@@ -41,12 +24,10 @@ def check_duplicate_outputs(configs):
         m[od].append(conf)
     for i in m:
         if len(m[i]) != 1:
-            print_config(compare_configs(m[i]))
+            print_config(mix_configs(m[i]))
             error(f"Duplicate output_directory: {options.output_directory(m[i][0])}")
 
 def gen_scripts(c):
-    # TODO: eval Derived in c
-    
     # TODO: copy binary with timestamp
 
     create_direcory(options.output_directory(c))
@@ -108,8 +89,6 @@ sleep 2
         
     os.chmod(runscript_filename, 0o755)
 
-import subprocess
-    
 def enqueue(c):
 # TODO
 # --exclude               
@@ -124,25 +103,41 @@ def enqueue(c):
     cmd = f"sbatch -J {options.config_description(c)} -e {stderr} -o {stdout} {runscript_filename}"
     subprocess.run(cmd, shell=True, check=True)
 
-
-import argparse
-
 def parse_args(argsp = argparse.ArgumentParser()):
     argsp.add_argument("--enqueue", action="store_true", help="Submit scripts to SLURM")
     argsp.add_argument("--list", action="store_true", help="List configs instead of generating scripts")
-
+    argsp.add_argument("--list-mixed", action="store_true", help="List all configs mixed in one using Vary values, instead of generating scripts")
+    argsp.add_argument("--config-file", type=str, default=os.path.join(gem5_root, "gem5_path/scripts/run-scripts/config.py"), help="Config file")
     return argsp.parse_args()
 
+def load_config_file(config_file):
+    if config_file[-3:] != ".py":
+        error(f"Invalid config file name '{config_file}'. Must end in '.py'")
+    if not os.path.exists(args.config_file):
+        error(f"Config file '{args.config_file}' not found.\nYou may want to create it using '{os.path.join(gem5_root, 'gem5_path/scripts/run-scripts/config.py.example')}' as a starting point. ")
+    spec = importlib.util.spec_from_file_location("config", config_file)
+    if spec == None:
+        error(f"Invalid config file '{config_file}'.")
+    config_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(config_module)
+
+    
 args = parse_args()
 
-import config
+load_config_file(args.config_file)
 
 configs = get_configs()  
 
 if args.list:
     for c in configs:
         print_config(c)
-else:
+    print(f"{len(configs)} configurations.")
+
+if args.list_mixed:
+    print_config(mix_configs(configs))
+    print(f"{len(configs)} configurations.")
+
+if not (args.list or args.list_mixed):
     check_duplicate_outputs(configs)
     for c in get_configs():
         gen_scripts(c)

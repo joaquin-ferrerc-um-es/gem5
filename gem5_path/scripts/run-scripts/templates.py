@@ -7,7 +7,7 @@ from options import gem5_root as gem5_root_option
 from gem5_run import gem5_root
 import os
 
-# basic config options
+# Basic config options
 base = {
     arch: Vary(*config_from_tasks_gem5("${ENABLED_ARCHITECTURES[@]}").split(" ")),
     protocol: Vary(*config_from_tasks_gem5("${ENABLED_PROTOCOLS[@]}").split(" ")),
@@ -22,16 +22,17 @@ base = {
 
     gem5_exec_path: Derived(lambda c: os.path.join(gem5_root, config_from_tasks_gem5(f"$(get_gem5_binary {arch(c)} {protocol(c)} {build_type(c)})"))),
     m5_path: Derived(lambda c: os.path.join(gem5_root, "gem5_path", arch(c))),
-    m5_arch: Derived(lambda c: {"x86_64": "X86", "aarch64": "ARM", "riscv": "riscv"}[arch(c)] ),
+    m5_arch: Derived(lambda c: {"x86_64": "X86",
+                                "aarch64": "ARM",
+                                "riscv": "riscv"}[arch(c)]),
     
-    # Benchmark derived options # TODO
-    # benchmark: vacation-l small
+    # Benchmark options
     benchmark: Vary(*get_benchmarks()),
     benchmark_name: Derived(lambda c: benchmark(c).name),
     benchmark_size: Derived(lambda c: benchmark(c).size),
     benchmark_subdir: Derived(lambda c: benchmark(c).subdir),
     benchmark_binary_filename_base: Derived(lambda c: benchmark(c).binary_filename_base),
-    benchmark_binary_suffix: ".htm.fallbacklock", # TODO: htm_binary_suffix if present
+    benchmark_binary_suffix: Derived(lambda c: htm_binary_suffix(c) if htm_binary_suffix in c else ".htm.fallbacklock"),
     benchmark_num_threads_option: Derived(lambda c: benchmark(c).nthreads_option),
     benchmark_args_string: Derived(lambda c: benchmark(c).args_string),
     benchmark_ld_preload: "",
@@ -41,11 +42,11 @@ base = {
     benchmarks_disk_image: Derived(lambda c: os.path.join(gem5_root, config_from_tasks_gem5(f"$(get_benchmarks_disk_image {arch(c)})"))),
     benchmarks_image_device: Derived(lambda c: {"x86_64": "/dev/hdb1",
                                                 "aarch64": "/dev/sdb1",
-                                                "riscv": "TODO"}[arch(c)] ),
+                                                "riscv": "TODO"}[arch(c)]),
     benchmarks_image_mountpoint: Derived(lambda c: {"x86_64": "/benchmarks",
                                                     "aarch64": "/data",
-                                                    "riscv": "TODO"}[arch(c)] ),
-    
+                                                    "riscv": "TODO"}[arch(c)]),
+
     # other
     gem5_root_option: gem5_root,
     kernel_binary: Derived(lambda c: os.path.join(gem5_root, config_from_tasks_gem5(f"$(get_kernel {arch(c)})"))),
@@ -56,7 +57,7 @@ base = {
     git_revision: Derived(get_git_revision),
     terminal_filename: Derived(lambda c: {"x86_64": "system.pc.com_1.device",
                                           "aarch64": "system.terminal",
-                                          "riscv": "TODO"}[arch(c)] ),
+                                          "riscv": "TODO"}[arch(c)]),
     arch_specific_opts: Derived(lambda c: config_from_tasks_gem5(f"${{ARCH_EXTRA_OPTIONS[{arch(c)}]}}")),
     checkpoint_boot_root_dir: Derived(lambda c: os.path.join(gem5_root, "gem5_path", arch(c), "checkpoints", "booted")), # TODO
     
@@ -67,7 +68,7 @@ base = {
     # debug options
     enable_kvm: Derived(lambda c: {"x86_64": True,
                                    "aarch64": False,
-                                   "riscv": False}[arch(c)] ),
+                                   "riscv": False}[arch(c)]),
     debug_start_tick: -1, # disabled
     debug_flags: "",
     build_type: Vary(*config_from_tasks_gem5("${ENABLED_BUILD_TYPES[@]}").split(" ")),
@@ -86,6 +87,7 @@ base = {
 }
 
 # Cache config templates
+
 cache_baseline = {
     cache_name: "DefaultCache",
     cache_l0i_size: 32 * 1024,
@@ -127,6 +129,7 @@ cache_baseline_2level = update(cache_baseline, {
 })
 
 # HTM templates
+
 htm_cfg1_base = {
     # TODO ? protocol: "MESI_Three_Level_HTM_umu", # These options don't work with e.g., MESI_Three_Level_HTM_umu
     htm_disable_speculation: False,
@@ -227,4 +230,3 @@ htm_cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm = update(htm_cfg1_l1rset
     htm_isolation_checker: True,
     htm_max_retries: 128,
 })
-

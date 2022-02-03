@@ -97,7 +97,6 @@ Option("disable_transparent_hugepages", bool,
        gem5_option = None,
        launchscript_option = "yes")
 
-
 # Boot options
 Option("kernel_binary", str,
        gem5_option = None,
@@ -193,7 +192,6 @@ Option("memory_type", str,
        gem5_option = None)
 Option("memory_size", str,
        gem5_option = None)
-
 
 # Cache options
 Option("cache_name", str,

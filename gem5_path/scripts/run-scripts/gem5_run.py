@@ -281,17 +281,8 @@ def print_config(conf):
     for c in config_list_options(conf):
         print(f"  {c.name}: {c(conf, allow_vary = True)}")
     print("}")
-    
-def error(msg):
-    print(msg)
-    import sys
-    sys.exit(1)
 
-def config_describe(conf):
-    dirs = [d for d in [c.descr_dir_text_value(conf) for c in config_options(conf)] if d != ""]
-    abbrevs = [a for a in [c.descr_abbrev_text_value(conf) for c in config_options(conf)] if a != ""]
-    return os.path.join("/".join(dirs), "_".join(abbrevs))
-
+# default output_subdirectory can be specified by command line or guessed automatically
 default_output_subdirectory = None
 def set_default_output_subdirectory(d):
     global default_output_subdirectory
@@ -307,3 +298,27 @@ def get_default_output_subdirectory(root_dir):
         
     return default_output_subdirectory
 
+# For error reporting when a duplicate output_directory is found
+def mix_configs(configs):
+    ret = {}
+    for o in known_options:
+        vals = []
+        for c in configs:
+            if o in c:
+                v = o(c)
+            else:
+                v = "missing"
+                
+            if not v in vals:
+                vals.append(v)
+        if len(vals) == 1:
+            if vals[0] != "missing":
+                ret[o] = vals[0]
+        else:
+            ret[o] = Vary(*vals)
+    return ret
+
+def error(msg):
+    print(msg)
+    import sys
+    sys.exit(1)

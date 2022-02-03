@@ -8,7 +8,8 @@ dir_stamp = "benchmarks-htm/stamp"
 dir_splash3 = "benchmarks-htm/Splash-3"
 
 
-# name, suite, size, nthreads_option, args_string, subdir, binary_filename
+# Benchmark(name, suite, size, nthreads_option, args_string, subdir, binary_filename)
+
 Benchmark("simpletest", "test-progs-caps",     "small",      "-t",       "-a1048576",     "test-progs/caps/sumarray",       "bin/x86/sumarray")
 
 #Benchmark("intruder", "stamp",   "small", "-t", " -a10 -l4 -n2048 -s1"  ,         dir_stamp + "/intruder", "intruder")

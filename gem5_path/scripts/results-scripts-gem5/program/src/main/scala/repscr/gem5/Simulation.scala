@@ -56,7 +56,7 @@ object Simulation {
         try pinfo.getter(rawprops)
         catch {
           case e: NoSuchElementException =>
-            if (!pinfo.optional) Console.err.println(s"Loading $file, $name, NoSuchElementException $e [${e.getStackTrace.take(6).mkString(", ")}]")
+            if (!pinfo.optional) Console.err.println(s"Loading $file: Missing $name, ${e.getMessage}")
             Symbol("MissingProperty")
           case e: Exception =>
             Console.err.println(s"Loading $file, $name, $e [${e.getStackTrace.take(6).mkString(", ")}]")

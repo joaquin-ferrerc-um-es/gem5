@@ -229,10 +229,6 @@ Option("cache_l2_assoc", int,
 # HTM Options
 Option("htm_disable_speculation", bool,
        descr_abbrev = "NoSpec")
-Option("htm_precise_read_set_tracking", bool,
-       descr_abbrev = "RSPrec")
-Option("htm_conflict_resolution", str, # requester_wins, committer_wins, requester_stalls_cda_hybrid, requester_stalls_cda_hybrid_ntx, requester_stalls_cda_base_ntx, requester_stalls_cda_base
-       descr_abbrev = "CR")
 Option("htm_binary_suffix", str,
        descr_abbrev = "BinSfx",
        gem5_option = None,
@@ -242,16 +238,16 @@ Option("htm_lazy_vm", bool,
        descr_abbrev = "LV")
 Option("htm_eager_cd", bool,
        descr_abbrev = "ED")
-Option("htm_conflict_resolution", str,
+Option("htm_conflict_resolution", str, # requester_wins, committer_wins, requester_stalls_cda_hybrid, requester_stalls_cda_hybrid_ntx, requester_stalls_cda_base_ntx, requester_stalls_cda_base
        descr_abbrev = "CR")
 Option("htm_lazy_arbitration", str, # magic or token
        descr_abbrev = "LArb")
 Option("htm_allow_read_set_l0_cache_evictions", bool,
        descr_abbrev = "RSL0Ev")
-Option("htm_allow_write_set_l0_cache_evictions", bool,
-       descr_abbrev = "WSL0Ev")
 Option("htm_allow_read_set_l1_cache_evictions", bool,
        descr_abbrev = "RSL1Ev")
+Option("htm_allow_write_set_l0_cache_evictions", bool,
+       descr_abbrev = "WSL0Ev")
 Option("htm_allow_write_set_l1_cache_evictions", bool,
        descr_abbrev = "WSL1Ev")
 Option("htm_allow_read_set_l2_cache_evictions", bool,
@@ -260,6 +256,8 @@ Option("htm_allow_write_set_l2_cache_evictions", bool,
        descr_abbrev = "WSL2Ev")
 Option("htm_precise_read_set_tracking", bool,
        descr_abbrev = "RSPrec")
+Option("htm_allow_load_delaying", bool,
+       descr_abbrev = "LDelay")
 Option("htm_trans_aware_l0_replacements", bool,
        descr_abbrev = "L0Repl")
 Option("htm_reload_if_stale", bool,

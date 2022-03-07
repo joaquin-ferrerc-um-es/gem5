@@ -1,6 +1,7 @@
 package repscr.gem5
 
-import repscr.PlotCoordinates
+import repscr.{PlotCoordinates, Vwe}
+import Vwe._
 import util.misc.dynamicOrdering
 import repscr.points._
 
@@ -58,7 +59,10 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
   }
 
   // htm_.+
-  CoordFromProp(s"htm_transaction_cycles", axisTitle = "Averge cycles per transaction (cycles)")
+  CoordFromProp(s"htm_transaction_count_per_cpu", stacked=true, axisTitle = "Transactions", doc = "Number of transactions per CPU")
+  Coord(s"htm_transaction_count", s => s("htm_transaction_count_per_cpu").asMap[Any, Vwe].values.sum, axisTitle = "Transactions", doc = "Total number of transactions")
+  CoordFromProp(s"htm_transaction_cycles_per_cpu", stacked=true, axisTitle = "Average cycles per transaction (cycles)", doc = "Average cycles per transaction per CPU")
+  Coord(s"htm_transaction_cycles", s => s("htm_transaction_cycles_per_cpu").asMap[Any, Vwe].values.sum, axisTitle = "Average cycles per transaction (cycles)", doc = "Average cycles per transaction")
   CoordFromProp(s"htm_transaction_instructions", axisTitle = "Averge cycles per transaction (cycles)")
   CoordFromProp(s"htm_transaction_abort_cause", stacked = true, axisTitle = "transactions")
 
@@ -81,5 +85,9 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
       case Some(p) => Coord(p.name, _ (p.name), isConfig = p.kind == Gem5Properties.Config, stacked = stacked, axisTitle = axisTitle, ordering = ordering, doc = doc)
       case None => sys.error(s"undefined property: $prop_name")
     }
+  }
+
+  implicit class AnyCoordHelper(o: Any) {
+    def asMap[K,V] = o.asInstanceOf[Map[K,V]] // TODO: handle other cases if necessary (e.g., lists of pairs)
   }
 }

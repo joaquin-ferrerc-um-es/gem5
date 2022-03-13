@@ -6,4 +6,5 @@ spinlock_t fallbackLock;
 volatile char lock_array[PADDED_ARRAY_SIZE_BYTES]
   __attribute__ ((aligned (CACHE_LINE_SIZE_BYTES))) ;
 lockPtr_t locks;
+unsigned int numLock = 0;
 #endif

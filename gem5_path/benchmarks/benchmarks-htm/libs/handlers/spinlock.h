@@ -158,6 +158,8 @@ static inline void spinlock_unlock()
 extern volatile char lock_array[PADDED_ARRAY_SIZE_BYTES]
 __attribute__ ((aligned (CACHE_LINE_SIZE_BYTES))) ;
 
+extern unsigned int numLock;
+
 typedef struct {
     long lock;
     char padding[CACHE_LINE_SIZE_BYTES-8];
@@ -245,6 +247,41 @@ static inline void spinlock_prefb_unlock()
     __asm__ volatile (""); // acts as a memory barrier.
     *(locks.preFallbackLock) = 0;
 }
+
+static inline long * spinlock_basic_get()
+{
+    assert(numLock < NUM_GLOBAL_LOCKS);
+    long * lock = (long *)&lock_array[CACHE_LINE_SIZE_BYTES*numLock];
+    *(lock) = 0;
+    ++numLock;
+    return lock;
+}
+
+static inline long spinlock_basic_isLocked(long * lock)
+{
+  return *(lock) != 0;
+}
+
+static inline void spinlock_basic_whileIsLocked(long * lock)
+{
+  while (spinlock_basic_isLocked(lock)) {
+    _mm_pause();
+  }
+}
+
+static inline void spinlock_basic_lock(long * lock){
+    do {
+        spinlock_basic_whileIsLocked(lock);
+    }
+    while (!__sync_bool_compare_and_swap((lock), 0, 1));
+}
+
+static inline void spinlock_basic_unlock(long * lock)
+{
+    __asm__ volatile (""); // acts as a memory barrier.
+    *(lock) = 0;
+}
+
 #endif // ARCH
 
 #endif /* SPINLOCK_H */

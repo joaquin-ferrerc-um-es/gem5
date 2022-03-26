@@ -148,23 +148,17 @@ public:
   bool config_lazyVM() const {
       return m_htm->params().lazy_vm;
   }
-  bool config_allowReadSetLowerLevelCacheEvictions() const {
-      if (m_ruby_system->getProtocol() == "MESI_Two_Level_HTM_umu") {
-          return m_htm->params().allow_read_set_l1_cache_evictions;
-      } else {
-          return m_htm->params().allow_read_set_l0_cache_evictions;
-      }
+  bool config_allowReadSetL0CacheEvictions() const {
+      assert(m_ruby_system->getProtocol() == "MESI_Three_Level_HTM_umu");
+      return m_htm->params().allow_read_set_l0_cache_evictions;
   }
   bool config_allowReadSetL1CacheEvictions() const {
       assert(m_ruby_system->getProtocol() == "MESI_Three_Level_HTM_umu");
       return m_htm->params().allow_read_set_l1_cache_evictions;
   }
-  bool config_allowWriteSetLowerLevelCacheEvictions() const {
-      if (m_ruby_system->getProtocol() == "MESI_Two_Level_HTM_umu") {
-          return m_htm->params().allow_write_set_l1_cache_evictions;
-      } else {
-          return m_htm->params().allow_write_set_l0_cache_evictions;
-      }
+  bool config_allowWriteSetL0CacheEvictions() const {
+      assert(m_ruby_system->getProtocol() == "MESI_Three_Level_HTM_umu");
+      return m_htm->params().allow_write_set_l0_cache_evictions;
   }
   bool config_allowWriteSetL1CacheEvictions() const {
       assert(m_ruby_system->getProtocol() == "MESI_Three_Level_HTM_umu");
@@ -215,7 +209,6 @@ private:
   AbstractController *m_controller;
   TransactionalSequencer *m_sequencer;
   CacheMemory* m_dataCache_ptr;
-  MachineType m_lowerLevelCacheMachineType;
 
   TransactionIsolationManager     * m_xactIsolationManager;
   TransactionConflictManager      * m_xactConflictManager;

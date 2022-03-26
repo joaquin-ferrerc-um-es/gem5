@@ -34,8 +34,7 @@ TransactionalSequencer::TransactionalSequencer(const Params &p)
 
 {
     // TransactionalSequencer is only used by UMU protocols
-    assert(m_ruby_system->getProtocol() == "MESI_Two_Level_HTM_umu" ||
-           m_ruby_system->getProtocol() == "MESI_Three_Level_HTM_umu");;
+    assert(m_ruby_system->getProtocol() == "MESI_Three_Level_HTM_umu");;
     m_htm = system->getHTM();
     assert(m_htm);
     assert(m_ruby_system->getProfiler()->hasXactProfiler());

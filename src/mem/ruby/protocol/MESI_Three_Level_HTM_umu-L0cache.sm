@@ -524,7 +524,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
             } else if (xact_mgr.checkReadSignature(in_msg.addr)) {
                 if (xact_mgr.config_allowReadSetL1CacheEvictions()) {
                     // NOTE: This option shall not to be mixed up with
-                    // config_allowReadSetLowerLevelCacheEvictions(),
+                    // config_allowReadSetL0CacheEvictions(),
                     // which allows L0 to evict trans blocks.
                     trigger(Event:InvOwn_Rset, in_msg.addr, cache_entry, tbe);
                 } else {
@@ -727,7 +727,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
                   }
               }
               else if (xact_mgr.checkReadSignature(victimAddr)) {
-                  if (xact_mgr.config_allowReadSetLowerLevelCacheEvictions()) {
+                  if (xact_mgr.config_allowReadSetL0CacheEvictions()) {
                       // Eviction of speculatively read data: allowed, stay as sharer
                       trigger(Event:L0_Replacement_Rset, victimAddr,
                               getICacheEntry(victimAddr),
@@ -777,41 +777,27 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
               // Check to see if it is in the OTHER L0
               Entry Icache_entry := getICacheEntry(in_msg.LineAddress);
               if (is_valid(Icache_entry)) {
-                  if (xact_mgr.config_lazyVM()) {
-                      assert(!xact_mgr.checkWriteSignature(in_msg.LineAddress));
-                  }
-                  
-                  if (xact_mgr.checkReadSignature(in_msg.LineAddress) &&
-                      in_msg.Type == RubyRequestType:LD) {
-                      // Block in Icache but already in Rset: Avoid
-                      // replacement, serve this load from L1D
-                      // (unrealistic but uncommon case)
-                      trigger(mandatory_request_type_to_event(in_msg.Type,
-                                                              in_msg.LineAddress,
-                                                              in_msg.htmFromTransaction),
-                              in_msg.LineAddress,
-                              Icache_entry, TBEs[in_msg.LineAddress]);
-                  } else {
-                      if (xact_mgr.checkReadSignature(in_msg.LineAddress)) {
-                          // ST to block in Icache: not a capacity abort!
-                          xact_mgr.xactReplacement(in_msg.LineAddress, machineID);
-                          if (xact_mgr.config_lazyVM()) {
-                              assert(!xact_mgr.checkWriteSignature(in_msg.LineAddress));
-                          }
-                          if (!xact_mgr.config_allowReadSetLowerLevelCacheEvictions()) {
-                              assert(xact_mgr.isDoomed());
-                              // The block is in the wrong L0, put the request on the queue to the private L1
-                              // Make sure it has not been speculatively written while in the Icache,
-                              trigger(Event:L0_Replacement, in_msg.LineAddress,
-                                      Icache_entry, TBEs[in_msg.LineAddress]);
-                          } else {
-                              trigger(Event:L0_Replacement_Rset, in_msg.LineAddress,
-                                      Icache_entry, TBEs[in_msg.LineAddress]);
-                          }
-                      } else {
+                  // The block is in the wrong L0, put the request on the queue to the private L1
+
+                  // Thus it cannot be part of write set
+                  assert(!xact_mgr.checkWriteSignature(in_msg.LineAddress));
+                  // May be part of read set if L0 read-set evictions allowed
+                  if (xact_mgr.checkReadSignature(in_msg.LineAddress)) {
+                      // If in Rset and in instruction cache, evictions must be allowed
+                      assert(xact_mgr.config_allowReadSetL0CacheEvictions());
+
+                      xact_mgr.xactReplacement(in_msg.LineAddress, machineID);
+                      if (!xact_mgr.config_allowReadSetL0CacheEvictions()) {
+                          assert(xact_mgr.isDoomed());
                           trigger(Event:L0_Replacement, in_msg.LineAddress,
                                   Icache_entry, TBEs[in_msg.LineAddress]);
+                      } else {
+                          trigger(Event:L0_Replacement_Rset, in_msg.LineAddress,
+                                  Icache_entry, TBEs[in_msg.LineAddress]);
                       }
+                  } else {
+                      trigger(Event:L0_Replacement, in_msg.LineAddress,
+                              Icache_entry, TBEs[in_msg.LineAddress]);
                   }
               }
 
@@ -845,7 +831,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
                     }
                 }
                 else if (xact_mgr.checkReadSignature(victimAddr)) {
-                    if (xact_mgr.config_allowReadSetLowerLevelCacheEvictions()) {
+                    if (xact_mgr.config_allowReadSetL0CacheEvictions()) {
                         // Eviction of speculatively read data: allowed, stay as sharer
                         trigger(Event:L0_Replacement_Rset, victimAddr,
                                 getDCacheEntry(victimAddr),
@@ -1341,9 +1327,9 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
   action(ars_sanityAllowReadSetLowerLevelCacheEvictions, "\ars", desc="") {
       assert(xact_mgr.checkReadSignature(address));
       if (!is_valid(cache_entry)) {
-          assert(xact_mgr.config_allowReadSetLowerLevelCacheEvictions());
+          assert(xact_mgr.config_allowReadSetL0CacheEvictions());
       } else { // Possible if a) refetching, b) not precise Rset tracking
-          assert(xact_mgr.config_allowReadSetLowerLevelCacheEvictions() ||
+          assert(xact_mgr.config_allowReadSetL0CacheEvictions() ||
                  !xact_mgr.config_preciseReadSetTracking());
       }
   }
@@ -1910,7 +1896,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
   }
 
   // Invalidations on evicted transactional blocks are only possible
-  // if allowReadSetLowerLevelCacheEvictions enabled
+  // if allowReadSetL0CacheEvictions enabled
   transition({I,IS}, InvOwn_X) {
     ars_sanityAllowReadSetLowerLevelCacheEvictions;
     fn_sendInvNack;

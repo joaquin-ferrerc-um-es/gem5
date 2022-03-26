@@ -181,8 +181,8 @@ structure (TransactionInterfaceManager, external = "yes") {
   bool config_allowWriteSetL2CacheEvictions();
   bool config_allowReadSetL1CacheEvictions();
   bool config_allowWriteSetL1CacheEvictions();
-  bool config_allowReadSetLowerLevelCacheEvictions();
-  bool config_allowWriteSetLowerLevelCacheEvictions();
+  bool config_allowReadSetL0CacheEvictions();
+  bool config_allowWriteSetL0CacheEvictions();
   bool config_preciseReadSetTracking();
   bool config_reloadIfStale();
 }

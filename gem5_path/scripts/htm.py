@@ -61,6 +61,32 @@ htm_config_options.append(htm_heap_prefault)
 # To be used by non-UMU (non-HTM or gem5 HTM) system configurations
 config_empty = collections.OrderedDict()
 
+# Base config using locks, no HTM
+cfg0_locks = collections.OrderedDict()
+cfg0_locks[htm_disable_speculation]=False
+cfg0_locks[htm_binary_suffix]='.htm.sgl'
+cfg0_locks[htm_lazy_vm]=True
+cfg0_locks[htm_eager_cd]=True
+cfg0_locks[htm_conflict_resolution]='requester_wins'
+cfg0_locks[htm_lazy_arbitration]=None
+cfg0_locks[htm_allow_read_set_l0_evictions]=False
+cfg0_locks[htm_allow_read_set_l1_evictions]=False
+cfg0_locks[htm_allow_write_set_l0_evictions]=False
+cfg0_locks[htm_allow_write_set_l1_evictions]=False
+cfg0_locks[htm_allow_read_set_l2_evictions]=False
+cfg0_locks[htm_allow_write_set_l2_evictions]=False
+cfg0_locks[htm_precise_read_set_tracking]=False
+cfg0_locks[htm_trans_aware_l0_replacements]=False
+cfg0_locks[htm_allow_load_delaying]=False
+cfg0_locks[htm_reload_if_stale]=False
+cfg0_locks[htm_l0_downgrade_on_l1_gets]=False
+cfg0_locks[htm_value_checker]=False
+cfg0_locks[htm_isolation_checker]=True
+cfg0_locks[htm_visualizer]=True
+cfg0_locks[htm_max_retries]=6
+cfg0_locks[htm_backoff]=True
+cfg0_locks[htm_heap_prefault]=False
+
 # Baseline: All options disabled except default HTM policies, set
 # to eager CD and lazy VM (no logging)
 cfg1_base = collections.OrderedDict()

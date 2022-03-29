@@ -106,14 +106,6 @@ TransactionInterfaceManager::TransactionInterfaceManager(const Params &p)
         // Evicting write set blocks requires eager versioning
         assert(!XACT_LAZY_VM);
     }
-    if (m_htm->params().precise_read_set_tracking &&
-        getXactConflictManager()->isRequesterStallsPolicy()) {
-        // Reload if stale is not compatible with requester stalls as
-        // it can lead to livelocks due to an older reader repeatedly
-        // getting Data_Stale while preventing the progress of a
-        // younger writer
-        assert(!m_htm->params().reload_if_stale);
-    }
 
     m_htmstart_tick = 0;
     m_htmstart_instruction = 0;

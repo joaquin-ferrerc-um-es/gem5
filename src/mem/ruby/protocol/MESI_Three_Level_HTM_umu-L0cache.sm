@@ -790,8 +790,11 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
                   assert(!xact_mgr.checkWriteSignature(in_msg.LineAddress));
                   // May be part of read set if L0 read-set evictions allowed
                   if (xact_mgr.checkReadSignature(in_msg.LineAddress)) {
-                      // If in Rset and in instruction cache, evictions must be allowed
-                      assert(xact_mgr.config_allowReadSetL0CacheEvictions());
+                      // If in Rset and in instruction cache, either
+                      // using imprecise rsets (and this is the first
+                      // load) or evictions must be allowed
+                      assert(!xact_mgr.config_preciseReadSetTracking() ||
+                             xact_mgr.config_allowReadSetL0CacheEvictions());
 
                       xact_mgr.xactReplacement(in_msg.LineAddress, machineID);
                       if (!xact_mgr.config_allowReadSetL0CacheEvictions()) {

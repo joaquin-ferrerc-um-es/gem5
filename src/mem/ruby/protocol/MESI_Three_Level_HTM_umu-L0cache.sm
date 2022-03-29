@@ -193,8 +193,9 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     DataBlock DataBlk,                desc="Buffer for the data block";
     bool Dirty, default="false",   desc="data is dirty";
     int pendingAcks, default="0", desc="number of pending acks";
-    bool HtmReloadIfStale, default="false", desc="";
-    int  HtmNumReloads, default="0", desc="";
+    bool HtmFromTransaction, default="false", desc="is this a transactional load";
+    bool HtmReloadIfStale, default="false", desc="Allowed to reload upon Data_Stale";
+    int  HtmNumReloads, default="0", desc="Number of reloads upon Data_Stale";
  }
 
   structure(TBETable, external="yes") {
@@ -896,6 +897,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
           !xact_mgr.checkReadSignature(address)) {
           assert(is_valid(tbe));
          tbe.HtmReloadIfStale := true;
+         tbe.HtmFromTransaction := true;
       }
     }
   }
@@ -1390,12 +1392,15 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
       // "source" an invalid machineID(L1Cache,NumL1Caches) to
       // indicate "stale data".
       assert(xact_mgr.checkWriteSignature(address) == false);
-      xact_mgr.xactReplacement(address,machineID,
-                               false/*capacity*/,
-                               true /*stale*/);
-      DPRINTF(RubyHTM,
-              "Aborting transaction due to conflict on pending load addr=0x%lx\n",
-              address);
+      assert(is_valid(tbe));
+      if (tbe.HtmFromTransaction) { // Transactional load
+          xact_mgr.xactReplacement(address,machineID,
+                                   false/*capacity*/,
+                                   true /*stale*/);
+          DPRINTF(RubyHTM,
+                  "Aborting transaction due to conflict on pending load addr=0x%lx\n",
+                  address);
+      }
   }
 
   //*****************************************************

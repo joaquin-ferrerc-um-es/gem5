@@ -68,7 +68,8 @@ public:
   void setAbortFlag(Addr addr,
                     MachineID abortSource,
                     bool remote_trans = false,
-                    bool capacity = false, bool wset = false);
+                    bool capacity = false, bool wset = false,
+                    bool dataStale = false);
   void cancelTransaction(PacketPtr pkt);
   bool isCancelledTransaction();
 
@@ -108,7 +109,9 @@ public:
   void setVersion(int version);
   int getVersion() const;
 
-  void xactReplacement(Addr addr, MachineID source, bool capacity = false);
+  void xactReplacement(Addr addr, MachineID source,
+                       bool capacity = false,
+                       bool dataStale = false);
 
   bool checkReadSignature(Addr addr);
   bool checkWriteSignature(Addr addr);

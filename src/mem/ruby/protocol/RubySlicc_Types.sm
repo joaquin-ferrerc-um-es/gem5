@@ -170,6 +170,7 @@ structure (TransactionInterfaceManager, external = "yes") {
   bool checkReadSignature(Addr);
   void xactReplacement(Addr, MachineID);
   void xactReplacement(Addr, MachineID, bool);
+  void xactReplacement(Addr, MachineID, bool, bool);
 
   void notifyMissCompleted(bool, bool);
   void notifyReceiveNack(Addr, Cycles, MachineID);

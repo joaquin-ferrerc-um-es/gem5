@@ -186,6 +186,7 @@ structure (TransactionInterfaceManager, external = "yes") {
   bool config_allowWriteSetL0CacheEvictions();
   bool config_preciseReadSetTracking();
   bool config_reloadIfStale();
+  int  config_reloadIfStaleMaxRetries();
 }
 
 structure(RubyRequest, desc="...", interface="Message", external="yes") {

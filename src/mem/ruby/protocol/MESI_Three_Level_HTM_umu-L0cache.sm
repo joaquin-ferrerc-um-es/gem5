@@ -901,7 +901,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
   }
   // ACTIONS
   action(irs_incTBEHtmNumReloads , "irs", desc="") {
-      if (tbe.HtmNumReloads < 10) { // TODO: HtmNumReloadIfStaleMaxThreshold
+      if (tbe.HtmNumReloads < xact_mgr.config_reloadIfStaleMaxRetries()) {
          tbe.HtmNumReloads := tbe.HtmNumReloads + 1;
       } else { // Disable reload: next Data_Stale will abort this tx
          tbe.HtmReloadIfStale := false;

@@ -184,7 +184,9 @@ public:
   bool config_reloadIfStale() const {
       return m_htm->params().reload_if_stale;
   }
-
+  int config_reloadIfStaleMaxRetries() const {
+      return m_htm->params().reload_if_stale_max_retries;
+  }
   bool config_enableValueChecker() const {
       return m_htm->params().value_checker;
   }

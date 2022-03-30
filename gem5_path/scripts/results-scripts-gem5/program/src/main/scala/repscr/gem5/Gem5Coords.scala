@@ -12,7 +12,7 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
   CoordFromProp("num_cpus", doc = "Number of CPUs")
   CoordFromProp("protocol", doc = "Coherence protocol")
   CoordFromProp("cpu_model", doc = "CPU model")
-  CoordFromProp("benchmark_name", doc = "Benchmark name")
+  CoordFromProp("benchmark_name", doc = "Benchmark name", axisTitle = "Benchmark")
   CoordFromProp("benchmark_size", ordering = dynamicOrdering("small", "medium", "large"), doc = "Benchmark problem size")
   CoordFromProp("random_seed", doc = "Random seeds used for this point")
   CoordFromProp("git_revision")
@@ -59,9 +59,9 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
   }
 
   // htm_.+
-  CoordFromProp(s"htm_transaction_count_per_cpu", stacked=true, axisTitle = "Transactions", doc = "Number of transactions per CPU")
+  CoordFromProp(s"htm_transaction_count_per_cpu", stacked = true, axisTitle = "Transactions", doc = "Number of transactions per CPU")
   Coord(s"htm_transaction_count", s => s("htm_transaction_count_per_cpu").asMap[Any, Vwe].values.sum, axisTitle = "Transactions", doc = "Total number of transactions")
-  CoordFromProp(s"htm_transaction_cycles_per_cpu", stacked=true, axisTitle = "Average cycles per transaction (cycles)", doc = "Average cycles per transaction per CPU")
+  CoordFromProp(s"htm_transaction_cycles_per_cpu", stacked = true, axisTitle = "Average cycles per transaction (cycles)", doc = "Average cycles per transaction per CPU")
   Coord(s"htm_transaction_cycles", s => s("htm_transaction_cycles_per_cpu").asMap[Any, Vwe].values.sum, axisTitle = "Average cycles per transaction (cycles)", doc = "Average cycles per transaction")
   CoordFromProp(s"htm_transaction_instructions", axisTitle = "Averge cycles per transaction (cycles)")
   CoordFromProp(s"htm_transaction_abort_cause", stacked = true, axisTitle = "transactions")
@@ -88,6 +88,23 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
   }
 
   implicit class AnyCoordHelper(o: Any) {
-    def asMap[K,V] = o.asInstanceOf[Map[K,V]] // TODO: handle other cases if necessary (e.g., lists of pairs)
+    def asMap[K, V] = o.asInstanceOf[Map[K, V]] // TODO: handle other cases if necessary (e.g., lists of pairs)
   }
+
+  /* Project specific coordinates */
+  Coord("config_huawei",
+    s => (s("htm_binary_suffix"), s("htm_heap_prefault"),
+      s("htm_allow_read_set_l0_evictions"), s("htm_allow_read_set_l1_evictions"), s("htm_allow_read_set_l2_evictions"),
+      s("htm_trans_aware_l0_replacements")) match {
+      case (".htm.sgl", _, _, _, _, _) => "Locks"
+      case (".htm.fallbacklock", false, _, _, _, _) => "HTM_base"
+      case (".htm.fallbacklock", true, false, _, _, _) => "HTM+PF"
+      case (".htm.fallbacklock", true, true, false, _, _) => "HTM+PF+L0rse"
+      case (".htm.fallbacklock", true, true, true, false, false) => "HTM+PF+L0rse+L1rse"
+      case (".htm.fallbacklock", true, true, true, false, true) => "HTM+PF+L0RSE+L1RSE+HAR"
+      case (".htm.fallbacklock", true, true, true, true, _) => "HTM+PF+L0rse+L1rse+L2rse"
+
+    },
+    isConfig = true,
+    ordering = dynamicOrdering("Locks", "HTM_base", "HTM+PF", "HTM+PF+L0rse", "HTM+PF+L0rse+L1rse", "HTM+PF+L0rse+L1rse+L2rse", "HTM+PF+L0RSE+L1RSE+HAR"))
 }

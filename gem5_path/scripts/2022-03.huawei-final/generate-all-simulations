@@ -90,4 +90,4 @@ ln -s "../../all/3/$COMMON_DIRS/LV_CRcw_LArbtkn_RSL0Ev_RSL1Ev_L0Repl_Rtry64_Bkof
 ln -s "../../all/2/$COMMON_DIRS/LV_ED_CRrw_Rtry6_Bkoff_/" per_plot/8/cfg1_base
 ln -s "../../all/3/$COMMON_DIRS/LV_ED_CRcdah_RSL0Ev_RSL1Ev_RSPrec_L0Repl_RldStale_Rtry64_Bkoff_Pflt_" per_plot/8/cfg5_precrset_rldstale
 ln -s "../../all/3/$COMMON_DIRS/LV_CRcw_LArbtkn_RSL0Ev_RSL1Ev_L0Repl_Rtry64_Bkoff_Pflt_" per_plot/8/cfg6_lazycd
-ln -s "../../all/3/$COMMON_DIRS/ED_CRcdah_RSL0Ev_RSL1Ev_WSL0Ev_WSL1Ev_RSL2Ev_WSL2Ev_RSPrec_L0Repl_RldStale_Rtry64_Bkoff_Pflt_" per_plot/7/ee
+ln -s "../../all/3/$COMMON_DIRS/ED_CRcdah_RSL0Ev_RSL1Ev_WSL0Ev_WSL1Ev_RSL2Ev_WSL2Ev_RSPrec_L0Repl_RldStale_Rtry64_Bkoff_Pflt_" per_plot/8/ee

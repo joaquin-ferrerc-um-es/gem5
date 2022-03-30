@@ -1,0 +1,7 @@
+Listing(Source("SimulationsMixes"), [
+	IndexColumn("benchmark_name",AllValues,XColumn)
+], [
+	ResultColumn("cycles_ticks",absolute,bars),
+	ResultColumn("htm_transaction_abort_cause",absolute,bars),
+	ResultColumn("simulation_time",absolute,bars)
+])

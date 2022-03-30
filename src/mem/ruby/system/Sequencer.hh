@@ -65,11 +65,13 @@ struct SequencerRequest
     RubyRequestType m_type;
     RubyRequestType m_second_type;
     Cycles issue_time;
+    Cycles reissue_time;
     bool suppressed = false;
     SequencerRequest(PacketPtr _pkt, RubyRequestType _m_type,
-                     RubyRequestType _m_second_type, Cycles _issue_time)
+                     RubyRequestType _m_second_type, Cycles _issue_time,
+                     Cycles _reissue_time = Cycles(0))
                 : pkt(_pkt), m_type(_m_type), m_second_type(_m_second_type),
-                  issue_time(_issue_time)
+                  issue_time(_issue_time), reissue_time(_reissue_time)
     {}
 
     bool functionalWrite(Packet *func_pkt) const

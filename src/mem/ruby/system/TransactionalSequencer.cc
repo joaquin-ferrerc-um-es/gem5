@@ -291,13 +291,7 @@ TransactionalSequencer::failedCallback(Addr address,
             Sequencer::writeCallback(address, data);
         } else {
             m_failedStorePkt = pkt;
-#if 0
-            // Prevent deadlock event check: update issue time
-            for (auto it=seq_req_list.begin();
-                 it != seq_req_list.end(); ++it) {
-                (*it).issue_time = curCycle();
-            }
-#endif
+            updateReissueTime(address);
             makeRequest(pkt);
         }
     } else {
@@ -306,6 +300,45 @@ TransactionalSequencer::failedCallback(Addr address,
     m_failedCallback = false;
 }
 
+void
+TransactionalSequencer::updateReissueTime(Addr address)
+{
+    auto &seq_req_list = m_RequestTable[address];
+
+    // Set reissue time for all requests aliased on this write, used
+    // to keep track of failed requests and prevent deadlock event
+    for (auto it=seq_req_list.begin();
+         it != seq_req_list.end(); ++it) {
+        (*it).reissue_time = curCycle();
+    }
+    // After reissue_time updated, check if there is a load aliased
+    // with this store, which may have arrived at LSQ head by now (but
+    // at LSQ head when sent from the CPU). For now, conservatively
+    // consider a load as being at LSQ head if all outstanding
+    // requests are being reissued
+    if ((seq_req_list.size() > 1) &&
+        getNumReissuedRequests() == m_RequestTable.size()) {
+        for (auto it=seq_req_list.begin();
+             it != seq_req_list.end(); ++it) {
+            if ((*it).pkt->isRead()) {
+                (*it).pkt->setAtLSQHead(true);
+                checkForStall((*it).pkt);
+            }
+        }
+    }
+}
+
+int
+TransactionalSequencer::getNumReissuedRequests() const
+{
+    int count = 0;
+    for (const auto &table_entry : m_RequestTable) {
+        if (table_entry.second.front().reissue_time != Cycles(0)) {
+            ++count;
+        }
+    }
+    return count;
+}
 void
 TransactionalSequencer::rubyHtmCallback(PacketPtr pkt)
 {
@@ -670,6 +703,32 @@ TransactionalSequencer::failedCallbackCleanup(PacketPtr pkt)
 }
 
 void
+TransactionalSequencer::checkForStall(PacketPtr pkt)
+{
+    if (pkt->isAtLSQHead() &&
+        !m_xact_mgr->isAborting() &&
+        !m_stalled &&
+        (!pkt->isHtmTransactional() ||
+         m_lastAbortHtmUid != pkt->getHtmTransactionUid())) {
+        // Enter stall
+        m_stalled = true;
+        assert(m_lastStateBeforeStall == AnnotatedRegion_INVALID);
+        m_lastStateBeforeStall = m_ruby_system->getProfiler()->
+            getXactProfiler()->getCurrentRegion(m_version);
+        Addr address = makeLineAddress(pkt->getAddr());
+        DPRINTF(RubyHTM,
+                "Stalled (nacked) thread after failing to perform"
+                " access to block addr %#x\n", address);
+        m_ruby_system->getProfiler()->
+            getXactProfiler()->moveTo(m_version,
+                                      pkt->isHtmTransactional() ?
+                                      AnnotatedRegion_STALLED :
+                                      AnnotatedRegion_STALLED_NONTRANS);
+    }
+}
+
+
+void
 TransactionalSequencer::handleFailedCallback(SequencerRequest* srequest)
 {
     PacketPtr pkt = srequest->pkt;
@@ -716,25 +775,7 @@ TransactionalSequencer::handleFailedCallback(SequencerRequest* srequest)
     // Skip all the following actions and do not call
     // Sequencer::hitCallback
     pkt->setHtmFailedCacheAccess(true);
-    if (pkt->isAtLSQHead() &&
-        !m_xact_mgr->isAborting() &&
-        !m_stalled &&
-        (!pkt->isHtmTransactional() ||
-         m_lastAbortHtmUid != pkt->getHtmTransactionUid())) {
-        m_stalled = true;
-        assert(m_lastStateBeforeStall == AnnotatedRegion_INVALID);
-        m_lastStateBeforeStall = m_ruby_system->getProfiler()->
-            getXactProfiler()->getCurrentRegion(m_version);
-        Addr address = makeLineAddress(pkt->getAddr());
-        DPRINTF(RubyHTM,
-                "Stalled (nacked) thread after failing to perform"
-                " access to block addr %#x\n", address);
-        m_ruby_system->getProfiler()->
-            getXactProfiler()->moveTo(m_version,
-                                      pkt->isHtmTransactional() ?
-                                      AnnotatedRegion_STALLED :
-                                      AnnotatedRegion_STALLED_NONTRANS);
-    }
+    checkForStall(pkt);
     ruby_hit_callback(pkt);
     failedCallbackCleanup(pkt);
     testDrainComplete();

@@ -1070,6 +1070,10 @@ TransactionInterfaceManager::xactReplacement(Addr addr, MachineID source,
         // "Data_Stale": Address may or may not be in read set
         // depending on precise_read_set_tracking. Call setAbortFlag
         // to set detailed abort cause (ConflictStale)
+
+        // Do not set the abort flag if already set or no longer in a
+        // transaction
+        if (isDoomed() || !inTransaction()) return;
     } else {
         assert(checkReadSignature(addr));
         DPRINTF(RubyHTM, "HTM: xactReplacement "

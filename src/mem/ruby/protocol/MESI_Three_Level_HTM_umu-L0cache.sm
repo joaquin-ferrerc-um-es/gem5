@@ -501,7 +501,8 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
         } else if(in_msg.Class == CoherenceClass:DATA) {
             trigger(Event:Data, in_msg.addr, cache_entry, tbe);
         } else if(in_msg.Class == CoherenceClass:STALE_DATA) {
-            if (is_valid(tbe) && tbe.HtmReloadIfStale) {
+            if (is_valid(tbe) && tbe.HtmReloadIfStale &&
+                !xact_mgr.isDoomed()) {
                 trigger(Event:Data_Stale_HtmReload, in_msg.addr, cache_entry, tbe);
             } else {
                 trigger(Event:Data_Stale, in_msg.addr, cache_entry, tbe);

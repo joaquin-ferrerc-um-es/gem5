@@ -278,21 +278,44 @@ TransactionalSequencer::failedCallback(Addr address,
         // retried without CPU intervention
         auto &seq_req_list = m_RequestTable[address];
         assert(!seq_req_list.empty());
-        SequencerRequest &seq_req = seq_req_list.front();
-        PacketPtr pkt = seq_req.pkt;
-        assert(pkt->isWrite() ||
-               (seq_req.m_type == RubyRequestType_RMW_Read) ||
-               (seq_req.m_type == RubyRequestType_Locked_RMW_Read));
-        assert(m_failedStorePkt == NULL);
-        if (seq_req.suppressed ||
-            (m_xact_mgr->isAborting() &&
-             pkt->isHtmTransactional())) {
-            // Remove this and all aliased reqs from Sequencer
+        bool isWrite = false;
+        bool isRMWRead = false;
+        for (auto it=seq_req_list.begin();
+             it != seq_req_list.end(); ++it) {
+            if ((*it).pkt->isWrite()) {
+                isWrite = true;
+                break;
+            } else if (((*it).m_type == RubyRequestType_RMW_Read) ||
+                       ((*it).m_type == RubyRequestType_Locked_RMW_Read)) {
+                isRMWRead = true;
+            }
+        }
+        if (isWrite) {
+            SequencerRequest &seq_req = seq_req_list.front();
+            PacketPtr pkt = seq_req.pkt;
+            assert(m_failedStorePkt == NULL);
+            if (seq_req.suppressed ||
+                (m_xact_mgr->isAborting() &&
+                 pkt->isHtmTransactional())) {
+                // Remove this and all aliased reqs from Sequencer
+                Sequencer::writeCallback(address, data);
+                // writeCallback will eventually call
+                // handleFailedCallback Sequencer::hitCallback
+            } else {
+                m_failedStorePkt = pkt;
+                updateReissueTime(address);
+                makeRequest(pkt);
+            }
+        } else { // No stores aliased with this RMW_Read
+
+            // NOTE: RMW_Read are handled as stores by the protocol)
+            // but must be retried following the "load path" if no
+            // coalesced stores exist, since the memory request may
+            // come from a speculative instruction subject to
+            // squashing (do not retry indefinitely)
+            assert(isRMWRead);
+            // Remove reqs from Sequencer
             Sequencer::writeCallback(address, data);
-        } else {
-            m_failedStorePkt = pkt;
-            updateReissueTime(address);
-            makeRequest(pkt);
         }
     } else {
         Sequencer::readCallback(address, data);

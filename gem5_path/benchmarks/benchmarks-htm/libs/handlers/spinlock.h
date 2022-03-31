@@ -9,6 +9,12 @@
 
 #if defined (AARCH64)
 
+#include <assert.h>
+
+extern unsigned int numLock;
+extern volatile char lock_array[(NUM_GLOBAL_LOCKS-2)*CACHE_LINE_SIZE_BYTES]
+  __attribute__ ((aligned (CACHE_LINE_SIZE_BYTES))) ;
+
 #if defined (AARCH64_NAIVE_SPINLOCK)
 
 // Naive spinlock implementation from:
@@ -72,8 +78,8 @@ static inline void spinlock_unlock()
 #define TICKET_SHIFT	16
 
 typedef struct {
-	uint16_t owner;
-	uint16_t next;
+    uint16_t owner;
+    uint16_t next;
 } spinlock_t __attribute__ ((aligned (CACHE_LINE_SIZE_BYTES)));
 
 extern spinlock_t fallbackLock;
@@ -108,8 +114,72 @@ static inline void spinlock_whileIsLocked()
 
 static inline void spinlock_lock()
 {
-	unsigned int tmp;
-	spinlock_t lockval, newval;
+    unsigned int tmp;
+    spinlock_t lockval, newval;
+
+        __asm__ __volatile__(
+    /* Atomically increment the next ticket. */
+"	prfm	pstl1strm, %3\n"
+"1:	ldaxr	%w0, %3\n"
+"	add     %w1, %w0, #0x10, lsl #12\n"
+"	stxr	%w2, %w1, %3\n"
+"	cbnz	%w2, 1b\n"
+    /* Did we get the lock? */
+"	eor	%w1, %w0, %w0, ror #16\n"
+"	cbz	%w1, 3f\n"
+    /*
+     * No: spin on the owner. Send a local event to avoid missing an
+     * unlock before the exclusive load.
+     */
+"	sevl\n"
+"2:	wfe\n"
+"	ldaxrh	%w2, %3\n"
+"	eor	%w1, %w2, %w0, lsr #16\n"
+"	cbnz	%w1, 2b\n"
+    /* We got the lock. Critical section starts here. */
+"3:"
+    : "=&r" (lockval), "=&r" (newval), "=&r" (tmp), "+Q" (fallbackLock)
+    :
+    : "memory");
+}
+
+static inline void spinlock_unlock()
+{
+        __asm__ __volatile__(
+"	stlrh	%w1, %0\n"
+    : "=Q" (fallbackLock.owner)
+    : "r" (fallbackLock.owner + 1)
+    : "memory");
+}
+
+static inline void spinlock_basic_init(spinlock_t * basic_lock)
+{
+    basic_lock->owner = 0;
+    basic_lock->next = 0;
+}
+
+static inline long spinlock_basic_isLocked(spinlock_t * basic_lock)
+{
+    spinlock_t lockval;
+    __asm__ __volatile__(
+"        ldr    %[result], %[input]\n"
+: [result] "=r" (lockval)
+: [input] "Q" (*basic_lock)
+: );
+    return lockval.owner != lockval.next;
+}
+
+static inline void spinlock_basic_whileIsLocked(spinlock_t * basic_lock)
+{
+  while (spinlock_basic_isLocked(basic_lock)) {
+      // __yield();
+  }
+}
+
+static inline void spinlock_basic_lock(spinlock_t * basic_lock)
+{
+    unsigned int tmp;
+    spinlock_t lockval, newval;
 
         __asm__ __volatile__(
 	/* Atomically increment the next ticket. */
@@ -132,18 +202,27 @@ static inline void spinlock_lock()
 "	cbnz	%w1, 2b\n"
 	/* We got the lock. Critical section starts here. */
 "3:"
-	: "=&r" (lockval), "=&r" (newval), "=&r" (tmp), "+Q" (fallbackLock)
-	:
-	: "memory");
+    : "=&r" (lockval), "=&r" (newval), "=&r" (tmp), "+Q" (*(basic_lock))
+    :
+    : "memory");
 }
 
-static inline void spinlock_unlock()
+static inline void spinlock_basic_unlock(spinlock_t * basic_lock)
 {
         __asm__ __volatile__(
 "	stlrh	%w1, %0\n"
-	: "=Q" (fallbackLock.owner)
-	: "r" (fallbackLock.owner + 1)
-	: "memory");
+    : "=Q" (basic_lock->owner)
+    : "r" (basic_lock->owner + 1)
+    : "memory");
+}
+
+static inline spinlock_t * spinlock_basic_get()
+{
+    assert(numLock < NUM_GLOBAL_LOCKS);
+    spinlock_t * basic_lock = &((spinlock_t *)(lock_array))[numLock];
+    spinlock_basic_init(basic_lock);
+    ++numLock;
+    return basic_lock;
 }
 
 #endif

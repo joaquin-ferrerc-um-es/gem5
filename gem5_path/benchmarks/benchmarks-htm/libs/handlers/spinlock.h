@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #define CACHE_LINE_SIZE_BYTES 64
-#define NUM_GLOBAL_LOCKS 2
+#define NUM_GLOBAL_LOCKS 10
 #define PADDED_ARRAY_SIZE_BYTES (CACHE_LINE_SIZE_BYTES * NUM_GLOBAL_LOCKS)
 
 #if defined (AARCH64)
@@ -190,6 +190,7 @@ static inline void spinlock_init()
   (locks.preFallbackLock) = (long *)&lock_array[CACHE_LINE_SIZE_BYTES*numLock];
   *(locks.preFallbackLock) = 0;
 
+  ++numLock;
   // Sanity check: remember to increase lock_array size accordingly
   assert(numLock < NUM_GLOBAL_LOCKS);
 }
@@ -248,38 +249,38 @@ static inline void spinlock_prefb_unlock()
     *(locks.preFallbackLock) = 0;
 }
 
-static inline long * spinlock_basic_get()
+static inline spinlock_t * spinlock_basic_get()
 {
     assert(numLock < NUM_GLOBAL_LOCKS);
-    long * lock = (long *)&lock_array[CACHE_LINE_SIZE_BYTES*numLock];
-    *(lock) = 0;
+    spinlock_t * basic_lock = &((spinlock_t *)(lock_array))[numLock];
+    basic_lock->lock = 0;
     ++numLock;
-    return lock;
+    return basic_lock;
 }
 
-static inline long spinlock_basic_isLocked(long * lock)
+static inline long spinlock_basic_isLocked(spinlock_t * basic_lock)
 {
-  return *(lock) != 0;
+  return basic_lock->lock != 0;
 }
 
-static inline void spinlock_basic_whileIsLocked(long * lock)
+static inline void spinlock_basic_whileIsLocked(spinlock_t * lock)
 {
   while (spinlock_basic_isLocked(lock)) {
     _mm_pause();
   }
 }
 
-static inline void spinlock_basic_lock(long * lock){
+static inline void spinlock_basic_lock(spinlock_t * basic_lock){
     do {
-        spinlock_basic_whileIsLocked(lock);
+        spinlock_basic_whileIsLocked(basic_lock);
     }
-    while (!__sync_bool_compare_and_swap((lock), 0, 1));
+    while (!__sync_bool_compare_and_swap(&(basic_lock->lock), 0, 1));
 }
 
-static inline void spinlock_basic_unlock(long * lock)
+static inline void spinlock_basic_unlock(spinlock_t * basic_lock)
 {
     __asm__ volatile (""); // acts as a memory barrier.
-    *(lock) = 0;
+    basic_lock->lock= 0;
 }
 
 #endif // ARCH

@@ -10,5 +10,4 @@ trap 'echo "$SCRIPT_COMMAND: error $? at line $LINENO"' ERR
 INPUTS_DIR="$(realpath "$SCRIPT_DIR/../../../results/teaser/all")"
 OUTPUTS_DIR="$(realpath "$SCRIPT_DIR/plots/")"
 
-cd $SCRIPT_DIR
-../results-scripts-gem5/results-scripts --script=Plots202203HuaweiFinal --ins="$INPUTS_DIR" --outs="$OUTPUTS_DIR"
+"$SCRIPT_DIR/../results-scripts-gem5/results-scripts" --script=Plots202203HuaweiFinal --ins="$INPUTS_DIR" --outs="$OUTPUTS_DIR"

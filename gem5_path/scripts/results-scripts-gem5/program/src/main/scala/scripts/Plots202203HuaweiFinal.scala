@@ -116,10 +116,36 @@ object Plots202203HuaweiFinal extends App with PlotScript {
 
   allPlots +=
   new BarPlotDefault(PlotData(name = "global",
-    seriesC = Seq("config".toCoord),
+    seriesC = Seq("config".toCoord, "num_cpus".toCoord),
     y = "cycles_ticks".toCoord,
     x = Seq("benchmark_name".toCoord),
     points = mixes)
+  ) {
+    normalization = Normalization.Ratio
+    yAxisTitle = "Time (normalized)"
+    seriesLegendRows = 3
+    width = 180
+  }
+
+  allPlots +=
+  new BarPlotDefault(PlotData(name = "global-1thread",
+    seriesC = Seq("config".toCoord),
+    y = "cycles_ticks".toCoord,
+    x = Seq("benchmark_name".toCoord),
+    points = mixes.filter(_.num_cpus == 1))
+  ) {
+    normalization = Normalization.Ratio
+    yAxisTitle = "Time (normalized)"
+    seriesLegendRows = 3
+    width = 180
+  }
+
+  allPlots +=
+  new BarPlotDefault(PlotData(name = "global-16thread",
+    seriesC = Seq("config".toCoord),
+    y = "cycles_ticks".toCoord,
+    x = Seq("benchmark_name".toCoord),
+    points = mixes.filter(_.num_cpus == 16))
   ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
@@ -159,7 +185,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
     y = "cycles_ticks".toCoord,
     x = Seq("benchmark_name".toCoord),
     points = mixes.filter(s => s.num_cpus == 1
-                               && Set("HTM+PF", "HTM+PF+L0rse", "HTM+PF+L0rse+L1rse", "HTM+PF+L0rse+L1rse+L2rse").contains(s.config)
+                               && Set("HTM+PF", "HTM+PF+L0RSE", "HTM+PF+L0RSE+L1RSE", "HTM+PF+L0RSE+L1RSE+L2RSE").contains(s.config)
                                && Set("vacation-h", "vacation-l", "yada", "labyrinth").contains(s.benchmarkName)))
   ) {
     normalization = Normalization.Ratio
@@ -173,7 +199,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
     y = "cycles_ticks".toCoord,
     x = Seq("benchmark_name".toCoord),
     points = mixes.filter(s => s.num_cpus == 1
-                               && Set("HTM+PF+L0rse+L1rse", "HTM+PF+L0RSE+L1RSE+HAR").contains(s.config)
+                               && Set("HTM+PF+L0RSE+L1RSE", "HTM+PF+L0RSE+L1RSE+HAR").contains(s.config)
                                && Set("yada", "labyrinth").contains(s.benchmarkName)))
   ) {
     normalization = Normalization.Ratio

@@ -95,16 +95,28 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
   Coord("config_huawei",
     s => (s("htm_binary_suffix"), s("htm_heap_prefault"),
       s("htm_allow_read_set_l0_evictions"), s("htm_allow_read_set_l1_evictions"), s("htm_allow_read_set_l2_evictions"),
-      s("htm_trans_aware_l0_replacements")) match {
-      case (".htm.sgl", _, _, _, _, _) => "Locks"
-      case (".htm.fallbacklock", false, _, _, _, _) => "HTM_base"
-      case (".htm.fallbacklock", true, false, _, _, _) => "HTM+PF"
-      case (".htm.fallbacklock", true, true, false, _, _) => "HTM+PF+L0rse"
-      case (".htm.fallbacklock", true, true, true, false, false) => "HTM+PF+L0rse+L1rse"
-      case (".htm.fallbacklock", true, true, true, false, true) => "HTM+PF+L0RSE+L1RSE+HAR"
-      case (".htm.fallbacklock", true, true, true, true, _) => "HTM+PF+L0rse+L1rse+L2rse"
+      s("htm_trans_aware_l0_replacements"),
+      s("htm_lazy_vm"),
+      s("htm_conflict_resolution"),
+      s("htm_reload_if_stale")) match {
+      case (".htm.sgl", _, _, _, _, _, _, _, _) => "Locks"
+      case (".htm.fallbacklock", false, _, _, _, _, _, "requester_wins", _) => "HTM_RW_base"
+      case (".htm.fallbacklock", true, false, _, _, _, _, "requester_wins", _) => "HTM_RW_+PF"
+      case (".htm.fallbacklock", true, true, false, _, _, _, "requester_wins", _) => "HTM_RW+PF+L0RSE"
+      case (".htm.fallbacklock", true, true, true, false, false, _, "requester_wins", _) => "HTM_RW+PF+L0RSE+L1RSE"
+      case (".htm.fallbacklock", true, true, true, false, true, _, "requester_wins", _) => "HTM_RW+PF+L0RSE+L1RSE+HAR"
+      case (".htm.fallbacklock", true, true, true, true, _, _, "requester_wins", _) => "HTM_RW+PF+L0RSE+L1RSE+L2RSE"
+      case (".htm.fallbacklock", true, true, true, false, true, _, "requester_stalls_cda_base", _) => "HTM_CDA+PF+L0RSE+L1RSE+HAR"
+      case (".htm.fallbacklock", true, true, true, false, true, _, "requester_stalls_cda_base", false) => "HTM_lazyvm_CDA+PF+L0RSE+L1RSE+HAR"
+      case (".htm.fallbacklock", true, true, true, true /*???*/ , true, _, "requester_stalls_cda_hybrid", true) => "HTM_CDAH+PF+L0RSE+L1RSE+L2RSE+HAR+RIS"
+      case (".htm.fallbacklock", true, true, true, false, true, false, "requester_stalls_cda_hybrid", false) => "HTM_CDAH+PF+L0RSE+L1RSE+HAR"
+      case (".htm.fallbacklock", true, true, true, false, true, false, "requester_stalls_cda_hybrid", true) => "HTM_CDAH+PF+L0RSE+L1RSE+HAR+RIS"
+      case (".htm.fallbacklock", true, true, true, false, true, true, "requester_stalls_cda_hybrid", false) => "HTM_lazyvm_CDAH+PF+L0RSE+L1RSE+HAR+RIS"
+      case (".htm.fallbacklock", true, true, true, false, true, true, "committer_wins", _) => "HTM_lazyvm_cw"
 
+      case (".htm.fallbacklock", false, false, false, false, false, true, "requester_wins", false) => "HTM_lazyvm_RW"
+      case (".htm.fallbacklock", true, true, true, false, true, true, "requester_stalls_cda_hybrid", true) => "Icannontthink1"
     },
     isConfig = true,
-    ordering = dynamicOrdering("Locks", "HTM_base", "HTM+PF", "HTM+PF+L0rse", "HTM+PF+L0rse+L1rse", "HTM+PF+L0rse+L1rse+L2rse", "HTM+PF+L0RSE+L1RSE+HAR"))
+    ordering = dynamicOrdering("Locks", "HTM_RW_base", "HTM_RW+PF", "HTM_RW+PF+L0RSE", "HTM_RW+PF+L0RSE+L1RSE", "HTM_RW+PF+L0RSE+L1RSE+L2RSE", "HTM_RW+PF+L0RSE+L1RSE+HAR", "HTM_CDA+PF+L0RSE+L1RSE+HAR", "HTM_CDAH+PF+L0RSE+L1RSE+HAR", "HTM_CDAH+PF+L0RSE+L1RSE+L2RSE+HAR"))
 }

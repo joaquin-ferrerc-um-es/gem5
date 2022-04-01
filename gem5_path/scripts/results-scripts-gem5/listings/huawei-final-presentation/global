@@ -1,4 +1,5 @@
 Listing(Source("SimulationsMixes"), [
+	IndexColumn("num_cpus",AllValues,Section),
 	IndexColumn("benchmark_name",AllValues,XColumn),
 	IndexColumn("config_huawei",AllValues,SerieColumn)
 ], [

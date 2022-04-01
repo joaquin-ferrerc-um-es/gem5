@@ -91,11 +91,12 @@ XactProfiler::resetStats()
     }
 }
 
-void XactProfiler::profile_region(AnnotatedRegion state, int proc_num,
+void XactProfiler::profile_region(AnnotatedRegion region, int proc_num,
                                   uint64_t cycles) {
   // Make sure we don't profile regions with dual outcome directly
-  assert(!AnnotatedRegion_hasDualOutcome(state));
-  m_state_cycle_count[proc_num][state] += cycles;
+  assert(!AnnotatedRegion_hasDualOutcome(region));
+  m_state_cycle_count[proc_num][region] += cycles;
+  m_ruby_system->getHTM()->profileRegion(region,cycles);
 }
 
 void XactProfiler::beginRegion(int proc_no, AnnotatedRegion region)

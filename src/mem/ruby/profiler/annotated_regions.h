@@ -143,6 +143,7 @@ static inline const char* AnnotatedRegion_to_string(AnnotatedRegion_t region)
     case AnnotatedRegion_ARBITRATION: return "ARBITRATION";
     case AnnotatedRegion_ARBITRATION_COMMITTED: return "ARBITRATION_COMMITTED";
     case AnnotatedRegion_ARBITRATION_ABORTED: return "ARBITRATION_ABORTED";
+    case AnnotatedRegion_INVALID: return "INVALID";
     default: assert(0);
     }
     return NULL;

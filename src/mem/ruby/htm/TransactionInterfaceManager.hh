@@ -14,7 +14,7 @@
 #include "mem/packet.hh"
 #include "mem/request.hh"
 #include "mem/ruby/common/Address.hh"
-#include "mem/ruby/profiler/annotated_regions.h"
+#include "mem/ruby/htm/htm.hh"
 #include "mem/ruby/structures/CacheMemory.hh"
 #include "mem/ruby/system/RubySystem.hh"
 #include "mem/ruby/system/TransactionalSequencer.hh"

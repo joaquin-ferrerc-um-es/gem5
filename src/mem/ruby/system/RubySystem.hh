@@ -42,6 +42,7 @@
 #include "mem/htm.hh"
 #include "mem/packet.hh"
 #include "mem/ruby/common/Global.hh"
+#include "mem/ruby/htm/htm.hh"
 #include "mem/ruby/profiler/Profiler.hh"
 #include "mem/ruby/slicc_interface/AbstractController.hh"
 #include "mem/ruby/system/CacheRecorder.hh"
@@ -85,7 +86,7 @@ class RubySystem : public ClockedObject
       { return m_l0_downgrade_on_l1_gets; }
 
     memory::SimpleMemory *getPhysMem() { return m_phys_mem; }
-    HTM *getHTM() { return m_htm; }
+    RubyHTM *getHTM() { return m_htm; }
     Cycles getStartCycle() { return m_start_cycle; }
     bool getAccessBackingStore() { return m_access_backing_store; }
 
@@ -185,7 +186,7 @@ class RubySystem : public ClockedObject
     std::unordered_map<MachineID, unsigned> machineToNetwork;
     std::unordered_map<RequestorID, unsigned> requestorToNetwork;
     std::unordered_map<unsigned, std::vector<AbstractController*>> netCntrls;
-    HTM * m_htm;
+    RubyHTM * m_htm;
     std::vector<TransactionInterfaceManager *> m_xact_mgr_vec;
     XactValueChecker* m_xactValueChecker;
     XactIsolationChecker* m_xactIsolationChecker;

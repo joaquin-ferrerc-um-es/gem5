@@ -35,15 +35,15 @@ cd "$SCRIPT_DIR/.."
 }
 
 # simulations with 1 thread, locks
-cp "$SCRIPT_DIR/config-1.py" "config.py" # Note that gen-scripts does not work if config.py is a symbolic link 
+sed -e '/\# @@@@ VARYING PART @@@@/r '"$SCRIPT_DIR"'/config-1.part.py' < "$SCRIPT_DIR/config-common.py" > config.py
 $GEN_SCRIPT_CMD
 
 # simulations with 1 thread
-cp "$SCRIPT_DIR/config-2.py" "config.py" # Note that gen-scripts does not work if config.py is a symbolic link 
+sed -e '/\# @@@@ VARYING PART @@@@/r '"$SCRIPT_DIR"'/config-2.part.py' < "$SCRIPT_DIR/config-common.py" > config.py
 $GEN_SCRIPT_CMD
 
 # simulations with 16 threads
-cp "$SCRIPT_DIR/config-3.py" "config.py" # Note that gen-scripts does not work if config.py is a symbolic link 
+sed -e '/\# @@@@ VARYING PART @@@@/r '"$SCRIPT_DIR"'/config-3.part.py' < "$SCRIPT_DIR/config-common.py" > config.py
 $GEN_SCRIPT_CMD
 
 rm "$SCRIPT_DIR/../config.py"

@@ -130,10 +130,10 @@ object Plots202203HuaweiFinal extends App with PlotScript {
       def addTotals(): Unit = {
         sortData()
 
-        series foreach { case Serie(serieName, serieData) ⇒
-          val items = serieData map (_.y.asInstanceOf[Traversable[(Any, Any)]].toMap)
+        series foreach { case Serie(serieName, serieData) =>
+          val items = serieData map (_.y.asInstanceOf[Iterable[(Any, Any)]].toMap)
           val categories = items.flatMap(_.keys).filterDuplicates
-          val avg = categories map { c ⇒ c → Plot.averageTotalFunction(items map (_.getOrElse(c, 0))) }
+          val avg = categories map { c => c -> Plot.averageTotalFunction(items map (_.getOrElse(c, 0))) }
           addPoint(serieName, "Arithmetic\\nMean", avg, false, 2)
         }
 

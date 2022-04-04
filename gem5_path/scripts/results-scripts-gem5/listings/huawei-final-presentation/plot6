@@ -1,7 +1,8 @@
 Listing(Source("SimulationsMixes"), [
 	IndexColumn("benchmark_name",AllValues,XColumn),
 	IndexColumn("htm_conflict_resolution",AllValues,SerieColumn),
-	IndexColumn("config_huawei",AllValues,SerieColumn)
+	IndexColumn("config_huawei",AllValues,SerieColumn),
+	IndexColumn("htm_reload_if_stale",AllValues,SerieColumn)
 ], [
 	ResultColumn("cycles_ticks",absolute,bars),
 	ResultColumn("htm_transaction_abort_cause",normalized,bars),

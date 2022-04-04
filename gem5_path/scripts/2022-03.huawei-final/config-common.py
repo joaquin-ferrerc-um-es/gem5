@@ -22,8 +22,8 @@ detailed_simulation_cpu_model_list.append('DerivO3CPU')
 
 benchmark_groups = []
 #benchmark_groups.append('test-progs-caps-small')
-benchmark_groups.append('stamp-small')
-#benchmark_groups.append('stamp-medium')
+#benchmark_groups.append('stamp-small')
+benchmark_groups.append('stamp-medium')
 
 benchmark_list = benchmarks.getBenchmarks(benchmark_groups)
 

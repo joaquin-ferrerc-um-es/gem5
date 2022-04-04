@@ -1,6 +1,6 @@
 package scripts
 
-import repscr.plots.{BarPlot, BarPlotCommon, Format, Normalization, Plot, Serie}
+import repscr.plots.{BarPlot, StackedBarPlot, BarPlotCommon, Format, Normalization, Plot, Serie}
 import repscr.gem5.Gem5Coords._
 import repscr.gem5.Gem5DataPoint
 import util.misc._
@@ -47,7 +47,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
 
       def fileBaseName = namePrefix + (name match {
         case "" => s"${x mkString "+"}-${seriesC mkString "+"}-$y"
-        case x => x
+        case x  => x
       })
 
       def yMultipleValuesFn = yMultipleValues.getOrElse({ s: Seq[Any] =>
@@ -102,6 +102,38 @@ object Plots202203HuaweiFinal extends App with PlotScript {
         addSeparationLine(-1)
       }
     }
+
+    class StackedBarPlotDefault(val data: PlotData, skipAddPlots: Boolean = false) extends StackedBarPlot with DefaultPlotOptions {
+      outputFiles(Format.pdf) = new File(s"$outdir/${data.fileBaseName}.pdf")
+      outputFiles(Format.tsv) = new File(s"$outdir/${data.fileBaseName}.tsv")
+      xAxisTitle = data.xAxisTitle
+      yAxisTitle = data.yAxisTitle
+      //pointsOrder = Some(x.ordering.lt)
+      //seriesOrder = Some(seriesC.ordering.lt)
+      categoriesOrder = Some(data.y.ordering.lt)
+      seriesLegend = true
+      legendOffsetY = 10
+      totalPointFunction = None
+      categoriesLegendRows = 2
+
+      if (!skipAddPlots) data.addToPlot(this)
+
+      def addTotals(): Unit = {
+        sortData()
+
+        series foreach { case Serie(serieName, serieData) ⇒
+          val items = serieData map (_.y.asInstanceOf[Traversable[(Any, Any)]].toMap)
+          val categories = items.flatMap(_.keys).filterDuplicates
+          val avg = categories map { c ⇒ c → Plot.averageTotalFunction(items map (_.getOrElse(c, 0))) }
+          addPoint(serieName, "Arithmetic\\nMean", avg, false, 2)
+        }
+
+        val added = 1
+        if (added > 0) addSeparationLine(-added)
+      }
+    }
+
+
   }
 
   import PlotUtils._
@@ -116,11 +148,11 @@ object Plots202203HuaweiFinal extends App with PlotScript {
 
   allPlots +=
   new BarPlotDefault(PlotData(name = "global",
-    seriesC = Seq("config".toCoord, "num_cpus".toCoord),
-    y = "cycles_ticks".toCoord,
-    x = Seq("benchmark_name".toCoord),
-    points = mixes)
-  ) {
+                              seriesC = Seq("config".toCoord, "num_cpus".toCoord),
+                              y = "cycles_ticks".toCoord,
+                              x = Seq("benchmark_name".toCoord),
+                              points = mixes)
+                     ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
     seriesLegendRows = 3
@@ -129,11 +161,11 @@ object Plots202203HuaweiFinal extends App with PlotScript {
 
   allPlots +=
   new BarPlotDefault(PlotData(name = "global-1thread",
-    seriesC = Seq("config".toCoord),
-    y = "cycles_ticks".toCoord,
-    x = Seq("benchmark_name".toCoord),
-    points = mixes.filter(_.num_cpus == 1))
-  ) {
+                              seriesC = Seq("config".toCoord),
+                              y = "cycles_ticks".toCoord,
+                              x = Seq("benchmark_name".toCoord),
+                              points = mixes.filter(_.num_cpus == 1))
+                     ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
     seriesLegendRows = 3
@@ -142,11 +174,11 @@ object Plots202203HuaweiFinal extends App with PlotScript {
 
   allPlots +=
   new BarPlotDefault(PlotData(name = "global-16thread",
-    seriesC = Seq("config".toCoord),
-    y = "cycles_ticks".toCoord,
-    x = Seq("benchmark_name".toCoord),
-    points = mixes.filter(_.num_cpus == 16))
-  ) {
+                              seriesC = Seq("config".toCoord),
+                              y = "cycles_ticks".toCoord,
+                              x = Seq("benchmark_name".toCoord),
+                              points = mixes.filter(_.num_cpus == 16))
+                     ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
     seriesLegendRows = 3
@@ -155,57 +187,193 @@ object Plots202203HuaweiFinal extends App with PlotScript {
 
   allPlots +=
   new BarPlotDefault(PlotData(name = "plot1",
-    seriesC = Seq("config".toCoord),
-    y = "cycles_ticks".toCoord,
-    x = Seq("benchmark_name".toCoord),
-    points = mixes.filter(s => s.num_cpus == 1
-                               && Set("Locks", "HTM_base").contains(s.config)
-                               && Set("vacation-h", "vacation-l", "yada").contains(s.benchmarkName)))
-  ) {
+                              seriesC = Seq("config".toCoord),
+                              y = "cycles_ticks".toCoord,
+                              x = Seq("benchmark_name".toCoord),
+                              points = mixes.filter(s => s.num_cpus == 1
+                                                         && Set("Locks", "HTM_RW_base").contains(s.config)
+                                                         && Set("intruder", "genome", "kmeans-h", "ssca2", "vacation-h", "yada").contains(s.benchmarkName)))
+                     ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
   }
 
   allPlots +=
-  new BarPlotDefault(PlotData(name = "plot2",
-    seriesC = Seq("config".toCoord),
-    y = "cycles_ticks".toCoord,
-    x = Seq("benchmark_name".toCoord),
-    points = mixes.filter(s => s.num_cpus == 1
-                               && Set("HTM_base", "HTM+PF").contains(s.config)
-                               && Set("vacation-h", "vacation-l", "yada").contains(s.benchmarkName)))
-  ) {
+  new StackedBarPlotDefault((PlotData(name = "plot2a",
+                                      seriesC = Seq("config".toCoord),
+                                      y = "htm_transaction_abort_cause".toCoord,
+                                      x = Seq("benchmark_name".toCoord),
+                                      points = mixes.filter(s => s.num_cpus == 1
+                                                                 && Set("HTM_RW_base", "HTM_RW_+PF").contains(s.config)
+                                                                 && Set("vacation-h", "intruder", "yada").contains(s.benchmarkName))))
+                            ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
   }
 
   allPlots +=
-  new BarPlotDefault(PlotData(name = "plot3",
-    seriesC = Seq("config".toCoord),
-    y = "cycles_ticks".toCoord,
-    x = Seq("benchmark_name".toCoord),
-    points = mixes.filter(s => s.num_cpus == 1
-                               && Set("HTM+PF", "HTM+PF+L0RSE", "HTM+PF+L0RSE+L1RSE", "HTM+PF+L0RSE+L1RSE+L2RSE").contains(s.config)
-                               && Set("vacation-h", "vacation-l", "yada", "labyrinth").contains(s.benchmarkName)))
-  ) {
+  new BarPlotDefault(PlotData(name = "plot2b",
+                              seriesC = Seq("config".toCoord),
+                              y = "cycles_ticks".toCoord,
+                              x = Seq("benchmark_name".toCoord),
+                              points = mixes.filter(s => s.num_cpus == 16
+                                                         && Set("HTM_RW_base", "HTM_RW_+PF").contains(s.config)
+                                                         && Set("vacation-h", "intruder", "yada").contains(s.benchmarkName)))
+                     ) {
+    normalization = Normalization.Ratio
+    yAxisTitle = "Time (normalized)"
+  }
+
+
+  allPlots +=
+  new StackedBarPlotDefault(PlotData(name = "plot3a",
+                                     seriesC = Seq("config".toCoord),
+                                     y = "htm_transaction_abort_cause".toCoord,
+                                     x = Seq("benchmark_name".toCoord),
+                                     points = mixes.filter(s => s.num_cpus == 1
+                                                                && Set("HTM_RW_+PF", "HTM_RW+PF+L0RSE", "HTM_RW+PF+L0RSE+L1RSE", "HTM_RW+PF+L0RSE+L1RSE+L2RSE").contains(s.config)
+                                                                && Set("vacation-h", "yada", "intruder").contains(s.benchmarkName)))
+                            ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
     seriesLegendRows = 2
   }
 
   allPlots +=
-  new BarPlotDefault(PlotData(name = "plot4",
-    seriesC = Seq("config".toCoord),
-    y = "cycles_ticks".toCoord,
-    x = Seq("benchmark_name".toCoord),
-    points = mixes.filter(s => s.num_cpus == 1
-                               && Set("HTM+PF+L0RSE+L1RSE", "HTM+PF+L0RSE+L1RSE+HAR").contains(s.config)
-                               && Set("yada", "labyrinth").contains(s.benchmarkName)))
-  ) {
+  new BarPlotDefault(PlotData(name = "plot3b",
+                              seriesC = Seq("config".toCoord),
+                              y = "cycles_ticks".toCoord,
+                              x = Seq("benchmark_name".toCoord),
+                              points = mixes.filter(s => s.num_cpus == 1
+                                                         && Set("HTM_RW_+PF", "HTM_RW+PF+L0RSE", "HTM_RW+PF+L0RSE+L1RSE", "HTM_RW+PF+L0RSE+L1RSE+L2RSE").contains(s.config)
+                                                         && Set("vacation-h", "yada", "intruder").contains(s.benchmarkName)))
+                     ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
     seriesLegendRows = 2
   }
+
+  allPlots +=
+  new StackedBarPlotDefault(PlotData(name = "plot4a",
+                                     seriesC = Seq("config".toCoord),
+                                     y = "htm_transaction_abort_cause".toCoord,
+                                     x = Seq("benchmark_name".toCoord),
+                                     points = mixes.filter(s => s.num_cpus == 1
+                                                                && Set("HTM_RW+PF+L0RSE+L1RSE", "HTM_RW+PF+L0RSE+L1RSE+HAR").contains(s.config)
+                                                                && Set("vacation-h", "yada", "intruder").contains(s.benchmarkName)))
+                            ) {
+    normalization = Normalization.Ratio
+    yAxisTitle = "Time (normalized)"
+    seriesLegendRows = 2
+  }
+
+  allPlots +=
+  new BarPlotDefault(PlotData(name = "plot4b",
+                              seriesC = Seq("config".toCoord),
+                              y = "cycles_ticks".toCoord,
+                              x = Seq("benchmark_name".toCoord),
+                              points = mixes.filter(s => s.num_cpus == 1
+                                                         && Set("HTM_RW+PF+L0RSE+L1RSE", "HTM_RW+PF+L0RSE+L1RSE+HAR").contains(s.config)
+                                                         && Set("vacation-h", "yada", "intruder").contains(s.benchmarkName)))
+                     ) {
+    normalization = Normalization.Ratio
+    yAxisTitle = "Time (normalized)"
+    seriesLegendRows = 2
+  }
+
+  allPlots +=
+  new StackedBarPlotDefault(PlotData(name = "plot5a",
+                                     seriesC = Seq("config".toCoord),
+                                     y = "htm_transaction_abort_cause".toCoord,
+                                     x = Seq("benchmark_name".toCoord),
+                                     points = mixes.filter(s => s.num_cpus == 16
+                                                                && Set("HTM_RW+PF+L0RSE+L1RSE+HAR", "HTM_CDA+PF+L0RSE+L1RSE+HAR", "HTM_CDAH+PF+L0RSE+L1RSE+HAR").contains(s.config)
+                                                                && Set("kmeans-h", "yada", "intruder").contains(s.benchmarkName)))
+                            ) {
+    normalization = Normalization.Ratio
+    yAxisTitle = "Time (normalized)"
+    seriesLegendRows = 2
+  }
+
+  allPlots +=
+  new BarPlotDefault(PlotData(name = "plot5b",
+                              seriesC = Seq("config".toCoord),
+                              y = "cycles_ticks".toCoord,
+                              x = Seq("benchmark_name".toCoord),
+                              points = mixes.filter(s => s.num_cpus == 16
+                                                         && Set("HTM_RW+PF+L0RSE+L1RSE+HAR", "HTM_CDA+PF+L0RSE+L1RSE+HAR", "HTM_CDAH+PF+L0RSE+L1RSE+HAR").contains(s.config)
+                                                         && Set("kmeans-h", "yada", "intruder").contains(s.benchmarkName)))
+                     ) {
+    normalization = Normalization.Ratio
+    yAxisTitle = "Time (normalized)"
+    seriesLegendRows = 2
+  }
+
+  allPlots +=
+  new StackedBarPlotDefault(PlotData(name = "plot6a",
+                                     seriesC = Seq("config".toCoord),
+                                     y = "htm_transaction_abort_cause".toCoord,
+                                     x = Seq("benchmark_name".toCoord),
+                                     points = mixes.filter(s => s.num_cpus == 16
+                                                                && Set("HTM_CDAH+PF+L0RSE+L1RSE+HAR", "HTM_CDAH+PF+L0RSE+L1RSE+HAR+RIS").contains(s.config)))
+                            ) {
+    normalization = Normalization.Ratio
+    yAxisTitle = "Time (normalized)"
+    seriesLegendRows = 2
+  }
+
+  allPlots +=
+  new BarPlotDefault(PlotData(name = "plot6b",
+                              seriesC = Seq("config".toCoord),
+                              y = "cycles_ticks".toCoord,
+                              x = Seq("benchmark_name".toCoord),
+                              points = mixes.filter(s => s.num_cpus == 16
+                                                         && Set("HTM_CDAH+PF+L0RSE+L1RSE+HAR", "HTM_CDAH+PF+L0RSE+L1RSE+HAR+RIS").contains(s.config)))
+                     ) {
+    normalization = Normalization.Ratio
+    yAxisTitle = "Time (normalized)"
+    seriesLegendRows = 2
+  }
+
+ /* allPlots +=
+  new StackedBarPlotDefault(PlotData(name = "plot7a",
+                                     seriesC = Seq("config".toCoord),
+                                     y = "htm_transaction_abort_cause".toCoord,
+                                     x = Seq("benchmark_name".toCoord),
+                                     points = mixes.filter(s => s.num_cpus == 16
+                                                                && Set("HTM_CDAH+PF+L0RSE+L1RSE+HAR+RIS", "HTM_LAZYCD+PF+L0RSE+L1RSE+HAR").contains(s.config)))
+                            ) {
+    normalization = Normalization.Ratio
+    yAxisTitle = "Time (normalized)"
+    seriesLegendRows = 2
+  }
+*/
+  allPlots +=
+  new BarPlotDefault(PlotData(name = "plot7b",
+                                     seriesC = Seq("config".toCoord),
+                                     y = "cycles_ticks".toCoord,
+                                     x = Seq("benchmark_name".toCoord),
+                                     points = mixes.filter(s => s.num_cpus == 16
+                                                                && Set("HTM_CDAH+PF+L0RSE+L1RSE+HAR+RIS", "HTM_LAZYCD+PF+L0RSE+L1RSE+HAR").contains(s.config)))
+                            ) {
+    normalization = Normalization.Ratio
+    yAxisTitle = "Time (normalized)"
+    seriesLegendRows = 2
+  }
+
+  allPlots +=
+  new BarPlotDefault(PlotData(name = "plot8b",
+                                     seriesC = Seq("config".toCoord),
+                                     y = "cycles_ticks".toCoord,
+                                     x = Seq("benchmark_name".toCoord),
+                                     points = mixes.filter(s => s.num_cpus == 16
+                                                                && Set("HTM_RW_+PF", "HTM_CDAH+PF+L0RSE+L1RSE+HAR+RIS", "HTM_LAZYCD+PF+L0RSE+L1RSE+HAR", "LogTM").contains(s.config)))
+                            ) {
+    normalization = Normalization.Ratio
+    yAxisTitle = "Time (normalized)"
+    seriesLegendRows = 2
+  }
+
 
   createDirs(outdir)
   plotUtil.plotWithProgress(allPlots)

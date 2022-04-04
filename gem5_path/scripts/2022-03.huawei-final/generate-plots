@@ -11,3 +11,12 @@ INPUTS_DIR="$(realpath "$SCRIPT_DIR/../../../results/teaser/all")"
 OUTPUTS_DIR="$(realpath "$SCRIPT_DIR/plots/")"
 
 "$SCRIPT_DIR/../results-scripts-gem5/results-scripts" --script=Plots202203HuaweiFinal --ins="$INPUTS_DIR" --outs="$OUTPUTS_DIR"
+
+(
+    cd "$OUTPUTS_DIR"
+    for i in *.pdf ; do
+        mv "$i" "$i".croptmp.pdf
+        { pdfcrop "$i.croptmp.pdf" "$i" && rm "$i.croptmp.pdf" ; } | grep -v "Heiko Oberdiek"
+    done
+)
+

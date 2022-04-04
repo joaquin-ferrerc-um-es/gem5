@@ -47,7 +47,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
 
       def fileBaseName = namePrefix + (name match {
         case "" => s"${x mkString "+"}-${seriesC mkString "+"}-$y"
-        case x  => x
+        case x => x
       })
 
       def yMultipleValuesFn = yMultipleValues.getOrElse({ s: Seq[Any] =>
@@ -58,7 +58,11 @@ object Plots202203HuaweiFinal extends App with PlotScript {
       val seriesSims = TreeMap.empty(serieIndexOrdering) ++ points.groupBy(serieOf).view.mapValues { rows =>
         TreeMap.empty(xIndexOrdering) ++ (rows.groupBy(xOf).view.mapValues { sims =>
           if (sims.length == 1) (yOf(sims.head), sims)
-          else (yMultipleValuesFn(sims.map(yOf)), sims)
+          else {
+            println("Multiple values configuration variations:")
+            for ((k, v) <- Gem5DataPoint.findConfigVariations(sims)) println(s"  ${k}: ${v.countItemsSorted.mkString(",")}")
+            (yMultipleValuesFn(sims.map(yOf)), sims)
+          }
         })
       }
 
@@ -153,11 +157,11 @@ object Plots202203HuaweiFinal extends App with PlotScript {
 
   allPlots +=
   new BarPlotDefault(PlotData(name = "global",
-                              seriesC = Seq("config".toCoord, "num_cpus".toCoord),
-                              y = "cycles_ticks".toCoord,
-                              x = Seq("benchmark_name".toCoord),
-                              points = mixes)
-                     ) {
+    seriesC = Seq("config".toCoord, "num_cpus".toCoord),
+    y = "cycles_ticks".toCoord,
+    x = Seq("benchmark_name".toCoord),
+    points = mixes)
+  ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
     seriesLegendRows = 3
@@ -166,11 +170,11 @@ object Plots202203HuaweiFinal extends App with PlotScript {
 
   allPlots +=
   new BarPlotDefault(PlotData(name = "global-1thread",
-                              seriesC = Seq("config".toCoord),
-                              y = "cycles_ticks".toCoord,
-                              x = Seq("benchmark_name".toCoord),
-                              points = mixes.filter(_.num_cpus == 1))
-                     ) {
+    seriesC = Seq("config".toCoord),
+    y = "cycles_ticks".toCoord,
+    x = Seq("benchmark_name".toCoord),
+    points = mixes.filter(_.num_cpus == 1))
+  ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
     seriesLegendRows = 3
@@ -179,11 +183,11 @@ object Plots202203HuaweiFinal extends App with PlotScript {
 
   allPlots +=
   new BarPlotDefault(PlotData(name = "global-16thread",
-                              seriesC = Seq("config".toCoord),
-                              y = "cycles_ticks".toCoord,
-                              x = Seq("benchmark_name".toCoord),
-                              points = mixes.filter(_.num_cpus == 16))
-                     ) {
+    seriesC = Seq("config".toCoord),
+    y = "cycles_ticks".toCoord,
+    x = Seq("benchmark_name".toCoord),
+    points = mixes.filter(_.num_cpus == 16))
+  ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
     seriesLegendRows = 3
@@ -192,26 +196,26 @@ object Plots202203HuaweiFinal extends App with PlotScript {
 
   allPlots +=
   new BarPlotDefault(PlotData(name = "plot1",
-                              seriesC = Seq("config".toCoord),
-                              y = "cycles_ticks".toCoord,
-                              x = Seq("benchmark_name".toCoord),
-                              points = mixes.filter(s => s.num_cpus == 1
-                                                         && Set("locks", "base_nopf").contains(s.config)
-                                                         && Set("intruder", "genome", "kmeans-h", "ssca2", "vacation-h", "yada").contains(s.benchmarkName)))
-                     ) {
+    seriesC = Seq("config".toCoord),
+    y = "cycles_ticks".toCoord,
+    x = Seq("benchmark_name".toCoord),
+    points = mixes.filter(s => s.num_cpus == 1
+                               && Set("locks", "base_nopf").contains(s.config)
+                               && Set("intruder", "genome", "kmeans-h", "ssca2", "vacation-h", "yada").contains(s.benchmarkName)))
+  ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
   }
 
   allPlots +=
   new StackedBarPlotDefault((PlotData(name = "plot2a",
-                                      seriesC = Seq("config".toCoord),
-                                      y = "htm_transaction_abort_cause".toCoord,
-                                      x = Seq("benchmark_name".toCoord),
-                                      points = mixes.filter(s => s.num_cpus == 1
-                                                                 && Set("base_nopf", "base").contains(s.config)
-                                                                 && Set("vacation-h", "intruder", "yada").contains(s.benchmarkName))))
-                            ) {
+    seriesC = Seq("config".toCoord),
+    y = "htm_transaction_abort_cause".toCoord,
+    x = Seq("benchmark_name".toCoord),
+    points = mixes.filter(s => s.num_cpus == 1
+                               && Set("base_nopf", "base").contains(s.config)
+                               && Set("vacation-h", "intruder", "yada").contains(s.benchmarkName))))
+  ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Abort count (normalized)"
     categoriesLegendRows = 4
@@ -219,13 +223,13 @@ object Plots202203HuaweiFinal extends App with PlotScript {
 
   allPlots +=
   new BarPlotDefault(PlotData(name = "plot2b",
-                              seriesC = Seq("config".toCoord),
-                              y = "cycles_ticks".toCoord,
-                              x = Seq("benchmark_name".toCoord),
-                              points = mixes.filter(s => s.num_cpus == 16
-                                                         && Set("base_nopf", "base").contains(s.config)
-                                                         && Set("vacation-h", "intruder", "yada").contains(s.benchmarkName)))
-                     ) {
+    seriesC = Seq("config".toCoord),
+    y = "cycles_ticks".toCoord,
+    x = Seq("benchmark_name".toCoord),
+    points = mixes.filter(s => s.num_cpus == 16
+                               && Set("base_nopf", "base").contains(s.config)
+                               && Set("vacation-h", "intruder", "yada").contains(s.benchmarkName)))
+  ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
   }
@@ -233,13 +237,13 @@ object Plots202203HuaweiFinal extends App with PlotScript {
 
   allPlots +=
   new StackedBarPlotDefault(PlotData(name = "plot3a",
-                                     seriesC = Seq("config".toCoord),
-                                     y = "htm_transaction_abort_cause".toCoord,
-                                     x = Seq("benchmark_name".toCoord),
-                                     points = mixes.filter(s => s.num_cpus == 1
-                                                                && Set("base", "l1rs", "l2rs", "lxrs").contains(s.config)
-                                                                && Set("vacation-h", "yada", "intruder").contains(s.benchmarkName)))
-                            ) {
+    seriesC = Seq("config".toCoord),
+    y = "htm_transaction_abort_cause".toCoord,
+    x = Seq("benchmark_name".toCoord),
+    points = mixes.filter(s => s.num_cpus == 1
+                               && Set("base", "l1rs", "l2rs", "lxrs").contains(s.config)
+                               && Set("vacation-h", "yada", "intruder").contains(s.benchmarkName)))
+  ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Abort count (normalized)"
     seriesLegendRows = 4
@@ -249,13 +253,13 @@ object Plots202203HuaweiFinal extends App with PlotScript {
 
   allPlots +=
   new BarPlotDefault(PlotData(name = "plot3b",
-                              seriesC = Seq("config".toCoord),
-                              y = "cycles_ticks".toCoord,
-                              x = Seq("benchmark_name".toCoord),
-                              points = mixes.filter(s => s.num_cpus == 1
-                                                         && Set("base", "l1rs", "l2rs", "lxrs").contains(s.config)
-                                                         && Set("vacation-h", "yada", "intruder").contains(s.benchmarkName)))
-                     ) {
+    seriesC = Seq("config".toCoord),
+    y = "cycles_ticks".toCoord,
+    x = Seq("benchmark_name".toCoord),
+    points = mixes.filter(s => s.num_cpus == 1
+                               && Set("base", "l1rs", "l2rs", "lxrs").contains(s.config)
+                               && Set("vacation-h", "yada", "intruder").contains(s.benchmarkName)))
+  ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
     seriesLegendRows = 4
@@ -263,13 +267,13 @@ object Plots202203HuaweiFinal extends App with PlotScript {
 
   allPlots +=
   new StackedBarPlotDefault(PlotData(name = "plot4a",
-                                     seriesC = Seq("config".toCoord),
-                                     y = "htm_transaction_abort_cause".toCoord,
-                                     x = Seq("benchmark_name".toCoord),
-                                     points = mixes.filter(s => s.num_cpus == 1
-                                                                && Set("l2rs", "l2rs_l0rpl").contains(s.config)
-                                                                && Set("vacation-h", "yada", "intruder").contains(s.benchmarkName)))
-                            ) {
+    seriesC = Seq("config".toCoord),
+    y = "htm_transaction_abort_cause".toCoord,
+    x = Seq("benchmark_name".toCoord),
+    points = mixes.filter(s => s.num_cpus == 1
+                               && Set("l2rs", "l2rs_l0rpl").contains(s.config)
+                               && Set("vacation-h", "yada", "intruder").contains(s.benchmarkName)))
+  ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Abort count (normalized)"
     seriesLegendRows = 2
@@ -277,13 +281,13 @@ object Plots202203HuaweiFinal extends App with PlotScript {
 
   allPlots +=
   new BarPlotDefault(PlotData(name = "plot4b",
-                              seriesC = Seq("config".toCoord),
-                              y = "cycles_ticks".toCoord,
-                              x = Seq("benchmark_name".toCoord),
-                              points = mixes.filter(s => s.num_cpus == 1
-                                                         && Set("l2rs", "l2rs_l0rpl").contains(s.config)
-                                                         && Set("vacation-h", "yada", "intruder").contains(s.benchmarkName)))
-                     ) {
+    seriesC = Seq("config".toCoord),
+    y = "cycles_ticks".toCoord,
+    x = Seq("benchmark_name".toCoord),
+    points = mixes.filter(s => s.num_cpus == 1
+                               && Set("l2rs", "l2rs_l0rpl").contains(s.config)
+                               && Set("vacation-h", "yada", "intruder").contains(s.benchmarkName)))
+  ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
     seriesLegendRows = 2
@@ -291,13 +295,13 @@ object Plots202203HuaweiFinal extends App with PlotScript {
 
   allPlots +=
   new StackedBarPlotDefault(PlotData(name = "plot5a",
-                                     seriesC = Seq("config".toCoord),
-                                     y = "htm_transaction_abort_cause".toCoord,
-                                     x = Seq("benchmark_name".toCoord),
-                                     points = mixes.filter(s => s.num_cpus == 16
-                                                                && Set("l2rs_l0rpl", "l2rs_l0rpl_reqstallb", "l2rs_l0rpl_reqstallh").contains(s.config)
-                                                                && Set("kmeans-h", "yada", "intruder").contains(s.benchmarkName)))
-                            ) {
+    seriesC = Seq("config".toCoord),
+    y = "htm_transaction_abort_cause".toCoord,
+    x = Seq("benchmark_name".toCoord),
+    points = mixes.filter(s => s.num_cpus == 16
+                               && Set("l2rs_l0rpl", "l2rs_l0rpl_reqstallb", "l2rs_l0rpl_reqstallh").contains(s.config)
+                               && Set("kmeans-h", "yada", "intruder").contains(s.benchmarkName)))
+  ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Abort count (normalized)"
     seriesLegendRows = 2
@@ -305,13 +309,13 @@ object Plots202203HuaweiFinal extends App with PlotScript {
 
   allPlots +=
   new BarPlotDefault(PlotData(name = "plot5b",
-                              seriesC = Seq("config".toCoord),
-                              y = "cycles_ticks".toCoord,
-                              x = Seq("benchmark_name".toCoord),
-                              points = mixes.filter(s => s.num_cpus == 16
-                                                         && Set("l2rs_l0rpl", "l2rs_l0rpl_reqstallb", "l2rs_l0rpl_reqstallh").contains(s.config)
-                                                         && Set("kmeans-h", "yada", "intruder").contains(s.benchmarkName)))
-                     ) {
+    seriesC = Seq("config".toCoord),
+    y = "cycles_ticks".toCoord,
+    x = Seq("benchmark_name".toCoord),
+    points = mixes.filter(s => s.num_cpus == 16
+                               && Set("l2rs_l0rpl", "l2rs_l0rpl_reqstallb", "l2rs_l0rpl_reqstallh").contains(s.config)
+                               && Set("kmeans-h", "yada", "intruder").contains(s.benchmarkName)))
+  ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
     seriesLegendRows = 2
@@ -319,12 +323,12 @@ object Plots202203HuaweiFinal extends App with PlotScript {
 
   allPlots +=
   new StackedBarPlotDefault(PlotData(name = "plot6a",
-                                     seriesC = Seq("config".toCoord),
-                                     y = "htm_transaction_abort_cause".toCoord,
-                                     x = Seq("benchmark_name".toCoord),
-                                     points = mixes.filter(s => s.num_cpus == 16
-                                                                && Set("l2rs_l0rpl_reqstallh", "l2rs_l0rpl_reqstallh_precrs").contains(s.config)))
-                            ) {
+    seriesC = Seq("config".toCoord),
+    y = "htm_transaction_abort_cause".toCoord,
+    x = Seq("benchmark_name".toCoord),
+    points = mixes.filter(s => s.num_cpus == 16
+                               && Set("l2rs_l0rpl_reqstallh", "l2rs_l0rpl_reqstallh_precrs").contains(s.config)))
+  ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Abort count (normalized)"
     seriesLegendRows = 2
@@ -332,18 +336,18 @@ object Plots202203HuaweiFinal extends App with PlotScript {
 
   allPlots +=
   new BarPlotDefault(PlotData(name = "plot6b",
-                              seriesC = Seq("config".toCoord),
-                              y = "cycles_ticks".toCoord,
-                              x = Seq("benchmark_name".toCoord),
-                              points = mixes.filter(s => s.num_cpus == 16
-                                                         && Set("l2rs_l0rpl_reqstallh", "l2rs_l0rpl_reqstallh_precrs").contains(s.config)))
-                     ) {
+    seriesC = Seq("config".toCoord),
+    y = "cycles_ticks".toCoord,
+    x = Seq("benchmark_name".toCoord),
+    points = mixes.filter(s => s.num_cpus == 16
+                               && Set("l2rs_l0rpl_reqstallh", "l2rs_l0rpl_reqstallh_precrs").contains(s.config)))
+  ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
     seriesLegendRows = 2
   }
 
-  /* allPlots +=
+   allPlots +=
    new StackedBarPlotDefault(PlotData(name = "plot7a",
                                       seriesC = Seq("config".toCoord),
                                       y = "htm_transaction_abort_cause".toCoord,
@@ -355,15 +359,15 @@ object Plots202203HuaweiFinal extends App with PlotScript {
      yAxisTitle = "Abort count (normalized)"
      seriesLegendRows = 2
    }
- */
+
   allPlots +=
   new BarPlotDefault(PlotData(name = "plot7b",
-                              seriesC = Seq("config".toCoord),
-                              y = "cycles_ticks".toCoord,
-                              x = Seq("benchmark_name".toCoord),
-                              points = mixes.filter(s => s.num_cpus == 16
-                                                         && Set("l2rs_l0rpl_reqstallh_precrs", "l2rs_l0rpl_lazycd").contains(s.config)))
-                     ) {
+    seriesC = Seq("config".toCoord),
+    y = "cycles_ticks".toCoord,
+    x = Seq("benchmark_name".toCoord),
+    points = mixes.filter(s => s.num_cpus == 16
+                               && Set("l2rs_l0rpl_reqstallh_precrs", "l2rs_l0rpl_lazycd").contains(s.config)))
+  ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
     seriesLegendRows = 2
@@ -371,12 +375,12 @@ object Plots202203HuaweiFinal extends App with PlotScript {
 
   allPlots +=
   new BarPlotDefault(PlotData(name = "plot8b",
-                              seriesC = Seq("config".toCoord),
-                              y = "cycles_ticks".toCoord,
-                              x = Seq("benchmark_name".toCoord),
-                              points = mixes.filter(s => s.num_cpus == 16
-                                                         && Set("base", "l2rs_l0rpl_reqstallh_precrs", "l2rs_l0rpl_lazycd", "lxrs_l0rpl_reqstallh_precrs_log").contains(s.config)))
-                     ) {
+    seriesC = Seq("config".toCoord),
+    y = "cycles_ticks".toCoord,
+    x = Seq("benchmark_name".toCoord),
+    points = mixes.filter(s => s.num_cpus == 16
+                               && Set("base", "l2rs_l0rpl_reqstallh_precrs", "l2rs_l0rpl_lazycd", "lxrs_l0rpl_reqstallh_precrs_log").contains(s.config)))
+  ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
     seriesLegendRows = 2

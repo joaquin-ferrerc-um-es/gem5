@@ -1,9 +1,6 @@
 Listing(Source("SimulationsMixes"), [
 	IndexColumn("benchmark_name",AllValues,XColumn),
-	IndexColumn("config_huawei",SomeValues([
-	 "HTM_CDAH+PF+L0RSE+L1RSE+HAR+RIS",
-	 "HTM_LAZYCD+PF+L0RSE+L1RSE+HAR"
-]),SerieColumn)
+	IndexColumn("config_huawei",AllValues,SerieColumn)
 ], [
 	ResultColumn("cycles_ticks",absolute,bars),
 	ResultColumn("htm_transaction_abort_cause",normalized,bars),

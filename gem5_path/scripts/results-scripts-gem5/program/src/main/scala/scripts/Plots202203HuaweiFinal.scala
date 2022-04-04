@@ -87,8 +87,12 @@ object Plots202203HuaweiFinal extends App with PlotScript {
       yAxisTitle = data.yAxisTitle
       //pointsOrder = Some(data.x.ordering.lt)
       //seriesOrder = Some(data.seriesC.ordering.lt)
-      data.addToPlot(this)
       totalPointFunction = None
+      legendOffsetX = 0
+      legendOffsetY = 5
+
+      data.addToPlot(this)
+
       def addTotals(): Unit = {
         assert(seriesOrder.isEmpty)
         assert(pointsOrder.isEmpty)
@@ -103,7 +107,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
       }
     }
 
-    class StackedBarPlotDefault(val data: PlotData, skipAddPlots: Boolean = false) extends StackedBarPlot with DefaultPlotOptions {
+    class StackedBarPlotDefault(val data: PlotData) extends StackedBarPlot with DefaultPlotOptions {
       outputFiles(Format.pdf) = new File(s"$outdir/${data.fileBaseName}.pdf")
       outputFiles(Format.tsv) = new File(s"$outdir/${data.fileBaseName}.tsv")
       xAxisTitle = data.xAxisTitle
@@ -111,12 +115,13 @@ object Plots202203HuaweiFinal extends App with PlotScript {
       //pointsOrder = Some(x.ordering.lt)
       //seriesOrder = Some(seriesC.ordering.lt)
       categoriesOrder = Some(data.y.ordering.lt)
-      seriesLegend = true
-      legendOffsetY = 10
       totalPointFunction = None
+      seriesLegend = true
       categoriesLegendRows = 2
+      legendOffsetX = 0
+      legendOffsetY = 15
 
-      if (!skipAddPlots) data.addToPlot(this)
+      data.addToPlot(this)
 
       def addTotals(): Unit = {
         sortData()
@@ -209,6 +214,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
                             ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
+    categoriesLegendRows = 4
   }
 
   allPlots +=
@@ -236,7 +242,9 @@ object Plots202203HuaweiFinal extends App with PlotScript {
                             ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
-    seriesLegendRows = 2
+    seriesLegendRows = 4
+    categoriesLegendRows = 4
+    legendOffsetY = 25
   }
 
   allPlots +=
@@ -250,7 +258,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
                      ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
-    seriesLegendRows = 2
+    seriesLegendRows = 4
   }
 
   allPlots +=
@@ -335,27 +343,27 @@ object Plots202203HuaweiFinal extends App with PlotScript {
     seriesLegendRows = 2
   }
 
- /* allPlots +=
-  new StackedBarPlotDefault(PlotData(name = "plot7a",
-                                     seriesC = Seq("config".toCoord),
-                                     y = "htm_transaction_abort_cause".toCoord,
-                                     x = Seq("benchmark_name".toCoord),
-                                     points = mixes.filter(s => s.num_cpus == 16
-                                                                && Set("HTM_CDAH+PF+L0RSE+L1RSE+HAR+RIS", "HTM_LAZYCD+PF+L0RSE+L1RSE+HAR").contains(s.config)))
-                            ) {
-    normalization = Normalization.Ratio
-    yAxisTitle = "Time (normalized)"
-    seriesLegendRows = 2
-  }
-*/
+  /* allPlots +=
+   new StackedBarPlotDefault(PlotData(name = "plot7a",
+                                      seriesC = Seq("config".toCoord),
+                                      y = "htm_transaction_abort_cause".toCoord,
+                                      x = Seq("benchmark_name".toCoord),
+                                      points = mixes.filter(s => s.num_cpus == 16
+                                                                 && Set("HTM_CDAH+PF+L0RSE+L1RSE+HAR+RIS", "HTM_LAZYCD+PF+L0RSE+L1RSE+HAR").contains(s.config)))
+                             ) {
+     normalization = Normalization.Ratio
+     yAxisTitle = "Time (normalized)"
+     seriesLegendRows = 2
+   }
+ */
   allPlots +=
   new BarPlotDefault(PlotData(name = "plot7b",
-                                     seriesC = Seq("config".toCoord),
-                                     y = "cycles_ticks".toCoord,
-                                     x = Seq("benchmark_name".toCoord),
-                                     points = mixes.filter(s => s.num_cpus == 16
-                                                                && Set("HTM_CDAH+PF+L0RSE+L1RSE+HAR+RIS", "HTM_LAZYCD+PF+L0RSE+L1RSE+HAR").contains(s.config)))
-                            ) {
+                              seriesC = Seq("config".toCoord),
+                              y = "cycles_ticks".toCoord,
+                              x = Seq("benchmark_name".toCoord),
+                              points = mixes.filter(s => s.num_cpus == 16
+                                                         && Set("HTM_CDAH+PF+L0RSE+L1RSE+HAR+RIS", "HTM_LAZYCD+PF+L0RSE+L1RSE+HAR").contains(s.config)))
+                     ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
     seriesLegendRows = 2
@@ -363,12 +371,12 @@ object Plots202203HuaweiFinal extends App with PlotScript {
 
   allPlots +=
   new BarPlotDefault(PlotData(name = "plot8b",
-                                     seriesC = Seq("config".toCoord),
-                                     y = "cycles_ticks".toCoord,
-                                     x = Seq("benchmark_name".toCoord),
-                                     points = mixes.filter(s => s.num_cpus == 16
-                                                                && Set("HTM_RW_+PF", "HTM_CDAH+PF+L0RSE+L1RSE+HAR+RIS", "HTM_LAZYCD+PF+L0RSE+L1RSE+HAR", "LogTM").contains(s.config)))
-                            ) {
+                              seriesC = Seq("config".toCoord),
+                              y = "cycles_ticks".toCoord,
+                              x = Seq("benchmark_name".toCoord),
+                              points = mixes.filter(s => s.num_cpus == 16
+                                                         && Set("HTM_RW_+PF", "HTM_CDAH+PF+L0RSE+L1RSE+HAR+RIS", "HTM_LAZYCD+PF+L0RSE+L1RSE+HAR", "LogTM").contains(s.config)))
+                     ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
     seriesLegendRows = 2

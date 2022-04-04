@@ -410,6 +410,22 @@ for random_seed in seed_list:
     script_file.write("\n### Checkpoint configuration ### \n")
     script_file.write("KEEP_CHECKPOINT=1\n")
     script_file.write("CHECKPOINT_INIT_SUBDIR=%s\n" % config.checkpoint_subdir)
+    script_file.write("REUSE_INIT_CHECKPOINT=%d\n" % config.reuse_init_checkpoint)
+    if config.reuse_init_checkpoint:
+      # To speedup simulations for ARM target, reuse init checkpoints when possible
+      assert(config.arch_name == "aarch64")
+      # Compute hash from launchscript file (reuse init checkpoint)
+      from hashlib import blake2b
+      launchscript_file = open("%s" % (launchscript_path))
+      launchscript_lines = launchscript_file.readlines()
+      h = blake2b()
+      for line in launchscript_lines:
+        h.update(line.encode('utf-8'))
+      lauchscript_digest = h.hexdigest()
+
+      bench_checkpoint_subdir = os.path.join(config.checkpoint_init_root_dir,
+                                             lauchscript_digest)
+      script_file.write("CHECKPOINT_INIT_REUSED_PATH=%s\n" % bench_checkpoint_subdir)
     script_file.write("CHECKPOINT_BOOT_ROOT_DIR=%s\n" %  config.checkpoint_boot_root_dir)
     script_file.write("CHECKPOINT_TMPDIR_PREFIX=%s\n" % config.checkpoint_tmpdir_prefix)
 

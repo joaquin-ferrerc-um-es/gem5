@@ -196,7 +196,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
                               y = "cycles_ticks".toCoord,
                               x = Seq("benchmark_name".toCoord),
                               points = mixes.filter(s => s.num_cpus == 1
-                                                         && Set("Locks", "HTM_RW_base").contains(s.config)
+                                                         && Set("locks", "base_nopf").contains(s.config)
                                                          && Set("intruder", "genome", "kmeans-h", "ssca2", "vacation-h", "yada").contains(s.benchmarkName)))
                      ) {
     normalization = Normalization.Ratio
@@ -209,11 +209,11 @@ object Plots202203HuaweiFinal extends App with PlotScript {
                                       y = "htm_transaction_abort_cause".toCoord,
                                       x = Seq("benchmark_name".toCoord),
                                       points = mixes.filter(s => s.num_cpus == 1
-                                                                 && Set("HTM_RW_base", "HTM_RW_+PF").contains(s.config)
+                                                                 && Set("base_nopf", "base").contains(s.config)
                                                                  && Set("vacation-h", "intruder", "yada").contains(s.benchmarkName))))
                             ) {
     normalization = Normalization.Ratio
-    yAxisTitle = "Time (normalized)"
+    yAxisTitle = "Abort count (normalized)"
     categoriesLegendRows = 4
   }
 
@@ -223,7 +223,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
                               y = "cycles_ticks".toCoord,
                               x = Seq("benchmark_name".toCoord),
                               points = mixes.filter(s => s.num_cpus == 16
-                                                         && Set("HTM_RW_base", "HTM_RW_+PF").contains(s.config)
+                                                         && Set("base_nopf", "base").contains(s.config)
                                                          && Set("vacation-h", "intruder", "yada").contains(s.benchmarkName)))
                      ) {
     normalization = Normalization.Ratio
@@ -237,11 +237,11 @@ object Plots202203HuaweiFinal extends App with PlotScript {
                                      y = "htm_transaction_abort_cause".toCoord,
                                      x = Seq("benchmark_name".toCoord),
                                      points = mixes.filter(s => s.num_cpus == 1
-                                                                && Set("HTM_RW_+PF", "HTM_RW+PF+L0RSE", "HTM_RW+PF+L0RSE+L1RSE", "HTM_RW+PF+L0RSE+L1RSE+L2RSE").contains(s.config)
+                                                                && Set("base", "l1rs", "l2rs", "lxrs").contains(s.config)
                                                                 && Set("vacation-h", "yada", "intruder").contains(s.benchmarkName)))
                             ) {
     normalization = Normalization.Ratio
-    yAxisTitle = "Time (normalized)"
+    yAxisTitle = "Abort count (normalized)"
     seriesLegendRows = 4
     categoriesLegendRows = 4
     legendOffsetY = 25
@@ -253,7 +253,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
                               y = "cycles_ticks".toCoord,
                               x = Seq("benchmark_name".toCoord),
                               points = mixes.filter(s => s.num_cpus == 1
-                                                         && Set("HTM_RW_+PF", "HTM_RW+PF+L0RSE", "HTM_RW+PF+L0RSE+L1RSE", "HTM_RW+PF+L0RSE+L1RSE+L2RSE").contains(s.config)
+                                                         && Set("base", "l1rs", "l2rs", "lxrs").contains(s.config)
                                                          && Set("vacation-h", "yada", "intruder").contains(s.benchmarkName)))
                      ) {
     normalization = Normalization.Ratio
@@ -267,11 +267,11 @@ object Plots202203HuaweiFinal extends App with PlotScript {
                                      y = "htm_transaction_abort_cause".toCoord,
                                      x = Seq("benchmark_name".toCoord),
                                      points = mixes.filter(s => s.num_cpus == 1
-                                                                && Set("HTM_RW+PF+L0RSE+L1RSE", "HTM_RW+PF+L0RSE+L1RSE+HAR").contains(s.config)
+                                                                && Set("l2rs", "l2rs_l0rpl").contains(s.config)
                                                                 && Set("vacation-h", "yada", "intruder").contains(s.benchmarkName)))
                             ) {
     normalization = Normalization.Ratio
-    yAxisTitle = "Time (normalized)"
+    yAxisTitle = "Abort count (normalized)"
     seriesLegendRows = 2
   }
 
@@ -281,7 +281,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
                               y = "cycles_ticks".toCoord,
                               x = Seq("benchmark_name".toCoord),
                               points = mixes.filter(s => s.num_cpus == 1
-                                                         && Set("HTM_RW+PF+L0RSE+L1RSE", "HTM_RW+PF+L0RSE+L1RSE+HAR").contains(s.config)
+                                                         && Set("l2rs", "l2rs_l0rpl").contains(s.config)
                                                          && Set("vacation-h", "yada", "intruder").contains(s.benchmarkName)))
                      ) {
     normalization = Normalization.Ratio
@@ -295,11 +295,11 @@ object Plots202203HuaweiFinal extends App with PlotScript {
                                      y = "htm_transaction_abort_cause".toCoord,
                                      x = Seq("benchmark_name".toCoord),
                                      points = mixes.filter(s => s.num_cpus == 16
-                                                                && Set("HTM_RW+PF+L0RSE+L1RSE+HAR", "HTM_CDA+PF+L0RSE+L1RSE+HAR", "HTM_CDAH+PF+L0RSE+L1RSE+HAR").contains(s.config)
+                                                                && Set("l2rs_l0rpl", "l2rs_l0rpl_reqstallb", "l2rs_l0rpl_reqstallh").contains(s.config)
                                                                 && Set("kmeans-h", "yada", "intruder").contains(s.benchmarkName)))
                             ) {
     normalization = Normalization.Ratio
-    yAxisTitle = "Time (normalized)"
+    yAxisTitle = "Abort count (normalized)"
     seriesLegendRows = 2
   }
 
@@ -309,7 +309,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
                               y = "cycles_ticks".toCoord,
                               x = Seq("benchmark_name".toCoord),
                               points = mixes.filter(s => s.num_cpus == 16
-                                                         && Set("HTM_RW+PF+L0RSE+L1RSE+HAR", "HTM_CDA+PF+L0RSE+L1RSE+HAR", "HTM_CDAH+PF+L0RSE+L1RSE+HAR").contains(s.config)
+                                                         && Set("l2rs_l0rpl", "l2rs_l0rpl_reqstallb", "l2rs_l0rpl_reqstallh").contains(s.config)
                                                          && Set("kmeans-h", "yada", "intruder").contains(s.benchmarkName)))
                      ) {
     normalization = Normalization.Ratio
@@ -323,10 +323,10 @@ object Plots202203HuaweiFinal extends App with PlotScript {
                                      y = "htm_transaction_abort_cause".toCoord,
                                      x = Seq("benchmark_name".toCoord),
                                      points = mixes.filter(s => s.num_cpus == 16
-                                                                && Set("HTM_CDAH+PF+L0RSE+L1RSE+HAR", "HTM_CDAH+PF+L0RSE+L1RSE+HAR+RIS").contains(s.config)))
+                                                                && Set("l2rs_l0rpl_reqstallh", "l2rs_l0rpl_reqstallh_precrs").contains(s.config)))
                             ) {
     normalization = Normalization.Ratio
-    yAxisTitle = "Time (normalized)"
+    yAxisTitle = "Abort count (normalized)"
     seriesLegendRows = 2
   }
 
@@ -336,7 +336,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
                               y = "cycles_ticks".toCoord,
                               x = Seq("benchmark_name".toCoord),
                               points = mixes.filter(s => s.num_cpus == 16
-                                                         && Set("HTM_CDAH+PF+L0RSE+L1RSE+HAR", "HTM_CDAH+PF+L0RSE+L1RSE+HAR+RIS").contains(s.config)))
+                                                         && Set("l2rs_l0rpl_reqstallh", "l2rs_l0rpl_reqstallh_precrs").contains(s.config)))
                      ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
@@ -349,10 +349,10 @@ object Plots202203HuaweiFinal extends App with PlotScript {
                                       y = "htm_transaction_abort_cause".toCoord,
                                       x = Seq("benchmark_name".toCoord),
                                       points = mixes.filter(s => s.num_cpus == 16
-                                                                 && Set("HTM_CDAH+PF+L0RSE+L1RSE+HAR+RIS", "HTM_LAZYCD+PF+L0RSE+L1RSE+HAR").contains(s.config)))
+                                                                 && Set("l2rs_l0rpl_reqstallh_precrs", "l2rs_l0rpl_lazycd").contains(s.config)))
                              ) {
      normalization = Normalization.Ratio
-     yAxisTitle = "Time (normalized)"
+     yAxisTitle = "Abort count (normalized)"
      seriesLegendRows = 2
    }
  */
@@ -362,7 +362,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
                               y = "cycles_ticks".toCoord,
                               x = Seq("benchmark_name".toCoord),
                               points = mixes.filter(s => s.num_cpus == 16
-                                                         && Set("HTM_CDAH+PF+L0RSE+L1RSE+HAR+RIS", "HTM_LAZYCD+PF+L0RSE+L1RSE+HAR").contains(s.config)))
+                                                         && Set("l2rs_l0rpl_reqstallh_precrs", "l2rs_l0rpl_lazycd").contains(s.config)))
                      ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
@@ -375,7 +375,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
                               y = "cycles_ticks".toCoord,
                               x = Seq("benchmark_name".toCoord),
                               points = mixes.filter(s => s.num_cpus == 16
-                                                         && Set("HTM_RW_+PF", "HTM_CDAH+PF+L0RSE+L1RSE+HAR+RIS", "HTM_LAZYCD+PF+L0RSE+L1RSE+HAR", "LogTM").contains(s.config)))
+                                                         && Set("base", "l2rs_l0rpl_reqstallh_precrs", "l2rs_l0rpl_lazycd", "lxrs_l0rpl_reqstallh_precrs_log").contains(s.config)))
                      ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"

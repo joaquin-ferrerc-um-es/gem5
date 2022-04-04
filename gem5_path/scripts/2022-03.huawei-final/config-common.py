@@ -76,6 +76,7 @@ checkpoint_boot_num=0  # Which boot ckpt number is used (if more than one availa
 # Root directory where "boot" checkpoints are located
 #checkpoint_boot_root_dir=os.path.join(gem5root, "checkpoints", arch, str(checkpoint_boot_num))
 checkpoint_boot_root_dir=os.path.join(gem5path, arch_name, "checkpoints", "booted")
+checkpoint_init_root_dir=os.path.join(gem5path, arch_name, "checkpoints", "init")
 # Root directory where fast-forward "init" checkpoints will be written
 checkpoint_tmpdir_prefix=os.path.join(gem5path,"checkpoints")
 # The name of the subdirectory (symlink) in the output directory that
@@ -86,6 +87,7 @@ run_script_filename="simulate.sh"
 # Name of generated config file with simulation configuration
 sim_info_filename = 'simulate.info'
 launchscript_filename = 'launch_script.rcS'
+reuse_init_checkpoint = 0
 
 # For simulations that have htm_config (HTM_umu protocols), the binary
 # suffix is set as an option in the htm_config dict. For the remaining

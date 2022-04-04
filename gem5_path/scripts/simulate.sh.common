@@ -118,6 +118,12 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
         CHECKPOINT_PATH="${RESULTS_DIR}/${CHECKPOINT_INIT_SUBDIR}"
         STATS_STRING=" --stats-file=/dev/null "
         CHECKPOINT_FOUND=0 #  If checkpoint subdir contains valid checkpoint, do not create
+        if [[ ${REUSE_INIT_CHECKPOINT} -eq 1  && -d "${CHECKPOINT_INIT_REUSED_PATH}" ]] ; then
+            echo "### Reusing global 'init' checkpoint found in ${CHECKPOINT_INIT_REUSED_PATH}  ###"
+            ln -s ${CHECKPOINT_INIT_REUSED_PATH} ${CHECKPOINT_PATH}
+            CHECKPOINT_DIR=${CHECKPOINT_PATH}
+            continue
+        fi
         if [ -d "$CHECKPOINT_PATH" ]; then
             # If no regular files, no checkpoint exists
             CORRECT=`find -L "$CHECKPOINT_PATH"  -type f -name m5.cpt -size +1k | wc -l`
@@ -275,6 +281,9 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
         then
             if grep -q "because checkpoint" "${CHECKPOINT_DIR}/simout" ; then
                 echo "#### Init checkpoint created   ####"
+                if [[ ${REUSE_INIT_CHECKPOINT} -eq 1  && ! -d "${CHECKPOINT_INIT_REUSED_PATH}" ]] ; then
+                    mkdir ${CHECKPOINT_INIT_REUSED_PATH} && rsync -vazP ${CHECKPOINT_DIR}/ ${CHECKPOINT_INIT_REUSED_PATH}/
+                fi
                 FAILED=0
             else
                 echo "#### Failed to create init checkpoint   ####"

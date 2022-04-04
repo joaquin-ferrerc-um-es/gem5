@@ -60,12 +60,8 @@ ln -s "../../all/1/$COMMON_DIRS/LV_ED_CRrw_Rtry6_Bkoff_/" per_plot/1/cfg0_locks
 ln -s "../../all/2/$COMMON_DIRS/LV_ED_CRrw_Rtry6_Bkoff_/" per_plot/1/cfg1_base
 
 # HTM base vs prefault
-ln -s "../../all/2/$COMMON_DIRS/LV_ED_CRrw_Rtry6_Bkoff_/" per_plot/2a/cfg1_base
-ln -s "../../all/2/$COMMON_DIRS/LV_ED_CRrw_Rtry6_Bkoff_Pflt_/" per_plot/2a/cfg1_pf
-
-# HTM base vs prefault
-ln -s "../../all/3/$COMMON_DIRS/LV_ED_CRrw_Rtry6_Bkoff_/" per_plot/2b/cfg1_base
-ln -s "../../all/3/$COMMON_DIRS/LV_ED_CRrw_Rtry6_Bkoff_Pflt_/" per_plot/2b/cfg1_pf
+ln -s "../../all/3/$COMMON_DIRS/LV_ED_CRrw_Rtry6_Bkoff_/" per_plot/2/cfg1_base
+ln -s "../../all/3/$COMMON_DIRS/LV_ED_CRrw_Rtry6_Bkoff_Pflt_/" per_plot/2/cfg1_pf
 
 # Prefault vs l0rsetevict vs l2rsetevict vs l2rsetevict
 ln -s "../../all/2/$COMMON_DIRS/LV_ED_CRrw_Rtry6_Bkoff_Pflt_/" per_plot/3/cfg1_pf

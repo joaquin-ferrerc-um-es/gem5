@@ -350,7 +350,7 @@ object misc {
     var cache = Map.empty[A, B]
     def apply(k: A): B = cache get k match {
       case Some(v) => v
-      case None    =>
+      case None =>
         val r = fn(k)
         cache += (k -> r)
         r
@@ -360,6 +360,7 @@ object misc {
   def Cache[A, B](fn: A => B) = new Cache(fn)
 
   import concurrent._
+
   class ConcurrentCache[A, B](fn: A => B)(implicit executor: ExecutionContext) extends (A => B) {
     sealed trait CacheEntry
     case class Ready(f: Future[B]) extends CacheEntry
@@ -373,8 +374,10 @@ object misc {
           case None => {
             val n = m + (k -> Busy)
             if (cache.compareAndSet(m, n)) {
-              val f = Future { fn(k) }
-              while ({
+              val f = Future {
+                fn(k)
+              }
+              while ( {
                 val m = cache.get
                 val n = m + (k -> Ready(f))
                 !cache.compareAndSet(m, n)
@@ -393,13 +396,12 @@ object misc {
   }
   def ConcurrentCache[A, B](fn: A => B)(implicit executor: ExecutionContext) = new ConcurrentCache(fn)
 
-  implicit class AnyAsMap(a: Any) {
-    def asMap: Map[Any, Any] = a.asInstanceOf[Map[Any, Any]]
-    def asMapOf[T]: Map[T, Any] = a.asInstanceOf[Map[T, Any]]
-  }
-
   def reduceMaps[K, V](maps: Map[K, V]*)(f: (V, V) => V, missingValue: V): Map[K, V] = {
     val keys = maps.flatMap(_.keys).toSet
     keys.map(k => k -> maps.map(_.getOrElse(k, missingValue)).reduce(f)).toMap
   }
+
+  def regroupMap[K, M <: Map[K, Any]](m: M)(regroupBy: K => K) = m.groupBy(i => regroupBy(i._1)).view.mapValues(
+    _.values.reduce { (a, b) => (repscr.points.CoordValue(a) + b).noCoordValue }
+  ).toMap
 }

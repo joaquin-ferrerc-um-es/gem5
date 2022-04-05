@@ -24,9 +24,6 @@ package object scripts {
       val t = (now - tstart).toDouble / 1000
       print(f"$count plots in $t%.3fs (${t / count}%.3fs per plot).         \n")
     }
-
-    import scala.language.higherKinds
-    def regroupMap[K, M <: Map[K, Any]](m: M)(regroupBy: K => K) = m.groupBy { case (c, l) => regroupBy(c) }.view.mapValues { _.values reduce { (a, b) => (repscr.points.CoordValue(a) + b).noCoordValue } }
   }
 
   trait PlotScript { self: App =>

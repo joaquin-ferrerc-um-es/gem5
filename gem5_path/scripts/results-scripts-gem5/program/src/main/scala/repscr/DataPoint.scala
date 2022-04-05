@@ -59,6 +59,10 @@ object points {
       case Some(x)   => CoordValue(x).error
       case _         => sys.error(s"Not a number ($o) : $oType")
     }
+    def toVwe: Vwe = o match {
+      case x: Vwe => x
+      case _ => Vwe(o.value, o.error)
+    }
     def max(b: Any): CoordValue = CoordValue((o, b) match {
       case (_, y: CoordValue)     => this max y.o
       case (x: Long, y: Long)     => x max y

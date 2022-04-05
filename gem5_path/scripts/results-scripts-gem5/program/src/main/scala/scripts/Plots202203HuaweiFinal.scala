@@ -21,7 +21,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
       seriesLegendRows = 1
       outOfRangeLabelScale = 0.8
       outOfRangeLabelYoffsetInc = outOfRangeLabelYoffsetInc + 3
-      barWidth = 8
+      barWidth = 15
       plotStyle = Plot.Style.ColorsDivergingSpectral11
       normalization = Normalization.Ratio
     }
@@ -92,7 +92,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
       //pointsOrder = Some(data.x.ordering.lt)
       //seriesOrder = Some(data.seriesC.ordering.lt)
       totalPointFunction = None
-      legendOffsetX = 0
+      legendOffsetX = -5
       legendOffsetY = 5
 
       data.addToPlot(this)
@@ -121,9 +121,9 @@ object Plots202203HuaweiFinal extends App with PlotScript {
       categoriesOrder = Some(data.y.ordering.lt)
       totalPointFunction = None
       seriesLegend = true
-      categoriesLegendRows = 2
-      legendOffsetX = 0
-      legendOffsetY = 15
+      categoriesLegendRows = 1
+      legendOffsetX = -5
+      legendOffsetY = 13
 
       data.addToPlot(this)
 
@@ -198,7 +198,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
     seriesLegendRows = 3
-    width = 180
+    width = 400
   }
 
   allPlots +=
@@ -251,7 +251,6 @@ object Plots202203HuaweiFinal extends App with PlotScript {
   ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Abort count (normalized)"
-    categoriesLegendRows = 4
   }
 
   allPlots +=
@@ -279,9 +278,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
   ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Abort count (normalized)"
-    seriesLegendRows = 4
-    categoriesLegendRows = 4
-    legendOffsetY = 25
+    categoriesLegendRows = 2
   }
 
   allPlots +=
@@ -295,7 +292,6 @@ object Plots202203HuaweiFinal extends App with PlotScript {
   ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
-    seriesLegendRows = 4
   }
 
   allPlots +=
@@ -309,7 +305,6 @@ object Plots202203HuaweiFinal extends App with PlotScript {
   ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Abort count (normalized)"
-    seriesLegendRows = 2
   }
 
   allPlots +=
@@ -323,7 +318,6 @@ object Plots202203HuaweiFinal extends App with PlotScript {
   ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
-    seriesLegendRows = 2
   }
 
   allPlots +=
@@ -338,6 +332,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
     normalization = Normalization.Ratio
     yAxisTitle = "Abort count (normalized)"
     seriesLegendRows = 2
+    legendOffsetY = 17
   }
 
   allPlots +=
@@ -365,6 +360,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
     normalization = Normalization.Ratio
     yAxisTitle = "Abort count (normalized)"
     seriesLegendRows = 2
+    legendOffsetY = 17
   }
 
   allPlots +=
@@ -417,6 +413,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
     seriesLegendRows = 2
+    width = 150
   }
 
 

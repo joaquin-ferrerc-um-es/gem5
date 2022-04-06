@@ -149,7 +149,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
 
   "htm_transaction_abort_cause".toCoord.derivedCoord("htm_transaction_abort_cause_grouped", m => regroupMap[String, Map[String, Any]](m.asMap[String, Any]) {
     case "memory_conflict" | "memory_conflict_fallbacklock" | "lsq_conflict" | "memory_conflict_staledata" | "memory_conflict_falsesharing" => "conflict"
-    case "interrupt" | "exception" => "interrupt"
+    case "interrupt" | "exception" => "exception"
     case "transaction_size_wset" | "transaction_size_l1priv" | "transaction_size_wrongcache" | "transaction_size_rset" => "size"
     case "explicit" => "explicit"
     case x => println(s"XXXX   $x"); x
@@ -157,14 +157,24 @@ object Plots202203HuaweiFinal extends App with PlotScript {
 
   "htm_transaction_abort_cause".toCoord.derivedCoord("htm_transaction_abort_cause_grouped_sizes", m => regroupMap[String, Map[String, Any]](m.asMap[String, Any]) {
     case "memory_conflict" | "memory_conflict_fallbacklock" | "lsq_conflict" | "memory_conflict_staledata" | "memory_conflict_falsesharing" => "conflict"
-    case "interrupt" | "exception" => "interrupt"
-    case "transaction_size_wset" => "size_wset"
-    case "transaction_size_l1priv" => "size_l1priv"
-    case "transaction_size_wrongcache" => "size_wrongcache"
-    case "transaction_size_rset" => "size_rset"
+    case "interrupt" | "exception" => "exception"
+    case "transaction_size_wset" => "size_l1wset"
+    case "transaction_size_l1priv" => "size_l2priv"
+    case "transaction_size_wrongcache" => "size_other"
+    case "transaction_size_rset" => "size_l1rset"
     case "explicit" => "explicit"
     case x => println(s"XXXX   $x"); x
   }, ordering = dynamicOrdering("conflict", "size", "interrupt", "explicit"))
+
+  "htm_transaction_abort_cause".toCoord.derivedCoord("htm_transaction_abort_cause_grouped_conflicts", m => regroupMap[String, Map[String, Any]](m.asMap[String, Any]) {
+    case "memory_conflict_fallbacklock" => "fbacklock"
+    case "memory_conflict" | "lsq_conflict" | "memory_conflict_staledata" | "memory_conflict_falsesharing" => "conflict"
+    case "interrupt" | "exception" => "exception"
+    case "transaction_size_wset" | "transaction_size_l1priv" | "transaction_size_wrongcache" | "transaction_size_rset" => "size"
+    case "explicit" => "explicit"
+    case x => println(s"XXXX   $x"); x
+  }, ordering = dynamicOrdering("conflict", "size", "interrupt", "explicit"))
+
 
   implicit class dataPointAccessors(s: Gem5DataPoint) {
     import repscr.points.CoordValue
@@ -273,7 +283,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
     y = "htm_transaction_abort_cause_grouped_sizes".toCoord,
     x = Seq("benchmark_name".toCoord),
     points = points.filter(s => s.num_cpus == 1
-                                && Set("base", "l1rs", "l2rs", "lxrs").contains(s.config)
+                                && Set("base", "l2rs", "l3rs", "lxrs").contains(s.config)
                                 && Set("vacation-h", "yada", "intruder").contains(s.benchmarkName)))
   ) {
     normalization = Normalization.Ratio
@@ -286,8 +296,8 @@ object Plots202203HuaweiFinal extends App with PlotScript {
     seriesC = Seq("config".toCoord),
     y = "cycles_ticks".toCoord,
     x = Seq("benchmark_name".toCoord),
-    points = points.filter(s => s.num_cpus == 1
-                                && Set("base", "l1rs", "l2rs", "lxrs").contains(s.config)
+    points = points.filter(s => s.num_cpus == 16
+                                && Set("base", "l2rs", "l3rs", "lxrs").contains(s.config)
                                 && Set("vacation-h", "yada", "intruder").contains(s.benchmarkName)))
   ) {
     normalization = Normalization.Ratio
@@ -297,10 +307,10 @@ object Plots202203HuaweiFinal extends App with PlotScript {
   allPlots +=
   new StackedBarPlotDefault(PlotData(name = "plot4a",
     seriesC = Seq("config".toCoord),
-    y = "htm_transaction_abort_cause_grouped".toCoord,
+    y = "htm_transaction_abort_cause_grouped_sizes".toCoord,
     x = Seq("benchmark_name".toCoord),
     points = points.filter(s => s.num_cpus == 1
-                                && Set("l2rs", "l2rs_l0rpl").contains(s.config)
+                                && Set("l3rs", "l3rs_l1rpl").contains(s.config)
                                 && Set("vacation-h", "yada", "intruder").contains(s.benchmarkName)))
   ) {
     normalization = Normalization.Ratio
@@ -313,7 +323,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
     y = "cycles_ticks".toCoord,
     x = Seq("benchmark_name".toCoord),
     points = points.filter(s => s.num_cpus == 1
-                                && Set("l2rs", "l2rs_l0rpl").contains(s.config)
+                                && Set("l3rs", "l3rs_l1rpl").contains(s.config)
                                 && Set("vacation-h", "yada", "intruder").contains(s.benchmarkName)))
   ) {
     normalization = Normalization.Ratio
@@ -323,10 +333,10 @@ object Plots202203HuaweiFinal extends App with PlotScript {
   allPlots +=
   new StackedBarPlotDefault(PlotData(name = "plot5a",
     seriesC = Seq("config".toCoord),
-    y = "htm_transaction_abort_cause_grouped".toCoord,
+    y = "htm_transaction_abort_cause_grouped_conflicts".toCoord,
     x = Seq("benchmark_name".toCoord),
     points = points.filter(s => s.num_cpus == 16
-                                && Set("l2rs_l0rpl", "l2rs_l0rpl_reqstallb", "l2rs_l0rpl_reqstallh").contains(s.config)
+                                && Set("l3rs_l1rpl", "l3rs_l1rpl_reqstallb", "l3rs_l1rpl_reqstallh").contains(s.config)
                                 && Set("kmeans-h", "yada", "intruder").contains(s.benchmarkName)))
   ) {
     normalization = Normalization.Ratio
@@ -341,7 +351,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
     y = "cycles_ticks".toCoord,
     x = Seq("benchmark_name".toCoord),
     points = points.filter(s => s.num_cpus == 16
-                                && Set("l2rs_l0rpl", "l2rs_l0rpl_reqstallb", "l2rs_l0rpl_reqstallh").contains(s.config)
+                                && Set("l3rs_l1rpl", "l3rs_l1rpl_reqstallb", "l3rs_l1rpl_reqstallh").contains(s.config)
                                 && Set("kmeans-h", "yada", "intruder").contains(s.benchmarkName)))
   ) {
     normalization = Normalization.Ratio
@@ -355,7 +365,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
     y = "htm_transaction_abort_cause_grouped".toCoord,
     x = Seq("benchmark_name".toCoord),
     points = points.filter(s => s.num_cpus == 16
-                                && Set("l2rs_l0rpl_reqstallh", "l2rs_l0rpl_reqstallh_precrs").contains(s.config)))
+                                && Set("l3rs_l1rpl_reqstallh", "l3rs_l1rpl_reqstallh_precrs").contains(s.config)))
   ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Abort count (normalized)"
@@ -369,7 +379,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
     y = "cycles_ticks".toCoord,
     x = Seq("benchmark_name".toCoord),
     points = points.filter(s => s.num_cpus == 16
-                                && Set("l2rs_l0rpl_reqstallh", "l2rs_l0rpl_reqstallh_precrs").contains(s.config)))
+                                && Set("l3rs_l1rpl_reqstallh", "l3rs_l1rpl_reqstallh_precrs").contains(s.config)))
   ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
@@ -382,7 +392,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
     y = "htm_transaction_abort_cause_grouped".toCoord,
     x = Seq("benchmark_name".toCoord),
     points = points.filter(s => s.num_cpus == 16
-                                && Set("l2rs_l0rpl_reqstallh_precrs", "l2rs_l0rpl_lazycd").contains(s.config)))
+                                && Set("l3rs_l1rpl_reqstallh_precrs", "l3rs_l1rpl_lazycd").contains(s.config)))
   ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Abort count (normalized)"
@@ -395,7 +405,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
     y = "cycles_ticks".toCoord,
     x = Seq("benchmark_name".toCoord),
     points = points.filter(s => s.num_cpus == 16
-                                && Set("l2rs_l0rpl_reqstallh_precrs", "l2rs_l0rpl_lazycd").contains(s.config)))
+                                && Set("l3rs_l1rpl_reqstallh_precrs", "l3rs_l1rpl_lazycd").contains(s.config)))
   ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
@@ -408,7 +418,7 @@ object Plots202203HuaweiFinal extends App with PlotScript {
     y = "cycles_ticks".toCoord,
     x = Seq("benchmark_name".toCoord),
     points = points.filter(s => s.num_cpus == 16
-                                && Set("base", "l2rs_l0rpl_reqstallh_precrs", "l2rs_l0rpl_lazycd", "lxrs_l0rpl_reqstallh_precrs_log").contains(s.config)))
+                                && Set("base", "l3rs_l1rpl_reqstallh_precrs", "l3rs_l1rpl_lazycd", "lxrs_l1rpl_reqstallh_precrs_log").contains(s.config)))
   ) {
     normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"

@@ -105,26 +105,26 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
       case (".htm.fallbacklock", false, _, _, _, _, true, "requester_wins", _, true, _) => "base_nopf"
       case (".htm.fallbacklock", true, false, _, _, _, true, "requester_wins", _, true, _) => "base"
 
-      case (".htm.fallbacklock", true, true, false, _, _, true, "requester_wins", _, true, _) => "l1rs"
-      case (".htm.fallbacklock", true, true, true, false, false, true, "requester_wins", _, true, _) => "l2rs"
+      case (".htm.fallbacklock", true, true, false, _, _, true, "requester_wins", _, true, _) => "l2rs"
+      case (".htm.fallbacklock", true, true, true, false, false, true, "requester_wins", _, true, _) => "l3rs"
       case (".htm.fallbacklock", true, true, true, true, _, true, "requester_wins", _, true, _) => "lxrs"
 
-      case (".htm.fallbacklock", true, true, true, false, true, true, "requester_wins", _, true, _) => "l2rs_l0rpl"
+      case (".htm.fallbacklock", true, true, true, false, true, true, "requester_wins", _, true, _) => "l3rs_l1rpl"
 
-      case (".htm.fallbacklock", true, true, true, false, true, true, "requester_stalls_cda_base", false, true, _) => "l2rs_l0rpl_reqstallb"
-      case (".htm.fallbacklock", true, true, true, false, true, true, "requester_stalls_cda_hybrid", false, true, _) => "l2rs_l0rpl_reqstallh"
+      case (".htm.fallbacklock", true, true, true, false, true, true, "requester_stalls_cda_base", false, true, _) => "l3rs_l1rpl_reqstallb"
+      case (".htm.fallbacklock", true, true, true, false, true, true, "requester_stalls_cda_hybrid", false, true, _) => "l3rs_l1rpl_reqstallh"
 
-      case (".htm.fallbacklock", true, true, true, false, true, true, "requester_stalls_cda_hybrid", true, true, _) => "l2rs_l0rpl_reqstallh_precrs"
-      case (".htm.fallbacklock", true, true, true, false, true, true, "committer_wins", false, false, "magic") => "l2rs_l0rpl_lazycd_magic"
-      case (".htm.fallbacklock", true, true, true, false, true, true, "committer_wins", false, false, "token") => "l2rs_l0rpl_lazycd"
+      case (".htm.fallbacklock", true, true, true, false, true, true, "requester_stalls_cda_hybrid", true, true, _) => "l3rs_l1rpl_reqstallh_precrs"
+      case (".htm.fallbacklock", true, true, true, false, true, true, "committer_wins", false, false, "magic") => "l3rs_l1rpl_lazycd_magic"
+      case (".htm.fallbacklock", true, true, true, false, true, true, "committer_wins", false, false, "token") => "l3rs_l1rpl_lazycd"
 
-      case (".htm.fallbacklock", true, true, true, true, true, false, "requester_stalls_cda_hybrid", true, true, _) => "lxrs_l0rpl_reqstallh_precrs_log"
+      case (".htm.fallbacklock", true, true, true, true, true, false, "requester_stalls_cda_hybrid", true, true, _) => "lxrs_l1rpl_reqstallh_precrs_log"
     },
     isConfig = true,
     ordering = dynamicOrdering("locks", "base_nopf",
-      "base", "l1rs", "l2rs", "lxrs",
-      "l2rs_l0rpl", "l2rs_l0rpl_reqstallb", "l2rs_l0rpl_reqstallh",
-      "l2rs_l0rpl_reqstallh_precrs", "l2rs_l0rpl_lazycd"
+      "base", "l2rs", "l3rs", "lxrs",
+      "l3rs_l1rpl", "l3rs_l1rpl_reqstallb", "l3rs_l1rpl_reqstallh",
+      "l3rs_l1rpl_reqstallh_precrs", "l3rs_l1rpl_lazycd"
 
     ))
 

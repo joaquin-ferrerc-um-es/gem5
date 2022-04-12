@@ -16,11 +16,6 @@ BENCHMARKS=(
     "yada"
 )
 
-# TODO: Add options to choose what sufixxes should be built.
-SUFIXES=(
-    "htm.fallbacklock"
-)
-
 task_build-benchmarks() {
     local -a archs=("${ENABLED_ARCHITECTURES[@]}")
     options="$(simpler_getopt "architecture:" "$@")"
@@ -88,7 +83,7 @@ build_benchmarks_stamp() {
     check_stamp_gem5_directory_links
     
     for b in "${BENCHMARKS[@]}" ; do
-        for s in "${SUFIXES[@]}" ; do
+        for s in "${BENCHMARKS_STAMP_FLAVOURS[@]}" ; do
             if [[ "$arch" == "aarch64" && "$s" == "htm.fallbacklock2phase" ]] ; then
                 echo "$(color yellow "Skipping build of $b.$a.$s (TODO)")"
             else

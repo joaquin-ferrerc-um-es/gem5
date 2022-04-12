@@ -26,7 +26,8 @@ _tm_thread_context_t * initThreadContexts(int numThreads, int inSimulator)
         thread_contexts[i].info.nonSpecExecutions = 0;
         thread_contexts[i].info.workUnits = 0;
     }
-    logtm_init_transaction_state(thread_contexts);
+    init_log(thread_contexts);
+    init_random_gen(thread_contexts);
     return thread_contexts;
 }
 

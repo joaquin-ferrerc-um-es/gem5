@@ -22,8 +22,8 @@ detailed_simulation_cpu_model_list.append('DerivO3CPU')
 
 benchmark_groups = []
 #benchmark_groups.append('test-progs-caps-small')
-#benchmark_groups.append('stamp-small')
-benchmark_groups.append('stamp-medium')
+benchmark_groups.append('stamp-small')
+#benchmark_groups.append('stamp-medium')
 
 benchmark_list = benchmarks.getBenchmarks(benchmark_groups)
 
@@ -33,7 +33,7 @@ simulation_list = []
 #############################################################
 # Simulation infrastructure options 
 #############################################################
-arch_name= "x86_64" # aarch64" # {aarch64,x86_64}"
+arch_name= "aarch64" # aarch64" # {aarch64,x86_64}"
 
 if arch_name == "x86_64":
     arch = "X86"
@@ -87,7 +87,7 @@ run_script_filename="simulate.sh"
 # Name of generated config file with simulation configuration
 sim_info_filename = 'simulate.info'
 launchscript_filename = 'launch_script.rcS'
-reuse_init_checkpoint = 0
+reuse_init_checkpoint = 1
 
 # For simulations that have htm_config (HTM_umu protocols), the binary
 # suffix is set as an option in the htm_config dict. For the remaining
@@ -113,7 +113,7 @@ run_pdb = 0
 debug_flags = "" # "Exec,O3CPUAll,O3HTM,RubyHTM,ProtocolTrace"
 debug_time=0
 seq_no=27
-num_random_seeds=4 # 10 # Number of random seeds to simulate (when '-s' option passed to gen-scripts.py)
+num_random_seeds=10 # 10 # Number of random seeds to simulate (when '-s' option passed to gen-scripts.py)
 
 preload="" #"/benchmarks/benchmarks-htm/Splash-3/libhooks_chkpoint.so"
 

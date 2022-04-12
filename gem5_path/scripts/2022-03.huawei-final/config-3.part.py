@@ -4,6 +4,11 @@ system_list = []
 system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_base, caches.cache_baseline])
 system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_pf, caches.cache_baseline])
 
+# 02: base+pf (cfg2) vs l0/l1/l2evict 1thread
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg2_l0rsetevict, caches.cache_baseline])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg2_l1rsetevict, caches.cache_baseline])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg2_l2rsetevict, caches.cache_baseline])
+
 # 04: base+pf+l1rsetevict+l0xactreplac (cfg4) vs conf-res policy
 system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg4_base, caches.cache_baseline])
 system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg4_cdab64, caches.cache_baseline])

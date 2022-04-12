@@ -84,7 +84,7 @@ cfg0_locks[htm_value_checker]=False
 cfg0_locks[htm_isolation_checker]=True
 cfg0_locks[htm_visualizer]=True
 cfg0_locks[htm_max_retries]=6
-cfg0_locks[htm_backoff]=True
+cfg0_locks[htm_backoff]=False
 cfg0_locks[htm_heap_prefault]=False
 
 # Baseline: All options disabled except default HTM policies, set
@@ -111,7 +111,7 @@ cfg1_base[htm_value_checker]=False
 cfg1_base[htm_isolation_checker]=True
 cfg1_base[htm_visualizer]=True
 cfg1_base[htm_max_retries]=6
-cfg1_base[htm_backoff]=True
+cfg1_base[htm_backoff]=False
 cfg1_base[htm_heap_prefault]=False
 
 # Vary one parameter at a time w.r.t. baseline, to determine its impact

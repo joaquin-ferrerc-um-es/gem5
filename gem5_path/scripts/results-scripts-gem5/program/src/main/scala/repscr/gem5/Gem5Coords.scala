@@ -12,7 +12,7 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
   CoordFromProp("num_cpus", doc = "Number of CPUs")
   CoordFromProp("protocol", doc = "Coherence protocol")
   CoordFromProp("cpu_model", doc = "CPU model")
-  CoordFromProp("benchmark_name", doc = "Benchmark name")
+  CoordFromProp("benchmark_name", doc = "Benchmark name", axisTitle = "Benchmark")
   CoordFromProp("benchmark_size", ordering = dynamicOrdering("small", "medium", "large"), doc = "Benchmark problem size")
   CoordFromProp("random_seed", doc = "Random seeds used for this point")
   CoordFromProp("git_revision")
@@ -21,7 +21,7 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
   CoordFromProp("htm_binary_suffix")
   CoordFromProp("htm_lazy_vm")
   CoordFromProp("htm_eager_cd")
-  CoordFromProp("htm_conflict_resolution")
+  CoordFromProp("htm_conflict_resolution", ordering = dynamicOrdering("requester_wins", "requester_stalls_cda_base", "requester_stalls_cda_hybrid"))
   CoordFromProp("htm_lazy_arbitration")
   CoordFromProp("htm_allow_read_set_l0_evictions")
   CoordFromProp("htm_allow_read_set_l1_evictions")
@@ -59,9 +59,9 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
   }
 
   // htm_.+
-  CoordFromProp(s"htm_transaction_count_per_cpu", stacked=true, axisTitle = "Transactions", doc = "Number of transactions per CPU")
+  CoordFromProp(s"htm_transaction_count_per_cpu", stacked = true, axisTitle = "Transactions", doc = "Number of transactions per CPU")
   Coord(s"htm_transaction_count", s => s("htm_transaction_count_per_cpu").asMap[Any, Vwe].values.sum, axisTitle = "Transactions", doc = "Total number of transactions")
-  CoordFromProp(s"htm_transaction_cycles_per_cpu", stacked=true, axisTitle = "Average cycles per transaction (cycles)", doc = "Average cycles per transaction per CPU")
+  CoordFromProp(s"htm_transaction_cycles_per_cpu", stacked = true, axisTitle = "Average cycles per transaction (cycles)", doc = "Average cycles per transaction per CPU")
   Coord(s"htm_transaction_cycles", s => s("htm_transaction_cycles_per_cpu").asMap[Any, Vwe].values.sum, axisTitle = "Average cycles per transaction (cycles)", doc = "Average cycles per transaction")
   CoordFromProp(s"htm_transaction_instructions", axisTitle = "Averge cycles per transaction (cycles)")
   CoordFromProp(s"htm_transaction_abort_cause", stacked = true, axisTitle = "transactions")

@@ -23,7 +23,7 @@ case class Vwe(value: Double, error: Double) extends Ordered[Vwe] {
     case x => x
   }
 
-  def relativeError = error / value
+  def relativeError = abs(error / value)
 
   def lowerBound = value - error
   def upperBound = value + error

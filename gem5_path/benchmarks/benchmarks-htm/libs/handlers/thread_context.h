@@ -22,9 +22,8 @@ typedef struct {
 
 typedef struct {
     context_info_t info;
-    char padding1[CACHE_LINE_SIZE_BYTES - sizeof(context_info_t)];
     rand_t rand;
-    char padding2[CACHE_LINE_SIZE_BYTES - sizeof(rand_t)];
+    char padding[2*CACHE_LINE_SIZE_BYTES - sizeof(context_info_t)  - sizeof(rand_t)];
 } _tm_thread_context_t;
 
 _tm_thread_context_t * initThreadContexts(int numThreads, int inSimulator);

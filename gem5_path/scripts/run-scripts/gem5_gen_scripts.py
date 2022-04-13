@@ -43,8 +43,9 @@ def gen_scripts(c):
         for o in config_list_options(c):
             siminfo_file.write(o.siminfo_text_value(c))
 
+    runscript_filename = os.path.join(options.output_directory(c), options.runscript_filename(c))
     with open(options.runscript_template_filename(c), "r") as runscript_template_file:
-        with open(os.path.join(options.output_directory(c), options.runscript_filename(c)), "w") as runscript_file:
+        with open(runscript_filename, "w") as runscript_file:
             template_text = runscript_template_file.read()
             variables_text = "".join([o.runscript_text_value(c) for o in config_list_options(c)]) + \
                 "GEM5_OPTIONS=(\n" + \

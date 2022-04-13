@@ -65,6 +65,7 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
   Coord(s"htm_transaction_cycles", s => s("htm_transaction_cycles_per_cpu").asMap[Any, Vwe].values.sum, axisTitle = "Average cycles per transaction (cycles)", doc = "Average cycles per transaction")
   CoordFromProp(s"htm_transaction_instructions", axisTitle = "Averge cycles per transaction (cycles)")
   CoordFromProp(s"htm_transaction_abort_cause", stacked = true, axisTitle = "transactions")
+  CoordFromProp(s"htm_cycles_in_region", stacked = true, axisTitle = "cycles")
 
   def addSimulationsDependentCoords(simulations: Iterable[Gem5DataPoint]): Unit = {
     /* none */

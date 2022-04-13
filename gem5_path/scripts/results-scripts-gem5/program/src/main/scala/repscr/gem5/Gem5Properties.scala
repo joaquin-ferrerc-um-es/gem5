@@ -119,6 +119,12 @@ object Gem5Properties {
       check(r.isEmpty || r("total") == r.filterKeys(_ != "total").values.sum)
       r.filterKeys(_ != "total").toMap
     }, mixers.mapMixer(mixers.samples), optional = true)
+    Prop(Result, "htm_cycles_in_region", { s =>
+      val r = (s.stats / "system" / "htm" /+- "cyclesInRegion::(.+)".r)
+        .groupBy(_._1.parseString).view.mapValues(_.map(_._2.splitWords.head.parseLong).sum)  // sums all entries with the same key, although there is (or should be) only one in this case.
+      check(r.isEmpty || r("total") == r.filterKeys(_ != "total").values.sum)
+      r.filterKeys(_ != "total").toMap
+    }, mixers.mapMixer(mixers.samples), optional = true)
   }
 }
 

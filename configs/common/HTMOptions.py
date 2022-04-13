@@ -80,9 +80,9 @@ def addHTMOptions(parser):
                       ],
                       help = "Conflict resolution policy")
     parser.add_argument("--htm-lazy-arbitration",
-                      default="magic",
-                      choices=["magic",
-                               "token"],
+                        default=None,
+                        choices=["magic",
+                                 "token"],
                       help = "Lazy arbitration policy")
     parser.add_argument("--htm-allow-read-set-l0-cache-evictions",
                       action="store_true", default=False,

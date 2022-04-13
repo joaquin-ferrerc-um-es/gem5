@@ -334,7 +334,8 @@ CacheMemory::cacheProbe(Addr address) const
 
     int64_t cacheSet = addressToCacheSet(address);
     std::vector<ReplaceableEntry*> candidates;
-    TransactionInterfaceManager * xact_mgr = NULL;
+    TransactionInterfaceManager * xact_mgr = m_xact_mgr;
+
     do {
         for (int i = 0; i < m_cache_assoc; i++) {
             if (m_xact_mgr && !m_xact_mgr->config_lazyVM() && //LogTM

@@ -60,19 +60,28 @@ object Gem5Properties {
   Prop(Config, "random_seed", _.configuration("SimulationInfo", "random_seed").parseLong, mixer = mixers.randomSeed)
   Prop(Config, "git_revision", _.configuration("SimulationInfo", "git_revision").parseString)
 
+  Prop(Config, "htm_disable_speculation", _.configuration("SimulationInfo", "htm_disable_speculation").parseBoolean)
+  Prop(Config, "htm_binary_suffix", _.configuration("SimulationInfo", "htm_binary_suffix").parseString)
   Prop(Config, "htm_lazy_vm", _.configuration("SimulationInfo", "htm_lazy_vm").parseBoolean)
   Prop(Config, "htm_eager_cd", _.configuration("SimulationInfo", "htm_eager_cd").parseBoolean)
   Prop(Config, "htm_conflict_resolution", _.configuration("SimulationInfo", "htm_conflict_resolution").parseString)
   Prop(Config, "htm_lazy_arbitration", _.configuration("SimulationInfo", "htm_lazy_arbitration").parseString)
-  Prop(Config, "htm_lazy_validated_conf_res", _.configuration("SimulationInfo", "htm_lazy_validated_conf_res").parseString)
   Prop(Config, "htm_allow_read_set_l0_evictions", _.configuration("SimulationInfo", "htm_allow_read_set_l0_evictions").parseBoolean)
   Prop(Config, "htm_allow_read_set_l1_evictions", _.configuration("SimulationInfo", "htm_allow_read_set_l1_evictions").parseBoolean)
+  Prop(Config, "htm_allow_write_set_l0_evictions", _.configuration("SimulationInfo", "htm_allow_write_set_l0_evictions").parseBoolean)
+  Prop(Config, "htm_allow_write_set_l1_evictions", _.configuration("SimulationInfo", "htm_allow_write_set_l1_evictions").parseBoolean)
+  Prop(Config, "htm_allow_read_set_l2_evictions", _.configuration("SimulationInfo", "htm_allow_read_set_l2_evictions").parseBoolean)
+  Prop(Config, "htm_allow_write_set_l2_evictions", _.configuration("SimulationInfo", "htm_allow_write_set_l2_evictions").parseBoolean)
   Prop(Config, "htm_precise_read_set_tracking", _.configuration("SimulationInfo", "htm_precise_read_set_tracking").parseBoolean)
-  Prop(Config, "htm_nack_l1_local_evictions", _.configuration("SimulationInfo", "htm_nack_l1_local_evictions").parseBoolean)
   Prop(Config, "htm_allow_load_delaying", _.configuration("SimulationInfo", "htm_allow_load_delaying").parseBoolean)
+  Prop(Config, "htm_trans_aware_l0_replacements", _.configuration("SimulationInfo", "htm_trans_aware_l0_replacements").parseBoolean)
   Prop(Config, "htm_reload_if_stale", _.configuration("SimulationInfo", "htm_reload_if_stale").parseBoolean)
-  Prop(Config, "htm_binary_suffix", _.configuration("SimulationInfo", "htm_binary_suffix").parseString)
+  Prop(Config, "htm_l0_downgrade_on_l1_gets", _.configuration("SimulationInfo", "htm_l0_downgrade_on_l1_gets").parseBoolean)
+  //Prop(Config, "htm_value_checker", _.configuration("SimulationInfo", "htm_value_checker").parseBoolean)
+  //Prop(Config, "htm_isolation_checker", _.configuration("SimulationInfo", "htm_isolation_checker").parseBoolean)
+  //Prop(Config, "htm_visualizer", _.configuration("SimulationInfo", "htm_visualizer").parseBoolean)
   Prop(Config, "htm_max_retries", _.configuration("SimulationInfo", "htm_max_retries").parseLong)
+  Prop(Config, "htm_backoff", _.configuration("SimulationInfo", "htm_backoff").parseBoolean)
   Prop(Config, "htm_heap_prefault", _.configuration("SimulationInfo", "htm_heap_prefault").parseBoolean)
 
   /* Results */
@@ -96,11 +105,23 @@ object Gem5Properties {
   // htm_.+
   {
     val re_htm_controllers = s"l0_cntrl([0-9]*)".r
-    Prop(Result, s"htm_transaction_cycles", s => (s.stats / "system" / "ruby" / re_htm_controllers / "xact_mgr" /+ "htm_transaction_cycles::mean").map(_.parseDouble).average, mixer = mixers.samples, optional = true)
-    Prop(Result, s"htm_transaction_instructions", s => (s.stats / "system" / "ruby" / re_htm_controllers / "xact_mgr" /+ "htm_transaction_instructions::mean").map(_.parseDouble).average, mixer = mixers.samples, optional = true)
-    Prop(Result, s"htm_transaction_abort_cause", { s =>
+    Prop(Result, "htm_transaction_count_per_cpu", s => (s.stats / "system" / "ruby" /- re_htm_controllers).map {
+      case (ctrl, stats) => ctrl -> (stats / "xact_mgr" /+ "htm_transaction_cycles::samples").map(_.parseDouble).get
+    }, mixer = mixers.mapMixer(mixers.samples), optional = true)
+    Prop(Result, "htm_transaction_cycles_per_cpu", s => (s.stats / "system" / "ruby" /- re_htm_controllers).map {
+      case (ctrl, stats) => ctrl -> (stats / "xact_mgr" /+ "htm_transaction_cycles::mean").map(_.parseDouble).get
+    }, mixer = mixers.mapMixer(mixers.samples), optional = true)
+
+    Prop(Result, "htm_transaction_instructions", s => (s.stats / "system" / "ruby" / re_htm_controllers / "xact_mgr" /+ "htm_transaction_instructions::mean").map(_.parseDouble).average, mixer = mixers.samples, optional = true)
+    Prop(Result, "htm_transaction_abort_cause", { s =>
       val r = (s.stats / "system" / "ruby" / re_htm_controllers / "xact_mgr" /+- "htm_transaction_abort_cause::(.+)".r)
         .groupBy(_._1.parseString).view.mapValues(_.map(_._2.splitWords.head.parseLong).sum)
+      check(r.isEmpty || r("total") == r.filterKeys(_ != "total").values.sum)
+      r.filterKeys(_ != "total").toMap
+    }, mixers.mapMixer(mixers.samples), optional = true)
+    Prop(Result, "htm_cycles_in_region", { s =>
+      val r = (s.stats / "system" / "htm" /+- "cyclesInRegion::(.+)".r)
+        .groupBy(_._1.parseString).view.mapValues(_.map(_._2.splitWords.head.parseLong).sum)  // sums all entries with the same key, although there is (or should be) only one in this case.
       check(r.isEmpty || r("total") == r.filterKeys(_ != "total").values.sum)
       r.filterKeys(_ != "total").toMap
     }, mixers.mapMixer(mixers.samples), optional = true)

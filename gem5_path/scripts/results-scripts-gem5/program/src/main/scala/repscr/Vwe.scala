@@ -23,7 +23,7 @@ case class Vwe(value: Double, error: Double) extends Ordered[Vwe] {
     case x => x
   }
 
-  def relativeError = error / value
+  def relativeError = abs(error / value)
 
   def lowerBound = value - error
   def upperBound = value + error
@@ -103,8 +103,23 @@ object Vwe {
     Vwe(mean, stddev * delta / sqrt(l.size))
   }
 
-  def average(l: Vwe*): Vwe = (l reduce { _ + _ }) / l.size
+  def average(l: Vwe*): Vwe = l.sum / l.size
+
+  implicit object VweNumeric extends Numeric[Vwe] {
+    def plus(x: Vwe, y: Vwe) = x + y
+    def minus(x: Vwe, y: Vwe) = x - y
+    def times(x: Vwe, y: Vwe) = x * y
+    def negate(x: Vwe) = 0 - x
+    def fromInt(x: Int) = Vwe(x, 0)
+    def parseString(str: String) = ??? // TODO
+    def toInt(x: Vwe) = x.value.toInt
+    def toLong(x: Vwe) = x.value.toLong
+    def toFloat(x: Vwe) = x.value.toFloat
+    def toDouble(x: Vwe) = x.value.toDouble
+    def compare(x: Vwe, y: Vwe) = x compare y
+  }
 }
+
 
 object studentT {
   import collection.immutable.TreeMap

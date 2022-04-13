@@ -42,7 +42,7 @@ object RMap {
     }
     def apply(path: Key*) = get(path: _*) match {
       case Some(v) => v
-      case None    => throw new NoSuchElementException(s"path not found ${path.mkString(".")}}")
+      case None    => throw new NoSuchElementException(s"path not found ${path.mkString(".")}")
     }
 
     def /(ks: Key): Node = children(ks)

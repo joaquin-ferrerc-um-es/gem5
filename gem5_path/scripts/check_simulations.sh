@@ -16,7 +16,7 @@ fi
 
 [[ -d "$RESULTS_DIR" ]] || { echo "«${RESULTS_DIR}» is not a directory" 1>&2 ; exit 1 ; }
 
-find "${RESULTS_DIR}" -name simulate.sh | sort | while IFS="" read -r SIM_SCRIPT ; do
+find "${RESULTS_DIR}" -name simulate -o -name simulate.sh | sort | while IFS="" read -r SIM_SCRIPT ; do
     SIM_DIR="$(dirname "${SIM_SCRIPT}")"
     SIM_CKPTDIR="${SIM_DIR}/ckpt"
     SIM_CKPTSIMOUT="${SIM_CKPTDIR}/simout"
@@ -24,7 +24,7 @@ find "${RESULTS_DIR}" -name simulate.sh | sort | while IFS="" read -r SIM_SCRIPT
     SIM_SIMERR="${SIM_DIR}/simerr"
     SIM_STDOUT="${SIM_DIR}/stdout"
     SIM_STDERR="${SIM_DIR}/stderr"
-    SIM_SCRIPT="${SIM_DIR}/simulate.sh"
+    #SIM_SCRIPT="${SIM_DIR}/simulate"
     SIM_STATS="${SIM_DIR}/stats.txt"
 
     if [[ ! -s "${SIM_STDOUT}" ]] ; then

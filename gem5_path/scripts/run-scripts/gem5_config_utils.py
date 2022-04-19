@@ -3,15 +3,34 @@
 
 import os
 import subprocess
-from gem5_run import gem5_root, config_list_options
+from gem5_run import gem5_root, known_options
+import options as opt
+
+config_preferred_order_first = [ opt.arch, opt.cpu_model, opt.protocol, opt.config_description_abbrev, opt.cache_name, opt.num_processors, opt.benchmark_name, opt.benchmark_size ]
+config_preferred_order_last = [opt.random_seed ]
+
+# config options of conf, in a fixed order
+def config_list_options(conf):
+    first = [k for k in config_preferred_order_first if k in conf]
+    rest = [k for k in known_options if k in conf and not k in config_preferred_order_first and not k in config_preferred_order_last]
+    last = [k for k in config_preferred_order_last if k in conf]
+    return first + rest + last
 
 def config_describe(conf):
-    # TODO: allow to order things better
     dirs = [d for d in [c.descr_dir_text_value(conf) for c in config_list_options(conf)] if d != ""]
+    return os.path.join("/".join(dirs))
+
+def config_describe_abbrev(conf):
     abbrevs = [a for a in [c.descr_abbrev_text_value(conf) for c in config_list_options(conf)] if a != ""]
-    return os.path.join("/".join(dirs), "_".join(abbrevs))
+    return "_".join(abbrevs)
 
+def print_config(conf):
+    print("{")
+    for c in config_list_options(conf):
+        print(f"  {c.name}: {c(conf, allow_vary = True)}")
+    print("}")
 
+    
 option_value_abbreviations = {
     "requester_wins": "rw",
     "magic": "mg",

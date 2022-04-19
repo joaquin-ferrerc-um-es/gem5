@@ -206,9 +206,9 @@ import benchmarks
 
 def get_benchmarks(name = None, suite = None, size = None):
     return [b for b in known_benchmarks
-            if (name == None or b.name == name) and
-               (suite == None or b.suite == suite) and
-               (size == None or b.size == size)]
+            if (name == None or b.name == name or (isinstance(name, list) and b.name in name)) and
+               (suite == None or b.suite == suite or (isinstance(suite, list) and b.suite in suite)) and
+               (size == None or b.size == size or (isinstance(size, list) and b.size in size))]
 
 # Applies conf2 over list_or_conf1 or over the elements of
 # list_or_conf1 if it is a list.  Returns a config (dict) if
@@ -271,16 +271,6 @@ def configs_update(conf2: dict):
 def configs_vary(*conf_variations: list):
     global configs
     configs = vary(configs, conf_variations)
-
-# config options of conf, in a fixed order
-def config_list_options(conf):
-    return [k for k in known_options if k in conf]
-    
-def print_config(conf):
-    print("{")
-    for c in config_list_options(conf):
-        print(f"  {c.name}: {c(conf, allow_vary = True)}")
-    print("}")
 
 # default output_subdirectory can be specified by command line or guessed automatically
 default_output_subdirectory = None

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from gem5_run import gem5_root, get_configs, config_list_options, print_config, error, known_options, mix_configs, Vary
+from gem5_run import gem5_root, get_configs, error, known_options, mix_configs, Vary
+from gem5_config_utils import config_list_options, print_config
 import options
 
 import os

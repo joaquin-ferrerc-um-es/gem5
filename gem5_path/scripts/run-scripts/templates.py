@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 from gem5_run import update, Derived, Vary, get_benchmarks, get_default_output_subdirectory
-from gem5_config_utils import config_describe, config_from_tasks_gem5, get_git_revision
+from gem5_config_utils import config_describe, config_describe_abbrev, config_from_tasks_gem5, get_git_revision
 from options import *
 from options import gem5_root as gem5_root_option
 from gem5_run import gem5_root
@@ -16,8 +16,9 @@ base = {
     random_seed: 0,
 
     output_directory_root: Derived(lambda c: os.path.join(gem5_root_option(c), "results")),
-    output_directory_sub: Derived(lambda c: get_default_output_subdirectory(os.path.join(gem5_root_option(c), "results"))),
+    output_directory_sub: Derived(lambda c: get_default_output_subdirectory(output_directory_root(c))),
     config_description: Derived(config_describe),
+    config_description_abbrev: Derived(config_describe_abbrev),
     output_directory: Derived(lambda c: os.path.join(output_directory_root(c), output_directory_sub(c), config_description(c))),
 
     gem5_exec_path: Derived(lambda c: os.path.join(gem5_root, config_from_tasks_gem5(f"$(get_gem5_binary {arch(c)} {protocol(c)} {build_type(c)})"))),
@@ -154,81 +155,95 @@ htm_cfg1_base = {
     htm_isolation_checker: True,
     htm_visualizer: True,
     htm_max_retries: 6,
-    htm_backoff: True,
+    htm_backoff: False,
     htm_heap_prefault: False,
     htm_fallback_lock_filename: "ckpt/fallback_lock",
 }
 
-
-
-htm_cfg1_l0rsetevict = update(htm_cfg1_base, {
-    htm_allow_read_set_l0_cache_evictions: True,
+htm_cfg0_locks = update(htm_cfg1_base, {
+    htm_binary_suffix: '.htm.sgl',
 })
 
-htm_cfg1_l1rsetevict = update(htm_cfg1_l0rsetevict, {
-    htm_allow_read_set_l1_cache_evictions: True,
-})
-
-htm_cfg1_l1rsetevict_pf = update(htm_cfg1_l1rsetevict, {
+htm_cfg1_pf = update(htm_cfg1_base, {
     htm_heap_prefault: True,
 })
 
-htm_cfg1_l1rsetevict_pf_dwng = update(htm_cfg1_l1rsetevict_pf, {
-    htm_l0_downgrade_on_l1_gets: True,
-})
+htm_cfg2_base = htm_cfg1_pf
 
-
-htm_cfg1_pf_lazycd_magic_cw = update(htm_cfg1_base, {
-    htm_heap_prefault: True,
-    htm_eager_cd: False,
-    htm_lazy_arbitration: 'magic',
-    htm_conflict_resolution: 'committer_wins',
-    htm_isolation_checker: False,
-})
-    
-htm_cfg1_pf_dwng_lazycd_magic_cw = update(htm_cfg1_pf_lazycd_magic_cw, {
-    htm_l0_downgrade_on_l1_gets: True,
-})
-    
-
-htm_cfg1_l0rsetevict_pf_dwng_lazycd_magic_cw = update(htm_cfg1_pf_dwng_lazycd_magic_cw, {
+htm_cfg2_l0rsetevict = update(htm_cfg2_base, {
     htm_allow_read_set_l0_cache_evictions: True,
 })
 
-htm_cfg1_l1rsetevict_pf_dwng_lazycd_magic_cw = update(htm_cfg1_l0rsetevict_pf_dwng_lazycd_magic_cw, {
+htm_cfg2_l1rsetevict = update(htm_cfg2_l0rsetevict, {
     htm_allow_read_set_l1_cache_evictions: True,
 })
 
-htm_cfg1_l2rsetevict_pf_dwng_lazycd_magic_cw = update(htm_cfg1_l1rsetevict_pf_dwng_lazycd_magic_cw, {
+htm_cfg2_l2rsetevict = update(htm_cfg2_l1rsetevict, {
     htm_allow_read_set_l2_cache_evictions: True,
 })
 
-htm_cfg1_l1rsetevict_pf_dwng_lazycd_magic_rw = update(htm_cfg1_l1rsetevict_pf_dwng_lazycd_magic_cw, {
-    htm_conflict_resolution: 'requester_wins',
+htm_cfg3_base = htm_cfg2_l1rsetevict
+
+htm_cfg3_l0xactreplac = update(htm_cfg3_base, {
+    htm_trans_aware_l0_replacements: True,
 })
 
-htm_cfg1_l1rsetevict_pf_dwng_lazycd_token_cw = update(htm_cfg1_l1rsetevict_pf_dwng_lazycd_magic_cw, {
-    htm_lazy_arbitration: 'token',
+htm_cfg4_base = htm_cfg3_l0xactreplac
+
+htm_cfg4_cdab = update(htm_cfg4_base, {
+    htm_conflict_resolution: 'requester_stalls_cda_base',
 })
 
-htm_cfg1_l1rsetevict_pf_dwng_precise  = update(htm_cfg1_l1rsetevict_pf_dwng, {
-    htm_precise_read_set_tracking: True,
-})
-
-htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls  = update(htm_cfg1_l1rsetevict_pf_dwng_precise, {
+htm_cfg4_cdah = update(htm_cfg4_base, {
     htm_conflict_resolution: 'requester_stalls_cda_hybrid',
 })
 
-htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls_retry64 = update(htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls, {
+htm_cfg4_cdab64 = update(htm_cfg4_base, {
+    htm_conflict_resolution: 'requester_stalls_cda_base',
     htm_max_retries: 64,
 })
 
-htm_cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm = update(htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls, {
+htm_cfg4_cdah64 = update(htm_cfg4_base, {
+    htm_conflict_resolution: 'requester_stalls_cda_hybrid',
+    htm_max_retries: 64,
+})
+
+htm_cfg5_base = htm_cfg4_cdah64
+
+htm_cfg5_precrset = update(htm_cfg5_base, {
+    htm_precise_read_set_tracking: True,
+})
+
+htm_cfg5_precrset_rldstale = update(htm_cfg5_precrset, {
+    htm_reload_if_stale: True,
+})
+
+htm_cfg6_base = htm_cfg5_precrset_rldstale
+
+htm_cfg6_lazycd = update(htm_cfg6_base, {
+    htm_eager_cd: False,
+    htm_lazy_arbitration: 'token',
+    htm_conflict_resolution: 'committer_wins',
+    htm_isolation_checker: False,
+    htm_reload_if_stale: False,
+    htm_precise_read_set_tracking: False,
+})
+
+htm_cfg7_base = htm_cfg6_lazycd
+
+htm_cfg7_magic = update(htm_cfg7_base, {
+    htm_lazy_arbitration: 'magic',
+})
+
+htm_cfg8_base = htm_cfg1_pf
+htm_cfg8_el = htm_cfg6_base
+htm_cfg8_ll = htm_cfg6_lazycd
+htm_cfg8_ee = update(htm_cfg6_base, {
     htm_lazy_vm: False,
     htm_allow_read_set_l2_cache_evictions: True,
     htm_allow_write_set_l0_cache_evictions: True,
     htm_allow_write_set_l1_cache_evictions: True,
     htm_allow_write_set_l2_cache_evictions: True,
     htm_isolation_checker: True,
-    htm_max_retries: 128,
+    htm_max_retries: 64,
 })

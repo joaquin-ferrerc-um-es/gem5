@@ -23,7 +23,8 @@ Option("protocol", str,
        descr_dir = "{value}")
 Option("cpu_model", str,
        gem5_option = None,
-       launchscript_option = "yes")
+       launchscript_option = "yes",
+       descr_dir = "{value}")
 Option("num_processors", int,
        gem5_option = None,
        launchscript_option = "yes",
@@ -265,10 +266,10 @@ Option("htm_reload_if_stale", bool,
 Option("htm_l0_downgrade_on_l1_gets", bool,
        descr_abbrev = "DwnG")
 Option("htm_value_checker", bool,
-       descr_abbrev = "ValChk",
+       #descr_abbrev = "ValChk",
        siminfo_exclude = True)
 Option("htm_isolation_checker", bool,
-       descr_abbrev = "IsolChk",
+       #descr_abbrev = "IsolChk",
        siminfo_exclude = True)
 Option("htm_visualizer", bool,
        descr_abbrev = "Visual",
@@ -293,3 +294,8 @@ Option("htm_heap_prefault", bool,
 Option("htm_fallback_lock_filename", str, # unnecesary
        gem5_option = None)
 
+# descr_abbrev pseudoption
+Option("config_description_abbrev", str,
+       runscript_option = "omit",
+       gem5_option = None,
+       descr_dir = "{value}")

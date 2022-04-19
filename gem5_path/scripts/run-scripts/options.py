@@ -121,10 +121,16 @@ Option("terminal_filename", str,
 Option("arch_specific_opts", str,
        gem5_option = None,
        siminfo_exclude = True)
-Option("checkpoint_boot_root_dir", str, # unnecesary
+Option("checkpoint_boot_root_dir", str,
        gem5_option = None,
        siminfo_exclude = True)
 Option("checkpoint_init_subdir", str, # unnecesary
+       gem5_option = None,
+       siminfo_exclude = True)
+Option("checkpoint_init_reuse", bool,
+       gem5_option = None,
+       siminfo_exclude = True)
+Option("checkpoint_init_reuse_root_dir", str,
        gem5_option = None,
        siminfo_exclude = True)
 

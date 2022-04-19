@@ -15,9 +15,10 @@ if [ "${disable_transparent_hugepages:-False}" == "True" ] ; then
     echo never > /sys/kernel/mm/transparent_hugepage/enabled
 fi
 
-if [ "${enable_kvm:-False}" == "False" ] ; then
-      sleep 0.${RANDOM_SEED} # Generate variability via sleep
-fi
+# Generate variability via sleep (0.1 × random_seed)
+T=$(printf "%05d" ${random_seed})
+sleep "${T:0:4}.${T:4:1}"
+
 cd "${benchmark_subdir}"
 
 "./${benchmark_binary_filename_base}.${arch}${benchmark_binary_suffix}" ${benchmark_num_threads_option}${num_processors} ${benchmark_args_string}

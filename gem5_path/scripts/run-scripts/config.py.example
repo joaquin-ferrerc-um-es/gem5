@@ -57,17 +57,7 @@ configs_update(templates.cache_baseline)
 # defined in templates.py. 
 configs_vary(
     templates.htm_cfg1_base,
-    templates.htm_cfg1_l0rsetevict, 
-    templates.htm_cfg1_l1rsetevict,
-    templates.htm_cfg1_l1rsetevict_pf,
-    templates.htm_cfg1_l1rsetevict_pf_dwng,
-    templates.htm_cfg1_l1rsetevict_pf_dwng_lazycd_magic_cw,
-    templates.htm_cfg1_l1rsetevict_pf_dwng_lazycd_magic_rw,
-    templates.htm_cfg1_l1rsetevict_pf_dwng_lazycd_token_cw,
-    templates.htm_cfg1_l1rsetevict_pf_dwng_precise,
-    templates.htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls,
-    templates.htm_cfg1_l1rsetevict_pf_dwng_precise_reqstalls_retry64,
-    templates.htm_cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm,
+    templates.htm_cfg1_pf,
 )
 
 # Use configs_update to set some common values for all the
@@ -88,11 +78,13 @@ configs_update({
     # Benchmarks are specified via the Benchmark class. The list of
     # available benchmarks is defined in benchmarks.py. A list of
     # benchmarks satisfying some conditions can be obtained with
-    # get_benchmarks. In the following line, we obtain the list of all
-    # small and medium stamp benchmarks and use it as argument to Vary
+    # get_benchmarks. In the following line, we obtain the list of
+    # benchmarks comprising intruder and yada from stamp, using both
+    # the small and medium sizes, and then use it as argument to Vary
     # to define the value of the “benchmark” option.
-    benchmark: Vary(*(  get_benchmarks(suite = "stamp", size = "small"))
-                      + get_benchmarks(suite = "stamp", size = "medium")),
+    benchmark: Vary(*get_benchmarks(suite = "stamp",
+                                    size = ["small", "medium"],
+                                    name = ["intruder", "yada"])),
 
     # Use three random seeds 
     random_seed: Vary(0, 1, 2), # Alternatively: Vary(*range(3)),

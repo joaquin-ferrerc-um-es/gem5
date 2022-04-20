@@ -105,17 +105,23 @@ object Gem5Properties {
   // htm_.+
   {
     val re_htm_controllers = s"l0_cntrl([0-9]*)".r
-    Prop(Result, s"htm_transaction_count_per_cpu", s => (s.stats / "system" / "ruby" /- re_htm_controllers).map {
+    Prop(Result, "htm_transaction_count_per_cpu", s => (s.stats / "system" / "ruby" /- re_htm_controllers).map {
       case (ctrl, stats) => ctrl -> (stats / "xact_mgr" /+ "htm_transaction_cycles::samples").map(_.parseDouble).get
     }, mixer = mixers.mapMixer(mixers.samples), optional = true)
-    Prop(Result, s"htm_transaction_cycles_per_cpu", s => (s.stats / "system" / "ruby" /- re_htm_controllers).map {
+    Prop(Result, "htm_transaction_cycles_per_cpu", s => (s.stats / "system" / "ruby" /- re_htm_controllers).map {
       case (ctrl, stats) => ctrl -> (stats / "xact_mgr" /+ "htm_transaction_cycles::mean").map(_.parseDouble).get
     }, mixer = mixers.mapMixer(mixers.samples), optional = true)
 
-    Prop(Result, s"htm_transaction_instructions", s => (s.stats / "system" / "ruby" / re_htm_controllers / "xact_mgr" /+ "htm_transaction_instructions::mean").map(_.parseDouble).average, mixer = mixers.samples, optional = true)
-    Prop(Result, s"htm_transaction_abort_cause", { s =>
+    Prop(Result, "htm_transaction_instructions", s => (s.stats / "system" / "ruby" / re_htm_controllers / "xact_mgr" /+ "htm_transaction_instructions::mean").map(_.parseDouble).average, mixer = mixers.samples, optional = true)
+    Prop(Result, "htm_transaction_abort_cause", { s =>
       val r = (s.stats / "system" / "ruby" / re_htm_controllers / "xact_mgr" /+- "htm_transaction_abort_cause::(.+)".r)
         .groupBy(_._1.parseString).view.mapValues(_.map(_._2.splitWords.head.parseLong).sum)
+      check(r.isEmpty || r("total") == r.filterKeys(_ != "total").values.sum)
+      r.filterKeys(_ != "total").toMap
+    }, mixers.mapMixer(mixers.samples), optional = true)
+    Prop(Result, "htm_cycles_in_region", { s =>
+      val r = (s.stats / "system" / "htm" /+- "cyclesInRegion::(.+)".r)
+        .groupBy(_._1.parseString).view.mapValues(_.map(_._2.splitWords.head.parseLong).sum)  // sums all entries with the same key, although there is (or should be) only one in this case.
       check(r.isEmpty || r("total") == r.filterKeys(_ != "total").values.sum)
       r.filterKeys(_ != "total").toMap
     }, mixers.mapMixer(mixers.samples), optional = true)

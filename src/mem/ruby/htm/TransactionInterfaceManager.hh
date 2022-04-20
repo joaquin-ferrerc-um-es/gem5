@@ -14,7 +14,7 @@
 #include "mem/packet.hh"
 #include "mem/request.hh"
 #include "mem/ruby/common/Address.hh"
-#include "mem/ruby/profiler/annotated_regions.h"
+#include "mem/ruby/htm/htm.hh"
 #include "mem/ruby/structures/CacheMemory.hh"
 #include "mem/ruby/system/RubySystem.hh"
 #include "mem/ruby/system/TransactionalSequencer.hh"
@@ -68,7 +68,8 @@ public:
   void setAbortFlag(Addr addr,
                     MachineID abortSource,
                     bool remote_trans = false,
-                    bool capacity = false, bool wset = false);
+                    bool capacity = false, bool wset = false,
+                    bool dataStale = false);
   void cancelTransaction(PacketPtr pkt);
   bool isCancelledTransaction();
 
@@ -108,7 +109,9 @@ public:
   void setVersion(int version);
   int getVersion() const;
 
-  void xactReplacement(Addr addr, MachineID source, bool capacity = false);
+  void xactReplacement(Addr addr, MachineID source,
+                       bool capacity = false,
+                       bool dataStale = false);
 
   bool checkReadSignature(Addr addr);
   bool checkWriteSignature(Addr addr);
@@ -148,23 +151,17 @@ public:
   bool config_lazyVM() const {
       return m_htm->params().lazy_vm;
   }
-  bool config_allowReadSetLowerLevelCacheEvictions() const {
-      if (m_ruby_system->getProtocol() == "MESI_Two_Level_HTM_umu") {
-          return m_htm->params().allow_read_set_l1_cache_evictions;
-      } else {
-          return m_htm->params().allow_read_set_l0_cache_evictions;
-      }
+  bool config_allowReadSetL0CacheEvictions() const {
+      assert(m_ruby_system->getProtocol() == "MESI_Three_Level_HTM_umu");
+      return m_htm->params().allow_read_set_l0_cache_evictions;
   }
   bool config_allowReadSetL1CacheEvictions() const {
       assert(m_ruby_system->getProtocol() == "MESI_Three_Level_HTM_umu");
       return m_htm->params().allow_read_set_l1_cache_evictions;
   }
-  bool config_allowWriteSetLowerLevelCacheEvictions() const {
-      if (m_ruby_system->getProtocol() == "MESI_Two_Level_HTM_umu") {
-          return m_htm->params().allow_write_set_l1_cache_evictions;
-      } else {
-          return m_htm->params().allow_write_set_l0_cache_evictions;
-      }
+  bool config_allowWriteSetL0CacheEvictions() const {
+      assert(m_ruby_system->getProtocol() == "MESI_Three_Level_HTM_umu");
+      return m_htm->params().allow_write_set_l0_cache_evictions;
   }
   bool config_allowWriteSetL1CacheEvictions() const {
       assert(m_ruby_system->getProtocol() == "MESI_Three_Level_HTM_umu");
@@ -187,7 +184,9 @@ public:
   bool config_reloadIfStale() const {
       return m_htm->params().reload_if_stale;
   }
-
+  int config_reloadIfStaleMaxRetries() const {
+      return m_htm->params().reload_if_stale_max_retries;
+  }
   bool config_enableValueChecker() const {
       return m_htm->params().value_checker;
   }
@@ -215,7 +214,6 @@ private:
   AbstractController *m_controller;
   TransactionalSequencer *m_sequencer;
   CacheMemory* m_dataCache_ptr;
-  MachineType m_lowerLevelCacheMachineType;
 
   TransactionIsolationManager     * m_xactIsolationManager;
   TransactionConflictManager      * m_xactConflictManager;

@@ -11,7 +11,9 @@
 #include <map>
 #include <string>
 
+#include "base/statistics.hh"
 #include "mem/htm.hh"
+#include "mem/ruby/profiler/annotated_regions.h"
 #include "params/RubyHTM.hh"
 
 namespace gem5
@@ -30,6 +32,14 @@ class RubyHTM : public HTM
     bool setupLog(int cpuId, Addr addr) override;
     void endLogUnroll(int cpuId) override;
     int getLogNumEntries(int cpuId) override;
+    void profileRegion(AnnotatedRegion region, uint64_t cycles);
+    private:
+      struct RubyHTMStats : public statistics::Group
+      {
+          RubyHTMStats(statistics::Group *parent);
+
+          statistics::Vector cyclesInRegion;
+      } rubyHTMStats;
 
 };
 

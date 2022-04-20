@@ -17,7 +17,7 @@ _tm_thread_context_t * initThreadContexts(int numThreads, int inSimulator)
                               numThreads * sizeof(_tm_thread_context_t));
     assert(ret == 0);
     _tm_thread_context_t *thread_contexts = (_tm_thread_context_t *)ptr;
-    assert(sizeof(_tm_thread_context_t) == CACHE_LINE_SIZE_BYTES);
+    assert(sizeof(_tm_thread_context_t) == 2*CACHE_LINE_SIZE_BYTES);
     int i;
     for (i = 0; i < numThreads; i++)  {
         thread_contexts[i].info.threadId = i;
@@ -26,7 +26,8 @@ _tm_thread_context_t * initThreadContexts(int numThreads, int inSimulator)
         thread_contexts[i].info.nonSpecExecutions = 0;
         thread_contexts[i].info.workUnits = 0;
     }
-    logtm_init_transaction_state(thread_contexts);
+    init_log(thread_contexts);
+    init_random_gen(thread_contexts);
     return thread_contexts;
 }
 

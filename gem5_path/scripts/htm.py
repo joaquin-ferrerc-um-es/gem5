@@ -61,7 +61,33 @@ htm_config_options.append(htm_heap_prefault)
 # To be used by non-UMU (non-HTM or gem5 HTM) system configurations
 config_empty = collections.OrderedDict()
 
-# Baseline: All options disabled by except default HTM policies, set
+# Base config using locks, no HTM
+cfg0_locks = collections.OrderedDict()
+cfg0_locks[htm_disable_speculation]=False
+cfg0_locks[htm_binary_suffix]='.htm.sgl'
+cfg0_locks[htm_lazy_vm]=True
+cfg0_locks[htm_eager_cd]=True
+cfg0_locks[htm_conflict_resolution]='requester_wins'
+cfg0_locks[htm_lazy_arbitration]=None
+cfg0_locks[htm_allow_read_set_l0_evictions]=False
+cfg0_locks[htm_allow_read_set_l1_evictions]=False
+cfg0_locks[htm_allow_write_set_l0_evictions]=False
+cfg0_locks[htm_allow_write_set_l1_evictions]=False
+cfg0_locks[htm_allow_read_set_l2_evictions]=False
+cfg0_locks[htm_allow_write_set_l2_evictions]=False
+cfg0_locks[htm_precise_read_set_tracking]=False
+cfg0_locks[htm_trans_aware_l0_replacements]=False
+cfg0_locks[htm_allow_load_delaying]=False
+cfg0_locks[htm_reload_if_stale]=False
+cfg0_locks[htm_l0_downgrade_on_l1_gets]=False
+cfg0_locks[htm_value_checker]=False
+cfg0_locks[htm_isolation_checker]=True
+cfg0_locks[htm_visualizer]=True
+cfg0_locks[htm_max_retries]=6
+cfg0_locks[htm_backoff]=False
+cfg0_locks[htm_heap_prefault]=False
+
+# Baseline: All options disabled except default HTM policies, set
 # to eager CD and lazy VM (no logging)
 cfg1_base = collections.OrderedDict()
 cfg1_base[htm_disable_speculation]=False
@@ -85,23 +111,87 @@ cfg1_base[htm_value_checker]=False
 cfg1_base[htm_isolation_checker]=True
 cfg1_base[htm_visualizer]=True
 cfg1_base[htm_max_retries]=6
-cfg1_base[htm_backoff]=True
+cfg1_base[htm_backoff]=False
 cfg1_base[htm_heap_prefault]=False
 
 # Vary one parameter at a time w.r.t. baseline, to determine its impact
 # No need to try every combination, but rather "guide" the search...
 
-cfg1_l0rsetevict = collections.OrderedDict(cfg1_base)
-cfg1_l0rsetevict[htm_allow_read_set_l0_evictions]=True
+cfg1_pf = collections.OrderedDict(cfg1_base)
+cfg1_pf[htm_heap_prefault]=True
 
-cfg1_l1rsetevict = collections.OrderedDict(cfg1_l0rsetevict)
-cfg1_l1rsetevict[htm_allow_read_set_l1_evictions]=True
+cfg2_base = cfg1_pf
 
-cfg1_l1rsetevict_pf = collections.OrderedDict(cfg1_l1rsetevict)
-cfg1_l1rsetevict_pf[htm_heap_prefault]=True
+cfg2_l0rsetevict = collections.OrderedDict(cfg2_base)
+cfg2_l0rsetevict[htm_allow_read_set_l0_evictions]=True
 
-cfg1_l1rsetevict_pf_dwng = collections.OrderedDict(cfg1_l1rsetevict_pf)
-cfg1_l1rsetevict_pf_dwng[htm_l0_downgrade_on_l1_gets]=True
+cfg2_l1rsetevict = collections.OrderedDict(cfg2_l0rsetevict)
+cfg2_l1rsetevict[htm_allow_read_set_l1_evictions]=True
+
+cfg2_l2rsetevict = collections.OrderedDict(cfg2_l1rsetevict)
+cfg2_l2rsetevict[htm_allow_read_set_l2_evictions]=True
+
+cfg3_base = cfg2_l1rsetevict
+
+cfg3_l0xactreplac = collections.OrderedDict(cfg3_base)
+cfg3_l0xactreplac[htm_trans_aware_l0_replacements]=True
+
+cfg4_base = cfg3_l0xactreplac
+
+cfg4_cdab = collections.OrderedDict(cfg4_base)
+cfg4_cdab[htm_conflict_resolution]='requester_stalls_cda_base'
+
+cfg4_cdah = collections.OrderedDict(cfg4_base)
+cfg4_cdah[htm_conflict_resolution]='requester_stalls_cda_hybrid'
+
+cfg4_cdab64 = collections.OrderedDict(cfg4_base)
+cfg4_cdab64[htm_conflict_resolution]='requester_stalls_cda_base'
+cfg4_cdab64[htm_max_retries]=64
+
+cfg4_cdah64 = collections.OrderedDict(cfg4_base)
+cfg4_cdah64[htm_conflict_resolution]='requester_stalls_cda_hybrid'
+cfg4_cdah64[htm_max_retries]=64
+
+cfg5_base = cfg4_cdah64
+cfg5_precrset = collections.OrderedDict(cfg5_base)
+cfg5_precrset[htm_precise_read_set_tracking]=True
+
+cfg5_precrset_rldstale = collections.OrderedDict(cfg5_precrset)
+cfg5_precrset_rldstale[htm_reload_if_stale]=True
+
+
+cfg6_base = cfg5_precrset_rldstale
+
+cfg6_lazycd = collections.OrderedDict(cfg6_base)
+cfg6_lazycd[htm_eager_cd]=False
+cfg6_lazycd[htm_lazy_arbitration]='token'
+cfg6_lazycd[htm_conflict_resolution]='committer_wins'
+cfg6_lazycd[htm_isolation_checker]=False
+cfg6_lazycd[htm_reload_if_stale]=False
+cfg6_lazycd[htm_precise_read_set_tracking]=False
+
+cfg7_base = cfg6_lazycd
+
+cfg7_magic = collections.OrderedDict(cfg7_base)
+cfg7_magic[htm_lazy_arbitration]='magic'
+
+cfg8_base = cfg1_pf
+cfg8_el = cfg6_base
+cfg8_ll = cfg6_lazycd
+cfg8_ee = collections.OrderedDict(cfg6_base)
+cfg8_ee[htm_lazy_vm]=False
+cfg8_ee[htm_allow_read_set_l2_evictions]=True
+cfg8_ee[htm_allow_write_set_l0_evictions]=True
+cfg8_ee[htm_allow_write_set_l1_evictions]=True
+cfg8_ee[htm_allow_write_set_l2_evictions]=True
+cfg8_ee[htm_isolation_checker]=True
+cfg8_ee[htm_max_retries]=64
+
+
+'''
+
+#cfg2_l1rsetevict_dwng = collections.OrderedDict(cfg2_l1rsetevict)
+#cfg2_l1rsetevict_dwng[htm_l0_downgrade_on_l1_gets]=True
 
 
 cfg1_pf_lazycd_magic_cw = collections.OrderedDict(cfg1_base)
@@ -146,6 +236,8 @@ cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm[htm_allow_write_set_l1_evict
 cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm[htm_allow_write_set_l2_evictions]=True
 cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm[htm_isolation_checker]=True
 cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm[htm_max_retries]=128
+
+'''
 
 ## Abbreviations used for HTM options string values, to generate more
 ## concise HTM config string description

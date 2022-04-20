@@ -94,35 +94,17 @@ TransactionInterfaceManager::TransactionInterfaceManager(const Params &p)
     m_abortSourceNonTransactional = false;
     m_lastFailureCause   = HtmFailureFaultCause::INVALID;
     m_capacityAbortWriteSet = false;
-    // Only supported HTM protocols by TransactionInterfaceManager
-    assert(m_ruby_system->getProtocol() == "MESI_Two_Level_HTM_umu" ||
-           m_ruby_system->getProtocol() == "MESI_Three_Level_HTM_umu");
+    // Only supported HTM protocol by TransactionInterfaceManager
+    assert(m_ruby_system->getProtocol() == "MESI_Three_Level_HTM_umu");
 
-    if (m_ruby_system->getProtocol() == "MESI_Two_Level_HTM_umu") {
-        m_lowerLevelCacheMachineType = MachineType_L1Cache;
-        // Sanity checks
-        assert(!m_htm->params().allow_read_set_l0_cache_evictions);
-        assert(!m_htm->params().l0_downgrade_on_l1_gets);
-    } else {
-        // Three level
-        m_lowerLevelCacheMachineType = MachineType_L0Cache;
-        // Sanity checks
-        if (config_allowReadSetL1CacheEvictions()) {
-            assert(m_htm->params().allow_read_set_l0_cache_evictions);
-        }
-        if (config_allowWriteSetL1CacheEvictions() ||
-            config_allowWriteSetL2CacheEvictions()) {
-            // Evicting write set blocks requires eager versioning
-            assert(!XACT_LAZY_VM);
-        }
+    // Sanity checks
+    if (config_allowReadSetL1CacheEvictions()) {
+        assert(m_htm->params().allow_read_set_l0_cache_evictions);
     }
-    if (m_htm->params().precise_read_set_tracking &&
-        getXactConflictManager()->isRequesterStallsPolicy()) {
-        // Reload if stale is not compatible with requester stalls as
-        // it can lead to livelocks due to an older reader repeatedly
-        // getting Data_Stale while preventing the progress of a
-        // younger writer
-        assert(!m_htm->params().reload_if_stale);
+    if (config_allowWriteSetL1CacheEvictions() ||
+        config_allowWriteSetL2CacheEvictions()) {
+        // Evicting write set blocks requires eager versioning
+        assert(!XACT_LAZY_VM);
     }
 
     m_htmstart_tick = 0;
@@ -306,7 +288,7 @@ TransactionInterfaceManager::commitTransaction(PacketPtr pkt)
             m_ruby_system->getXactValueChecker()->
                 commitTransaction(getProcID(), this, m_dataCache_ptr);
         }
-        if (!config_allowReadSetLowerLevelCacheEvictions()) {
+        if (!config_allowReadSetL0CacheEvictions()) {
             // Sanity checks: All Rset blocks must be cached at commit
             vector<Addr> *rset = getXactIsolationManager()->
                 getReadSet();
@@ -723,13 +705,13 @@ profileHtmFailureFaultCause(HtmFailureFaultCause cause)
                 preciseFaultCause = HtmFailureFaultCause::SIZE_LLC;
             } else if (m_abortCause == HTMStats::AbortCause::WrongL0) {
                 preciseFaultCause = HtmFailureFaultCause::SIZE_WRONG_CACHE;
-            } else if (m_ruby_system->getProtocol() == "MESI_Three_Level_HTM_umu" &&
-                       m_abortCause == HTMStats::AbortCause::L1Capacity) {
+            } else if (m_abortCause == HTMStats::AbortCause::L1Capacity) {
                 preciseFaultCause = HtmFailureFaultCause::SIZE_L1PRIV;
-            } else if (m_capacityAbortWriteSet) {
-                preciseFaultCause = HtmFailureFaultCause::SIZE_WSET;
             } else {
-                preciseFaultCause = HtmFailureFaultCause::SIZE_RSET ;
+                assert(m_abortCause == HTMStats::AbortCause::L0Capacity);
+                preciseFaultCause = m_capacityAbortWriteSet ?
+                    HtmFailureFaultCause::SIZE_WSET :
+                    HtmFailureFaultCause::SIZE_RSET ;
             }
         } else {
             // Conflicting snoops can race with replacements of
@@ -861,7 +843,8 @@ void
 TransactionInterfaceManager::setAbortFlag(Addr addr,
                                           MachineID abortSource,
                                           bool remoteTrans,
-                                          bool capacity, bool wset)
+                                          bool capacity, bool wset,
+                                          bool dataStale)
 {
     /* RT: This method is called from any ruby method to signal an
      * abort.  (e.g. conflict detected from the protocol, eviction of
@@ -919,22 +902,15 @@ TransactionInterfaceManager::setAbortFlag(Addr addr,
         }
         assert(m_abortCause == HTMStats::AbortCause::Undefined);
 
-        MachineType machTypeSpecVersioning;
-        HTMStats::AbortCause abortCauseCapacity;
-        if (m_ruby_system->getProtocol() == "MESI_Two_Level_HTM") {
-            machTypeSpecVersioning = MachineType_L1Cache;
-            abortCauseCapacity = HTMStats::AbortCause::L1Capacity;
-        } else {
-            assert(m_ruby_system->getProtocol() == "MESI_Three_Level_HTM_umu");
-            machTypeSpecVersioning = MachineType_L0Cache;
-            abortCauseCapacity = HTMStats::AbortCause::L0Capacity;
-        }
-
-        if (machineIDToNodeID(abortSource) == getProcID() &&
+        if (dataStale) {
+            // Source of abort is Data_Stale event (inv seen while
+            // outstanding trans load)
+            m_abortCause = HTMStats::AbortCause::ConflictStale;
+        } else if (machineIDToNodeID(abortSource) == getProcID() &&
             machineIDToMachineType(abortSource) != MachineType_L2Cache) {
             // Source of abort is self L0/L1 cache
             if (machineIDToMachineType(abortSource) ==
-                machTypeSpecVersioning) {
+                MachineType_L0Cache) {
                 if (!capacity) {
                     // Transactional block evicted because it was in the
                     // wrong L0 cache (e.g. trans ST to Rset block in Icache)
@@ -944,15 +920,13 @@ TransactionInterfaceManager::setAbortFlag(Addr addr,
                 } else {
                     // Source of abort is self at cache level used for
                     // speculative versioning: L0/L1 overflow
-                    m_abortCause = abortCauseCapacity;
+                    m_abortCause = HTMStats::AbortCause::L0Capacity;
                     m_capacityAbortWriteSet = wset;
                 }
             } else {
                 // L1 replacement of L0 transactional block
                 assert(machineIDToMachineType(abortSource) ==
                        MachineType_L1Cache);
-                assert(m_ruby_system->getProtocol() ==
-                       "MESI_Three_Level_HTM_umu");
                 assert(!capacity); // L1 overflows not signaled as capacity
                 m_abortCause = HTMStats::AbortCause::L1Capacity;
             }
@@ -968,20 +942,15 @@ TransactionInterfaceManager::setAbortFlag(Addr addr,
             assert(m_abortAddress);
             if (m_abortAddress == m_htm->getFallbackLockPAddr()) {
                 m_abortCause = HTMStats::AbortCause::FallbackLock;
-            }
-            else if (machineIDToNodeID(abortSource) ==
-                     machineCount(MachineType_L1Cache)) {
-                // Stale_Data events (conflicting invalidation by L1 for
-                // pending load miss) are distinguishable via abortSource
-                // {L1Cache:machineCount}
-                m_abortCause = HTMStats::AbortCause::ConflictStale;
+#if 0
             } else if (!checkWriteSignature(m_abortAddress) &&
                        checkReadSignature(m_abortAddress) &&
                        !inRetiredReadSet(m_abortAddress)) {
                 // Conflict on read-set block that is not part of the
                 // "retired read set", i.e. referenced by outstanding
-                // load(s) but data not yet "consumed" by the transaction
+                // load(s)
                 m_abortCause = HTMStats::AbortCause::ConflictStale;
+#endif
             } else {
                 m_abortCause = HTMStats::AbortCause::Conflict;
 #if 0
@@ -1077,7 +1046,7 @@ bool TransactionInterfaceManager::isDoomed() {
 
 void
 TransactionInterfaceManager::xactReplacement(Addr addr, MachineID source,
-                                             bool capacity) {
+                                             bool capacity, bool dataStale) {
     bool wset = false;
     assert(makeLineAddress(addr) == addr);
     if (checkWriteSignature(addr)) {
@@ -1097,7 +1066,15 @@ TransactionInterfaceManager::xactReplacement(Addr addr, MachineID source,
                 insert(std::pair<Addr,char>(addr, 'y'));
         }
     }
-    else {
+    else if (dataStale) {
+        // "Data_Stale": Address may or may not be in read set
+        // depending on precise_read_set_tracking. Call setAbortFlag
+        // to set detailed abort cause (ConflictStale)
+
+        // Do not set the abort flag if already set or no longer in a
+        // transaction
+        if (isDoomed() || !inTransaction()) return;
+    } else {
         assert(checkReadSignature(addr));
         DPRINTF(RubyHTM, "HTM: xactReplacement "
                 "for read-set address=%x \n", addr);
@@ -1112,15 +1089,14 @@ TransactionInterfaceManager::xactReplacement(Addr addr, MachineID source,
         if (machineIDToNodeID(source) == getProcID() &&
             sourceMachType != MachineType_L2Cache) {
             // Self L0/L1
-            if (config_allowReadSetLowerLevelCacheEvictions() &&
-                (sourceMachType == m_lowerLevelCacheMachineType)) {
+            if (config_allowReadSetL0CacheEvictions() &&
+                (sourceMachType == MachineType_L0Cache)) {
                 // Lower level cache: allowed
                 DPRINTF(RubyHTM, "HTM: read-set eviction tolerated"
                         " for address %#x \n", addr);
                 return;
             }
-            if (m_ruby_system->getProtocol() == "MESI_Three_Level_HTM_umu" &&
-                config_allowReadSetL1CacheEvictions()) {
+            if (config_allowReadSetL1CacheEvictions()) {
                 // L1 cache: allowed
                 DPRINTF(RubyHTM, "HTM: read-set eviction from L1 tolerated"
                         " for address %#x \n", addr);
@@ -1128,7 +1104,7 @@ TransactionInterfaceManager::xactReplacement(Addr addr, MachineID source,
             }
         }
     }
-    setAbortFlag(addr, source, false, capacity, wset);
+    setAbortFlag(addr, source, false, capacity, wset, dataStale);
 }
 
 void

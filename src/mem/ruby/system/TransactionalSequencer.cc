@@ -34,8 +34,7 @@ TransactionalSequencer::TransactionalSequencer(const Params &p)
 
 {
     // TransactionalSequencer is only used by UMU protocols
-    assert(m_ruby_system->getProtocol() == "MESI_Two_Level_HTM_umu" ||
-           m_ruby_system->getProtocol() == "MESI_Three_Level_HTM_umu");;
+    assert(m_ruby_system->getProtocol() == "MESI_Three_Level_HTM_umu");;
     m_htm = system->getHTM();
     assert(m_htm);
     assert(m_ruby_system->getProfiler()->hasXactProfiler());
@@ -279,27 +278,44 @@ TransactionalSequencer::failedCallback(Addr address,
         // retried without CPU intervention
         auto &seq_req_list = m_RequestTable[address];
         assert(!seq_req_list.empty());
-        SequencerRequest &seq_req = seq_req_list.front();
-        PacketPtr pkt = seq_req.pkt;
-        assert(pkt->isWrite() ||
-               (seq_req.m_type == RubyRequestType_RMW_Read) ||
-               (seq_req.m_type == RubyRequestType_Locked_RMW_Read));
-        assert(m_failedStorePkt == NULL);
-        if (seq_req.suppressed ||
-            (m_xact_mgr->isAborting() &&
-             pkt->isHtmTransactional())) {
-            // Remove this and all aliased reqs from Sequencer
-            Sequencer::writeCallback(address, data);
-        } else {
-            m_failedStorePkt = pkt;
-#if 0
-            // Prevent deadlock event check: update issue time
-            for (auto it=seq_req_list.begin();
-                 it != seq_req_list.end(); ++it) {
-                (*it).issue_time = curCycle();
+        bool isWrite = false;
+        bool isRMWRead = false;
+        for (auto it=seq_req_list.begin();
+             it != seq_req_list.end(); ++it) {
+            if ((*it).pkt->isWrite()) {
+                isWrite = true;
+                break;
+            } else if (((*it).m_type == RubyRequestType_RMW_Read) ||
+                       ((*it).m_type == RubyRequestType_Locked_RMW_Read)) {
+                isRMWRead = true;
             }
-#endif
-            makeRequest(pkt);
+        }
+        if (isWrite) {
+            SequencerRequest &seq_req = seq_req_list.front();
+            PacketPtr pkt = seq_req.pkt;
+            assert(m_failedStorePkt == NULL);
+            if (seq_req.suppressed ||
+                (m_xact_mgr->isAborting() &&
+                 pkt->isHtmTransactional())) {
+                // Remove this and all aliased reqs from Sequencer
+                Sequencer::writeCallback(address, data);
+                // writeCallback will eventually call
+                // handleFailedCallback Sequencer::hitCallback
+            } else {
+                m_failedStorePkt = pkt;
+                updateReissueTime(address);
+                makeRequest(pkt);
+            }
+        } else { // No stores aliased with this RMW_Read
+
+            // NOTE: RMW_Read are handled as stores by the protocol)
+            // but must be retried following the "load path" if no
+            // coalesced stores exist, since the memory request may
+            // come from a speculative instruction subject to
+            // squashing (do not retry indefinitely)
+            assert(isRMWRead);
+            // Remove reqs from Sequencer
+            Sequencer::writeCallback(address, data);
         }
     } else {
         Sequencer::readCallback(address, data);
@@ -307,6 +323,45 @@ TransactionalSequencer::failedCallback(Addr address,
     m_failedCallback = false;
 }
 
+void
+TransactionalSequencer::updateReissueTime(Addr address)
+{
+    auto &seq_req_list = m_RequestTable[address];
+
+    // Set reissue time for all requests aliased on this write, used
+    // to keep track of failed requests and prevent deadlock event
+    for (auto it=seq_req_list.begin();
+         it != seq_req_list.end(); ++it) {
+        (*it).reissue_time = curCycle();
+    }
+    // After reissue_time updated, check if there is a load aliased
+    // with this store, which may have arrived at LSQ head by now (but
+    // at LSQ head when sent from the CPU). For now, conservatively
+    // consider a load as being at LSQ head if all outstanding
+    // requests are being reissued
+    if ((seq_req_list.size() > 1) &&
+        getNumReissuedRequests() == m_RequestTable.size()) {
+        for (auto it=seq_req_list.begin();
+             it != seq_req_list.end(); ++it) {
+            if ((*it).pkt->isRead()) {
+                (*it).pkt->setAtLSQHead(true);
+                checkForStall((*it).pkt);
+            }
+        }
+    }
+}
+
+int
+TransactionalSequencer::getNumReissuedRequests() const
+{
+    int count = 0;
+    for (const auto &table_entry : m_RequestTable) {
+        if (table_entry.second.front().reissue_time != Cycles(0)) {
+            ++count;
+        }
+    }
+    return count;
+}
 void
 TransactionalSequencer::rubyHtmCallback(PacketPtr pkt)
 {
@@ -671,6 +726,32 @@ TransactionalSequencer::failedCallbackCleanup(PacketPtr pkt)
 }
 
 void
+TransactionalSequencer::checkForStall(PacketPtr pkt)
+{
+    if (pkt->isAtLSQHead() &&
+        !m_xact_mgr->isAborting() &&
+        !m_stalled &&
+        (!pkt->isHtmTransactional() ||
+         m_lastAbortHtmUid != pkt->getHtmTransactionUid())) {
+        // Enter stall
+        m_stalled = true;
+        assert(m_lastStateBeforeStall == AnnotatedRegion_INVALID);
+        m_lastStateBeforeStall = m_ruby_system->getProfiler()->
+            getXactProfiler()->getCurrentRegion(m_version);
+        Addr address = makeLineAddress(pkt->getAddr());
+        DPRINTF(RubyHTM,
+                "Stalled (nacked) thread after failing to perform"
+                " access to block addr %#x\n", address);
+        m_ruby_system->getProfiler()->
+            getXactProfiler()->moveTo(m_version,
+                                      pkt->isHtmTransactional() ?
+                                      AnnotatedRegion_STALLED :
+                                      AnnotatedRegion_STALLED_NONTRANS);
+    }
+}
+
+
+void
 TransactionalSequencer::handleFailedCallback(SequencerRequest* srequest)
 {
     PacketPtr pkt = srequest->pkt;
@@ -717,25 +798,7 @@ TransactionalSequencer::handleFailedCallback(SequencerRequest* srequest)
     // Skip all the following actions and do not call
     // Sequencer::hitCallback
     pkt->setHtmFailedCacheAccess(true);
-    if (pkt->isAtLSQHead() &&
-        !m_xact_mgr->isAborting() &&
-        !m_stalled &&
-        (!pkt->isHtmTransactional() ||
-         m_lastAbortHtmUid != pkt->getHtmTransactionUid())) {
-        m_stalled = true;
-        assert(m_lastStateBeforeStall == AnnotatedRegion_INVALID);
-        m_lastStateBeforeStall = m_ruby_system->getProfiler()->
-            getXactProfiler()->getCurrentRegion(m_version);
-        Addr address = makeLineAddress(pkt->getAddr());
-        DPRINTF(RubyHTM,
-                "Stalled (nacked) thread after failing to perform"
-                " access to block addr %#x\n", address);
-        m_ruby_system->getProfiler()->
-            getXactProfiler()->moveTo(m_version,
-                                      pkt->isHtmTransactional() ?
-                                      AnnotatedRegion_STALLED :
-                                      AnnotatedRegion_STALLED_NONTRANS);
-    }
+    checkForStall(pkt);
     ruby_hit_callback(pkt);
     failedCallbackCleanup(pkt);
     testDrainComplete();

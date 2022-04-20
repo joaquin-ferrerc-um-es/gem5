@@ -1,0 +1,93 @@
+#!/bin/bash
+
+SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+SCRIPT_COMMAND="$0"
+set -o nounset
+set -o pipefail
+set -o errexit
+trap 'echo "$SCRIPT_COMMAND: error $? at line $LINENO"' ERR
+
+if [[ "$#" = 1 && "$1" = "-q" ]] ; then
+    GEN_SCRIPT_CMD="$SCRIPT_DIR/../gen-scripts.py -q" 
+elif [[ "$#" = 0 ]] ; then
+    GEN_SCRIPT_CMD="$SCRIPT_DIR/../gen-scripts.py"
+else
+    echo "Only argument supported is -q to enqueue."
+    exit 1
+fi
+
+# TODO: check SIMPLE_BARRIER = 1 in stamp common/Defines.common.mk
+
+# to change this (or anything else) one has to change the config.py files too
+OUTPUT_DIR="$(realpath "$SCRIPT_DIR/../../../results/teaser/")"
+
+[ -e "$OUTPUT_DIR" ] && {
+    echo "Output directory «$OUTPUT_DIR» already exists."
+    exit 1;
+}
+
+# gen-scripts does weird things if the current directory is not right
+cd "$SCRIPT_DIR/.."
+
+[ -e "config.py" ] && {
+    mv "config.py" "config.py.bak"
+    echo $'\e[31m'"Warning"$'\e[0m'": Current «gem5_path/scripts/config.py» moved to «gem5_path/scripts/config.py.bak»."
+}
+
+# simulations with 1 thread, locks
+sed -e '/\# @@@@ VARYING PART @@@@/r '"$SCRIPT_DIR"'/config-1.part.py' < "$SCRIPT_DIR/config-common.py" > config.py
+$GEN_SCRIPT_CMD
+
+# simulations with 1 thread
+sed -e '/\# @@@@ VARYING PART @@@@/r '"$SCRIPT_DIR"'/config-2.part.py' < "$SCRIPT_DIR/config-common.py" > config.py
+$GEN_SCRIPT_CMD
+
+# simulations with 16 threads
+sed -e '/\# @@@@ VARYING PART @@@@/r '"$SCRIPT_DIR"'/config-3.part.py' < "$SCRIPT_DIR/config-common.py" > config.py
+$GEN_SCRIPT_CMD
+
+rm "$SCRIPT_DIR/../config.py"
+
+cd "$OUTPUT_DIR"
+
+# Find the output directory name chosen by gen-scripts, which literally depends on the day that the script is run…
+GS_OUT_PREFIX="$(cd all/1/ ; echo *_27)"
+COMMON_DIRS="$GS_OUT_PREFIX/X86/DerivO3CPU/MESI_Three_Level_HTM_umu"
+mkdir -p per_plot/{1..8}
+
+# locks no htm (cfg0\_locks) VS HTM base (htm.cfg1_base)
+ln -s "../../all/1/$COMMON_DIRS/LV_ED_CRrw_Rtry6_Bkoff_/" per_plot/1/cfg0_locks
+ln -s "../../all/2/$COMMON_DIRS/LV_ED_CRrw_Rtry6_Bkoff_/" per_plot/1/cfg1_base
+
+# HTM base vs prefault
+ln -s "../../all/3/$COMMON_DIRS/LV_ED_CRrw_Rtry6_Bkoff_/" per_plot/2/cfg1_base
+ln -s "../../all/3/$COMMON_DIRS/LV_ED_CRrw_Rtry6_Bkoff_Pflt_/" per_plot/2/cfg1_pf
+
+# Prefault vs l0rsetevict vs l2rsetevict vs l2rsetevict
+ln -s "../../all/2/$COMMON_DIRS/LV_ED_CRrw_Rtry6_Bkoff_Pflt_/" per_plot/3/cfg1_pf
+ln -s "../../all/2/$COMMON_DIRS/LV_ED_CRrw_RSL0Ev_Rtry6_Bkoff_Pflt_/" per_plot/3/cfg2_l0rsetevict
+ln -s "../../all/2/$COMMON_DIRS/LV_ED_CRrw_RSL0Ev_RSL1Ev_Rtry6_Bkoff_Pflt_/" per_plot/3/cfg2_l1rsetevict
+ln -s "../../all/2/$COMMON_DIRS/LV_ED_CRrw_RSL0Ev_RSL1Ev_RSL2Ev_Rtry6_Bkoff_Pflt_/" per_plot/3/cfg2_l2rsetevict
+
+# l1rsetevict vs l0xactreplac
+ln -s "../../all/2/$COMMON_DIRS/LV_ED_CRrw_RSL0Ev_RSL1Ev_Rtry6_Bkoff_Pflt_/" per_plot/4/cfg2_l1rsetevict
+ln -s "../../all/2/$COMMON_DIRS/LV_ED_CRrw_RSL0Ev_RSL1Ev_L0Repl_Rtry6_Bkoff_Pflt_/" per_plot/4/cfg3_l0xactreplac
+
+# l0xactreplac vs cdab64 vs cdah64
+ln -s "../../all/3/$COMMON_DIRS/LV_ED_CRrw_RSL0Ev_RSL1Ev_L0Repl_Rtry6_Bkoff_Pflt_/" per_plot/5/cfg4_base
+ln -s "../../all/3/$COMMON_DIRS/LV_ED_CRcdab_RSL0Ev_RSL1Ev_L0Repl_Rtry64_Bkoff_Pflt_/" per_plot/5/cfg4_cdab64
+ln -s "../../all/3/$COMMON_DIRS/LV_ED_CRcdah_RSL0Ev_RSL1Ev_L0Repl_Rtry64_Bkoff_Pflt_/" per_plot/5/cfg4_cdah64
+
+#  cdah64 vs precrset_rldstale
+ln -s "../../all/3/$COMMON_DIRS/LV_ED_CRcdah_RSL0Ev_RSL1Ev_L0Repl_Rtry64_Bkoff_Pflt_/" per_plot/6/cfg4_cdah64
+ln -s "../../all/3/$COMMON_DIRS/LV_ED_CRcdah_RSL0Ev_RSL1Ev_RSPrec_L0Repl_RldStale_Rtry64_Bkoff_Pflt_" per_plot/6/cfg5_precrset_rldstale
+
+#  precrset_rldstale vs lazy detection
+ln -s "../../all/3/$COMMON_DIRS/LV_ED_CRcdah_RSL0Ev_RSL1Ev_RSPrec_L0Repl_RldStale_Rtry64_Bkoff_Pflt_" per_plot/7/cfg5_precrset_rldstale
+ln -s "../../all/3/$COMMON_DIRS/LV_CRcw_LArbtkn_RSL0Ev_RSL1Ev_L0Repl_Rtry64_Bkoff_Pflt_" per_plot/7/cfg6_lazycd
+
+# htm.cfg1\_base VS cfg5\_precrset\_rldstale VS htm.cfg6\_lazycd (lazy detection, lazy versioning) VS logtm (ee, casi totalmente virtualizado)
+ln -s "../../all/2/$COMMON_DIRS/LV_ED_CRrw_Rtry6_Bkoff_/" per_plot/8/cfg1_base
+ln -s "../../all/3/$COMMON_DIRS/LV_ED_CRcdah_RSL0Ev_RSL1Ev_RSPrec_L0Repl_RldStale_Rtry64_Bkoff_Pflt_" per_plot/8/cfg5_precrset_rldstale
+ln -s "../../all/3/$COMMON_DIRS/LV_CRcw_LArbtkn_RSL0Ev_RSL1Ev_L0Repl_Rtry64_Bkoff_Pflt_" per_plot/8/cfg6_lazycd
+ln -s "../../all/3/$COMMON_DIRS/ED_CRcdah_RSL0Ev_RSL1Ev_WSL0Ev_WSL1Ev_RSL2Ev_WSL2Ev_RSPrec_L0Repl_RldStale_Rtry64_Bkoff_Pflt_" per_plot/8/ee

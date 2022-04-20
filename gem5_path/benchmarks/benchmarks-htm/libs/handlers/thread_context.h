@@ -15,9 +15,15 @@ typedef struct {
     int threadId;
     int inSimulator; // Local copy in same block as inFF
 } context_info_t;
+
+typedef struct {
+    unsigned long z, w, jsr, jcong;
+} rand_t;
+
 typedef struct {
     context_info_t info;
-    char padding[CACHE_LINE_SIZE_BYTES - sizeof(context_info_t)];
+    rand_t rand;
+    char padding[2*CACHE_LINE_SIZE_BYTES - sizeof(context_info_t)  - sizeof(rand_t)];
 } _tm_thread_context_t;
 
 _tm_thread_context_t * initThreadContexts(int numThreads, int inSimulator);

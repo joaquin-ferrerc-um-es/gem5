@@ -7,98 +7,8 @@ gem5root  = os.path.abspath(os.path.dirname(os.path.realpath(__file__)) + '/../.
 gem5path_dirname = 'gem5_path'
 gem5path = os.path.join(gem5root, gem5path_dirname)
 
-# System List [HTM system options, cache options]
-system_list = []
+# @@@@ VARYING PART @@@@
 
-#####################################################################
-##  Target Systems - Configuration
-#####################################################################
-
-# Baseline
-'''
-#01: base-vs-pf 1thread
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_base, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_pf, caches.cache_baseline])
-'''
-
-'''
-#02: base+pf (cfg2) vs l0/l1/l2evict 1thread
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg2_base, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg2_l0rsetevict, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg2_l1rsetevict, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg2_l2rsetevict, caches.cache_baseline])
-'''
-
-'''
-#03: base+pf+l1rsetevict (cfg3) vs htmrepl
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg3_base, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg3_l0xactreplac, caches.cache_baseline])
-'''
-
-'''
-#04: base+pf+l1rsetevict+l0xactreplac (cfg4) vs conf-res policy
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg4_base, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg4_cdab64, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg4_cdah64, caches.cache_baseline])
-'''
-'''
-#05: base+pf+l1rsetevict+l0xactreplac+cdah (cfg5) vs precise read set
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg5_base, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg5_precrset_rldstale, caches.cache_baseline])
-'''
-'''
-#06: base+pf+l1rsetevict+l0xactreplac+cdah+precise+reload (cfg6) vs lazycd+token
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg6_base, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg6_lazycd, caches.cache_baseline])
-'''
-'''
-#07: base+pf+l1rsetevict+l0xactreplac+lazycd+token arb (cfg7) vs magic arb
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg7_base, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg7_magic, caches.cache_baseline])
-'''
-
-#08: baseline vs el vs ll vs ee
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg8_base, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg8_el, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg8_ll, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg8_ee, caches.cache_baseline])
-
-
-'''
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg2_l0xactreplac, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg2_l0rsetevict_l0xactreplac, caches.cache_baseline])
-
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm, caches.cache_baseline])
-
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf_dwng, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf_dwng_lazycd_magic_cw, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf_dwng_lazycd_magic_rw, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf_dwng_lazycd_token_cw, caches.cache_baseline])
-
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf_dwng_precise, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf_dwng_precise_reqstalls, caches.cache_baseline])
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l1rsetevict_pf_dwng_precise_reqstalls_retry64, caches.cache_baseline])
-
-system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l2rwsetevict_pf_dwng_precise_reqstalls_eagervm, caches.cache_baseline])
-'''
-
-'''
-
-'''
-processor_list = []
-
-#processor_list.append(64)
-#processor_list.append(32)
-processor_list.append(16)
-'''
-processor_list.append(16)
-processor_list.append(8)
-processor_list.append(4)
-processor_list.append(2)
-processor_list.append(1)
-'''
 
 detailed_simulation_cpu_model_list = []
 #detailed_simulation_cpu_model_list.append('TimingSimpleCPU')
@@ -123,7 +33,7 @@ simulation_list = []
 #############################################################
 # Simulation infrastructure options 
 #############################################################
-arch_name= "x86_64" # aarch64" # {aarch64,x86_64}"
+arch_name= "aarch64" # aarch64" # {aarch64,x86_64}"
 
 if arch_name == "x86_64":
     arch = "X86"
@@ -203,13 +113,14 @@ run_pdb = 0
 debug_flags = "" # "Exec,O3CPUAll,O3HTM,RubyHTM,ProtocolTrace"
 debug_time=0
 seq_no=27
-num_random_seeds=4 # 10 # Number of random seeds to simulate (when '-s' option passed to gen-scripts.py)
+num_random_seeds=10 # 10 # Number of random seeds to simulate (when '-s' option passed to gen-scripts.py)
 
 preload="" #"/benchmarks/benchmarks-htm/Splash-3/libhooks_chkpoint.so"
 
 simulation_tag="" # In order to tag simulations when applying patches
 
-results_subdir="teaser/08_ee_el_ll" # The subdirectory inside "gem5/results" for
+# ALready set in the varying part
+#results_subdir="teaser/all/1" # The subdirectory inside "gem5/results" for
                        # simulation scripts and results
 
 slurm_exclude_nodelist="" # "erc07" # In case a node is faulty (erc07)

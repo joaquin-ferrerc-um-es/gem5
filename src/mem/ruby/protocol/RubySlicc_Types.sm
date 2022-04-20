@@ -170,6 +170,7 @@ structure (TransactionInterfaceManager, external = "yes") {
   bool checkReadSignature(Addr);
   void xactReplacement(Addr, MachineID);
   void xactReplacement(Addr, MachineID, bool);
+  void xactReplacement(Addr, MachineID, bool, bool);
 
   void notifyMissCompleted(bool, bool);
   void notifyReceiveNack(Addr, Cycles, MachineID);
@@ -181,10 +182,11 @@ structure (TransactionInterfaceManager, external = "yes") {
   bool config_allowWriteSetL2CacheEvictions();
   bool config_allowReadSetL1CacheEvictions();
   bool config_allowWriteSetL1CacheEvictions();
-  bool config_allowReadSetLowerLevelCacheEvictions();
-  bool config_allowWriteSetLowerLevelCacheEvictions();
+  bool config_allowReadSetL0CacheEvictions();
+  bool config_allowWriteSetL0CacheEvictions();
   bool config_preciseReadSetTracking();
   bool config_reloadIfStale();
+  int  config_reloadIfStaleMaxRetries();
 }
 
 structure(RubyRequest, desc="...", interface="Message", external="yes") {

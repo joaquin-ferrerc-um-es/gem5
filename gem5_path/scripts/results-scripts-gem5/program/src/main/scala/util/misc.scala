@@ -350,7 +350,7 @@ object misc {
     var cache = Map.empty[A, B]
     def apply(k: A): B = cache get k match {
       case Some(v) => v
-      case None    =>
+      case None =>
         val r = fn(k)
         cache += (k -> r)
         r
@@ -360,6 +360,7 @@ object misc {
   def Cache[A, B](fn: A => B) = new Cache(fn)
 
   import concurrent._
+
   class ConcurrentCache[A, B](fn: A => B)(implicit executor: ExecutionContext) extends (A => B) {
     sealed trait CacheEntry
     case class Ready(f: Future[B]) extends CacheEntry
@@ -373,8 +374,10 @@ object misc {
           case None => {
             val n = m + (k -> Busy)
             if (cache.compareAndSet(m, n)) {
-              val f = Future { fn(k) }
-              while ({
+              val f = Future {
+                fn(k)
+              }
+              while ( {
                 val m = cache.get
                 val n = m + (k -> Ready(f))
                 !cache.compareAndSet(m, n)

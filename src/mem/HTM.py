@@ -68,6 +68,9 @@ class HTM(ClockedObject):
     trans_aware_l0_replacements = Param.Bool(False,
         "Replacement policy always chooses non-transactional blocks"
         " over transactional blocks as candidates (L0 cache)")
+    trans_aware_l1_replacements = Param.Bool(False,
+        "Replacement policy always chooses non-transactional blocks"
+        " over transactional blocks as candidates (L1 cache)")
 
     # L0 downgrades from E/M to S when L1 receives remote
     # transactional GETS request (otherwise: invalidate L0 copy)
@@ -82,6 +85,8 @@ class HTM(ClockedObject):
     # load to the block
     reload_if_stale = Param.Bool(False, "Re-execute trans. loads that may"
     " have obtained stale data (False: abort transaction)")
+    reload_if_stale_max_retries = Param.Int(10, "Max number or reloads "
+    " before aborting the transaction (prevent livelocks)")
     delay_interrupts = Param.Bool(False, "Delay interrupts that occur "
     " during transaction until its end (False: abort transaction)")
 

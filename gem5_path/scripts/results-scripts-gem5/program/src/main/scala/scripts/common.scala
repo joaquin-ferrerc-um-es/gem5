@@ -93,7 +93,7 @@ package scripts {
   import scala.annotation.tailrec
 
   object Main extends App {
-    val scripts: Map[String, PlotScript with App] = Seq(NoPlots)
+    val scripts: Map[String, PlotScript with App] = Seq(NoPlots, Plots202203HuaweiFinal)
       .map {
         x => x.getClass.getName.replaceFirst("^scripts.", "").replaceFirst("\\$$", "") -> x
       } toMap

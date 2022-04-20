@@ -98,8 +98,7 @@ Profiler::Profiler(const RubySystemParams &p, RubySystem *rs)
     m_address_profiler_ptr->setHotLines(m_hot_lines);
     m_address_profiler_ptr->setAllInstructions(m_all_instructions);
     if (rs->getHTM() != nullptr) {
-        assert(p.protocol == "MESI_Two_Level_HTM_umu" ||
-               p.protocol == "MESI_Three_Level_HTM_umu");
+        assert(p.protocol == "MESI_Three_Level_HTM_umu");
         m_xact_profiler = rs->getHTM()->params().profiler;
         if (m_xact_profiler) {
             m_xact_profiler_ptr = new XactProfiler(rs);

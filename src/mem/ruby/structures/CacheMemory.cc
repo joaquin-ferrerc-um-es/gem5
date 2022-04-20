@@ -82,6 +82,7 @@ CacheMemory::CacheMemory(const Params &p)
     m_start_index_bit = p.start_index_bit;
     m_is_instruction_only_cache = p.is_icache;
     m_htm_aware_replacements = p.htm_aware_replacements;
+    m_htm_allowed_read_set_evictions = p.htm_allowed_read_set_evictions;
     m_resource_stalls = p.resourceStalls;
     m_block_size = p.block_size;  // may be 0 at this point. Updated in init()
     m_use_occupancy = dynamic_cast<replacement_policy::WeightedLRU*>(
@@ -349,7 +350,7 @@ CacheMemory::cacheProbe(Addr address) const
                      xact_mgr) {
                 Addr addr = m_cache[cacheSet][i]->m_Address;
                 if (xact_mgr->checkWriteSignature(addr) ||
-                    (!xact_mgr->config_allowReadSetLowerLevelCacheEvictions() &&
+                    (!m_htm_allowed_read_set_evictions &&
                      xact_mgr->checkReadSignature(addr))) {
                     // Exclude read-write set blocks from candidates
                     continue;

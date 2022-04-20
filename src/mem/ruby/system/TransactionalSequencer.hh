@@ -117,6 +117,9 @@ class TransactionalSequencer : public Sequencer
     bool interceptLogAccess(PacketPtr pkt);
     int numOutstandingWrites(Addr address);
     void suppressOutstandingRequests();
+    int getNumReissuedRequests() const;
+    void checkForStall(PacketPtr pkt);
+    void updateReissueTime(Addr addr);
 
     HTM * m_htm = NULL;
     TransactionInterfaceManager* m_xact_mgr = NULL;

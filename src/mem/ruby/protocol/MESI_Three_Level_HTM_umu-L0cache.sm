@@ -150,6 +150,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     // data arrives from L1 cache
     Data,               desc="Data for processor";
     Data_Exclusive,     desc="Data for processor";
+    Data_Stale_HtmReload, desc="Data for processor, but not for storage";
     Data_Stale,         desc="Data for processor, but not for storage";
     Data_Invalid,       desc="Data for processor, data is invalid, must refetch from mem";
 
@@ -192,7 +193,10 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     DataBlock DataBlk,                desc="Buffer for the data block";
     bool Dirty, default="false",   desc="data is dirty";
     int pendingAcks, default="0", desc="number of pending acks";
-  }
+    bool HtmFromTransaction, default="false", desc="is this a transactional load";
+    bool HtmReloadIfStale, default="false", desc="Allowed to reload upon Data_Stale";
+    int  HtmNumReloads, default="0", desc="Number of reloads upon Data_Stale";
+ }
 
   structure(TBETable, external="yes") {
     TBE lookup(Addr);
@@ -497,7 +501,12 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
         } else if(in_msg.Class == CoherenceClass:DATA) {
             trigger(Event:Data, in_msg.addr, cache_entry, tbe);
         } else if(in_msg.Class == CoherenceClass:STALE_DATA) {
-            trigger(Event:Data_Stale, in_msg.addr, cache_entry, tbe);
+            if (is_valid(tbe) && tbe.HtmReloadIfStale &&
+                !xact_mgr.isDoomed()) {
+                trigger(Event:Data_Stale_HtmReload, in_msg.addr, cache_entry, tbe);
+            } else {
+                trigger(Event:Data_Stale, in_msg.addr, cache_entry, tbe);
+            }
         } else if (in_msg.Class == CoherenceClass:ACK) {
             trigger(Event:Ack, in_msg.addr, cache_entry, tbe);
         } else if (in_msg.Class == CoherenceClass:NACK) {
@@ -524,7 +533,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
             } else if (xact_mgr.checkReadSignature(in_msg.addr)) {
                 if (xact_mgr.config_allowReadSetL1CacheEvictions()) {
                     // NOTE: This option shall not to be mixed up with
-                    // config_allowReadSetLowerLevelCacheEvictions(),
+                    // config_allowReadSetL0CacheEvictions(),
                     // which allows L0 to evict trans blocks.
                     trigger(Event:InvOwn_Rset, in_msg.addr, cache_entry, tbe);
                 } else {
@@ -727,7 +736,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
                   }
               }
               else if (xact_mgr.checkReadSignature(victimAddr)) {
-                  if (xact_mgr.config_allowReadSetLowerLevelCacheEvictions()) {
+                  if (xact_mgr.config_allowReadSetL0CacheEvictions()) {
                       // Eviction of speculatively read data: allowed, stay as sharer
                       trigger(Event:L0_Replacement_Rset, victimAddr,
                               getICacheEntry(victimAddr),
@@ -777,41 +786,30 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
               // Check to see if it is in the OTHER L0
               Entry Icache_entry := getICacheEntry(in_msg.LineAddress);
               if (is_valid(Icache_entry)) {
-                  if (xact_mgr.config_lazyVM()) {
-                      assert(!xact_mgr.checkWriteSignature(in_msg.LineAddress));
-                  }
-                  
-                  if (xact_mgr.checkReadSignature(in_msg.LineAddress) &&
-                      in_msg.Type == RubyRequestType:LD) {
-                      // Block in Icache but already in Rset: Avoid
-                      // replacement, serve this load from L1D
-                      // (unrealistic but uncommon case)
-                      trigger(mandatory_request_type_to_event(in_msg.Type,
-                                                              in_msg.LineAddress,
-                                                              in_msg.htmFromTransaction),
-                              in_msg.LineAddress,
-                              Icache_entry, TBEs[in_msg.LineAddress]);
-                  } else {
-                      if (xact_mgr.checkReadSignature(in_msg.LineAddress)) {
-                          // ST to block in Icache: not a capacity abort!
-                          xact_mgr.xactReplacement(in_msg.LineAddress, machineID);
-                          if (xact_mgr.config_lazyVM()) {
-                              assert(!xact_mgr.checkWriteSignature(in_msg.LineAddress));
-                          }
-                          if (!xact_mgr.config_allowReadSetLowerLevelCacheEvictions()) {
-                              assert(xact_mgr.isDoomed());
-                              // The block is in the wrong L0, put the request on the queue to the private L1
-                              // Make sure it has not been speculatively written while in the Icache,
-                              trigger(Event:L0_Replacement, in_msg.LineAddress,
-                                      Icache_entry, TBEs[in_msg.LineAddress]);
-                          } else {
-                              trigger(Event:L0_Replacement_Rset, in_msg.LineAddress,
-                                      Icache_entry, TBEs[in_msg.LineAddress]);
-                          }
-                      } else {
+                  // The block is in the wrong L0, put the request on the queue to the private L1
+
+                  // Thus it cannot be part of write set
+                  assert(!xact_mgr.checkWriteSignature(in_msg.LineAddress));
+                  // May be part of read set if L0 read-set evictions allowed
+                  if (xact_mgr.checkReadSignature(in_msg.LineAddress)) {
+                      // If in Rset and in instruction cache, either
+                      // using imprecise rsets (and this is the first
+                      // load) or evictions must be allowed
+                      assert(!xact_mgr.config_preciseReadSetTracking() ||
+                             xact_mgr.config_allowReadSetL0CacheEvictions());
+
+                      xact_mgr.xactReplacement(in_msg.LineAddress, machineID);
+                      if (!xact_mgr.config_allowReadSetL0CacheEvictions()) {
+                          assert(xact_mgr.isDoomed());
                           trigger(Event:L0_Replacement, in_msg.LineAddress,
                                   Icache_entry, TBEs[in_msg.LineAddress]);
+                      } else {
+                          trigger(Event:L0_Replacement_Rset, in_msg.LineAddress,
+                                  Icache_entry, TBEs[in_msg.LineAddress]);
                       }
+                  } else {
+                      trigger(Event:L0_Replacement, in_msg.LineAddress,
+                              Icache_entry, TBEs[in_msg.LineAddress]);
                   }
               }
 
@@ -845,7 +843,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
                     }
                 }
                 else if (xact_mgr.checkReadSignature(victimAddr)) {
-                    if (xact_mgr.config_allowReadSetLowerLevelCacheEvictions()) {
+                    if (xact_mgr.config_allowReadSetL0CacheEvictions()) {
                         // Eviction of speculatively read data: allowed, stay as sharer
                         trigger(Event:L0_Replacement_Rset, victimAddr,
                                 getDCacheEntry(victimAddr),
@@ -895,7 +893,41 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
         APPEND_TRANSITION_COMMENT(" TS: ");
         APPEND_TRANSITION_COMMENT(out_msg.Timestamp);
       }
+      if (in_msg.htmFromTransaction &&
+          xact_mgr.config_reloadIfStale() &&
+          !xact_mgr.checkReadSignature(address)) {
+          assert(is_valid(tbe));
+         tbe.HtmReloadIfStale := true;
+         tbe.HtmFromTransaction := true;
+      }
     }
+  }
+  // ACTIONS
+  action(irs_incTBEHtmNumReloads , "irs", desc="") {
+      if (tbe.HtmNumReloads < xact_mgr.config_reloadIfStaleMaxRetries()) {
+         tbe.HtmNumReloads := tbe.HtmNumReloads + 1;
+      } else { // Disable reload: next Data_Stale will abort this tx
+         tbe.HtmReloadIfStale := false;
+      }
+  }
+  // ACTIONS
+  action(ar_reissueGETS, "ar", desc="Issue GETS") {
+      assert(is_valid(tbe));
+      enqueue(requestNetwork_out, CoherenceMsg, Dcache.getTagLatency()) {
+        out_msg.addr := address;
+        out_msg.Class := CoherenceClass:GETS;
+        out_msg.Sender := machineID;
+        out_msg.Dest := createMachineID(MachineType:L1Cache, version);
+        DPRINTF(RubySlicc, "address: %#x, destination: %s\n",
+                address, out_msg.Dest);
+        out_msg.MessageSize := MessageSizeType:Control;
+        out_msg.AccessMode := RubyAccessMode:User;
+        out_msg.Transactional := true;
+        out_msg.Timestamp := xact_mgr.getOldestTimestamp();
+        APPEND_TRANSITION_COMMENT(" trans");
+        APPEND_TRANSITION_COMMENT(" TS: ");
+        APPEND_TRANSITION_COMMENT(out_msg.Timestamp);
+      }
   }
 
   action(b_issueGETX, "b", desc="Issue GETX") {
@@ -1341,47 +1373,34 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
   action(ars_sanityAllowReadSetLowerLevelCacheEvictions, "\ars", desc="") {
       assert(xact_mgr.checkReadSignature(address));
       if (!is_valid(cache_entry)) {
-          assert(xact_mgr.config_allowReadSetLowerLevelCacheEvictions());
+          assert(xact_mgr.config_allowReadSetL0CacheEvictions());
       } else { // Possible if a) refetching, b) not precise Rset tracking
-          assert(xact_mgr.config_allowReadSetLowerLevelCacheEvictions() ||
+          assert(xact_mgr.config_allowReadSetL0CacheEvictions() ||
                  !xact_mgr.config_preciseReadSetTracking());
       }
   }
 
   action(hsdt_handleStaleDataInTransactions, "\hftm^",
          desc="Fail transaction due to memory conflict") {
-      // Detect conflict on previously received invalidation via
-      // shouldNackStore, resolve by reloading/aborting depending on
-      // configuration option (precise_read_set && reload_if_stale)
+      // Either not using reload_if_stale (requires precise rsets) or
+      // too many reloads (potential livelock): Abort transaction.
+
+      // NOTE: the transaction will anyways abort because of
+      // forward_eviction_to_cpu (next action), which lets the CPU
+      // know that there was a conflict with an outstanding load in
+      // the LSQ. However, we want to classify the abort as "stale
+      // data", so call xactReplacement to set setAbortFlag passing as
+      // "source" an invalid machineID(L1Cache,NumL1Caches) to
+      // indicate "stale data".
       assert(xact_mgr.checkWriteSignature(address) == false);
-      if (shouldNackStore(address,
-                          // Pass an invalid machineID to distinguish this case
-                          createMachineID(MachineType:L1Cache,
-                                          intToID(machineCount(MachineType:L1Cache))),
-                          curCycle(),
-                          false, false)) {
-          // Requester stalls + not precise read sets
-          assert(xact_mgr.checkReadSignature(address));
-          assert(!xact_mgr.config_preciseReadSetTracking());
-          peek(messgeBuffer_in, CoherenceMsg) {
-              // Must abort this transaction since the block is already in
-              // the read set (reload if stale requires precise read sets)
-              xact_mgr.xactReplacement(address,
-                          createMachineID(MachineType:L1Cache,
-                                          intToID(machineCount(MachineType:L1Cache))));
-          }
+      assert(is_valid(tbe));
+      if (tbe.HtmFromTransaction) { // Transactional load
+          xact_mgr.xactReplacement(address,machineID,
+                                   false/*capacity*/,
+                                   true /*stale*/);
           DPRINTF(RubyHTM,
                   "Aborting transaction due to conflict on pending load addr=0x%lx\n",
                   address);
-      } else if (xact_mgr.checkReadSignature(address)) {
-          // Requester wins
-          assert(xact_mgr.isDoomed()); // set by shouldNackStore
-          DPRINTF(RubyHTM,
-                  "Aborting transaction due to conflict on pending load addr=0x%lx\n",
-                  address);
-      } else { // No conflict: L1 has handled the case where
-               // Data_Stale is discarded (precise read sets + reload
-               // if stale) as a nack, otherwise risk livelock
       }
   }
 
@@ -1710,6 +1729,12 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     kd_wakeUpDependents;
   }
 
+  transition(IS, Data_Stale_HtmReload) {
+    ar_reissueGETS;
+    irs_incTBEHtmNumReloads;
+    o_popIncomingResponseQueue;
+  }
+
   transition(Inst_IS, Data, S) {
     u_writeInstToCache;
     hx_ifetch_hit;
@@ -1910,7 +1935,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
   }
 
   // Invalidations on evicted transactional blocks are only possible
-  // if allowReadSetLowerLevelCacheEvictions enabled
+  // if allowReadSetL0CacheEvictions enabled
   transition({I,IS}, InvOwn_X) {
     ars_sanityAllowReadSetLowerLevelCacheEvictions;
     fn_sendInvNack;

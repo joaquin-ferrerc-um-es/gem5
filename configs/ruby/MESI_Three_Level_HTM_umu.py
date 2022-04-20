@@ -116,6 +116,8 @@ def create_system(options, full_system, system, dma_ports, bootmem,
                 assoc = options.l0d_assoc,
                 is_icache = False,
                 htm_aware_replacements = options.htm_trans_aware_l0_replacements,
+                htm_allowed_read_set_evictions = \
+                                options.htm_allow_read_set_l0_cache_evictions,
                 start_index_bit = block_size_bits,
                 replacement_policy = LRURP())
 
@@ -156,6 +158,10 @@ def create_system(options, full_system, system, dma_ports, bootmem,
 
             l1_cache = L1Cache(size = options.l1d_size,
                                assoc = options.l1d_assoc,
+                               htm_aware_replacements = \
+                               options.htm_trans_aware_l1_replacements,
+                               htm_allowed_read_set_evictions = \
+                               options.htm_allow_read_set_l1_cache_evictions,
                                start_index_bit = block_size_bits,
                                is_icache = False)
 

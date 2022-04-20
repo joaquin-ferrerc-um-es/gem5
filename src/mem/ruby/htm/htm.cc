@@ -19,7 +19,8 @@ namespace ruby
 {
 
 RubyHTM::RubyHTM(const Params &p)
-    : HTM(p)
+    : HTM(p),
+    rubyHTMStats(this)
 {
 }
 
@@ -110,6 +111,31 @@ RubyHTM::getLogNumEntries(int cpuId)
     return g_system_ptr->
         getTransactionInterfaceManager(cpuId)->
         getLogNumEntries();
+}
+
+RubyHTM::
+RubyHTMStats::RubyHTMStats(statistics::Group *parent)
+    : statistics::Group(parent),
+      ADD_STAT(cyclesInRegion, "")
+{
+
+    cyclesInRegion
+        .init(AnnotatedRegion_NUM)
+        .flags(statistics::pdf | statistics::total);
+
+    for (int i = 0; i < AnnotatedRegion_NUM; i++) {
+        cyclesInRegion
+            .subname(i,
+                     AnnotatedRegion_to_string(AnnotatedRegion(i)))
+            .flags(statistics::nozero)
+            ;
+    }
+}
+
+void
+RubyHTM::profileRegion(AnnotatedRegion region, uint64_t cycles)
+{
+    rubyHTMStats.cyclesInRegion[region] += cycles;
 }
 
 } // namespace ruby

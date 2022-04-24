@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from gem5_run import gem5_root, get_configs, error, known_options, mix_configs, Vary
-from gem5_config_utils import config_list_options, print_config
+from gem5_run import gem5_root, get_configs, error, known_options, mix_configs, Derived, Vary, update
+from gem5_config_utils import config_list_options, print_config, snapshot_binary
 import options
 
 import os
@@ -27,6 +27,13 @@ def check_duplicate_outputs(configs):
         if len(m[i]) != 1:
             print_config(mix_configs(m[i]))
             error(f"Duplicate output_directory: {options.output_directory(m[i][0])}")
+
+def snapshot_binaries_config(conf):
+    return update(conf, {
+        options.gem5_exec_path_original: options.gem5_exec_path(conf),
+        options.gem5_exec_path: Derived(lambda c: snapshot_binary(options.gem5_exec_path_original(c),
+                                                                  options.gem5_exec_snapshots_dir(c))),
+    })
 
 def gen_scripts(c):
     # TODO: copy binary with timestamp
@@ -72,6 +79,7 @@ def enqueue(c):
 
 def parse_args(argsp = argparse.ArgumentParser()):
     argsp.add_argument("--enqueue", action="store_true", help="Submit scripts to SLURM")
+    argsp.add_argument("--no-snapshot-binaries", action="store_true", help="Create snapshots of gem5_exec_path binaries")
     argsp.add_argument("--list", action="store_true", help="List configs instead of generating scripts")
     argsp.add_argument("--list-mixed", action="store_true", help="List all configs mixed in one using Vary values, instead of generating scripts")
     argsp.add_argument("--config-file", type=str, default=os.path.join(gem5_root, "gem5_path/scripts/run-scripts/config.py"), help="Config file")
@@ -106,9 +114,13 @@ if args.list_mixed:
 
 if not (args.list or args.list_mixed):
     check_duplicate_outputs(configs)
-    for c in get_configs():
+
+    if not args.no_snapshot_binaries:
+        configs = [snapshot_binaries_config(c) for c in configs]
+    
+    for c in configs:
         gen_scripts(c)
     if args.enqueue:
-        for c in get_configs():
+        for c in configs:
             enqueue(c)
 

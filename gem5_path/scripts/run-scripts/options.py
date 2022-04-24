@@ -77,6 +77,13 @@ Option("launchscript_template_filename", str, # unnecesary
 Option("gem5_exec_path", str,
        gem5_option = None,
        siminfo_exclude = True)
+Option("gem5_exec_path_original", str,
+       gem5_option = None,
+       siminfo_exclude = True)
+Option("gem5_exec_snapshots_dir", str,
+       gem5_option = None,
+       runscript_option = "omit",
+       siminfo_exclude = True)
 Option("m5_path", str,
        gem5_option = None,
        runscript_option = "export:M5_PATH",

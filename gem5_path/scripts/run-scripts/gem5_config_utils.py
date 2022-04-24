@@ -3,6 +3,7 @@
 
 import os
 import subprocess
+import shutil
 from gem5_run import gem5_root, known_options
 import options as opt
 
@@ -59,6 +60,7 @@ def config_from_tasks_gem5(s):
 
 cache_git_revisions = {}
 def get_git_revision(conf):
+    global cache_git_revisions
     r = gem5_root # TODO: should use conf
     if not r in cache_git_revisions:
         cache_git_revisions[r] = subprocess.check_output(['git', 'describe', '--dirty', '--always', '--tags'],
@@ -66,3 +68,20 @@ def get_git_revision(conf):
                                                          stderr = subprocess.DEVNULL,
                                                          encoding = "UTF-8").strip()
     return cache_git_revisions[r]
+
+def file_hash(f):
+    return subprocess.check_output(['sha1sum', f],
+                                   stderr = subprocess.DEVNULL,
+                                   encoding = "UTF-8").strip().split(' ')[0]
+
+snapshot_binary_cache = {}
+def snapshot_binary(binary, snapshot_directory):
+    global snapshot_binary_cache
+    if not binary in snapshot_binary_cache:
+        snap = os.path.join(snapshot_directory, file_hash(binary))
+        if not os.path.exists(snap): # don't overwrite if already copied by a previous execution of the script
+            if not os.path.exists(os.path.dirname(snap)):
+                os.makedirs(os.path.dirname(snap))
+            shutil.copy2(binary, snap)
+        snapshot_binary_cache[binary] = snap
+    return snapshot_binary_cache[binary]

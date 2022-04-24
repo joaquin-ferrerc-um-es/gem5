@@ -89,6 +89,7 @@ base = {
     checkpoint_init_subdir: "ckpt",
     checkpoint_init_reuse_root_dir: Derived(lambda c: os.path.join(gem5_root, "gem5_path", arch(c), "checkpoints", "init")),
     checkpoint_init_reuse: True,
+    gem5_exec_snapshots_dir: Derived(lambda c: os.path.join(gem5_root, "gem5_path", "tmp-bin")),
 }
 
 # Cache config templates

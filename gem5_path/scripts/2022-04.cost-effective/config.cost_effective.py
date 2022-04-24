@@ -36,7 +36,10 @@ configs_update({
                                              "ssca2"]))),
 
     random_seed: Vary(*range(10)),
-
-    output_directory_sub: "cost-effective",
 })
+
+import os
+output_dir = os.getenv("OUTPUT_DIR")
+if output_dir != None and output_dir != "":
+    configs_update({ output_directory_base: output_dir })
 

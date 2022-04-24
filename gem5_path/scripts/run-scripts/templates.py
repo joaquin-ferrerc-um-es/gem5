@@ -17,9 +17,10 @@ base = {
 
     output_directory_root: Derived(lambda c: os.path.join(gem5_root_option(c), "results")),
     output_directory_sub: Derived(lambda c: get_default_output_subdirectory(output_directory_root(c))),
+    output_directory_base: Derived(lambda c: os.path.join(output_directory_root(c), output_directory_sub(c))),
     config_description: Derived(config_describe),
     config_description_abbrev: Derived(config_describe_abbrev),
-    output_directory: Derived(lambda c: os.path.join(output_directory_root(c), output_directory_sub(c), config_description(c))),
+    output_directory: Derived(lambda c: os.path.join(output_directory_base(c), config_description(c))),
 
     gem5_exec_path: Derived(lambda c: os.path.join(gem5_root, config_from_tasks_gem5(f"$(get_gem5_binary {arch(c)} {protocol(c)} {build_type(c)})"))),
     m5_path: Derived(lambda c: os.path.join(gem5_root, "gem5_path", arch(c))),

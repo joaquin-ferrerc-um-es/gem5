@@ -22,10 +22,10 @@ fi
 
 # TODO: check SIMPLE_BARRIER = 1 in stamp common/Defines.common.mk
 
-# to change this one has to change config.cost_effective.py too (FIXME)
-OUTPUT_DIR="$(realpath "$SCRIPT_DIR/../../../results/cost-effective/")"
+# This environment variable is used by $CONFIG_FILE
+#export OUTPUT_DIR="$(realpath "$SCRIPT_DIR/../../../results/cost-effective/")"
 
-[ -e "$OUTPUT_DIR" ] && {
+[[ -n "${OUTPUT_DIR:-}" && -e "$OUTPUT_DIR" ]] && {
     echo "Output directory «$OUTPUT_DIR» already exists."
     exit 1;
 }

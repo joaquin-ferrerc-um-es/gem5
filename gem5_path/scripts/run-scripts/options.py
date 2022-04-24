@@ -37,6 +37,10 @@ Option("output_directory_sub", str,
        gem5_option = None,
        runscript_option = "omit",
        siminfo_exclude = True)
+Option("output_directory_base", str,
+       gem5_option = None,
+       runscript_option = "omit",
+       siminfo_exclude = True)
 Option("config_description", str,
        gem5_option = None,
        runscript_option = "omit",

@@ -28,6 +28,8 @@ configs_update({
     build_type: "opt", # Set binary_type (the dafult comes from tasks-gem5 and may include several values using Vary)
     htm_visualizer: False,
 
+    disable_transparent_hugepages: True,
+
     benchmark: Vary(*(get_benchmarks(suite = "stamp", size = "small",
                                      name = ["vacation-h",
                                              "kmeans-h",

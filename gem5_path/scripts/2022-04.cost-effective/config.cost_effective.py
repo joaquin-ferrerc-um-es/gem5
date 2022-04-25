@@ -43,5 +43,5 @@ configs_update({
 import os
 output_dir = os.getenv("OUTPUT_DIR")
 if output_dir != None and output_dir != "":
-    configs_update({ output_directory_base: output_dir })
+    configs_update({ output_directory_base: os.path.realpath(output_dir) })
 

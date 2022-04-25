@@ -68,9 +68,9 @@ void handleHeapPrefault(int threadId) {
   }
 }
 
-void doBackoff(int nretries, rand_t *rand) {
+void doBackoff(int nretries, _tm_thread_context_t *ctx) {
     simBackoffBegin();
-    randomized_backoff(nretries, rand);
+    randomized_backoff(nretries, ctx);
     simBackoffEnd();
 }
 
@@ -163,7 +163,7 @@ void beginTransaction_fallbackLock(long tag,
         while (spinlock_prefb_isLocked())_mm_pause();
 #endif
         if (useBackoff()) {
-            doBackoff(nretries, &ctx->rand);
+            doBackoff(nretries, ctx);
         }
     } while (retryWithLock == 0);
 

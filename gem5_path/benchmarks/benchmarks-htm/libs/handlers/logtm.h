@@ -3,7 +3,6 @@
 
 #include <assert.h>
 #include <stdint.h>
-#include "thread_context.h"
 
 #define LOG_PAGE_SIZE_BYTES (4096L)
 #define LOG_CACHE_BLOCK_SIZE 64
@@ -63,7 +62,7 @@ that page: "data" log grows from the log bottom towards the log top, while
 
 void init_random_gen(void *thread_contexts);
 void init_log(void *thread_contexts);
-long randomized_backoff(unsigned long num_retries, rand_t *rand);
+long randomized_backoff(unsigned long num_retries, void *thread_contexts);
 
 /* Magic number used for sanity checks to signal completion of log unroll to simulator */
 #define LOG_UNROLL_END_SIGNAL (0xDEADC0DEBAADCAFE)

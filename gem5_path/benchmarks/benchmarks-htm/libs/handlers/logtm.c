@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "logtm.h"
+#include "thread_context.h"
 
 #define _unused(x) ((void)(x))
 
@@ -41,7 +42,9 @@ unsigned long compute_backoff(unsigned long num_retries){
     return backoff;
 }
 
-long randomized_backoff(unsigned long num_retries, rand_t *rand){
+long randomized_backoff(unsigned long num_retries, void *_thread_contexts){
+    _tm_thread_context_t *thread_contexts = (_tm_thread_context_t *)_thread_contexts;
+    rand_t *rand = &thread_contexts->rand;
     volatile long a[32];
     volatile long b;
     long j;

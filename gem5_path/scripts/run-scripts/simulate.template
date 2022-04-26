@@ -15,7 +15,7 @@ LOCKSTEP_MODE=0
 ### Lockstep mode configuration
 LOCKSTEP_USE_XTERM=0
 # Set common/varying HTM config options here
-LOCKSTEP_COMMON_OPTIONS_STRING="${GEM5_OPTIONS[@]}"
+LOCKSTEP_COMMON_OPTIONS_STRING="${GEM5_OPTIONS_DETAILED[@]}"
 LOCKSTEP_RECORD_HTM_OPTIONS_STRING+=""
 LOCKSTEP_REPLAY_HTM_OPTIONS_STRING+=""
 LOCKSTEP_RECORD_CACHE_OPTIONS_STRING+=""
@@ -85,8 +85,7 @@ sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'
     fi
 fi
 
-CHECKPOINT_BOOT_DIR="${checkpoint_boot_root_dir}/${num_processors}_cores"
-cd ${CHECKPOINT_BOOT_DIR}
+cd "${checkpoint_boot_dir}"
 if [[ $(find . -name "cpt*" | wc -l) -ne 1 ]]
 then
     echo "Cannot locate boot checkpoint in: ${PWD}"
@@ -222,9 +221,7 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
         PROC_MAPS_STRING=" --proc-maps-file=${output_directory}/${proc_maps_file}"
         #EXTRA_ARGS+="${PROC_MAPS_STRING}"
 	
-	EXTRA_ARGS+=" --mem-type=${memory_type}"
-	EXTRA_ARGS+=" --network=${network_model}"
-	EXTRA_ARGS+=" ${GEM5_OPTIONS[@]}"
+	EXTRA_ARGS+=" ${GEM5_OPTIONS_DETAILED[@]}"
 	EXTRA_ARGS+=" ${extra_detailed_args}"
 
         FALLBACK_LOCK_FILE="${output_directory}/${htm_fallback_lock_filename}"
@@ -260,14 +257,9 @@ for CHECKPOINT_RESTORE_NUM in ${CPT_NUMS} ; do
     ###############
     GEM5_COMMAND_ARGS="\
         ${arch_specific_opts} \
-        --num-cpus=${num_processors} \
-        --mem-size=${memory_size} \
+        ${GEM5_OPTIONS_GENERAL[@]} \
         --checkpoint-dir=${CHECKPOINT_DIR} \
         -r ${CHECKPOINT_RESTORE_NUM} \
-        --kernel=${kernel_binary} \
-        ${bootloader:+"--bootloader=$bootloader"} \
-        --disk-image=${os_disk_image} \
-        --root-device=${root_device} \
         --disk-image=${benchmarks_disk_image} \
         ${EXTRA_ARGS}"
     if [[ $LOCKSTEP_MODE == 0 || ${CHECKPOINT_RESTORE_NUM} != 2 ]]

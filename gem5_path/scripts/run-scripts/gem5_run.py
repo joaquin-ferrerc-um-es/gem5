@@ -20,6 +20,7 @@ known_options = []
 class Option:
     def __init__(self, name, tipe,
                  gem5_option = "%same_s/_/-/g",
+                 gem5_option_use = "detailed", # one of "no", "general", "detailed", to use the option in GEM5_OPTIONS_GENERAL or GEM5_OPTIONS_DETAILED
                  launchscript_option = "omit", # one of "omit", "export:VARNAME", "yes[:VARNAME]"
                  runscript_option = "yes_if_no_gem5_option", # one of "omit", "export:VARNAME", "export_formatted:FORMAT:VARNAME", "yes[:VARNAME]", "yes_if_no_gem5_option"
                  siminfo_exclude = False,
@@ -36,6 +37,11 @@ class Option:
         else:
             self.gem5_option = gem5_option
 
+        if gem5_option_use in ["no", "detailed", "general"]:
+            self.gem5_option_use = gem5_option_use
+        else:
+            assert False, "Invalid value for gem5_option_use: " + gem5_option_use
+            
         if launchscript_option == "omit":
             self.launchscript_option = "omit"
         elif launchscript_option.startswith("export:"):
@@ -52,7 +58,7 @@ class Option:
         elif runscript_option.startswith("export:"):
             self.runscript_option = runscript_option
         elif runscript_option == "yes_if_no_gem5_option":
-            if gem5_option == None:
+            if gem5_option_use == "no" or gem5_option == None:
                 self.runscript_option = "yes"
             else:
                 self.runscript_option = "omit"
@@ -130,8 +136,9 @@ class Option:
         else:
             assert False, "Invalid value for runscript_option"
 
-    def gem5_option_text_value(self, conf):
-        if self.gem5_option == None or self(conf) == None:
+    def gem5_option_text_value(self, conf, gem5_option_use):
+        if self.gem5_option == None or self(conf) == None \
+           or gem5_option_use != self.gem5_option_use:
             return ""
         else:
             if self.tipe == bool:

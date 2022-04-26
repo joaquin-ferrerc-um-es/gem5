@@ -61,7 +61,7 @@ base = {
                                           "aarch64": "system.terminal",
                                           "riscv": "TODO"}[arch(c)]),
     arch_specific_opts: Derived(lambda c: config_from_tasks_gem5(f"${{ARCH_EXTRA_OPTIONS[{arch(c)}]}}")),
-    checkpoint_boot_root_dir: Derived(lambda c: os.path.join(gem5_root, "gem5_path", arch(c), "checkpoints", "booted")),
+    checkpoint_boot_dir: Derived(lambda c: os.path.join(gem5_root, "gem5_path", arch(c), "checkpoints", "booted", f"{num_processors(c)}_cores")),
     
     network_model: "simple", # or 'garnet2.0'
     memory_type: "DDR3_1600_8x8", # or 'DDR3_200cycles'

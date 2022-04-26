@@ -56,8 +56,11 @@ def gen_scripts(c):
         with open(runscript_filename, "w") as runscript_file:
             template_text = runscript_template_file.read()
             variables_text = "".join([o.runscript_text_value(c) for o in config_list_options(c)]) + \
-                "GEM5_OPTIONS=(\n" + \
-                "\n".join([f"    '{otv}'" for otv in [o.gem5_option_text_value(c) for o in config_list_options(c)] if otv != ""]) + \
+                "GEM5_OPTIONS_DETAILED=(\n" + \
+                "\n".join([f"    '{otv}'" for otv in [o.gem5_option_text_value(c, "detailed") for o in config_list_options(c)] if otv != ""]) + \
+                ")\n" + \
+                "GEM5_OPTIONS_GENERAL=(\n" + \
+                "\n".join([f"    '{otv}'" for otv in [o.gem5_option_text_value(c, "general") for o in config_list_options(c)] if otv != ""]) + \
                 ")\n"
             runscript_file.write(template_text.replace("{{{variables}}}", variables_text))
         

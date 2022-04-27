@@ -65,7 +65,7 @@ private:
     std::vector< std::vector<uint64_t>  > m_currentXactCyclesPerRegion;
     AnnotatedRegion_t               m_currentWaitForRetryRegion;
 
-    XactVisualizer* m_visualizer;
+    XactVisualizer* m_visualizer = NULL;
     RubySystem* m_ruby_system;
 };
 

@@ -24,6 +24,7 @@ htm_precise_read_set_tracking  = HtmOption("htm_precise_read_set_tracking",     
 htm_trans_aware_l0_replacements= HtmOption("htm_trans_aware_l0_replacements",   "L0Repl",   "trans-aware-l0-replacements",       True,  True , True  )
 htm_allow_load_delaying        = HtmOption("htm_allow_load_delaying",           "LDelay",   "allow-load-delaying",               True,  True , True  )
 htm_reload_if_stale            = HtmOption("htm_reload_if_stale",               "RldStale", "reload-if-stale",                   True,  True , True  )
+htm_delay_interrupts           = HtmOption("htm_delay_interrupts",              "DlyInt",   "delay-interrupts",                  True,  True , True  )
 htm_l0_downgrade_on_l1_gets    = HtmOption("htm_l0_downgrade_on_l1_gets",       "DwnG",     "l0-downgrade-on-l1-gets",           True,  True , True  )
 htm_value_checker              = HtmOption("htm_value_checker",                 "ValChk",   "value-checker",                     True,  False, False )
 htm_isolation_checker          = HtmOption("htm_isolation_checker",             "IsolChk",  "isolation-checker",                 True,  False, False )
@@ -50,6 +51,7 @@ htm_config_options.append(htm_precise_read_set_tracking)
 htm_config_options.append(htm_trans_aware_l0_replacements)
 htm_config_options.append(htm_allow_load_delaying)
 htm_config_options.append(htm_reload_if_stale)
+htm_config_options.append(htm_delay_interrupts)
 htm_config_options.append(htm_l0_downgrade_on_l1_gets)
 htm_config_options.append(htm_value_checker)
 htm_config_options.append(htm_isolation_checker)
@@ -79,6 +81,7 @@ cfg0_locks[htm_precise_read_set_tracking]=False
 cfg0_locks[htm_trans_aware_l0_replacements]=False
 cfg0_locks[htm_allow_load_delaying]=False
 cfg0_locks[htm_reload_if_stale]=False
+cfg0_locks[htm_delay_interrupts]=False
 cfg0_locks[htm_l0_downgrade_on_l1_gets]=False
 cfg0_locks[htm_value_checker]=False
 cfg0_locks[htm_isolation_checker]=True
@@ -106,6 +109,7 @@ cfg1_base[htm_precise_read_set_tracking]=False
 cfg1_base[htm_trans_aware_l0_replacements]=False
 cfg1_base[htm_allow_load_delaying]=False
 cfg1_base[htm_reload_if_stale]=False
+cfg1_base[htm_delay_interrupts]=False
 cfg1_base[htm_l0_downgrade_on_l1_gets]=False
 cfg1_base[htm_value_checker]=False
 cfg1_base[htm_isolation_checker]=True
@@ -137,6 +141,9 @@ cfg3_l0xactreplac = collections.OrderedDict(cfg3_base)
 cfg3_l0xactreplac[htm_trans_aware_l0_replacements]=True
 
 cfg4_base = cfg3_l0xactreplac
+
+cfg4_delayint = collections.OrderedDict(cfg4_base)
+cfg4_delayint[htm_delay_interrupts]=True
 
 cfg4_cdab = collections.OrderedDict(cfg4_base)
 cfg4_cdab[htm_conflict_resolution]='requester_stalls_cda_base'

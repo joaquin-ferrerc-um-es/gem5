@@ -45,6 +45,8 @@ def setHTMOptions(htm, options):
         if (htm.reload_if_stale and not \
             htm.precise_read_set_tracking):
             m5.util.panic("reload-if-stale requires precise-read-set-tracking")
+    if options.htm_delay_interrupts != None:
+        htm.delay_interrupts = options.htm_delay_interrupts
     if options.htm_fallbacklock_addr != None:
         htm.fallbacklock_addr = options.htm_fallbacklock_addr
     if options.htm_value_checker != None:
@@ -124,6 +126,9 @@ def addHTMOptions(parser):
                       action="store_true", default=False,
                       help="Re-execute loads that may have obtained"
                       " stale data (observed conflicting inv)")
+    parser.add_argument("--htm-delay-interrupts",
+                      action="store_true", default=False,
+                      help="Delay interrupts that occur within transactions")
     parser.add_argument("--htm-fallbacklock-addr", action="store", default=None,
                       help="Address of the fallback lock (HTM)")
     parser.add_argument("--htm-value-checker", action="store_true", default=None,

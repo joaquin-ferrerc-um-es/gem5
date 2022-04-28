@@ -52,7 +52,7 @@ base = {
     # other
     gem5_root_option: gem5_root,
     kernel_binary: Derived(lambda c: os.path.join(gem5_root, config_from_tasks_gem5(f"$(get_kernel {arch(c)})"))),
-    bootloader: Derived(lambda c: "" if config_from_tasks_gem5(f"$(get_bootloader {arch(c)})") == "" else os.path.join(gem5_root, config_from_tasks_gem5(f"$(get_bootloader {arch(c)})"))),
+    bootloader: Derived(lambda c: None if config_from_tasks_gem5(f"$(get_bootloader {arch(c)})") == "" else os.path.join(gem5_root, config_from_tasks_gem5(f"$(get_bootloader {arch(c)})"))),
     
     root_device: Derived(lambda c: config_from_tasks_gem5(f"${{ARCH_ROOT_DEVICE[{arch(c)}]}}")),
     os_disk_image: Derived(lambda c: os.path.join(gem5_root, config_from_tasks_gem5(f"$(get_base_image {arch(c)})"))),

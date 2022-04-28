@@ -69,7 +69,7 @@ def gen_scripts(c):
 def enqueue(c):
 # TODO
 # --exclude nodes
-    if options.htm_visualizer(c) == False:
+    if options.htm_visualizer(c):
         print(f"WARNING: htm_visualizer enabled while enqueueing.")
     assert(options.run_gdb(c) == False)
     od = options.output_directory(c)

@@ -154,6 +154,7 @@ htm_cfg1_base = {
     htm_trans_aware_l0_replacements: False,
     htm_allow_load_delaying: False,
     htm_reload_if_stale: False,
+    htm_delay_interrupts: False,
     htm_l0_downgrade_on_l1_gets: False,
     htm_value_checker: False,
     htm_isolation_checker: True,

@@ -288,6 +288,8 @@ Option("htm_trans_aware_l0_replacements", bool,
        descr_abbrev = "L0Repl")
 Option("htm_reload_if_stale", bool,
        descr_abbrev = "RldStale")
+Option("htm_delay_interrupts", bool,
+       descr_abbrev = "DlyInt")
 Option("htm_l0_downgrade_on_l1_gets", bool,
        descr_abbrev = "DwnG")
 Option("htm_value_checker", bool,

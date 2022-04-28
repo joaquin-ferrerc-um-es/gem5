@@ -68,9 +68,7 @@ def gen_scripts(c):
 
 def enqueue(c):
 # TODO
-# --exclude               
-#if submit_mode:
-#  config.copy_gem5_binary_tmp_dir = 1 # Copy binary to tmp dir to prevent overwriting it
+# --exclude nodes
     assert(options.htm_visualizer(c) == False)
     assert(options.run_gdb(c) == False)
     od = options.output_directory(c)

@@ -106,10 +106,10 @@ object Gem5Properties {
   {
     val re_htm_controllers = s"l0_cntrl([0-9]*)".r
     Prop(Result, "htm_transaction_count_per_cpu", s => (s.stats / "system" / "ruby" /- re_htm_controllers).map {
-      case (ctrl, stats) => ctrl -> (stats / "xact_mgr" /+ "htm_transaction_cycles::samples").map(_.parseDouble).get
+      case (ctrl, stats) => ctrl -> (stats / "xact_mgr" /+ "htm_transaction_cycles::samples").map(_.parseDouble).getOrElse(0)
     }, mixer = mixers.mapMixer(mixers.samples), optional = true)
     Prop(Result, "htm_transaction_cycles_per_cpu", s => (s.stats / "system" / "ruby" /- re_htm_controllers).map {
-      case (ctrl, stats) => ctrl -> (stats / "xact_mgr" /+ "htm_transaction_cycles::mean").map(_.parseDouble).get
+      case (ctrl, stats) => ctrl -> (stats / "xact_mgr" /+ "htm_transaction_cycles::mean").map(_.parseDouble).getOrElse(0)
     }, mixer = mixers.mapMixer(mixers.samples), optional = true)
 
     Prop(Result, "htm_transaction_instructions", s => (s.stats / "system" / "ruby" / re_htm_controllers / "xact_mgr" /+ "htm_transaction_instructions::mean").map(_.parseDouble).average, mixer = mixers.samples, optional = true)

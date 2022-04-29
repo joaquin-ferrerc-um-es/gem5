@@ -142,7 +142,12 @@ class SimulationMix(val simulations: Iterable[Gem5DataPoint]) extends Gem5DataPo
       k -> {
         val values = simulations.map (_.properties get k)
         if (values.count(_.contains(Symbol("MissingProperty"))) == values.size) Symbol("MissingProperty")
-        else Gem5Properties.knownProperties(k).mixer(values)
+        else try Gem5Properties.knownProperties(k).mixer(values)
+        catch {
+          case e: Throwable =>
+            println(f"Error mixing $k:\n${simulations.map(s => s.properties.get(k).toString + "\t" + s.files.mkString(" ")).mkString("\n")}")
+            Symbol("MixingError")
+        }
       }
     })
   }

@@ -1,6 +1,13 @@
 #!/bin/bash
 ### @launchscript@ ###
 
+SCRIPT_COMMAND="$(basename "$0")"
+
+set -o nounset
+set -o pipefail
+set -o errexit
+trap 'echo "$SCRIPT_COMMAND: error $? at line $LINENO"' ERR
+
 {{{variables}}}
 
 export M5_SIMULATOR=1
@@ -21,6 +28,7 @@ sleep "${T:0:4}.${T:4:1}"
 
 cd "${benchmark_subdir}"
 
+echo Running: "./${benchmark_binary_filename_base}.${arch}${benchmark_binary_suffix}" ${benchmark_num_threads_option}${num_processors} ${benchmark_args_string}
 "./${benchmark_binary_filename_base}.${arch}${benchmark_binary_suffix}" ${benchmark_num_threads_option}${num_processors} ${benchmark_args_string}
 echo 'Launch script done ($?='"$?"'). Exiting simulation... (m5 exit)'
 

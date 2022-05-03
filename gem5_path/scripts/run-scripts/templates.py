@@ -74,7 +74,6 @@ base = {
     debug_start_tick: -1, # disabled
     debug_flags: "",
     build_type: Vary(*config_from_tasks_gem5("${ENABLED_BUILD_TYPES[@]}").split(" ")),
-    run_gdb: False,
     exit_at_roi_end: True,
     extra_detailed_args: "",
     proc_maps_file: "ckpt/proc_maps",

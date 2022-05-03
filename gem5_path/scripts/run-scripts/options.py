@@ -100,10 +100,6 @@ Option("debug_flags", str,
        gem5_option_use = "no")
 Option("build_type", str, # 'opt', 'fast', 'debug'
        gem5_option_use = "no")
-Option("run_gdb", bool,
-       gem5_option_use = "no")
-Option("run_pdb", bool,
-       gem5_option_use = "no")
 Option("exit_at_roi_end", bool,
        gem5_option_use = "no")
 Option("extra_detailed_args", str,

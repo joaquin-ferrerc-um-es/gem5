@@ -23,12 +23,12 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
   CoordFromProp("htm_eager_cd")
   CoordFromProp("htm_conflict_resolution", ordering = dynamicOrdering("requester_wins", "requester_stalls_cda_base", "requester_stalls_cda_hybrid"))
   CoordFromProp("htm_lazy_arbitration")
-  CoordFromProp("htm_allow_read_set_l0_evictions")
-  CoordFromProp("htm_allow_read_set_l1_evictions")
-  CoordFromProp("htm_allow_write_set_l0_evictions")
-  CoordFromProp("htm_allow_write_set_l1_evictions")
-  CoordFromProp("htm_allow_read_set_l2_evictions")
-  CoordFromProp("htm_allow_write_set_l2_evictions")
+  CoordFromProp("htm_allow_read_set_l0_cache_evictions")
+  CoordFromProp("htm_allow_read_set_l1_cache_evictions")
+  CoordFromProp("htm_allow_write_set_l0_cache_evictions")
+  CoordFromProp("htm_allow_write_set_l1_cache_evictions")
+  CoordFromProp("htm_allow_read_set_l2_cache_evictions")
+  CoordFromProp("htm_allow_write_set_l2_cache_evictions")
   CoordFromProp("htm_precise_read_set_tracking")
   CoordFromProp("htm_allow_load_delaying")
   CoordFromProp("htm_trans_aware_l0_replacements")
@@ -95,7 +95,7 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
   /* Project specific coordinates */
   Coord("config_huawei",
     s => (s("htm_binary_suffix"), s("htm_heap_prefault"),
-      s("htm_allow_read_set_l0_evictions"), s("htm_allow_read_set_l1_evictions"), s("htm_allow_read_set_l2_evictions"),
+      s("htm_allow_read_set_l0_cache_evictions"), s("htm_allow_read_set_l1_cache_evictions"), s("htm_allow_read_set_l2_cache_evictions"),
       s("htm_trans_aware_l0_replacements"),
       s("htm_lazy_vm"),
       s("htm_conflict_resolution"),

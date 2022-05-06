@@ -26,7 +26,7 @@ def check_duplicate_outputs(configs):
     for i in m:
         if len(m[i]) != 1:
             print_config(mix_configs(m[i]))
-            error(f"Duplicate output_directory: {options.output_directory(m[i][0])}")
+            error(f"Duplicate (${len(m[i])} times) output_directory: {options.output_directory(m[i][0])}")
 
 def snapshot_binaries_config(conf):
     return update(conf, {

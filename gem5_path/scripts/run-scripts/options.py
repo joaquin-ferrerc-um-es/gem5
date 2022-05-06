@@ -25,8 +25,7 @@ Option("cpu_model", str,
        gem5_option_use = "no",
        launchscript_option = "yes",
        descr_dir = "{value}")
-Option("num_processors", int,
-       gem5_option = "num-cpus",
+Option("num_cpus", int,
        gem5_option_use = "general",
        launchscript_option = "yes",
        descr_dir = "{value}p")

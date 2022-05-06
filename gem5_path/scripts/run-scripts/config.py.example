@@ -73,7 +73,7 @@ configs_update({
     # given to Value before generating the scripts or listing the
     # configurations. It is almost equivalent to using
     # configs_vary. In this case, vary the number of processors.
-    num_processors: Vary(1, 2, 4, 8, 16),
+    num_cpus: Vary(1, 2, 4, 8, 16),
 
     # Benchmarks are specified via the Benchmark class. The list of
     # available benchmarks is defined in benchmarks.py. A list of

@@ -8,20 +8,20 @@ import templates
 configs_set(templates.base)
 configs_update(templates.cache_baseline) 
 configs_vary(
-    update(templates.htm_cfg0_locks, { num_processors: 1 }),
-    update(templates.htm_cfg1_base, { num_processors: Vary(1, 16) }),
-    update(templates.htm_cfg1_pf, { num_processors: Vary(1, 16) }),
-    update(templates.htm_cfg2_l0rsetevict, { num_processors: Vary(1, 16) }),
-    update(templates.htm_cfg2_l1rsetevict, { num_processors: Vary(1, 16) }),
-    update(templates.htm_cfg2_l2rsetevict, { num_processors: Vary(1, 16) }),
-    update(templates.htm_cfg3_l0xactreplac, { num_processors: 1 }),
-    update(templates.htm_cfg4_base, { num_processors: 16 }),
-    update(templates.htm_cfg4_cdab64, { num_processors: 16 }),
-    update(templates.htm_cfg4_cdah64, { num_processors: 16 }),
-    update(templates.htm_cfg5_precrset_rldstale, { num_processors: 16 }),
-    update(templates.htm_cfg6_lazycd, { num_processors: 16 }),
-    update(templates.htm_cfg7_magic, { num_processors: 16 }),
-    update(templates.htm_cfg8_ee, { num_processors: 16 }),
+    update(templates.htm_cfg0_locks, { num_cpus: 1 }),
+    update(templates.htm_cfg1_base, { num_cpus: Vary(1, 16) }),
+    update(templates.htm_cfg1_pf, { num_cpus: Vary(1, 16) }),
+    update(templates.htm_cfg2_l0rsetevict, { num_cpus: Vary(1, 16) }),
+    update(templates.htm_cfg2_l1rsetevict, { num_cpus: Vary(1, 16) }),
+    update(templates.htm_cfg2_l2rsetevict, { num_cpus: Vary(1, 16) }),
+    update(templates.htm_cfg3_l0xactreplac, { num_cpus: 1 }),
+    update(templates.htm_cfg4_base, { num_cpus: 16 }),
+    update(templates.htm_cfg4_cdab64, { num_cpus: 16 }),
+    update(templates.htm_cfg4_cdah64, { num_cpus: 16 }),
+    update(templates.htm_cfg5_precrset_rldstale, { num_cpus: 16 }),
+    update(templates.htm_cfg6_lazycd, { num_cpus: 16 }),
+    update(templates.htm_cfg7_magic, { num_cpus: 16 }),
+    update(templates.htm_cfg8_ee, { num_cpus: 16 }),
 )
 
 configs_update({

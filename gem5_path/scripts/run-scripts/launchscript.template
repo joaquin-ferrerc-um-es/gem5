@@ -28,8 +28,8 @@ sleep "${T:0:4}.${T:4:1}"
 
 cd "${benchmark_subdir}"
 
-echo Running: "./${benchmark_binary_filename_base}.${arch}${benchmark_binary_suffix}" ${benchmark_num_threads_option}${num_processors} ${benchmark_args_string}
-"./${benchmark_binary_filename_base}.${arch}${benchmark_binary_suffix}" ${benchmark_num_threads_option}${num_processors} ${benchmark_args_string}
+echo Running: "./${benchmark_binary_filename_base}.${arch}${benchmark_binary_suffix}" ${benchmark_num_threads_option}${num_cpus} ${benchmark_args_string}
+"./${benchmark_binary_filename_base}.${arch}${benchmark_binary_suffix}" ${benchmark_num_threads_option}${num_cpus} ${benchmark_args_string}
 echo 'Launch script done ($?='"$?"'). Exiting simulation... (m5 exit)'
 
 sync

@@ -7,7 +7,7 @@ import shutil
 from gem5_run import gem5_root, known_options
 import options as opt
 
-config_preferred_order_first = [ opt.arch, opt.cpu_model, opt.protocol, opt.config_description_abbrev, opt.cache_name, opt.num_processors, opt.benchmark_name, opt.benchmark_size ]
+config_preferred_order_first = [ opt.arch, opt.cpu_model, opt.protocol, opt.config_description_abbrev, opt.cache_name, opt.num_cpus, opt.benchmark_name, opt.benchmark_size ]
 config_preferred_order_last = [opt.random_seed ]
 
 # config options of conf, in a fixed order

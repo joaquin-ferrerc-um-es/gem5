@@ -12,7 +12,7 @@ base = {
     arch: Vary(*config_from_tasks_gem5("${ENABLED_ARCHITECTURES[@]}").split(" ")),
     protocol: Vary(*config_from_tasks_gem5("${ENABLED_PROTOCOLS[@]}").split(" ")),
     cpu_model: "DerivO3CPU", # or "TimingSimpleCPU"
-    num_processors: Vary(*[int(i) for i in config_from_tasks_gem5("${ENABLED_NUM_CPUS[@]}").split(" ")]),
+    num_cpus: Vary(*[int(i) for i in config_from_tasks_gem5("${ENABLED_NUM_CPUS[@]}").split(" ")]),
     random_seed: 0,
 
     output_directory_root: Derived(lambda c: os.path.join(gem5_root_option(c), "results")),
@@ -61,7 +61,7 @@ base = {
                                           "aarch64": "system.terminal",
                                           "riscv": "TODO"}[arch(c)]),
     arch_specific_opts: Derived(lambda c: config_from_tasks_gem5(f"${{ARCH_EXTRA_OPTIONS[{arch(c)}]}}")),
-    checkpoint_boot_dir: Derived(lambda c: os.path.join(gem5_root, "gem5_path", arch(c), "checkpoints", "booted", f"{num_processors(c)}_cores")),
+    checkpoint_boot_dir: Derived(lambda c: os.path.join(gem5_root, "gem5_path", arch(c), "checkpoints", "booted", f"{num_cpus(c)}_cores")),
     
     network_model: "simple", # or 'garnet2.0'
     memory_type: "DDR3_1600_8x8", # or 'DDR3_200cycles'
@@ -103,8 +103,8 @@ cache_baseline = {
     cache_l1d_size: 256 * 1024,
     cache_l1i_assoc: 8,
     cache_l1d_assoc: 8,
-    cache_l2_num_caches: Derived(lambda c: num_processors(c)),
-    cache_l2_size_per_cache: Derived(lambda c: 32 * 1024 * 1024 // num_processors(c)),
+    cache_l2_num_caches: Derived(lambda c: num_cpus(c)),
+    cache_l2_size_per_cache: Derived(lambda c: 32 * 1024 * 1024 // num_cpus(c)),
     cache_l2_assoc: 16,
 }
 
@@ -114,7 +114,7 @@ cache_test = update(cache_baseline, {
     cache_l0d_size: 8 * 1024,
     cache_l1i_size: 32 * 1024,
     cache_l1d_size: 32 * 1024,
-    cache_l2_size_per_cache: Derived(lambda c: 256 * 1024 // num_processors(c)),})
+    cache_l2_size_per_cache: Derived(lambda c: 256 * 1024 // num_cpus(c)),})
 
 cache_small = update(cache_baseline, {
     cache_name: "SmallCache",
@@ -130,7 +130,7 @@ cache_baseline_2level = update(cache_baseline, {
     cache_l0d_size: 0,
     cache_l1i_size: 32 * 1024,
     cache_l1d_size: 32 * 1024,
-    cache_l2_size_per_cache: Derived(lambda c: 8 * 1024 * 1024 // num_processors(c)),
+    cache_l2_size_per_cache: Derived(lambda c: 8 * 1024 * 1024 // num_cpus(c)),
 })
 
 # HTM templates

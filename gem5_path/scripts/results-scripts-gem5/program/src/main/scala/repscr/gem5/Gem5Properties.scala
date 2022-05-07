@@ -51,38 +51,62 @@ object Gem5Properties {
   private def check(b: Boolean, msg: String = "Inconsistency parsing results"): Unit = if (!b) throw new RuntimeException(msg)
 
   /* Configs */
+  Seq[(String, String => Any)](
+    ("arch", _.parseString),
+    ("num_cpus", _.toInt), // TODO: ensure that this matches with the number of cpus in the stats?
+    ("protocol", _.parseString),
+    ("cpu_model", _.parseString),
+    ("benchmark_name", _.parseString),
+    ("benchmark_size", _.parseString),
+    ("git_revision", _.parseString),
 
-  Prop(Config, "num_cpus", _.configuration("SimulationInfo", "num_cpus").toInt) // TODO: ensure that this matches with the number of cpus in the stats?
-  Prop(Config, "protocol", _.configuration("SimulationInfo", "protocol").parseString)
-  Prop(Config, "cpu_model", _.configuration("SimulationInfo", "cpu_model").parseString)
-  Prop(Config, "benchmark_name", _.configuration("SimulationInfo", "benchmark_name").parseString)
-  Prop(Config, "benchmark_size", _.configuration("SimulationInfo", "benchmark_size").parseString)
+    ("config_description_abbrev", _.parseString),
+
+    ("cache_name", _.parseString),
+    ("cache_l0i_size", _.parseLong),
+    ("cache_l0d_size", _.parseLong),
+    ("cache_l0i_assoc", _.parseLong),
+    ("cache_l0d_assoc", _.parseLong),
+    ("cache_l1i_size", _.parseLong),
+    ("cache_l1d_size", _.parseLong),
+    ("cache_l1i_assoc", _.parseLong),
+    ("cache_l1d_assoc", _.parseLong),
+    ("cache_l2_num_caches", _.parseLong),
+    ("cache_l2_size_per_cache", _.parseLong),
+    ("cache_l2_assoc", _.parseLong),
+
+    ("disable_transparent_hugepages", _.parseBoolean),
+
+    ("network_model", _.parseString),
+
+    ("memory_type", _.parseString),
+    ("memory_size", _.parseString),
+
+    ("htm_disable_speculation", _.parseBoolean),
+    ("htm_binary_suffix", _.parseString),
+    ("htm_lazy_vm", _.parseBoolean),
+    ("htm_eager_cd", _.parseBoolean),
+    ("htm_conflict_resolution", _.parseString),
+    ("htm_lazy_arbitration", _.parseString),
+    ("htm_allow_read_set_l0_cache_evictions", _.parseBoolean),
+    ("htm_allow_read_set_l1_cache_evictions", _.parseBoolean),
+    ("htm_allow_write_set_l0_cache_evictions", _.parseBoolean),
+    ("htm_allow_write_set_l1_cache_evictions", _.parseBoolean),
+    ("htm_allow_read_set_l2_cache_evictions", _.parseBoolean),
+    ("htm_allow_write_set_l2_cache_evictions", _.parseBoolean),
+    ("htm_precise_read_set_tracking", _.parseBoolean),
+    ("htm_allow_load_delaying", _.parseBoolean),
+    ("htm_trans_aware_l0_replacements", _.parseBoolean),
+    ("htm_reload_if_stale", _.parseBoolean),
+    ("htm_l0_downgrade_on_l1_gets", _.parseBoolean),
+    ("htm_max_retries", _.parseLong),
+    ("htm_backoff", _.parseBoolean),
+    ("htm_heap_prefault", _.parseBoolean),
+  ).foreach { case (key, parser) =>
+    Prop(Config, key, r => parser(r.configuration("SimulationInfo", key)))
+  }
+
   Prop(Config, "random_seed", _.configuration("SimulationInfo", "random_seed").parseLong, mixer = mixers.randomSeed)
-  Prop(Config, "git_revision", _.configuration("SimulationInfo", "git_revision").parseString)
-
-  Prop(Config, "htm_disable_speculation", _.configuration("SimulationInfo", "htm_disable_speculation").parseBoolean)
-  Prop(Config, "htm_binary_suffix", _.configuration("SimulationInfo", "htm_binary_suffix").parseString)
-  Prop(Config, "htm_lazy_vm", _.configuration("SimulationInfo", "htm_lazy_vm").parseBoolean)
-  Prop(Config, "htm_eager_cd", _.configuration("SimulationInfo", "htm_eager_cd").parseBoolean)
-  Prop(Config, "htm_conflict_resolution", _.configuration("SimulationInfo", "htm_conflict_resolution").parseString)
-  Prop(Config, "htm_lazy_arbitration", _.configuration("SimulationInfo", "htm_lazy_arbitration").parseString)
-  Prop(Config, "htm_allow_read_set_l0_cache_evictions", _.configuration("SimulationInfo", "htm_allow_read_set_l0_cache_evictions").parseBoolean)
-  Prop(Config, "htm_allow_read_set_l1_cache_evictions", _.configuration("SimulationInfo", "htm_allow_read_set_l1_cache_evictions").parseBoolean)
-  Prop(Config, "htm_allow_write_set_l0_cache_evictions", _.configuration("SimulationInfo", "htm_allow_write_set_l0_cache_evictions").parseBoolean)
-  Prop(Config, "htm_allow_write_set_l1_cache_evictions", _.configuration("SimulationInfo", "htm_allow_write_set_l1_cache_evictions").parseBoolean)
-  Prop(Config, "htm_allow_read_set_l2_cache_evictions", _.configuration("SimulationInfo", "htm_allow_read_set_l2_cache_evictions").parseBoolean)
-  Prop(Config, "htm_allow_write_set_l2_cache_evictions", _.configuration("SimulationInfo", "htm_allow_write_set_l2_cache_evictions").parseBoolean)
-  Prop(Config, "htm_precise_read_set_tracking", _.configuration("SimulationInfo", "htm_precise_read_set_tracking").parseBoolean)
-  Prop(Config, "htm_allow_load_delaying", _.configuration("SimulationInfo", "htm_allow_load_delaying").parseBoolean)
-  Prop(Config, "htm_trans_aware_l0_replacements", _.configuration("SimulationInfo", "htm_trans_aware_l0_replacements").parseBoolean)
-  Prop(Config, "htm_reload_if_stale", _.configuration("SimulationInfo", "htm_reload_if_stale").parseBoolean)
-  Prop(Config, "htm_l0_downgrade_on_l1_gets", _.configuration("SimulationInfo", "htm_l0_downgrade_on_l1_gets").parseBoolean)
-  //Prop(Config, "htm_value_checker", _.configuration("SimulationInfo", "htm_value_checker").parseBoolean)
-  //Prop(Config, "htm_isolation_checker", _.configuration("SimulationInfo", "htm_isolation_checker").parseBoolean)
-  //Prop(Config, "htm_visualizer", _.configuration("SimulationInfo", "htm_visualizer").parseBoolean)
-  Prop(Config, "htm_max_retries", _.configuration("SimulationInfo", "htm_max_retries").parseLong)
-  Prop(Config, "htm_backoff", _.configuration("SimulationInfo", "htm_backoff").parseBoolean)
-  Prop(Config, "htm_heap_prefault", _.configuration("SimulationInfo", "htm_heap_prefault").parseBoolean)
 
   /* Results */
 
@@ -121,7 +145,7 @@ object Gem5Properties {
     }, mixers.mapMixer(mixers.samples), optional = true)
     Prop(Result, "htm_cycles_in_region", { s =>
       val r = (s.stats / "system" / "htm" /+- "cyclesInRegion::(.+)".r)
-        .groupBy(_._1.parseString).view.mapValues(_.map(_._2.splitWords.head.parseLong).sum)  // sums all entries with the same key, although there is (or should be) only one in this case.
+        .groupBy(_._1.parseString).view.mapValues(_.map(_._2.splitWords.head.parseLong).sum) // sums all entries with the same key, although there is (or should be) only one in this case.
       check(r.isEmpty || r("total") == r.filterKeys(_ != "total").values.sum)
       r.filterKeys(_ != "total").toMap
     }, mixers.mapMixer(mixers.samples), optional = true)

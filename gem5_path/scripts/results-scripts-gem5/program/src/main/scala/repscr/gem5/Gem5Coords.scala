@@ -9,6 +9,7 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
 
   /* Configs */
 
+  CoordFromProp("arch", doc = "ISA")
   CoordFromProp("num_cpus", doc = "Number of CPUs")
   CoordFromProp("protocol", doc = "Coherence protocol")
   CoordFromProp("cpu_model", doc = "CPU model")
@@ -16,6 +17,22 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
   CoordFromProp("benchmark_size", ordering = dynamicOrdering("small", "medium", "large"), doc = "Benchmark problem size")
   CoordFromProp("random_seed", doc = "Random seeds used for this point")
   CoordFromProp("git_revision")
+
+  CoordFromProp("config_description_abbrev")
+
+  CoordFromProp("cache_name")
+  Coord("cache_l0i", s => s"${s("cache_l0i_size")}-${s("cache_l0i_assoc")}w", isConfig = true)
+  Coord("cache_l0d", s => s"${s("cache_l0d_size")}-${s("cache_l0d_assoc")}w", isConfig = true)
+  Coord("cache_l1i", s => s"${s("cache_l1i_size")}-${s("cache_l1i_assoc")}w", isConfig = true)
+  Coord("cache_l1d", s => s"${s("cache_l1d_size")}-${s("cache_l1d_assoc")}w", isConfig = true)
+  Coord("cache_l2", s => s"${s("cache_l2_num_caches")}×${s("cache_l2_size_per_cache")}-${s("cache_l2_assoc")}w", isConfig = true)
+
+  CoordFromProp("disable_transparent_hugepages")
+
+  CoordFromProp("network_model")
+
+  CoordFromProp("memory_type")
+  CoordFromProp("memory_size")
 
   CoordFromProp("htm_disable_speculation")
   CoordFromProp("htm_binary_suffix")

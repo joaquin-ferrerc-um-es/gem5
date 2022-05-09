@@ -92,15 +92,20 @@ Option("m5_path", str,
 # Debug options
 Option("enable_kvm", bool,
        gem5_option_use = "no",
-       launchscript_option = "yes")
+       launchscript_option = "yes",
+       siminfo_exclude = True)
 Option("debug_start_tick", int, # -1 to disable
-       gem5_option_use = "no")
+       gem5_option_use = "no",
+       siminfo_exclude = True)
 Option("debug_flags", str,
-       gem5_option_use = "no")
+       gem5_option_use = "no",
+       siminfo_exclude = True)
 Option("build_type", str, # 'opt', 'fast', 'debug'
-       gem5_option_use = "no")
+       gem5_option_use = "no",
+       siminfo_exclude = True)
 Option("exit_at_roi_end", bool,
-       gem5_option_use = "no")
+       gem5_option_use = "no",
+       siminfo_exclude = True)
 Option("extra_detailed_args", str,
        gem5_option_use = "no")
 Option("proc_maps_file", str,

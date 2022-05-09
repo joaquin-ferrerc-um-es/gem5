@@ -5,7 +5,7 @@ import collection.immutable.TreeMap
 import collection.immutable.TreeSet
 import repscr.gem5._
 import repscr.gem5.Gem5Coords._
-import repscr.Vwe
+import repscr.{PlotUtil, Vwe}
 import util.misc._
 import util.time
 import Listing.IndexColumn
@@ -431,7 +431,7 @@ case class Listing(parent: Report, source: Listing.Source, indexes: Seq[IndexCol
         yRangeMin = 0
         val useGM = false
         totalPointLabel = if (normalized && useGM) "G.M." else "Average"
-        totalPointFunction = Some(if (normalized && useGM) Plot.geometricMeanTotalFunction else Plot.averageTotalFunction)
+        totalPointFunction = Some(if (normalized && useGM) PlotUtil.geometricMeanTotalFunction else PlotUtil.averageTotalFunction)
         plotStyle = Plot.Style.ColorsDivergingSpectral11
       }
       val p: Plot = style match {

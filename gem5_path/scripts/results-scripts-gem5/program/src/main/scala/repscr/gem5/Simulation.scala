@@ -10,6 +10,14 @@ import scala.util.parsing.combinator.RegexParsers
 import java.io.File
 import util.RMap
 
+object MissingProperty {
+  override def toString = "missing"
+}
+
+object PropertyError {
+  override def toString = "error"
+}
+
 class Simulation(filename: String, val properties: PropertyMap) extends Gem5DataPoint {
   def files = Seq(filename)
 }
@@ -57,10 +65,10 @@ object Simulation {
         catch {
           case e: NoSuchElementException =>
             if (!pinfo.optional) Console.err.println(s"Loading $file: Missing $name, ${e.getMessage}")
-            Symbol("MissingProperty")
+            MissingProperty
           case e: Exception =>
             Console.err.println(s"Loading $file, $name, $e [${e.getStackTrace.take(6).mkString(", ")}]")
-            Symbol("PropertyError")
+            PropertyError
         })
       })))
       progressReport foreach (_.progress(0, 1))
@@ -141,7 +149,7 @@ class SimulationMix(val simulations: Iterable[Gem5DataPoint]) extends Gem5DataPo
     PropertyMap(keys.view.map { k =>
       k -> {
         val values = simulations.map (_.properties get k)
-        if (values.count(_.contains(Symbol("MissingProperty"))) == values.size) Symbol("MissingProperty")
+        if (values.count(_.contains(MissingProperty)) == values.size) MissingProperty
         else try Gem5Properties.knownProperties(k).mixer(values)
         catch {
           case e: Throwable =>

@@ -98,11 +98,6 @@ object Plots202204CostEffective extends App with PlotScript {
       data.addToPlot(this)
 
       def addTotals(): Unit = {
-        assert(seriesOrder.isEmpty)
-        assert(pointsOrder.isEmpty)
-
-        sortData()
-
         series foreach { case Serie(serieName, serieData) =>
           val avg = Plot.averageTotalFunction(serieData map (_.y))
           addPoint(serieName, "Arithmetic\\nMean", avg, false, 2)
@@ -128,8 +123,6 @@ object Plots202204CostEffective extends App with PlotScript {
       data.addToPlot(this)
 
       def addTotals(): Unit = {
-        sortData()
-
         series foreach { case Serie(serieName, serieData) =>
           val items = serieData map (_.y.asInstanceOf[Iterable[(Any, Any)]].toMap)
           val categories = items.flatMap(_.keys).filterDuplicates

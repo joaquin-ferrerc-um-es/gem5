@@ -109,9 +109,6 @@ object plots {
 
     var plotStyle: Plot.Style = Plot.Style.Colors1NoDashes
 
-    var seriesOrder: Option[(Any, Any) => Boolean] = None
-    var pointsOrder: Option[(Any, Any) => Boolean] = None
-
     protected var _series = Seq[Serie]()
     def series: Seq[Serie] = if (normalize) _series.normalized(normalization, skipNormalizationBase) else _series
     def add(s: Serie): Unit ={ _series = _series :+ s }
@@ -156,7 +153,6 @@ object plots {
       series.size * xCoordsArray.size * 5
 
     def draw(): Unit = {
-      sortData()
       var drawn = Set.empty[Format]
       def draw(fmt: Format): Unit = {
         if (!drawn(fmt)) {
@@ -223,11 +219,6 @@ object plots {
       for (f <- outputFiles.keys.toList) draw(f)
     }
 
-    protected def sortData() = {
-      seriesOrder foreach { f => _series = _series sortWith ((a, b) => f(a.label, b.label)) }
-      pointsOrder foreach { f => _series = _series map { case Serie(label, data) => Serie(label, data sortWith ((p1, p2) => p1.orderingRank < p2.orderingRank || (p1.orderingRank == p2.orderingRank && f(p1.x, p2.x)))) } }
-    }
-
     protected def printCode(): Unit
 
     protected def printTsv(): Unit
@@ -290,20 +281,6 @@ object plots {
       l.foldLeft(CoordValue(1))(_ * _) pow (1.0 / l.size)
     }
     def maxTotalFunction(lany: Iterable[Any]) = (lany map { CoordValue } filter { v => !(v.isNaN || v.isInfinity) }).foldLeft(CoordValue(0))(_ max _)
-
-    var _preferredSeriesOrder = Seq.empty[String]
-    def preferredSeriesOrder = _preferredSeriesOrder
-    def preferredSeriesOrder_=(order: Seq[String]) = _preferredSeriesOrder = order flatMap { x => Seq(x, x.toLowerCase) }
-    preferredSeriesOrder = Seq("Token", "TokenCMP", "FtToken", "FtTokenCMP", "Dir", "DirCMP", "FtDir", "FtDirCMP", "Hammer", "HammerCMP", "FtHammer", "FtHammerCMP")
-
-    def defaultSeriesLessThan(a: Any, b: Any): Boolean = dynamicLessThan(preferredSeriesOrder: _*)(a, b)
-
-    def defaultPointsLessThan(a: (Any, Any), b: (Any, Any)): Boolean = (a, b) match {
-      case ((ax, ay), (bx, by)) =>
-        if (CoordValue(ax) < CoordValue(bx)) true
-        else if (CoordValue(bx) < CoordValue(ax)) false
-        else CoordValue(ay) < CoordValue(by)
-    }
 
     trait Style {
       def useColors = true

@@ -121,6 +121,10 @@ object plots {
       else
         add(Serie(serie, Seq(Point(x, y, needsNormalization, orderingRank))))
 
+    protected val separationLines = collection.mutable.ArrayBuffer.empty[Int]
+    def addSeparationLine(xCoordToTheLeft: Int) = // if xCoordToTheLeft negative, it starts counting from the right
+      separationLines += xCoordToTheLeft
+
     def getXValues: Seq[Any] = series flatMap (_.data) map (_.x)
     def getYValues: Seq[Any] = series flatMap (_.data) map (_.y)
     def getValidTotalYValues: Seq[Double] = getYValues filter { x => !x.isInfinity && !x.isNaN } map { _.value }
@@ -272,16 +276,6 @@ object plots {
     def pyChartQuote(label: String) = if (label.indexOf("/") >= 0) label.replace("/", "//") else label
   }
   object Plot {
-    def averageTotalFunction(lany: Iterable[Any]) = {
-      val l = lany map CoordValue filter { v => !(v.isNaN || v.isInfinity) }
-      l.foldLeft(CoordValue(0))(_ + _) / l.size
-    }
-    def geometricMeanTotalFunction(lany: Iterable[Any]) = {
-      val l = lany map CoordValue filter { v => !(v.isNaN || v.isInfinity) }
-      l.foldLeft(CoordValue(1))(_ * _) pow (1.0 / l.size)
-    }
-    def maxTotalFunction(lany: Iterable[Any]) = (lany map { CoordValue } filter { v => !(v.isNaN || v.isInfinity) }).foldLeft(CoordValue(0))(_ max _)
-
     trait Style {
       def useColors = true
       def pyFillStyle: String
@@ -494,11 +488,8 @@ object plots {
       xCoordsArray foreach { v => print(f"  [unicode('${pyChartQuote(v)}')],\n") }
       print("]\n")
     }
-    private val separationLines = collection.mutable.ArrayBuffer.empty[Int]
-    def addSeparationLine(xCoordToTheLeft: Int) = // if xCoordToTheLeft negative, it starts counting from the right
-      separationLines += xCoordToTheLeft
 
-    protected def printSeparationLines() =
+    protected def printSeparationLines(): Unit =
       separationLines foreach { xCoordToTheLeft =>
         println(s"line_x = (ar.x_pos(x_coords[${xCoordToTheLeft}][0]) + ar.x_pos(x_coords[${xCoordToTheLeft - 1}][0])) / 2")
         println(s"canvas.line(line_style.black_dash1, line_x, ar.y_pos(ar.y_range[0]), line_x, ar.y_pos(ar.y_range[1]))")

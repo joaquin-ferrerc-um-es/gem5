@@ -395,6 +395,7 @@ echo "benchmarks_disk_image=${benchmarks_disk_image}"
 echo "kernel_binary=${kernel_binary}"
 echo "protocol=${protocol}"
 echo "hostname=$(hostname)"
+[ -z "${SLURM_JOBID:-}" ] || echo "slurm_jobid=${SLURM_JOBID}"
 
 ensure_init_checkpoint
 

@@ -75,8 +75,12 @@ def enqueue(c):
     stderr = os.path.join(od, "stderr")
     stdout = os.path.join(od, "stdout")
     runscript_filename = os.path.join(od, options.runscript_filename(c))
-    cmd = f"sbatch -J {options.config_description(c)} -e {stderr} -o {stdout} {runscript_filename}"
-    subprocess.run(cmd, shell=True, check=True)
+    cmd = ["sbatch", "--parsable", "-J", options.config_description(c), "-e", stderr, "-o", stdout, runscript_filename]
+    sbatch_output = subprocess.check_output(cmd, encoding = "UTF-8")
+    job_id = sbatch_output.strip().split(";")[0]
+    with open(os.path.join(od, "job_id"), "w") as job_id_file:
+        job_id_file.write(f"{job_id}\n")
+    return job_id
 
 def parse_args(argsp = argparse.ArgumentParser()):
     argsp.add_argument("--enqueue", action="store_true", help="Submit scripts to SLURM")
@@ -122,6 +126,9 @@ if not (args.list or args.list_mixed):
     for c in configs:
         gen_scripts(c)
     if args.enqueue:
+        job_ids = []
         for c in configs:
-            enqueue(c)
+            job_ids.append(enqueue(c))
+        print("Jod ids: ", end = '')
+        print(*job_ids)
 

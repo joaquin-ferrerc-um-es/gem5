@@ -45,9 +45,7 @@ base = {
     benchmarks_image_device: Derived(lambda c: {"x86_64": "/dev/hdb1",
                                                 "aarch64": "/dev/sdb1",
                                                 "riscv": "TODO"}[arch(c)]),
-    benchmarks_image_mountpoint: Derived(lambda c: {"x86_64": "/benchmarks",
-                                                    "aarch64": "/data",
-                                                    "riscv": "TODO"}[arch(c)]),
+    benchmarks_image_mountpoint: "/benchmarks",
 
     # other
     gem5_root_option: gem5_root,

@@ -29,8 +29,6 @@ object Plots202203HuaweiFinal extends App with PlotScript {
     class BarPlotDefault(val data: PlotData) extends BarPlot with DefaultPlotOptions {
       outputFiles(Format.pdf) = new File(s"$outdir/${data.fileBaseName}.pdf")
       outputFiles(Format.tsv) = new File(s"$outdir/${data.fileBaseName}.tsv")
-      xAxisTitle = data.xAxisTitle
-      yAxisTitle = data.yAxisTitle
       //pointsOrder = Some(data.x.ordering.lt)
       //seriesOrder = Some(data.seriesC.ordering.lt)
       totalPointFunction = None
@@ -43,8 +41,6 @@ object Plots202203HuaweiFinal extends App with PlotScript {
     class StackedBarPlotDefault(val data: PlotData) extends StackedBarPlot with DefaultPlotOptions {
       outputFiles(Format.pdf) = new File(s"$outdir/${data.fileBaseName}.pdf")
       outputFiles(Format.tsv) = new File(s"$outdir/${data.fileBaseName}.tsv")
-      xAxisTitle = data.xAxisTitle
-      yAxisTitle = data.yAxisTitle
       //pointsOrder = Some(x.ordering.lt)
       //seriesOrder = Some(seriesC.ordering.lt)
       categoriesOrder = Some(data.y.ordering.lt)

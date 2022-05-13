@@ -348,7 +348,7 @@ import Report.Point
 case class Listing(parent: Report, source: Listing.Source, indexes: Seq[IndexColumn], results: Seq[ResultColumn]) {
   import Listing._
 
-  override def toString = s"${(indexes map { _.toString }).mkString("(", ", ", ")")} -> ${results.mkString("(", ", ", ")")}"
+  override def toString = s"${(indexes map { _.toString }).mkString("(", ", ", ")")} → ${results.mkString("(", ", ", ")")}"
 
   val rowIndexColumns = indexes filter { _.use != IndexColumn.FilterOnly }
   def rowIndexOf(s: Point): RowIndex = rowIndexColumns map { i => i.coord.fn(s) }
@@ -403,7 +403,7 @@ case class Listing(parent: Report, source: Listing.Source, indexes: Seq[IndexCol
   def sectionIndexToString(i: SectionIndex) = if (i.isEmpty) "-" else i.mkString(",")
 
   // return either the value of a simulation or the average/concatenation of many simulations
-  def rowValue(coord: Coord, rowSims: Iterable[Point], missingValue: Any = 0.0) = {
+  def rowValue(coord: Coord, rowSims: Row, missingValue: Any = 0.0) = {
     import repscr.points._
     def averageOrConcat(lany: Iterable[Any]): Any = lany.headOption match {
       case Some(s: String) => lany
@@ -427,44 +427,33 @@ case class Listing(parent: Report, source: Listing.Source, indexes: Seq[IndexCol
   val plots = ConcurrentCache[(SectionIndex, ResultColumn), repscr.plots.Plot] {
     case (sec: SectionIndex, ResultColumn(yCoord, normalized, style)) =>
       import repscr.plots._
-      trait CommonBarPlotOptions { self: BarPlotCommon =>
-        yRangeMin = 0
-        val useGM = false
-        totalPointLabel = if (normalized && useGM) "G.M." else "Average"
-        totalPointFunction = Some(if (normalized && useGM) PlotUtil.geometricMeanTotalFunction else PlotUtil.averageTotalFunction)
-        plotStyle = Plot.Style.ColorsDivergingSpectral11
-      }
+      val pd = PlotUtil.PlotData(x = xIndexColumns.map(_.coord),
+        y = yCoord,
+        seriesC = serieIndexColumns.map(_.coord),
+        points = sectionRows(sec).values.flatten,
+        addTotals = true)
       val p: Plot = style match {
-        case ResultColumn.BarsStyle if yCoord.stacked => new StackedBarPlot with CommonBarPlotOptions {
+        case ResultColumn.BarsStyle if yCoord.stacked => new StackedBarPlot {
           legendOffsetY = 15
           categoriesOrder = Some(yCoord.ordering.lt)
-          seriesLegend = serieIndexColumns.nonEmpty
-          seriesLegendRows = 2
           categoriesLegendRows = 2
         }
-        case ResultColumn.BarsStyle => new BarPlot with CommonBarPlotOptions {
-          seriesLegend = serieIndexColumns.nonEmpty
-          seriesLegendRows = 2
-        }
+        case ResultColumn.BarsStyle => new BarPlot
         case ResultColumn.LinesStyle => new LinePlot {
           useCategorizedXcoords = true
-          seriesLegend = serieIndexColumns.nonEmpty
-          seriesLegendRows = 2
         }
       }
-      p.xAxisTitle = xIndexColumns map { _.coord.axisTitle } mkString ","
+
       p.yAxisTitle = yCoord.axisTitle + (if (normalized) " (normalized)" else "")
-      p.normalize = normalized
-      def plotValue(coord: Coord, rowSims: Iterable[Report.Point]) = style match {
-        case ResultColumn.LinesStyle if yCoord.stacked =>
-          rowValue(coord, rowSims).asInstanceOf[Iterable[(Any, Any)]].map(v => repscr.points.CoordValue(v._2)).foldLeft(repscr.points.CoordValue(0.0))(_ + _)
-        case _ => rowValue(coord, rowSims)
-      }
-      def plotIndex(i: Seq[Any]) = i map { case s: Seq[Any] => s.mkString("[", ",", "]") case x => x.toString } mkString "," take 100 // limit to 100 characters to avoid generating huge graphs
-      sectionSeriePlotRows(sec) foreach {
-        case (serieIndex, seriePoints) =>
-          p.add(plotIndex(serieIndex), seriePoints.toSeq map { case (x, row) => (plotIndex(x), plotValue(yCoord, row)) })
-      }
+      p.normalization = if (normalized) Normalization.Ratio else Normalization.Absolute
+
+      p.yRangeMin = 0
+      p.plotStyle = Plot.Style.ColorsDivergingSpectral11
+      p.seriesLegend = serieIndexColumns.nonEmpty
+      p.seriesLegendRows = 2
+
+      pd.addToPlot(p)
+
       p.outputFiles(Format.pdf) = java.io.File.createTempFile("plot", ".pdf")
       p.outputFiles(Format.png) = java.io.File.createTempFile("plot", ".png")
       p.outputFiles(Format.tsv) = java.io.File.createTempFile("plot", ".tsv")
@@ -512,7 +501,7 @@ case class Listing(parent: Report, source: Listing.Source, indexes: Seq[IndexCol
         }
         cols map { case Col(n, o, fn) => Col(n, o, { v => try fn(v) catch {case _: Throwable => ""} }) }
       }
-      iter(coord.name, rowValue(coord, _), v)
+      iter(coord.name, r => rowValue(coord, r), v)
     }
 
     val indexCols = indexColCoords flatMap { c =>
@@ -587,5 +576,5 @@ object Listing {
   type SectionIndex = Seq[Any]
   type SerieIndex = Seq[Any]
   type XIndex = Seq[Any]
-  type Row = Seq[Point]
+  type Row = Iterable[Point]
 }

@@ -53,7 +53,7 @@ object plots {
           case Some(v)    => mode match {
             case Normalization.Ratio        => y.asInstanceOf[Seq[(Any, Any)]] map { case (a, b) => a -> (b normalize v) }
             case Normalization.RatioPerCent => y.asInstanceOf[Seq[(Any, Any)]] map { case (a, b) => a -> ((b normalize v) * 100) }
-            case Normalization.Absolute     => assert(false)
+            case Normalization.Absolute     => y
             case _                          => ???
           }
         }, needsNormalization = true, orderingRank = o)
@@ -68,19 +68,12 @@ object plots {
             case Normalization.Decrease        => (v normalize y) - 1.0
             case Normalization.DecreasePerCent => ((v normalize y) - 1.0) * 100
             case Normalization.Speedup         => (v normalize y)
-            case Normalization.Absolute        => assert(false)
+            case Normalization.Absolute        => y
           }
         }, needsNormalization = true, orderingRank = o)
       }
       series filter (!skipBase || _ != base) map { case Serie(l, d) => Serie(l, d map normalizePoint) } toSeq
     }
-    def normalized(mode: Normalization, base: String, skipBase: Boolean): Seq[Serie] =
-      series find {
-        _.label == base
-      } match {
-        case None => series.toSeq // normalization error, wrong base
-        case Some(bserie) => normalized(mode, bserie, skipBase)
-      }
     def normalized(mode: Normalization, skipBase: Boolean): Seq[Serie] = if (series.isEmpty) series.toSeq else normalized(mode, series.head, skipBase)
   }
 
@@ -100,17 +93,15 @@ object plots {
     var title: String = ""
     val outputFiles = MMap.empty[Format, File]
     var normalization: Normalization = Normalization.Absolute
-    def normalize = normalization != Normalization.Absolute
     var skipNormalizationBase = false
-
-    def normalize_=(n: Boolean) =
-      if (n && !normalize) normalization = Normalization.Ratio
-      else if (!n) normalization = Normalization.Absolute
 
     var plotStyle: Plot.Style = Plot.Style.Colors1NoDashes
 
     protected var _series = Seq[Serie]()
-    def series: Seq[Serie] = if (normalize) _series.normalized(normalization, skipNormalizationBase) else _series
+    def series: Seq[Serie] = normalization match {
+      case Normalization.Absolute => _series
+      case _ => _series.normalized(normalization, skipNormalizationBase)
+    }
     def add(s: Serie): Unit ={ _series = _series :+ s }
     def add(label: String, data: Iterable[(Any, Any)]): Unit = add(Serie(label, data.map { case (x, y) => Point(x, y) }.toSeq))
     def add(ss: Iterable[Serie]): Unit = { _series = _series ++ ss }

@@ -6,7 +6,6 @@ import java.io.File
 import util.misc._
 import points._
 import math._
-import scala.annotation.tailrec
 import scala.collection.mutable.{Map => MMap}
 
 object plots {
@@ -20,62 +19,8 @@ object plots {
     case object tsv extends Format
   }
 
-  sealed trait Normalization
-  object Normalization {
-    case object Absolute extends Normalization
-    case object Ratio extends Normalization
-    case object RatioPerCent extends Normalization
-    case object Increase extends Normalization
-    case object IncreasePerCent extends Normalization
-    case object Decrease extends Normalization
-    case object DecreasePerCent extends Normalization
-    case object Speedup extends Normalization
-  }
-
-  case class Point(x: Any, y: Any, needsNormalization: Boolean = true, orderingRank: Int = 0)
-  case class Serie(label: String, data: Seq[Point])
-
-  implicit class SeriesMethods(series: Iterable[Serie]) {
-    def normalized(mode: Normalization, base: Serie, skipBase: Boolean): Seq[Serie] = {
-      val bvalues = base.data.map(p => p.x -> p.y).toMap.view.mapValues {
-        case y: Seq[_] if y.isEmpty => None
-        case y: Map[_, _] => y.toSeq map (_._2.value) sum
-        case y: Seq[_] => y.asInstanceOf[Seq[(Any, Any)]] map (_._2.value) sum
-        case y => y.value
-      }
-      @tailrec
-      def normalizePoint(p: Point): Point = p match {
-        case Point(x, y, false, o)           => Point(x, y, needsNormalization = false, orderingRank = o)
-        case Point(x, y: Map[_, _], true, o) => normalizePoint(Point(x, y.toSeq, needsNormalization = true, orderingRank = o))
-        case Point(x, y: Seq[_], true, o)    => Point(x, y = bvalues get x match {
-          case None       => Seq("None" -> 0) // missing value (stacked)
-          case Some(None) => Seq("None" -> 0) // missing value (stacked)
-          case Some(v)    => mode match {
-            case Normalization.Ratio        => y.asInstanceOf[Seq[(Any, Any)]] map { case (a, b) => a -> (b normalize v) }
-            case Normalization.RatioPerCent => y.asInstanceOf[Seq[(Any, Any)]] map { case (a, b) => a -> ((b normalize v) * 100) }
-            case Normalization.Absolute     => y
-            case _                          => ???
-          }
-        }, needsNormalization = true, orderingRank = o)
-        case Point(x, y, true, o) => Point(x, bvalues get x match {
-          case None       => 0 // missing value
-          case Some(None) => 0 // missing value
-          case Some(v)    => mode match {
-            case Normalization.Ratio           => y normalize v
-            case Normalization.RatioPerCent    => (y normalize v) * 100
-            case Normalization.Increase        => (y normalize v) - 1.0
-            case Normalization.IncreasePerCent => ((y normalize v) - 1.0) * 100
-            case Normalization.Decrease        => (v normalize y) - 1.0
-            case Normalization.DecreasePerCent => ((v normalize y) - 1.0) * 100
-            case Normalization.Speedup         => (v normalize y)
-            case Normalization.Absolute        => y
-          }
-        }, needsNormalization = true, orderingRank = o)
-      }
-      series filter (!skipBase || _ != base) map { case Serie(l, d) => Serie(l, d map normalizePoint) } toSeq
-    }
-    def normalized(mode: Normalization, skipBase: Boolean): Seq[Serie] = if (series.isEmpty) series.toSeq else normalized(mode, series.head, skipBase)
-  }
+  import PlotUtil.Point
+  import PlotUtil.Serie
 
   abstract class Plot {
     var xAxisTitle: String = ""
@@ -92,33 +37,23 @@ object plots {
     var legendOffsetY: Int = 5
     var title: String = ""
     val outputFiles = MMap.empty[Format, File]
-    var normalization: Normalization = Normalization.Absolute
-    var skipNormalizationBase = false
 
     var plotStyle: Plot.Style = Plot.Style.Colors1NoDashes
 
-    protected var _series = Seq[Serie]()
-    def series: Seq[Serie] = normalization match {
-      case Normalization.Absolute => _series
-      case _ => _series.normalized(normalization, skipNormalizationBase)
+    protected var _data: PlotUtil.PlotData = PlotUtil.PlotData(Seq.empty[Serie])
+    def data = _data
+    def data_=(data: PlotUtil.PlotData): Unit = {
+      _data = data
     }
-    def add(s: Serie): Unit ={ _series = _series :+ s }
-    def add(label: String, data: Iterable[(Any, Any)]): Unit = add(Serie(label, data.map { case (x, y) => Point(x, y) }.toSeq))
-    def add(ss: Iterable[Serie]): Unit = { _series = _series ++ ss }
-
-    def addPoint(serie: String, x: Any, y: Any, needsNormalization: Boolean = true, orderingRank: Int = 1): Unit =
-      if (_series.exists(_.label == serie))
-        _series = _series map { s => if (s.label == serie) Serie(s.label, s.data :+ Point(x, y, needsNormalization, orderingRank)) else s }
-      else
-        add(Serie(serie, Seq(Point(x, y, needsNormalization, orderingRank))))
+    def series: Iterable[Serie] = _data.series
 
     protected val separationLines = collection.mutable.ArrayBuffer.empty[Int]
     def addSeparationLine(xCoordToTheLeft: Int) = // if xCoordToTheLeft negative, it starts counting from the right
       separationLines += xCoordToTheLeft
 
-    def getXValues: Seq[Any] = series flatMap (_.data) map (_.x)
-    def getYValues: Seq[Any] = series flatMap (_.data) map (_.y)
-    def getValidTotalYValues: Seq[Double] = getYValues filter { x => !x.isInfinity && !x.isNaN } map { _.value }
+    def getXValues: Iterable[Any] = series flatMap (_.data) map (_.x)
+    def getYValues: Iterable[Any] = series flatMap (_.data) map (_.y)
+    def getValidTotalYValues: Iterable[Double] = getYValues filter { x => !x.isInfinity && !x.isNaN } map { _.value }
     def getYValuesRangeSize: Double = if (getValidTotalYValues.isEmpty) 0 else abs(getValidTotalYValues.max - getValidTotalYValues.min) match {case x if x.isInfinite => Double.MaxValue case x => x}
 
     var _yRangeMin: Option[Double] = None
@@ -201,7 +136,11 @@ object plots {
               }
             case Format.png | Format.svg =>
               draw(Format.pdf)
-              val q = new ProcessBuilder("/usr/bin/convert", "-density", "125", outputFiles(Format.pdf).getCanonicalPath, (fmt match { case Format.png => "png:" case Format.svg => "svg:" case _ => throw new RuntimeException("Unreachable") }) + file).start
+              val q = new ProcessBuilder("/usr/bin/convert", "-density", "125", outputFiles(Format.pdf).getCanonicalPath, (fmt match {
+                case Format.png => "png:"
+                case Format.svg => "svg:"
+                case _ => throw new RuntimeException("Unreachable")
+              }) + file).start
               q.getOutputStream.close()
               q.getInputStream.readAndDiscard()
               if (q.waitFor != 0) sys.error(s"Some error converting from pdf ${outputFiles(Format.pdf).getCanonicalPath} to $fmt $file")
@@ -379,9 +318,6 @@ object plots {
   }
 
   abstract class BarPlotCommon extends Plot {
-    var totalPointLabel: String = "None"
-    var totalPointFunction: Option[(Iterable[Any]) => Any] = None
-
     var barWidth: Double = 10.0
 
     override def autoWidth = {
@@ -473,7 +409,7 @@ object plots {
                |""".stripMargin)
     }
 
-    override def xCoordsArray = (getXValues ++ (totalPointFunction map (f => totalPointLabel))).filterDuplicates map (_.toString)
+    override def xCoordsArray = getXValues.filterDuplicates.map(_.toString)
     protected def printXcoordsArray(): Unit = {
       print("x_coords = [")
       xCoordsArray foreach { v => print(f"  [unicode('${pyChartQuote(v)}')],\n") }
@@ -512,14 +448,8 @@ object plots {
           def p(x: String, y: CoordValue) =
             if (y.noCoordValue == None || y.value.isInfinity || y.value.isNaN) println(s" [unicode('${pyChartQuote(x)}'), 0, 0],")
             else println(s" [unicode('${pyChartQuote(x)}'), ${y.value}, ${y.error}],")
-          for (Point(x, y, _, _) <- s.data) p(x.toString, y)
-          for {
-            tf <- totalPointFunction
-            items = s.data map (_.y) filter (_ != None)
-            if items.nonEmpty
-            t = tf(items)
-          } p(totalPointLabel, t)
 
+          for (Point(x, y) <- s.data) p(x.toString, y)
           print("]\n\n")
 
           println(s"""|ar.add_plot(bar_plot.T(data = serie_data,
@@ -530,17 +460,14 @@ object plots {
           println(s"            width = $barWidth))")
         }
         println("ar.draw()")
-        if (totalPointFunction.isDefined) {
-          addSeparationLine(-1)
-        }
         printSeparationLines()
         val yOffsets = collection.mutable.HashMap[Any, Double]()
-        for (s <- series; Point(x, y, _, _) <- s.data; if y != None && y.value > yRangeMax) {
+        for (s <- series; Point(x, y) <- s.data; if y != None && y.value > yRangeMax) {
           val yOffset = yOffsets.getOrElse(x, outOfRangeLabelYoffset)
           yOffsets(x) = yOffset - outOfRangeLabelYoffsetInc
         }
         val outOfRangeLabelFontSize = (outOfRangeLabelScale * fontSize).round
-        for ((s, idx) <- series.zipWithIndex; Point(x, y, _, _) <- s.data; if y != None && y.value > yRangeMax) {
+        for ((s, idx) <- series.zipWithIndex; Point(x, y) <- s.data; if y != None && y.value > yRangeMax) {
           val xOffset = outOfRangeLabelXoffset + barWidth * seriesLength / 2
           val arrowHeadLen = barWidth * 0.7
           val xTargetOffset = idx * barWidth - barWidth * seriesLength / 2 + barWidth / 2 - arrowHeadLen / 2
@@ -565,19 +492,11 @@ object plots {
     def printTsvSeriesAsRows(): Unit = {
       def fmt(x: Any) = x.toString
       val columns = getXValues.filterDuplicates
-      println("\t" + columns.map(col => fmt(col) + "\t" + fmt(col) + "_err").mkString("\t") + totalPointFunction.map(_ => "\t" + totalPointLabel + "\t" + totalPointLabel + "_err").getOrElse(""))
+      println("\t" + columns.map(col => fmt(col) + "\t" + fmt(col) + "_err").mkString("\t"))
       series foreach { s =>
         val values = s.data.map(p => (p.x, p.y)).toMap
         println(s.label + "\t" +
-          columns.map(x => values.get(x).map(v => fmt(v.value) + "\t" + fmt(v.error)).getOrElse("\t")).mkString("\t") +
-          totalPointFunction.map { tf =>
-            "\t" + (s.data.map(_.y).filter(_ != None) match {
-              case items if items.nonEmpty =>
-                val v = tf(items)
-                fmt(v.value) + "\t" + fmt(v.error)
-              case _ => "\t"
-            })
-          }.getOrElse(""))
+                columns.map(x => values.get(x).map(v => fmt(v.value) + "\t" + fmt(v.error)).getOrElse("\t")).mkString("\t"))
       }
     }
 
@@ -600,33 +519,18 @@ object plots {
         }
         println()
       }
-      totalPointFunction.foreach { tf =>
-        print(fmt(totalPointLabel))
-        series.foreach { s =>
-          print("\t")
-          print(fmt(tf(s.data.map(_.y).filter(_ != None)).value))
-        }
-        println()
-        print(fmt(totalPointLabel) + "_err")
-        series.foreach { s =>
-          print("\t")
-          print(fmt(tf(s.data.map(_.y).filter(_ != None)).error))
-        }
-        println()
-      }
     }
   }
 
   class StackedBarPlot extends BarPlotCommon {
-    override def getYValues: Seq[Seq[(Any, Any)]] = try {
+    override def getYValues: Iterable[Iterable[(Any, Any)]] = try {
       series flatMap (_.data) map {
-        case Point(_, v: Seq[_], _, _) => v.zipWithIndex map {
+        case Point(_, v: Iterable[_]) => v.zipWithIndex map {
           case (x@(_, _), _) => x
           case (x, i) => i.toString -> x
         }
-        case Point(_, v: Map[_, _], _, _) => v.toSeq
-        case Point(_, v: (_, _), _, _) => Seq(v)
-        case Point(_, v, _, _) => Seq("all" -> v)
+        case Point(_, v: (_, _)) => Seq(v)
+        case Point(_, v) => Seq("all" -> v)
       }
       //series flatMap (_.data) map (_.y.asInstanceOf[Seq[(Any, Any)]])
     } catch {
@@ -657,7 +561,7 @@ object plots {
       case _         => c.toString
     }
 
-    def printCode()=  {
+    def printCode() = {
       printPyChartCommonCode()
       printPyChartImprovementCode()
 
@@ -683,12 +587,9 @@ object plots {
             def p(x: String, v: Double, e: Double) =
               if (v.isInfinity || v.isNaN) println(s" [unicode('${pyChartQuote(x)}'), 0, 0],")
               else println(s" [unicode('${pyChartQuote(x)}'), $v, $e],")
-            for (Point(x, yl, _, _) <- s.data) {
+            for (Point(x, yl) <- s.data) {
               val px = yl.asInstanceOf[Iterable[(Any, Any)]].toMap.getOrElse(c, missingCategoryValue)
               p(x.toString, px.value, px.error)
-            }
-            for (tf <- totalPointFunction; t = tf(s.data map (_.y.asInstanceOf[Iterable[(Any, Any)]].toMap.getOrElse(c, missingCategoryValue)))) {
-              p(totalPointLabel, t.value, t.error)
             }
             print("]\n")
             printf("p = bar_plot.T(data = serie_data,\n")
@@ -703,7 +604,6 @@ object plots {
           }
         }
         println("ar.draw()")
-        if (totalPointFunction.isDefined) { addSeparationLine(-1) }
         printSeparationLines()
 
         def sumMap(a: Any) = {
@@ -755,26 +655,17 @@ object plots {
       println("\t" + columns.flatMap(col =>
         categories.map { c =>
           fmt(col) + "/" + fmt(c) + "\t" + fmt(col) + "/" + fmt(c) + "_err"
-        }).mkString("\t") + totalPointFunction.map(tf => "\t" + categories.map(c =>
-        fmt(totalPointLabel) + "/" + fmt(c) + "\t" + fmt(totalPointLabel) + "/" + fmt(c) + "_err"
-      ).mkString("\t")).getOrElse(""))
+        }).mkString("\t"))
       series foreach { s =>
         val values = s.data.map(p => (p.x, p.y)).toMap
         println(s.label + "\t" +
-          columns.flatMap { x =>
-            val y = values.getOrElse(x, Seq.empty[Iterable[(Any, Any)]]).asInstanceOf[Iterable[(Any, Any)]].toMap
-            categories.map { c =>
-              val v = y.getOrElse(c, missingCategoryValue)
-              fmt(v.value) + "\t" + fmt(v.error)
-            }
-          }.mkString("\t") +
-          totalPointFunction.map(tf => "\t" +
-            categories.map { c =>
-              val v = tf(s.data map (_.y.asInstanceOf[Iterable[(Any, Any)]].toMap.getOrElse(c, missingCategoryValue)))
-              fmt(v.value) + "\t" + fmt(v.error)
-            }.mkString("\t")
-          ).getOrElse("")
-        )
+                columns.flatMap { x =>
+                  val y = values.getOrElse(x, Seq.empty[Iterable[(Any, Any)]]).asInstanceOf[Iterable[(Any, Any)]].toMap
+                  categories.map { c =>
+                    val v = y.getOrElse(c, missingCategoryValue)
+                    fmt(v.value) + "\t" + fmt(v.error)
+                  }
+                }.mkString("\t"))
       }
     }
 
@@ -800,20 +691,6 @@ object plots {
           println()
         }
       }
-      if (false) totalPointFunction.foreach { tf =>
-        print(fmt(totalPointLabel))
-        series.foreach { s =>
-          print("\t")
-          print(fmt(tf(s.data.map(_.y).filter(_ != None)).value))
-        }
-        println()
-        print(fmt(totalPointLabel) + "_err")
-        series.foreach { s =>
-          print("\t")
-          print(fmt(tf(s.data.map(_.y).filter(_ != None)).error))
-        }
-        println()
-      }
     }
   }
 
@@ -828,9 +705,6 @@ object plots {
 
     var useCategorizedXcoords = false
     var categorizedXcoordsTickInterval = 1
-
-    var totalSerieLabel = "None"
-    var totalSerieFunction: Option[(Iterable[Any]) => Any] = None
 
     var _xGridInterval: Option[Double] = None
     def xGridInterval_=(v: Double): Unit = { _xGridInterval = Some(v) }
@@ -848,7 +722,7 @@ object plots {
 
       printf("ar = area.T(size = area_size,\n")
       printf("    y_range = (%s, %s),\n", yRangeMin, yRangeMax)
-      if (useCategorizedXcoords) printf("    x_range = (0, %s),\n", (series map (_.data.size) max) + 1)
+      if (useCategorizedXcoords) printf("    x_range = (0, %s),\n", (series.map(_.data.size).maxOption).getOrElse(0) + 1)
       else printf("    x_range = (%s, %s),\n", xRangeMin, xRangeMax)
       printf("    y_grid_interval = %s,\n", yGridInterval)
       if (!useCategorizedXcoords) printf("    x_grid_interval = %s,\n", xGridInterval)
@@ -862,7 +736,7 @@ object plots {
       for ((s, idx) <- series.zipWithIndex) {
         printf("# '%s'\n", s.label)
         print("serie_data = [\n")
-        for ((Point(x, y, _, _), xindex) <- s.data.zipWithIndex) {
+        for ((Point(x, y), xindex) <- s.data.zipWithIndex) {
           if (useCategorizedXcoords) printf("  [%s, %s, %s],\n", xindex + 1, y.value, y.error)
           else printf("  [%s, %s, %s],\n", x, y.value, y.error)
         }
@@ -872,48 +746,12 @@ object plots {
         printf("    line_style = my_line_style[%s %% my_line_style_len],\n", idx)
         printf("    error_bar = error_bar.bar2, y_error_minus_col = 2))\n")
       }
-      totalSerieFunction match {
-        case Some(tf) =>
-          printf("# '%s'\n", totalSerieLabel)
-          print("serie_data = [\n")
-          for (x <- getXValues.filterDuplicates sortWith (_.toDouble < _.toDouble)) {
-            val l = for (s <- series; if s.data.nonEmpty) yield {
-              // look for point x in this serie, it may exist or not
-              val it = s.data.iterator
-              var prev = it.next()
-              if (prev.x == x || prev.x.toDouble >= x.toDouble || !it.hasNext) {
-                prev.y
-              } else {
-                var next = it.next()
-                while (next.x != x && next.x.toDouble < x.toDouble && it.hasNext) {
-                  prev = next
-                  next = it.next()
-                }
-                if (next.x == x) {
-                  next.y // found
-                } else {
-                  // x does not exist, interpolate
-                  (prev.y: CoordValue) + (x - prev.x) / (next.x - prev.x) * (next.y - prev.y)
-                }
-              }
-            }
-            val t = tf(l)
-            if (useCategorizedXcoords) printf("  [%s, %s, %s],\n", series.size + 1, t.value, t.error)
-            else printf("  [%s, %s, %s],\n", x, t.value, t.error)
-          }
-          print("]\n")
-          printf("ar.add_plot(line_plot.T(data = serie_data,\n")
-          printf("    label = 'unicode(%s)',\n", pyChartQuote(totalSerieLabel))
-          printf("    line_style = my_line_style[%s %% my_line_style_len],\n", series.size)
-          printf("    error_bar = error_bar.bar2, y_error_minus_col = 2))\n")
-        case None =>
-      }
       println("ar.draw()")
     }
 
     protected def printXcoordsArray(): Unit = {
       println("x_coords = [")
-      getXValues.filterDuplicates.sorted(dynamicOrdering()) foreach { v => println(f"  unicode('${pyChartQuote(v.toString)}'),") }
+      getXValues.filterDuplicates foreach { v => println(f"  unicode('${pyChartQuote(v.toString)}'),") }
       println("]")
       println(
         s"""|def x_coord_fmt(x):
@@ -931,7 +769,7 @@ object plots {
       series foreach { s =>
         val values = s.data.map(p => (p.x, p.y)).toMap
         println(s.label + "\t" +
-          columns.map(x => values.get(x).map(v => fmt(v.value) + "\t" + fmt(v.error)).getOrElse("\t")).mkString("\t"))
+                columns.map(x => values.get(x).map(v => fmt(v.value) + "\t" + fmt(v.error)).getOrElse("\t")).mkString("\t"))
       }
     }
   }

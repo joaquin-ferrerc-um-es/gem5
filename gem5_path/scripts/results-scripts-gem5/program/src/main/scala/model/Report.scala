@@ -402,40 +402,18 @@ case class Listing(parent: Report, source: Listing.Source, indexes: Seq[IndexCol
   def sectionIndexFromString(s: String): Option[SectionIndex] = sectionRows.keys.find(si => sectionIndexToString(si) == s)
   def sectionIndexToString(i: SectionIndex) = if (i.isEmpty) "-" else i.mkString(",")
 
-  // return either the value of a simulation or the average/concatenation of many simulations
-  def rowValue(coord: Coord, rowSims: Row, missingValue: Any = 0.0) = {
-    import repscr.points._
-    def averageOrConcat(lany: Iterable[Any]): Any = lany.headOption match {
-      case Some(s: String) => lany
-      case Some(t: Iterable[Any]) => lany map { case t: Iterable[Any] => t case x => Seq(x) } map averageOrConcat
-      case _ => (lany filter (v => !(v.isNaN || v.isInfinity)) reduceOption (_ + _) getOrElse missingValue) / lany.size
-    }
-    def stackedAverage(lstacks: Iterable[Iterable[(Any, Any)]]) = {
-      val categories = lstacks.flatMap(_ map (_._1)).filterDuplicates
-      val lmaps = lstacks map (_.toMap)
-      categories map { c => c -> averageOrConcat(lmaps map (_.getOrElse(c, missingValue))) }
-    }
-
-    rowSims.size match {
-      case 1 => coord.optFn(rowSims.head).getOrElse(missingValue)
-      case _ =>
-        if (coord.stacked) stackedAverage((rowSims map coord.optFn collect { case Some(v) => v }).asInstanceOf[Iterable[Iterable[(Any, Any)]]])
-        else averageOrConcat(rowSims map coord.optFn collect { case Some(v) => v })
-    }
-  }
-
   val plots = ConcurrentCache[(SectionIndex, ResultColumn), repscr.plots.Plot] {
     case (sec: SectionIndex, ResultColumn(yCoord, normalized, style)) =>
       import repscr.plots._
-      val pd = PlotUtil.PlotData(x = xIndexColumns.map(_.coord),
+      val pd = PlotUtil.SimulationsPlotData(x = xIndexColumns.map(_.coord),
         y = yCoord,
         seriesC = serieIndexColumns.map(_.coord),
         points = sectionRows(sec).values.flatten,
-        addTotals = true)
+        addAverage = true,
+        normalize = if (normalized) PlotUtil.Normalization.Ratio else PlotUtil.Normalization.Absolute)
       val p: Plot = style match {
         case ResultColumn.BarsStyle if yCoord.stacked => new StackedBarPlot {
           legendOffsetY = 15
-          categoriesOrder = Some(yCoord.ordering.lt)
           categoriesLegendRows = 2
         }
         case ResultColumn.BarsStyle => new BarPlot
@@ -443,9 +421,6 @@ case class Listing(parent: Report, source: Listing.Source, indexes: Seq[IndexCol
           useCategorizedXcoords = true
         }
       }
-
-      p.yAxisTitle = yCoord.axisTitle + (if (normalized) " (normalized)" else "")
-      p.normalization = if (normalized) Normalization.Ratio else Normalization.Absolute
 
       p.yRangeMin = 0
       p.plotStyle = Plot.Style.ColorsDivergingSpectral11
@@ -471,6 +446,27 @@ case class Listing(parent: Report, source: Listing.Source, indexes: Seq[IndexCol
     tsv((rowIndexColumns diff usedSectionIndexes) map { _.coord }, results map { _.coord }, sectionRows(sec).values.flatten)
   }
   def tsv(indexColCoords: Seq[Coord], resultColCoords: Seq[Coord], sims: Iterable[Point]) = {
+    // return either the value of a simulation or the average/concatenation of many simulations
+    def rowValue(coord: Coord, rowSims: Row, missingValue: Any = 0.0) = {
+      import repscr.points._
+      def averageOrConcat(lany: Iterable[Any]): Any = lany.headOption match {
+        case Some(s: String) => lany
+        case Some(t: Iterable[Any]) => lany map { case t: Iterable[Any] => t case x => Seq(x) } map averageOrConcat
+        case _ => (lany filter (v => !(v.isNaN || v.isInfinity)) reduceOption (_ + _) getOrElse missingValue) / lany.size
+      }
+      def stackedAverage(lstacks: Iterable[Iterable[(Any, Any)]]) = {
+        val categories = lstacks.flatMap(_ map (_._1)).filterDuplicates
+        val lmaps = lstacks map (_.toMap)
+        categories map { c => c -> averageOrConcat(lmaps map (_.getOrElse(c, missingValue))) }
+      }
+
+      rowSims.size match {
+        case 1 => coord.optFn(rowSims.head).getOrElse(missingValue)
+        case _ =>
+          if (coord.stacked) stackedAverage((rowSims map coord.optFn collect { case Some(v) => v }).asInstanceOf[Iterable[Iterable[(Any, Any)]]])
+          else averageOrConcat(rowSims map coord.optFn collect { case Some(v) => v })
+      }
+    }
     case class Col(name: String, ordering: Ordering[Any], fn: Iterable[Point] => Any)
     def colsFromValue(coord: Coord, v: Any): Seq[Col] = {
       def iter(name: String, fn: Iterable[Point] => Any, v: Any): Seq[Col] = {

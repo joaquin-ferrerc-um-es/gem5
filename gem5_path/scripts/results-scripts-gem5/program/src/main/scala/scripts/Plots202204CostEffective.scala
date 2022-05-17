@@ -1,11 +1,11 @@
 package scripts
 
-import repscr.PlotUtil.PlotData
+import repscr.PlotUtil.SimulationsPlotData
+import repscr.plots.{BarPlot, BarPlotCommon, Format, Plot, StackedBarPlot}
+import repscr.PlotUtil.Normalization
 import repscr.gem5.Gem5Coords._
 import repscr.gem5.{Gem5DataPoint, SimulationMix}
-import repscr.plots.{BarPlot, BarPlotCommon, Format, Normalization, Plot, Serie, StackedBarPlot}
 import util.misc._
-
 import java.io.File
 
 object Plots202204CostEffective extends App with PlotScript {
@@ -23,34 +23,26 @@ object Plots202204CostEffective extends App with PlotScript {
       outOfRangeLabelYoffsetInc = outOfRangeLabelYoffsetInc + 3
       barWidth = 15
       plotStyle = Plot.Style.ColorsDivergingSpectral11
-      normalization = Normalization.Ratio
     }
 
-    class BarPlotDefault(val data: PlotData) extends BarPlot with DefaultPlotOptions {
-      outputFiles(Format.pdf) = new File(s"$outdir/${data.fileBaseName}.pdf")
-      outputFiles(Format.tsv) = new File(s"$outdir/${data.fileBaseName}.tsv")
-      //pointsOrder = Some(data.x.ordering.lt)
-      //seriesOrder = Some(data.seriesC.ordering.lt)
-      totalPointFunction = None
+    class BarPlotDefault(val spData: SimulationsPlotData) extends BarPlot with DefaultPlotOptions {
+      outputFiles(Format.pdf) = new File(s"$outdir/${spData.fileBaseName}.pdf")
+      outputFiles(Format.tsv) = new File(s"$outdir/${spData.fileBaseName}.tsv")
       legendOffsetX = -5
       legendOffsetY = 5
 
-      data.addToPlot(this)
+      spData.addToPlot(this)
     }
 
-    class StackedBarPlotDefault(val data: PlotData) extends StackedBarPlot with DefaultPlotOptions {
-      outputFiles(Format.pdf) = new File(s"$outdir/${data.fileBaseName}.pdf")
-      outputFiles(Format.tsv) = new File(s"$outdir/${data.fileBaseName}.tsv")
-      //pointsOrder = Some(x.ordering.lt)
-      //seriesOrder = Some(seriesC.ordering.lt)
-      categoriesOrder = Some(data.y.ordering.lt)
-      totalPointFunction = None
+    class StackedBarPlotDefault(val spData: SimulationsPlotData) extends StackedBarPlot with DefaultPlotOptions {
+      outputFiles(Format.pdf) = new File(s"$outdir/${spData.fileBaseName}.pdf")
+      outputFiles(Format.tsv) = new File(s"$outdir/${spData.fileBaseName}.tsv")
       seriesLegend = true
       categoriesLegendRows = 1
       legendOffsetX = -5
       legendOffsetY = 13
 
-      data.addToPlot(this)
+      spData.addToPlot(this)
     }
   }
 
@@ -108,140 +100,132 @@ object Plots202204CostEffective extends App with PlotScript {
   val allPlots = collection.mutable.Buffer.empty[Plot]
 
   allPlots +=
-  new BarPlotDefault(PlotData(name = "global",
+  new BarPlotDefault(SimulationsPlotData(name = "global",
     seriesC = Seq("config".toCoord, "num_cpus".toCoord),
     y = "cycles_ticks".toCoord,
     x = Seq("benchmark_name".toCoord),
     points = points,
-    addTotals = true)
+    addAverage = true)
   ) {
-    normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
     seriesLegendRows = 3
     width = 400
   }
 
   allPlots +=
-  new BarPlotDefault(PlotData(name = "global-1thread",
+  new BarPlotDefault(SimulationsPlotData(name = "global-1thread",
     seriesC = Seq("config".toCoord),
     y = "cycles_ticks".toCoord,
     x = Seq("benchmark_name".toCoord),
-    points = points.filter(_.num_cpus == 1))
+    points = points.filter(_.num_cpus == 1),
+    normalize = Normalization.Ratio)
   ) {
-    normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
     seriesLegendRows = 3
     width = 180
   }
 
   allPlots +=
-  new BarPlotDefault(PlotData(name = "global-16thread",
+  new BarPlotDefault(SimulationsPlotData(name = "global-16thread",
     seriesC = Seq("config".toCoord),
     y = "cycles_ticks".toCoord,
     x = Seq("benchmark_name".toCoord),
-    points = points.filter(_.num_cpus == 16))
+    points = points.filter(_.num_cpus == 16),
+    normalize = Normalization.Ratio)
   ) {
-    normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
     seriesLegendRows = 3
     width = 180
   }
 
   allPlots +=
-  new BarPlotDefault(PlotData(name = "plot1",
+  new BarPlotDefault(SimulationsPlotData(name = "plot1",
     seriesC = Seq("config".toCoord),
     y = "cycles_ticks".toCoord,
     x = Seq("benchmark_name".toCoord),
     points = points.filter(s => s.num_cpus == 1
                                 && Set("locks", "base_nopf").contains(s.config)
-                                && Set("intruder", "genome", "kmeans-h", "ssca2", "vacation-h", "yada").contains(s.benchmarkName)))
-  ) {
-    normalization = Normalization.Ratio
+                                && Set("intruder", "genome", "kmeans-h", "ssca2", "vacation-h", "yada").contains(s.benchmarkName)),
+    normalize = Normalization.Ratio)) {
     yAxisTitle = "Time (normalized)"
   }
 
   allPlots +=
-  new StackedBarPlotDefault((PlotData(name = "plot2a",
+  new StackedBarPlotDefault(SimulationsPlotData(name = "plot2a",
     seriesC = Seq("config".toCoord),
     y = "htm_transaction_abort_cause_grouped".toCoord,
     x = Seq("benchmark_name".toCoord),
     points = points.filter(s => s.num_cpus == 1
                                 && Set("base_nopf", "base").contains(s.config)
-                                && Set("vacation-h", "intruder", "yada").contains(s.benchmarkName))))
-  ) {
-    normalization = Normalization.Ratio
+                                && Set("vacation-h", "intruder", "yada").contains(s.benchmarkName)),
+    normalize = Normalization.Ratio)) {
     yAxisTitle = "Abort count (normalized)"
   }
 
   allPlots +=
-  new BarPlotDefault(PlotData(name = "plot2b",
+  new BarPlotDefault(SimulationsPlotData(name = "plot2b",
     seriesC = Seq("config".toCoord),
     y = "cycles_ticks".toCoord,
     x = Seq("benchmark_name".toCoord),
     points = points.filter(s => s.num_cpus == 16
                                 && Set("base_nopf", "base").contains(s.config)
-                                && Set("vacation-h", "intruder", "yada").contains(s.benchmarkName)))
-  ) {
-    normalization = Normalization.Ratio
+                                && Set("vacation-h", "intruder", "yada").contains(s.benchmarkName)),
+    normalize = Normalization.Ratio)) {
     yAxisTitle = "Time (normalized)"
   }
 
 
   allPlots +=
-  new StackedBarPlotDefault(PlotData(name = "plot3a",
+  new StackedBarPlotDefault(SimulationsPlotData(name = "plot3a",
     seriesC = Seq("config".toCoord),
     y = "htm_transaction_abort_cause_grouped_sizes".toCoord,
     x = Seq("benchmark_name".toCoord),
     points = points.filter(s => s.num_cpus == 1
                                 && Set("base", "l2rs", "l3rs", "lxrs").contains(s.config)
-                                && Set("vacation-h", "yada", "intruder").contains(s.benchmarkName)))
-  ) {
-    normalization = Normalization.Ratio
+                                && Set("vacation-h", "yada", "intruder").contains(s.benchmarkName)),
+    normalize = Normalization.Ratio)) {
     yAxisTitle = "Abort count (normalized)"
     categoriesLegendRows = 2
   }
 
   allPlots +=
-  new BarPlotDefault(PlotData(name = "plot3b",
+  new BarPlotDefault(SimulationsPlotData(name = "plot3b",
     seriesC = Seq("config".toCoord),
     y = "cycles_ticks".toCoord,
     x = Seq("benchmark_name".toCoord),
     points = points.filter(s => s.num_cpus == 16
                                 && Set("base", "l2rs", "l3rs", "lxrs").contains(s.config)
-                                && Set("vacation-h", "yada", "intruder").contains(s.benchmarkName)))
-  ) {
-    normalization = Normalization.Ratio
+                                && Set("vacation-h", "yada", "intruder").contains(s.benchmarkName)),
+    normalize = Normalization.Ratio)) {
     yAxisTitle = "Time (normalized)"
   }
 
   allPlots +=
-  new StackedBarPlotDefault(PlotData(name = "plot4a",
+  new StackedBarPlotDefault(SimulationsPlotData(name = "plot4a",
     seriesC = Seq("config".toCoord),
     y = "htm_transaction_abort_cause_grouped_sizes".toCoord,
     x = Seq("benchmark_name".toCoord),
     points = points.filter(s => s.num_cpus == 1
                                 && Set("l3rs", "l3rs_l1rpl").contains(s.config)
-                                && Set("vacation-h", "yada", "intruder").contains(s.benchmarkName)))
-  ) {
-    normalization = Normalization.Ratio
+                                && Set("vacation-h", "yada", "intruder").contains(s.benchmarkName)),
+    normalize = Normalization.Ratio)) {
     yAxisTitle = "Abort count (normalized)"
   }
 
   allPlots +=
-  new BarPlotDefault(PlotData(name = "plot4b",
+  new BarPlotDefault(SimulationsPlotData(name = "plot4b",
     seriesC = Seq("config".toCoord),
     y = "cycles_ticks".toCoord,
     x = Seq("benchmark_name".toCoord),
     points = points.filter(s => s.num_cpus == 1
                                 && Set("l3rs", "l3rs_l1rpl").contains(s.config)
-                                && Set("vacation-h", "yada", "intruder").contains(s.benchmarkName)))
-  ) {
-    normalization = Normalization.Ratio
+                                && Set("vacation-h", "yada", "intruder").contains(s.benchmarkName)),
+    normalize = Normalization.Ratio)) {
     yAxisTitle = "Time (normalized)"
   }
 
   allPlots +=
-  new StackedBarPlotDefault(PlotData(name = "plot5a",
+  new StackedBarPlotDefault(SimulationsPlotData(name = "plot5a",
     seriesC = Seq("config".toCoord),
     y = "htm_transaction_abort_cause_grouped_conflicts".toCoord,
     x = Seq("benchmark_name".toCoord),
@@ -249,88 +233,82 @@ object Plots202204CostEffective extends App with PlotScript {
                                 && Set("l3rs_l1rpl", "l3rs_l1rpl_reqstallb", "l3rs_l1rpl_reqstallh").contains(s.config)
                                 && Set("kmeans-h", "yada", "intruder").contains(s.benchmarkName)))
   ) {
-    normalization = Normalization.Ratio
     yAxisTitle = "Abort count (normalized)"
     seriesLegendRows = 2
     legendOffsetY = 17
   }
 
   allPlots +=
-  new BarPlotDefault(PlotData(name = "plot5b",
+  new BarPlotDefault(SimulationsPlotData(name = "plot5b",
     seriesC = Seq("config".toCoord),
     y = "cycles_ticks".toCoord,
     x = Seq("benchmark_name".toCoord),
     points = points.filter(s => s.num_cpus == 16
                                 && Set("l3rs_l1rpl", "l3rs_l1rpl_reqstallb", "l3rs_l1rpl_reqstallh").contains(s.config)
-                                && Set("kmeans-h", "yada", "intruder").contains(s.benchmarkName)))
-  ) {
-    normalization = Normalization.Ratio
+                                && Set("kmeans-h", "yada", "intruder").contains(s.benchmarkName)),
+    normalize = Normalization.Ratio)) {
     yAxisTitle = "Time (normalized)"
     seriesLegendRows = 2
   }
 
   allPlots +=
-  new StackedBarPlotDefault(PlotData(name = "plot6a",
+  new StackedBarPlotDefault(SimulationsPlotData(name = "plot6a",
     seriesC = Seq("config".toCoord),
     y = "htm_transaction_abort_cause_grouped".toCoord,
     x = Seq("benchmark_name".toCoord),
     points = points.filter(s => s.num_cpus == 16
-                                && Set("l3rs_l1rpl_reqstallh", "l3rs_l1rpl_reqstallh_precrs").contains(s.config)))
-  ) {
-    normalization = Normalization.Ratio
+                                && Set("l3rs_l1rpl_reqstallh", "l3rs_l1rpl_reqstallh_precrs").contains(s.config)),
+    normalize = Normalization.Ratio)) {
     yAxisTitle = "Abort count (normalized)"
     seriesLegendRows = 2
     legendOffsetY = 17
   }
 
   allPlots +=
-  new BarPlotDefault(PlotData(name = "plot6b",
+  new BarPlotDefault(SimulationsPlotData(name = "plot6b",
     seriesC = Seq("config".toCoord),
     y = "cycles_ticks".toCoord,
     x = Seq("benchmark_name".toCoord),
     points = points.filter(s => s.num_cpus == 16
-                                && Set("l3rs_l1rpl_reqstallh", "l3rs_l1rpl_reqstallh_precrs").contains(s.config)))
-  ) {
-    normalization = Normalization.Ratio
+                                && Set("l3rs_l1rpl_reqstallh", "l3rs_l1rpl_reqstallh_precrs").contains(s.config)),
+    normalize = Normalization.Ratio)) {
     yAxisTitle = "Time (normalized)"
     seriesLegendRows = 2
   }
 
   allPlots +=
-  new StackedBarPlotDefault(PlotData(name = "plot7a",
+  new StackedBarPlotDefault(SimulationsPlotData(name = "plot7a",
     seriesC = Seq("config".toCoord),
     y = "htm_transaction_abort_cause_grouped".toCoord,
     x = Seq("benchmark_name".toCoord),
     points = points.filter(s => s.num_cpus == 16
-                                && Set("l3rs_l1rpl_reqstallh_precrs", "l3rs_l1rpl_lazycd").contains(s.config)))
-  ) {
-    normalization = Normalization.Ratio
+                                && Set("l3rs_l1rpl_reqstallh_precrs", "l3rs_l1rpl_lazycd").contains(s.config)),
+    normalize = Normalization.Ratio)) {
     yAxisTitle = "Abort count (normalized)"
     seriesLegendRows = 2
   }
 
   allPlots +=
-  new BarPlotDefault(PlotData(name = "plot7b",
+  new BarPlotDefault(SimulationsPlotData(name = "plot7b",
     seriesC = Seq("config".toCoord),
     y = "cycles_ticks".toCoord,
     x = Seq("benchmark_name".toCoord),
     points = points.filter(s => s.num_cpus == 16
-                                && Set("l3rs_l1rpl_reqstallh_precrs", "l3rs_l1rpl_lazycd").contains(s.config)))
-  ) {
-    normalization = Normalization.Ratio
+                                && Set("l3rs_l1rpl_reqstallh_precrs", "l3rs_l1rpl_lazycd").contains(s.config)),
+    normalize = Normalization.Ratio)) {
     yAxisTitle = "Time (normalized)"
     seriesLegendRows = 2
   }
 
   allPlots +=
-  new BarPlotDefault(PlotData(name = "plot8b",
+  new BarPlotDefault(SimulationsPlotData(name = "plot8b",
     seriesC = Seq("config".toCoord),
     y = "cycles_ticks".toCoord,
     x = Seq("benchmark_name".toCoord),
     points = points.filter(s => s.num_cpus == 16
-                                && Set("base", "l3rs_l1rpl_reqstallh_precrs", "l3rs_l1rpl_lazycd", "lxrs_l1rpl_reqstallh_precrs_log").contains(s.config)))
+                                && Set("base", "l3rs_l1rpl_reqstallh_precrs", "l3rs_l1rpl_lazycd", "lxrs_l1rpl_reqstallh_precrs_log").contains(s.config)),
+    normalize = Normalization.Ratio)
   ) {
-    normalization = Normalization.Ratio
     yAxisTitle = "Time (normalized)"
     seriesLegendRows = 2
     width = 150

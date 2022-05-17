@@ -4,9 +4,11 @@ import language.implicitConversions
 import util.misc.dynamicOrdering
 
 trait PlotCoordinates[T] { self =>
+  type DataPointType = T
+
   case class Coord(
     name: String,
-    fn: T => Any,
+    fn: DataPointType => Any,
     isConfig: Boolean = false,
     stacked: Boolean = false,
     axisTitle: String = "????",

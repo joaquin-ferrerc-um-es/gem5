@@ -110,7 +110,7 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
   }
 
   /* Project specific coordinates */
-  Coord("config_huawei",
+  Coord("config_cost_effective",
     s => (s("htm_binary_suffix"), s("htm_heap_prefault"),
       s("htm_allow_read_set_l0_cache_evictions"), s("htm_allow_read_set_l1_cache_evictions"), s("htm_allow_read_set_l2_cache_evictions"),
       s("htm_trans_aware_l0_replacements"),

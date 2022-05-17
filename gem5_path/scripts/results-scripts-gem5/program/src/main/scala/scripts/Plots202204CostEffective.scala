@@ -46,7 +46,7 @@ object Plots202204CostEffective extends App with PlotScript {
     }
   }
 
-  "config_huawei".toCoord.derivedCoord("config", identity) // TODO: Move from Gem5Coords
+  "config_cost_effective".toCoord.derivedCoord("config", identity) // TODO: Move from Gem5Coords
 
   "htm_transaction_abort_cause".toCoord.derivedCoord("htm_transaction_abort_cause_grouped", m => regroupMap[String, Map[String, Any]](m.asMap[String, Any]) {
     case "memory_conflict" | "memory_conflict_fallbacklock" | "lsq_conflict" | "memory_conflict_staledata" | "memory_conflict_falsesharing" => "conflict"

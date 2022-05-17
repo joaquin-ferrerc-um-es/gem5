@@ -1,8 +1,8 @@
 package scripts
 
-import repscr.PlotUtil.SimulationsPlotData
+import repscr.plots.PlotUtil.SimulationsPlotData
 import repscr.plots.{BarPlot, BarPlotCommon, Format, Plot, StackedBarPlot}
-import repscr.PlotUtil.Normalization
+import repscr.plots.PlotUtil.Normalization
 import repscr.gem5.Gem5Coords._
 import repscr.gem5.{Gem5DataPoint, SimulationMix}
 import util.misc._

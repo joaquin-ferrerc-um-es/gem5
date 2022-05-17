@@ -1,9 +1,8 @@
-package repscr
+package repscr.plots
 
 import repscr.gem5.Gem5Coords._
 import util.misc.SeqOrdering
 import util.misc.RichIterable
-import plots.Plot
 
 import scala.collection.SortedMap
 import scala.collection.immutable.TreeMap
@@ -18,13 +17,12 @@ object PlotUtil {
     })
   }
   case class PlotData(series: Iterable[Serie]) {
-    import points._
-
     def normalized(normalizationMode: Normalization): PlotData =
       if (series.isEmpty || normalizationMode == Normalization.Absolute) this
       else normalized(normalizationMode, series.head)
 
     def normalized(normalizationMode: Normalization, base: Serie, skipBase: Boolean = false): PlotData = {
+      import repscr.points._
       val baseValues = base.data.view.map(p => p.x -> p.y).map {
         case (x, y: Iterable[_]) => x -> y.asInstanceOf[Iterable[(Any, Any)]].map(_._2.value).sum
         case (x, y) => x -> y.value
@@ -40,7 +38,7 @@ object PlotUtil {
   }
 
   sealed trait Normalization {
-    import points._
+    import repscr.points._
 
     def apply(value: Any, baseValue: Any): Any = this match {
       case Normalization.Absolute => value
@@ -138,7 +136,7 @@ object PlotUtil {
         case _ => "" // TODO: speedup, increase…
       })
       p match {
-        case p: plots.StackedBarPlot =>
+        case p: StackedBarPlot =>
           p.categoriesOrder = Some(y.ordering.lt)
         case _ =>
       }
@@ -152,7 +150,7 @@ object PlotUtil {
   object TotalFunctions {
     type TotalFunction = Iterable[Any] => Any
 
-    import points.CoordValue
+    import repscr.points.CoordValue
 
     def averageTotalFunction(lany: Iterable[Any]): Any = {
       val l = filterNanNsAndInfs(lany)

@@ -1,7 +1,7 @@
 package repscr.gem5
 
-import repscr.{PlotCoordinates, Vwe}
-import Vwe._
+import repscr.Vwe
+import repscr.plots.PlotCoordinates
 import util.misc.dynamicOrdering
 import repscr.points._
 
@@ -143,8 +143,5 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
       "base", "l2rs", "l3rs", "lxrs",
       "l3rs_l1rpl", "l3rs_l1rpl_reqstallb", "l3rs_l1rpl_reqstallh",
       "l3rs_l1rpl_reqstallh_precrs", "l3rs_l1rpl_lazycd"
-
     ))
-
-
 }

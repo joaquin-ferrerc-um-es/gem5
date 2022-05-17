@@ -1,6 +1,5 @@
-package repscr
+package repscr.plots
 
-import language.implicitConversions
 import util.misc.dynamicOrdering
 
 trait PlotCoordinates[T] { self =>
@@ -21,7 +20,7 @@ trait PlotCoordinates[T] { self =>
     def help = if (doc == "????") axisTitle else doc
     def optFn(s: T) = try Some(fn(s)) catch {
       case e: NoSuchElementException =>
-          warning(s"Coord ${this} not found in ${s}")
+        warning(s"Coord ${this} not found in ${s}")
         None
     }
     if (!transient) addCoord(this)
@@ -31,7 +30,7 @@ trait PlotCoordinates[T] { self =>
 
   private var coordsMap = Map.empty[String, Coord]
   def addCoord(c: Coord): Unit = coordsMap += (c.name -> c)
-  def allCoords: Map[String,Coord] = coordsMap
+  def allCoords: Map[String, Coord] = coordsMap
 
   def defaultStringToCoord(s: String): Coord = throw new IllegalArgumentException()
 

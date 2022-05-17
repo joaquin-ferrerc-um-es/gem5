@@ -3,9 +3,12 @@ package repscr
 import scala.language.implicitConversions
 import properties._
 
+import scala.annotation.tailrec
+
 object points {
   /* Dynamic typing for coordinate values */
   implicit class CoordValue(val any: Any) extends AnyVal {
+    @tailrec
     private def o: Any = any match {
       case c: CoordValue => c.o
       case _             => any

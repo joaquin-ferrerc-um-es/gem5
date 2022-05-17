@@ -5,7 +5,7 @@ import collection.immutable.TreeMap
 import collection.immutable.TreeSet
 import repscr.gem5._
 import repscr.gem5.Gem5Coords._
-import repscr.{PlotUtil, Vwe}
+import repscr.Vwe
 import util.misc._
 import util.time
 import Listing.IndexColumn

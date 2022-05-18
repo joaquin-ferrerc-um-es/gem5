@@ -32,6 +32,7 @@ object points {
     }
     def toInt: Int = o match {
       case x: Int  => x
+      case x: Long => x.toInt
       case Some(x) => CoordValue(x).toInt
       case _       => toDouble.toInt
     }

@@ -13,7 +13,8 @@ trait Gem5DataPoint extends DataPoint {
                           configs.toSeq.sortBy(_._1).map { case (k, v) => s"$k: $v" }.mkString("{\n  ", "\n  ", " } -> ") +
                           results.toSeq.sortBy(_._1).map { case (k, v) => s"$k: $v" }.mkString("{\n  ", "\n  ", " }")
   // Better accessors for some properties:
-  def num_cpus = this("num_cpus").value.toInt
+  def arch = this("arch").toString
+  def num_cpus = this("num_cpus").toInt
   def protocol = this("protocol").toString
   def benchmarkName = this("benchmark_name").toString
   def benchmarkSize = this("benchmark_size").toString

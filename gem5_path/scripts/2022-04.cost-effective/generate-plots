@@ -14,7 +14,8 @@ OUTPUTS_DIR="$(realpath "$SCRIPT_DIR/plots/")"
 
 (
     cd "$OUTPUTS_DIR"
-    for i in *.pdf ; do
+    IFS=$'\n'
+    for i in $(find -name '*.pdf') ; do
         mv "$i" "$i".croptmp.pdf
         { pdfcrop "$i.croptmp.pdf" "$i" && rm "$i.croptmp.pdf" ; } | grep -v "Heiko Oberdiek"
     done

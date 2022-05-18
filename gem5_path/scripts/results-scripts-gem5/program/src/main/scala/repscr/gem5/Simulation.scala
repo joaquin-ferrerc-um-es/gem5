@@ -148,7 +148,7 @@ class SimulationMix(val simulations: Iterable[Gem5DataPoint]) extends Gem5DataPo
     val keys = (simulations.view.map(_.properties.keySet)).reduce(_ ++ _)
     PropertyMap(keys.view.map { k =>
       k -> {
-        val values = simulations.map (_.properties get k)
+        val values = simulations.map(_.properties get k)
         if (values.count(_.contains(MissingProperty)) == values.size) MissingProperty
         else try Gem5Properties.knownProperties(k).mixer(values)
         catch {
@@ -161,26 +161,25 @@ class SimulationMix(val simulations: Iterable[Gem5DataPoint]) extends Gem5DataPo
   }
   override def files = simulations flatMap (_.files)
 
-  def removeOutliers(valueFn: Gem5DataPoint => Double, threshold: Double = 2, log: Boolean = false): SimulationMix = {
-    val values = simulations.map(valueFn)
-    def square(a: Double) = a * a
-    val mean = values.sum / values.size
-    val stddev =
-      if (values.size > 1) Math.sqrt(values.map { i => square(mean - i) }.sum / (values.size - 1))
-      else 0.0
-    val maxOutliers = values.size / 2
-    def outlieness(s: Gem5DataPoint) = (valueFn(s) - mean).abs / stddev
-    val sims = simulations.toSeq.sortBy(outlieness)
-    if (log) println(f"A ${sims.map(valueFn(_).formatted("%10.4g")) mkString " "} | $mean%10.4g $stddev%10.4g")
-    if (log) println(f"R ${sims.map(outlieness(_).formatted("%10.4g")) mkString " "}")
-    def outlier(s: Gem5DataPoint) = outlieness(s) > threshold
-    val (outliers, inliers) = sims.partition(outlier)
-    outliers foreach { s => println(f"Outlier: ${outlieness(s)}%10.4g ${s.files mkString ","}") }
-    val selected = inliers ++ outliers.take(outliers.size - maxOutliers)
-    if (selected.size < sims.size) {
-      if (log) println(s"Removed ${sims.size - selected.size} of ${sims.size}")
-      new SimulationMix(selected)
-    } else this
+  def removeOutliers(max_relative_error: Double = .15, fn: Gem5DataPoint => Any = _.sim_ticks, log: Boolean = true): SimulationMix = {
+    import repscr.points.CoordValue
+    var ret = this
+    def absoluteError(s: Gem5DataPoint) = (fn(ret).value - fn(s).value).abs
+    while (fn(ret).toVwe.relativeError > max_relative_error) {
+      val sorted = ret.simulations.toSeq.sortBy(absoluteError)
+      val outlier = sorted.last
+      if (log) {
+        println(s"Outliers in ${ret.simulations.size} ${benchmarkName} ${num_cpus}p ${fn(ret).toVwe.relativeError} ${sorted.map(fn(_)).mkString(" ")}")
+        println(s"Outlier removed ${outlier.files.mkString}")
+      }
+      ret = new SimulationMix(sorted.dropRight(1))
+    }
+    if (log) {
+      if (simulations.size != ret.simulations.size) {
+        println(s"Removed ${simulations.size - ret.simulations.size} outliers out of ${simulations.size} simulations.")
+      }
+    }
+    ret
   }
 }
 

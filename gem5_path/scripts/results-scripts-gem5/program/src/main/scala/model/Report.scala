@@ -22,23 +22,9 @@ class Report(val listingsDir: String,
   val (outliers_log, removed_outliers_count, mixes) =
     if (removeOutliers) time("removing outliers") {
       val log = new StringBuilderStream
-      val (rc, mixes) = Console.withOut(log) {
-        // TODO: Update once we have stats to use for these purpose
-        import repscr.points._
-        /*Seq[(String, Gem5DataPoint => Double)](
-          "html_kernel_cycles" -> ("htm_kernel_cycles".fn(_).value),
-          "barrier_cycles" -> (_.xactProfiler_cycles.getOrElse("BARRIER", 0).value)).foldLeft((0, all_mixes)) {
-          case ((current_removed_count, currentMixes), (name, valueFn)) =>
-            println(s"Removing outliers due to $name:")
-            val inliers = currentMixes.map(_.removeOutliers(valueFn, 2, true))
-            val nremoved = currentMixes.map(_.simulations.size).sum - inliers.map(_.simulations.size).sum
-            println(s"Removed $nremoved outliers due to $name.")
-            (current_removed_count + nremoved, inliers)
-        }*/
-        (0, all_mixes)
-      }
-      println(s"Removed $rc outlier simulations.")
-      (log.toString, rc, mixes)
+      val mixes = Console.withOut(log) { all_mixes.map(_.removeOutliers()) }
+      val count = all_mixes.map(_.files.size).sum - mixes.map(_.files.size).sum
+      (log.toString, count, mixes)
     }
     else ("No outlier analysis performed.", 0, all_mixes)
 

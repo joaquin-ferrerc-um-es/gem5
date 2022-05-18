@@ -17,7 +17,7 @@
     <form action="@vm.urlNewReport(edit)" method="POST" class="container-fluid">
       <div class="row mb-1">@textInput("listingsDirectory", "Listings directory: ", report.listingsDir)</div>
       <div class="row mb-1">@textInput("inputsDirectory", "Inputs directory: ", report.inDirs.mkString(","))</div>
-      <div class="row mb-1"><div class="col-sm-4 col-md-3"></div>@checkBox("removeOutliers", "Remove outliers", report.removeOutliers)</div>
+      <div class="row mb-1"><div class="col-sm-4 col-md-3"></div><div class="col-sm-4 col-md-3">@checkBox("removeOutliers", "Remove outliers", report.removeOutliers)</div></div>
       <div class="row">@submitButton("Reload")</div>
     </form>
   } else {

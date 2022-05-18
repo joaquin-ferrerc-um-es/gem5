@@ -18,6 +18,8 @@ trait Gem5DataPoint extends DataPoint {
   def protocol = this("protocol").toString
   def benchmarkName = this("benchmark_name").toString
   def benchmarkSize = this("benchmark_size").toString
+
+  def sim_ticks = this("sim_ticks").toVwe
 }
 object Gem5DataPoint {
   def findConfigVariations(l: Iterable[Gem5DataPoint]) = PropertyMap.findVariations(l map { _.configs })

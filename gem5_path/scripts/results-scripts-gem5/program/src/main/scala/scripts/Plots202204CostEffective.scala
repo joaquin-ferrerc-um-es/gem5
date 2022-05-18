@@ -87,28 +87,15 @@ object Plots202204CostEffective extends App with PlotScript {
     def cycles_ticks = "cycles_ticks".toCoord.fn(s).toVwe
   }
 
-
-  val points = {
-    @tailrec
-    def limitVariation(m: SimulationMix, max_relative_error: Double = .15, fn: Gem5DataPoint => Any = _.cycles_ticks): SimulationMix = {
-      import repscr.points._
-      def absoluteError(s: Gem5DataPoint) = (fn(m).value - fn(s).value).abs
-      //println(s"${m.simulations.size} ${m.benchmarkName} ${m.num_cpus}p ${m.cycles_ticks.relativeError} ${m.simulations.toSeq.sortBy(_.cycles_ticks).map(_.cycles_ticks.value.toLong).mkString(" ")}")
-      if (fn(m).toVwe.relativeError < max_relative_error) m
-      else limitVariation(new SimulationMix(m.simulations.toSeq.sortBy(absoluteError).dropRight(1)))
-    }
-
-    mixes.map(limitVariation(_))
-  }
+  createDirs(outdir)
+  val points = printToFile(s"${outdir}/outliers.log") { mixes.map(_.removeOutliers()) }
 
   val allPlots = collection.mutable.Buffer.empty[Plot]
 
   points.groupBy(_.arch).foreach {
     case (arch, points) =>
       allPlots +=
-      new BarPlotDefault(SimulationsPlotData(name = "global", namePrefix = s"${
-        arch
-      }/",
+      new BarPlotDefault(SimulationsPlotData(name = "global", namePrefix = s"${arch}/",
                                              seriesC = Seq("config".toCoord, "num_cpus".toCoord),
                                              y = "cycles_ticks".toCoord,
                                              x = Seq("benchmark_name".toCoord),
@@ -121,9 +108,7 @@ object Plots202204CostEffective extends App with PlotScript {
       }
 
       allPlots +=
-      new BarPlotDefault(SimulationsPlotData(name = "global-1thread", namePrefix = s"${
-        arch
-      }/",
+      new BarPlotDefault(SimulationsPlotData(name = "global-1thread", namePrefix = s"${arch}/",
                                              seriesC = Seq("config".toCoord),
                                              y = "cycles_ticks".toCoord,
                                              x = Seq("benchmark_name".toCoord),
@@ -136,9 +121,7 @@ object Plots202204CostEffective extends App with PlotScript {
       }
 
       allPlots +=
-      new BarPlotDefault(SimulationsPlotData(name = "global-16thread", namePrefix = s"${
-        arch
-      }/",
+      new BarPlotDefault(SimulationsPlotData(name = "global-16thread", namePrefix = s"${arch}/",
                                              seriesC = Seq("config".toCoord),
                                              y = "cycles_ticks".toCoord,
                                              x = Seq("benchmark_name".toCoord),
@@ -151,9 +134,7 @@ object Plots202204CostEffective extends App with PlotScript {
       }
 
       allPlots +=
-      new BarPlotDefault(SimulationsPlotData(name = "plot1", namePrefix = s"${
-        arch
-      }/",
+      new BarPlotDefault(SimulationsPlotData(name = "plot1", namePrefix = s"${arch}/",
                                              seriesC = Seq("config".toCoord),
                                              y = "cycles_ticks".toCoord,
                                              x = Seq("benchmark_name".toCoord),
@@ -165,9 +146,7 @@ object Plots202204CostEffective extends App with PlotScript {
       }
 
       allPlots +=
-      new StackedBarPlotDefault(SimulationsPlotData(name = "plot2a", namePrefix = s"${
-        arch
-      }/",
+      new StackedBarPlotDefault(SimulationsPlotData(name = "plot2a", namePrefix = s"${arch}/",
                                                     seriesC = Seq("config".toCoord),
                                                     y = "htm_transaction_abort_cause_grouped".toCoord,
                                                     x = Seq("benchmark_name".toCoord),
@@ -179,9 +158,7 @@ object Plots202204CostEffective extends App with PlotScript {
       }
 
       allPlots +=
-      new BarPlotDefault(SimulationsPlotData(name = "plot2b", namePrefix = s"${
-        arch
-      }/",
+      new BarPlotDefault(SimulationsPlotData(name = "plot2b", namePrefix = s"${arch}/",
                                              seriesC = Seq("config".toCoord),
                                              y = "cycles_ticks".toCoord,
                                              x = Seq("benchmark_name".toCoord),
@@ -194,9 +171,7 @@ object Plots202204CostEffective extends App with PlotScript {
 
 
       allPlots +=
-      new StackedBarPlotDefault(SimulationsPlotData(name = "plot3a", namePrefix = s"${
-        arch
-      }/",
+      new StackedBarPlotDefault(SimulationsPlotData(name = "plot3a", namePrefix = s"${arch}/",
                                                     seriesC = Seq("config".toCoord),
                                                     y = "htm_transaction_abort_cause_grouped_sizes".toCoord,
                                                     x = Seq("benchmark_name".toCoord),
@@ -209,9 +184,7 @@ object Plots202204CostEffective extends App with PlotScript {
       }
 
       allPlots +=
-      new BarPlotDefault(SimulationsPlotData(name = "plot3b", namePrefix = s"${
-        arch
-      }/",
+      new BarPlotDefault(SimulationsPlotData(name = "plot3b", namePrefix = s"${arch}/",
                                              seriesC = Seq("config".toCoord),
                                              y = "cycles_ticks".toCoord,
                                              x = Seq("benchmark_name".toCoord),
@@ -223,9 +196,7 @@ object Plots202204CostEffective extends App with PlotScript {
       }
 
       allPlots +=
-      new StackedBarPlotDefault(SimulationsPlotData(name = "plot4a", namePrefix = s"${
-        arch
-      }/",
+      new StackedBarPlotDefault(SimulationsPlotData(name = "plot4a", namePrefix = s"${arch}/",
                                                     seriesC = Seq("config".toCoord),
                                                     y = "htm_transaction_abort_cause_grouped_sizes".toCoord,
                                                     x = Seq("benchmark_name".toCoord),
@@ -237,9 +208,7 @@ object Plots202204CostEffective extends App with PlotScript {
       }
 
       allPlots +=
-      new BarPlotDefault(SimulationsPlotData(name = "plot4b", namePrefix = s"${
-        arch
-      }/",
+      new BarPlotDefault(SimulationsPlotData(name = "plot4b", namePrefix = s"${arch}/",
                                              seriesC = Seq("config".toCoord),
                                              y = "cycles_ticks".toCoord,
                                              x = Seq("benchmark_name".toCoord),
@@ -251,9 +220,7 @@ object Plots202204CostEffective extends App with PlotScript {
       }
 
       allPlots +=
-      new StackedBarPlotDefault(SimulationsPlotData(name = "plot5a", namePrefix = s"${
-        arch
-      }/",
+      new StackedBarPlotDefault(SimulationsPlotData(name = "plot5a", namePrefix = s"${arch}/",
                                                     seriesC = Seq("config".toCoord),
                                                     y = "htm_transaction_abort_cause_grouped_conflicts".toCoord,
                                                     x = Seq("benchmark_name".toCoord),
@@ -267,9 +234,7 @@ object Plots202204CostEffective extends App with PlotScript {
       }
 
       allPlots +=
-      new BarPlotDefault(SimulationsPlotData(name = "plot5b", namePrefix = s"${
-        arch
-      }/",
+      new BarPlotDefault(SimulationsPlotData(name = "plot5b", namePrefix = s"${arch}/",
                                              seriesC = Seq("config".toCoord),
                                              y = "cycles_ticks".toCoord,
                                              x = Seq("benchmark_name".toCoord),
@@ -282,9 +247,7 @@ object Plots202204CostEffective extends App with PlotScript {
       }
 
       allPlots +=
-      new StackedBarPlotDefault(SimulationsPlotData(name = "plot6a", namePrefix = s"${
-        arch
-      }/",
+      new StackedBarPlotDefault(SimulationsPlotData(name = "plot6a", namePrefix = s"${arch}/",
                                                     seriesC = Seq("config".toCoord),
                                                     y = "htm_transaction_abort_cause_grouped".toCoord,
                                                     x = Seq("benchmark_name".toCoord),
@@ -297,9 +260,7 @@ object Plots202204CostEffective extends App with PlotScript {
       }
 
       allPlots +=
-      new BarPlotDefault(SimulationsPlotData(name = "plot6b", namePrefix = s"${
-        arch
-      }/",
+      new BarPlotDefault(SimulationsPlotData(name = "plot6b", namePrefix = s"${arch}/",
                                              seriesC = Seq("config".toCoord),
                                              y = "cycles_ticks".toCoord,
                                              x = Seq("benchmark_name".toCoord),
@@ -311,9 +272,7 @@ object Plots202204CostEffective extends App with PlotScript {
       }
 
       allPlots +=
-      new StackedBarPlotDefault(SimulationsPlotData(name = "plot7a", namePrefix = s"${
-        arch
-      }/",
+      new StackedBarPlotDefault(SimulationsPlotData(name = "plot7a", namePrefix = s"${arch}/",
                                                     seriesC = Seq("config".toCoord),
                                                     y = "htm_transaction_abort_cause_grouped".toCoord,
                                                     x = Seq("benchmark_name".toCoord),
@@ -325,9 +284,7 @@ object Plots202204CostEffective extends App with PlotScript {
       }
 
       allPlots +=
-      new BarPlotDefault(SimulationsPlotData(name = "plot7b", namePrefix = s"${
-        arch
-      }/",
+      new BarPlotDefault(SimulationsPlotData(name = "plot7b", namePrefix = s"${arch}/",
                                              seriesC = Seq("config".toCoord),
                                              y = "cycles_ticks".toCoord,
                                              x = Seq("benchmark_name".toCoord),
@@ -339,9 +296,7 @@ object Plots202204CostEffective extends App with PlotScript {
       }
 
       allPlots +=
-      new BarPlotDefault(SimulationsPlotData(name = "plot8b", namePrefix = s"${
-        arch
-      }/",
+      new BarPlotDefault(SimulationsPlotData(name = "plot8b", namePrefix = s"${arch}/",
                                              seriesC = Seq("config".toCoord),
                                              y = "cycles_ticks".toCoord,
                                              x = Seq("benchmark_name".toCoord),
@@ -355,6 +310,5 @@ object Plots202204CostEffective extends App with PlotScript {
       }
   }
 
-  createDirs(outdir)
   plotUtil.plotWithProgress(allPlots)
 }

@@ -1,8 +1,0 @@
-Listing(Source("SimulationsMixes"), [
-	IndexColumn("benchmark_name",AllValues,XColumn),
-	IndexColumn("htm_trans_aware_l0_replacements",AllValues,SerieColumn)
-], [
-	ResultColumn("cycles_ticks",absolute,bars),
-	ResultColumn("htm_transaction_abort_cause",absolute,bars),
-	ResultColumn("simulation_time",absolute,bars)
-])

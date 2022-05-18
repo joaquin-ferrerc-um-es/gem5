@@ -1,0 +1,15 @@
+Listing(Source("SimulationsMixes"), [
+	IndexColumn("num_cpus",SomeValues([
+	 "1"
+]),FilterOnly),
+	IndexColumn("arch",AllValues,Section),
+	IndexColumn("config_cost_effective",SomeValues([
+	 "base_nopf",
+	 "locks"
+]),SerieColumn),
+	IndexColumn("benchmark_name",AllValues,XColumn)
+], [
+	ResultColumn("cycles_ticks",normalized,bars),
+	ResultColumn("htm_transaction_abort_cause",absolute,bars),
+	ResultColumn("simulation_time",absolute,bars)
+])

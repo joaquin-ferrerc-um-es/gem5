@@ -1,4 +1,12 @@
 Listing(Source("SimulationsMixes"), [
+	IndexColumn("arch",AllValues,Section),
+	IndexColumn("num_cpus",SomeValues([
+	 "16"
+]),FilterOnly),
+	IndexColumn("config_cost_effective",SomeValues([
+	 "l3rs",
+	 "l3rs_l1rpl"
+]),SerieColumn),
 	IndexColumn("benchmark_name",AllValues,XColumn)
 ], [
 	ResultColumn("cycles_ticks",absolute,bars),

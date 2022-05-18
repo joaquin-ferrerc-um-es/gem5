@@ -1,0 +1,24 @@
+Listing(Source("SimulationsMixes"), [
+	IndexColumn("arch",AllValues,Section),
+	IndexColumn("num_cpus",AllValues,Section),
+	IndexColumn("config_cost_effective",SomeValues([
+	 "base",
+	 "base_nopf",
+	 "l2rs",
+	 "l3rs",
+	 "l3rs_l1rpl",
+	 "l3rs_l1rpl_lazycd",
+	 "l3rs_l1rpl_lazycd_magic",
+	 "l3rs_l1rpl_reqstallb",
+	 "l3rs_l1rpl_reqstallh",
+	 "l3rs_l1rpl_reqstallh_precrs",
+	 "lxrs",
+	 "lxrs_l1rpl_reqstallh_precrs_log"
+]),SerieColumn),
+	IndexColumn("benchmark_name",AllValues,XColumn)
+], [
+	ResultColumn("cycles_ticks",normalized,bars),
+	ResultColumn("htm_transaction_abort_cause",normalized,bars),
+	ResultColumn("simulation_time",absolute,bars),
+	ResultColumn("htm_transaction_cycles",absolute,lines)
+])

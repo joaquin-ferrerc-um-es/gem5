@@ -161,12 +161,13 @@ class SimulationMix(val simulations: Iterable[Gem5DataPoint]) extends Gem5DataPo
   }
   override def files = simulations flatMap (_.files)
 
-  def removeOutliers(max_relative_error: Double = .15, fn: Gem5DataPoint => Any = _.sim_ticks, log: Boolean = true): SimulationMix = {
+  def removeOutliers(max_relative_error: Double = .15, fn: Gem5DataPoint => Any = _.sim_ticks, remove_highest_values: Boolean = true, log: Boolean = true): SimulationMix = {
     import repscr.points.CoordValue
     var ret = this
     def absoluteError(s: Gem5DataPoint) = (fn(ret).value - fn(s).value).abs
+    val score: Gem5DataPoint => Double = if (remove_highest_values) fn(_).value else absoluteError
     while (fn(ret).toVwe.relativeError > max_relative_error) {
-      val sorted = ret.simulations.toSeq.sortBy(absoluteError)
+      val sorted = ret.simulations.toSeq.sortBy(score)
       val outlier = sorted.last
       if (log) {
         println(s"Outliers in ${benchmarkName} ${num_cpus}p size: ${ret.simulations.size} avg: ${fn(ret)} re: ${fn(ret).toVwe.relativeError} values: ${sorted.map(fn(_).value).mkString(" ")}")

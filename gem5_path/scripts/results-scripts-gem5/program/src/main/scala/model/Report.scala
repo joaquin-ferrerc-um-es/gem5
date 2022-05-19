@@ -21,7 +21,7 @@ class Report(val listingsDir: String,
 
   val (outliers_log, removed_outliers_count, mixes) =
     if (removeOutliers) time("removing outliers") {
-      val log = new StringBuilderStream
+      val log = new java.io.ByteArrayOutputStream()
       val mixes = Console.withOut(log) { all_mixes.map(_.removeOutliers()) }
       val count = all_mixes.map(_.files.size).sum - mixes.map(_.files.size).sum
       (log.toString, count, mixes)

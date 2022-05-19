@@ -151,12 +151,6 @@ object misc {
     finally s.close()
   }
 
-  class StringBuilderStream extends java.io.OutputStream {
-    val sb = new StringBuilder
-    def write(b: Int): Unit = sb.append(b.toChar)
-    override def toString = sb.toString
-  }
-
   implicit class RichIterable[A](l: Iterable[A]) {
     def self = l
 

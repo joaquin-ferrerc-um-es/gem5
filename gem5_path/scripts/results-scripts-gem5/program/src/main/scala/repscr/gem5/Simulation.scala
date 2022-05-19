@@ -169,7 +169,7 @@ class SimulationMix(val simulations: Iterable[Gem5DataPoint]) extends Gem5DataPo
       val sorted = ret.simulations.toSeq.sortBy(absoluteError)
       val outlier = sorted.last
       if (log) {
-        println(s"Outliers in ${ret.simulations.size} ${benchmarkName} ${num_cpus}p ${fn(ret).toVwe.relativeError} ${sorted.map(fn(_)).mkString(" ")}")
+        println(s"Outliers in ${benchmarkName} ${num_cpus}p size: ${ret.simulations.size} avg: ${fn(ret)} re: ${fn(ret).toVwe.relativeError} values: ${sorted.map(fn(_).value).mkString(" ")}")
         println(s"Outlier removed ${outlier.files.mkString}")
       }
       ret = new SimulationMix(sorted.dropRight(1))

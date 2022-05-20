@@ -10,6 +10,8 @@ import scala.util.parsing.combinator.RegexParsers
 import java.io.File
 import util.RMap
 
+import scala.annotation.tailrec
+
 object MissingProperty {
   override def toString = "missing"
 }
@@ -161,24 +163,35 @@ class SimulationMix(val simulations: Iterable[Gem5DataPoint]) extends Gem5DataPo
   }
   override def files = simulations flatMap (_.files)
 
-  def removeOutliers(max_relative_error: Double = .15, fn: Gem5DataPoint => Any = _.sim_ticks, remove_highest_values: Boolean = true, log: Boolean = true): SimulationMix = {
-    import repscr.points.CoordValue
-    var ret = this
-    def absoluteError(s: Gem5DataPoint) = (fn(ret).value - fn(s).value).abs
-    val score: Gem5DataPoint => Double = if (remove_highest_values) fn(_).value else absoluteError
-    while (fn(ret).toVwe.relativeError > max_relative_error) {
-      val sorted = ret.simulations.toSeq.sortBy(score)
-      val outlier = sorted.last
-      if (log) {
-        println(s"Outliers in ${benchmarkName} ${num_cpus}p size: ${ret.simulations.size} avg: ${fn(ret)} re: ${fn(ret).toVwe.relativeError} values: ${sorted.map(fn(_).value).mkString(" ")}")
-        println(s"Outlier removed ${outlier.files.mkString}")
-      }
-      ret = new SimulationMix(sorted.dropRight(1))
+  def removeOutliers(
+    max_relative_error: Double = .15,
+    fn: Gem5DataPoint => Any = _.sim_ticks,
+    remove_highest_values: Boolean = true, // if true remove higet values, which makes sense only if we assume that outliers are due to long running page faults. If false, choose the point with highest deviation from average
+    strict_removal: Boolean = true, // never remove a point if it would increase the relative error (it is most likely not really an outlier iin that case). Can happen if remove_highes_values is true
+    log: Boolean = true): SimulationMix = {
+    @tailrec
+    def iterate(ret: SimulationMix): SimulationMix = {
+      def absoluteError(s: Gem5DataPoint) = (fn(ret).value - fn(s).value).abs
+      val score: Gem5DataPoint => Double = if (remove_highest_values) fn(_).value else absoluteError
+      val re = fn(ret).toVwe.relativeError
+      if (re > max_relative_error) {
+        val sorted = ret.simulations.toSeq.sortBy(score)
+        if (log) println(f"Outliers in ${benchmarkName} ${num_cpus}p size: ${ret.simulations.size} avg: ${fn(ret)} re: ${re}%4.3f values: ${sorted.map(fn(_).value.formatted("%6.2g")).mkString(" ")}")
+        val outlier = sorted.last
+        val reduced = new SimulationMix(sorted.dropRight(1))
+        val newre= fn(reduced).toVwe.relativeError
+        if (fn(ret).toVwe.relativeError > fn(reduced).toVwe.relativeError || !strict_removal) {
+          if (log) println(f"  Outlier removed (new re: ${newre}%4.3f) ${outlier.files.mkString}")
+          iterate(reduced)
+        } else {
+          if (log) println(f"  Outlier NOT removed (new re would be: ${newre}%4.3f) ${outlier.files.mkString}")
+          this
+        }
+      } else this
     }
-    if (log) {
-      if (simulations.size != ret.simulations.size) {
+    val ret = iterate(this)
+    if (log && simulations.size != ret.simulations.size) {
         println(s"Removed ${simulations.size - ret.simulations.size} outliers out of ${simulations.size} simulations.")
-      }
     }
     ret
   }

@@ -170,28 +170,28 @@ class SimulationMix(val simulations: Iterable[Gem5DataPoint]) extends Gem5DataPo
     strict_removal: Boolean = true, // never remove a point if it would increase the relative error (it is most likely not really an outlier iin that case). Can happen if remove_highes_values is true
     log: Boolean = true): SimulationMix = {
     @tailrec
-    def iterate(ret: SimulationMix): SimulationMix = {
-      def absoluteError(s: Gem5DataPoint) = (fn(ret).value - fn(s).value).abs
-      val score: Gem5DataPoint => Double = if (remove_highest_values) fn(_).value else absoluteError
-      val re = fn(ret).toVwe.relativeError
+    def iterate(current: SimulationMix): SimulationMix = {
+      val re = fn(current).toVwe.relativeError
       if (re > max_relative_error) {
-        val sorted = ret.simulations.toSeq.sortBy(score)
-        if (log) println(f"Outliers in ${benchmarkName} ${num_cpus}p size: ${ret.simulations.size} avg: ${fn(ret)} re: ${re}%4.3f values: ${sorted.map(fn(_).value.formatted("%6.2g")).mkString(" ")}")
+        def absoluteError(s: Gem5DataPoint) = (fn(current).value - fn(s).value).abs
+        val score: Gem5DataPoint => Double = if (remove_highest_values) fn(_).value else absoluteError
+        val sorted = current.simulations.toSeq.sortBy(score)
+        if (log) println(f"Outliers in ${benchmarkName} ${num_cpus}p size: ${current.simulations.size} avg: ${fn(current)} re: ${re}%4.3f values: ${sorted.map(fn(_).value.formatted("%6.2g")).mkString(" ")}")
         val outlier = sorted.last
         val reduced = new SimulationMix(sorted.dropRight(1))
-        val newre= fn(reduced).toVwe.relativeError
-        if (fn(ret).toVwe.relativeError > fn(reduced).toVwe.relativeError || !strict_removal) {
+        val newre = fn(reduced).toVwe.relativeError
+        if (fn(current).toVwe.relativeError > fn(reduced).toVwe.relativeError || !strict_removal) {
           if (log) println(f"  Outlier removed (new re: ${newre}%4.3f) ${outlier.files.mkString}")
           iterate(reduced)
         } else {
           if (log) println(f"  Outlier NOT removed (new re would be: ${newre}%4.3f) ${outlier.files.mkString}")
-          this
+          current
         }
-      } else this
+      } else current
     }
     val ret = iterate(this)
     if (log && simulations.size != ret.simulations.size) {
-        println(s"Removed ${simulations.size - ret.simulations.size} outliers out of ${simulations.size} simulations.")
+        println(s"Removed ${simulations.size - ret.simulations.size} outliers out of ${simulations.size} simulations in ${benchmarkName} ${num_cpus}p size: ${ret.simulations.size} avg: ${fn(ret)}.")
     }
     ret
   }

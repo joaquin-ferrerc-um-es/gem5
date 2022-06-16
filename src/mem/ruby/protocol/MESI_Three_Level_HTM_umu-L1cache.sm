@@ -466,6 +466,10 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
                 trigger(Event:Inv_X,
                         in_msg.addr, cache_entry, tbe);
             } else
+            if (is_valid(cache_entry) && inL0Cache(cache_entry.CacheState, false)) {
+                trigger(Event:L0_Invalidate_Else, in_msg.addr,
+                        cache_entry, tbe);
+            } else
             if (shouldNackStore(in_msg.addr,
                                 in_msg.Requestor,
                                 in_msg.Timestamp,
@@ -473,10 +477,6 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
                                 false)) {
                 trigger(Event:Inv_X,
                         in_msg.addr, cache_entry, tbe);
-            } else
-            if (is_valid(cache_entry) && inL0Cache(cache_entry.CacheState, false)) {
-                trigger(Event:L0_Invalidate_Else, in_msg.addr,
-                        cache_entry, tbe);
             }  else {
                 trigger(Event:Inv, in_msg.addr, cache_entry, tbe);
             }
@@ -491,6 +491,10 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
                 trigger(Event:Fwd_GETX_X,
                         in_msg.addr, cache_entry, tbe);
             } else
+            if (is_valid(cache_entry) && inL0Cache(cache_entry.CacheState, false)) {
+                trigger(Event:L0_Invalidate_Else, in_msg.addr,
+                        cache_entry, tbe);
+            } else
             if (shouldNackStore(in_msg.addr,
                                 in_msg.Requestor,
                                 in_msg.Timestamp,
@@ -498,23 +502,11 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
                                 true)) {
                 trigger(Event:Fwd_GETX_X,
                         in_msg.addr, cache_entry, tbe);
-            } else
-            if (is_valid(cache_entry) && inL0Cache(cache_entry.CacheState, false)) {
-                trigger(Event:L0_Invalidate_Else, in_msg.addr,
-                        cache_entry, tbe);
             } else {
                 trigger(Event:Fwd_GETX, in_msg.addr, cache_entry, tbe);
             }
         } else if (in_msg.Type == CoherenceRequestType:GETS) {
             if (l0_nack_else && l0_nack_else_addr == in_msg.addr) {
-                l0_nack_else := false;
-                // Conflict resolved by nacking request
-                trigger(Event:Fwd_GETS_X,
-                        in_msg.addr, cache_entry, tbe);
-            } else
-            if (shouldNackLoad(in_msg.addr, in_msg.Requestor,
-                               in_msg.Timestamp,
-                               in_msg.Transactional)) {
                 l0_nack_else := false;
                 // Conflict resolved by nacking request
                 trigger(Event:Fwd_GETS_X,
@@ -536,6 +528,14 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
                     trigger(Event:L0_Invalidate_Else, in_msg.addr,
                             cache_entry, tbe);
                 }
+            } else
+            if (shouldNackLoad(in_msg.addr, in_msg.Requestor,
+                               in_msg.Timestamp,
+                               in_msg.Transactional)) {
+                l0_nack_else := false;
+                // Conflict resolved by nacking request
+                trigger(Event:Fwd_GETS_X,
+                        in_msg.addr, cache_entry, tbe);
             } else {
                 trigger(Event:Fwd_GETS, in_msg.addr, cache_entry, tbe);
             }

@@ -92,8 +92,8 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
     def asMap[K, V] = o.asInstanceOf[Map[K, V]] // TODO: handle other cases if necessary (e.g., lists of pairs)
   }
 
-  /* Project specific coordinates. They are prenet here temporarily while they may be useful when using the UI. TODO: move to a specific file once a project is closed */
-  Coord("config_cost_effective",
+  /* Project specific coordinates */
+  Coord("config_huawei",
     s => (s("htm_binary_suffix"), s("htm_heap_prefault"),
       s("htm_allow_read_set_l0_evictions"), s("htm_allow_read_set_l1_evictions"), s("htm_allow_read_set_l2_evictions"),
       s("htm_trans_aware_l0_replacements"),
@@ -126,5 +126,8 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
       "base", "l2rs", "l3rs", "lxrs",
       "l3rs_l1rpl", "l3rs_l1rpl_reqstallb", "l3rs_l1rpl_reqstallh",
       "l3rs_l1rpl_reqstallh_precrs", "l3rs_l1rpl_lazycd"
+
     ))
+
+
 }

@@ -1,14 +1,14 @@
 package scripts
 
-import repscr.plots.{BarPlot, BarPlotCommon, Format, Normalization, Plot, Serie, StackedBarPlot}
 import repscr.gem5.Gem5Coords._
 import repscr.gem5.{Gem5DataPoint, SimulationMix}
+import repscr.plots.{BarPlot, BarPlotCommon, Format, Normalization, Plot, Serie, StackedBarPlot}
 import util.misc._
 
 import java.io.File
 import scala.collection.immutable.TreeMap
 
-object Plots202203HuaweiFinal extends App with PlotScript {
+object Plots202204CostEffective extends App with PlotScript {
   object PlotUtils {
     trait DefaultPlotOptions { self: BarPlotCommon =>
       yRangeMin = 0

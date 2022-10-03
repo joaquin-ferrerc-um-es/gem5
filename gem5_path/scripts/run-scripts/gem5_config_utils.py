@@ -4,7 +4,7 @@
 import os
 import subprocess
 import shutil
-from gem5_run import gem5_root, known_options
+from gem5_run import gem5_root, known_options, error
 import options as opt
 
 config_preferred_order_first = [ opt.arch, opt.cpu_model, opt.protocol, opt.config_description_abbrev, opt.cache_name, opt.num_cpus, opt.benchmark_name, opt.benchmark_size ]
@@ -78,6 +78,8 @@ snapshot_binary_cache = {}
 def snapshot_binary(binary, snapshot_directory):
     global snapshot_binary_cache
     if not binary in snapshot_binary_cache:
+        if not os.path.exists(binary):
+            error(f"File not found '{binary}'.")
         snap = os.path.join(snapshot_directory, file_hash(binary))
         if not os.path.exists(snap): # don't overwrite if already copied by a previous execution of the script
             if not os.path.exists(os.path.dirname(snap)):

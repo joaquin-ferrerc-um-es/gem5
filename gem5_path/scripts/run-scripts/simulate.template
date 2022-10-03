@@ -227,7 +227,7 @@ run_detailed_simulation() {
     GEM5_ARGS+=( "${GEM5_OPTIONS_DETAILED[@]}"
                  ${extra_detailed_args} )
 
-    local FALLBACK_LOCK_FILE="${output_directory}/${htm_fallback_lock_filename}"
+    local FALLBACK_LOCK_FILE="${output_directory}/${htm_fallback_lock_filename:-no_fallback_lock_filename_provided}"
     if [[ -f "${FALLBACK_LOCK_FILE}" && "$(wc -l < "${FALLBACK_LOCK_FILE}")" -eq 1 ]] ; then
         GEM5_ARGS+=("--htm-fallbacklock-addr=$(cat "${FALLBACK_LOCK_FILE}")")
     elif [ "${LOCKSTEP_MODE}" = yes ] ; then

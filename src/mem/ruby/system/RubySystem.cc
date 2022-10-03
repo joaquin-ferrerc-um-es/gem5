@@ -98,8 +98,10 @@ RubySystem::RubySystem(const Params &p)
     m_abstract_controls.resize(MachineType_NUM);
     // Globally accessible pointer to this object to any Ruby class
     g_system_ptr = this;
-    assert(dynamic_cast<RubyHTM*>(params().system->getHTM()));
+
     m_htm = dynamic_cast<RubyHTM*>(params().system->getHTM());
+    assert(params().system->getHTM() == nullptr || m_htm != nullptr);
+
     // Collate the statistics before they are printed.
     statistics::registerDumpCallback([this]() { collateStats(); });
     // Create the profiler

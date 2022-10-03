@@ -10,10 +10,10 @@ task_update-benchmarks-image() {
     options="$(simpler_getopt "architecture:" "$@")"
     eval set -- "$options"
     while [[ $# -gt 0 ]] ; do
-        if [[ "--architecture" == "$1" ]] ; then
+        if [[ "--architecture" = "$1" ]] ; then
             shift
             archs=("$1")
-        elif [[ "--" == "$1" ]] ; then
+        elif [[ "--" = "$1" ]] ; then
             true # ignore
         else 
             error_and_exit "Unknown option '$1'"
@@ -44,17 +44,24 @@ update_benchmarks_image() {
     local image_name="$(absolute_path "$(get_benchmarks_disk_image "$arch")")"
 
     if [[ ! -f "$image_name" ]] ; then
-        echo "Disk image not found, creating it. ($image_name)"
+        echo "$(color green "Disk image not found, creating it. ($image_name)")"
         truncate -s 2G "$image_name"
         "$VDS" --img "$image_name" --command 'echo "- - - -" | sfdisk /dev/sdb && mke2fs -j -m0 -L "benchmarks" /dev/sdb1'
     fi
+
+    local -a update_stamp_cmds=(
+        --command "mkdir -p /mnt/sdb1/benchmarks-htm/"
+        --src "$GEM5_ROOT/tests/test-progs/" --rsync-to "/mnt/sdb1/test-progs/" 
+        --src "$GEM5_ROOT/gem5_path/benchmarks/benchmarks-htm/stamp/" --rsync-to "/mnt/sdb1/benchmarks-htm/stamp/" 
+        --command "/mnt/sdb1/benchmarks-htm/stamp/prepare-inputs" 
+        --src "$GEM5_ROOT/gem5_path/benchmarks/benchmarks-htm/libs/" --rsync-to "/mnt/sdb1/benchmarks-htm/libs/" 
+    )
+    
     "$VDS" --img "$image_name" \
            --command "[ -d /mnt/sdb1 ] || { echo \"Could not mount image '$image_name'\" ; exit 1 ; }" \
-           --command "mkdir -p /mnt/sdb1/benchmarks-htm/" \
-           --src "$GEM5_ROOT/tests/test-progs/" --rsync-to "/mnt/sdb1/test-progs/" \
-           --src "$GEM5_ROOT/gem5_path/benchmarks/benchmarks-htm/stamp/" --rsync-to "/mnt/sdb1/benchmarks-htm/stamp/" \
-           --command "/mnt/sdb1/benchmarks-htm/stamp/prepare-inputs" \
-           --src "$GEM5_ROOT/gem5_path/benchmarks/benchmarks-htm/libs/" --rsync-to "/mnt/sdb1/benchmarks-htm/libs/" \
-           --src "$GEM5_ROOT/util/m5/build/$(get_m5_arch_name "$arch")/out/m5" --copy-to "/mnt/sdb1/benchmarks-htm/" 
+           \
+           --src "$GEM5_ROOT/util/m5/build/$(get_m5_arch_name "$arch")/out/m5" --copy-to "/mnt/sdb1/benchmarks-htm/" \
+           \
+           "${update_stamp_cmds[@]}"
 }
 

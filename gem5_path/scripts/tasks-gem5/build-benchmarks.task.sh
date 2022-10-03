@@ -5,7 +5,7 @@ declare_task "build-benchmarks" "Build benchmarks in the host system. Options:
 "
 
 # TODO: Add options to choose what benchmarks should be built.
-BENCHMARKS=(
+BENCHMARKS_STAMP_SELECTED=(
     "bayes"
     "genome"
     "intruder"
@@ -21,10 +21,10 @@ task_build-benchmarks() {
     options="$(simpler_getopt "architecture:" "$@")"
     eval set -- "$options"
     while [[ $# -gt 0 ]] ; do
-        if [[ "--architecture" == "$1" ]] ; then
+        if [[ "--architecture" = "$1" ]] ; then
             shift
             archs=("$1")
-        elif [[ "--" == "$1" ]] ; then
+        elif [[ "--" = "$1" ]] ; then
             true # ignore
         else 
             error_and_exit "Unknown option '$1'"
@@ -39,7 +39,7 @@ task_build-benchmarks() {
 build_benchmarks() {
     local arch="$1"
 
-    if [[ "$arch" == "x86_64" ]] ; then 
+    if [[ "$arch" = "x86_64" ]] ; then 
         build_benchmarks_sumarray "$arch"
     else
         # TODO
@@ -54,7 +54,7 @@ build_benchmarks_sumarray() {
 
     echo "$(color green "Building test benchmark (sumarray) for $arch")"
     
-    if [[ "$arch" == "x86_64" ]] ; then
+    if [[ "$arch" = "x86_64" ]] ; then
         local makefile="Makefile.x86"
         export X86_CROSS_GCC_PREFIX="${BENCHMARKS_ARCH_COMPILER_PREFIX[$arch]}"
     else
@@ -70,11 +70,9 @@ build_benchmarks_stamp() {
 
     echo "$(color green "Building stamp benchmarks for $arch")"
     
-    if [[ "$arch" == "x86_64" ]] ; then
-        local build_arch="x86"
+    if [[ "$arch" = "x86_64" ]] ; then
         export X86_CROSS_GCC_PREFIX="${BENCHMARKS_ARCH_COMPILER_PREFIX[$arch]}"
-    elif [[ "$arch" == "aarch64" ]] ; then
-        local build_arch="aarch64"
+    elif [[ "$arch" = "aarch64" ]] ; then
         export AARCH64_CROSS_GCC_PREFIX="${BENCHMARKS_ARCH_COMPILER_PREFIX[$arch]}"
     else
         error_and_exit "Architecture $arch not supported for stamp"
@@ -82,9 +80,9 @@ build_benchmarks_stamp() {
 
     check_stamp_gem5_directory_links
     
-    for b in "${BENCHMARKS[@]}" ; do
+    for b in "${BENCHMARKS_STAMP_SELECTED[@]}" ; do
         for s in "${BENCHMARKS_STAMP_FLAVOURS[@]}" ; do
-            if [[ "$arch" == "aarch64" && "$s" == "htm.fallbacklock2phase" ]] ; then
+            if [[ "$arch" = "aarch64" && "$s" = "htm.fallbacklock2phase" ]] ; then
                 echo "$(color yellow "Skipping build of $b.$a.$s (TODO)")"
             else
                 (
@@ -106,3 +104,4 @@ check_stamp_gem5_directory_links() {
         ln -s "$GEM5_ROOT" "$(absolute_path "$BENCHMARKS_HTM_STAMP")/gem5"
     fi
 }
+

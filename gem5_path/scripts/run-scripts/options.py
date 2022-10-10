@@ -156,6 +156,9 @@ Option("benchmark", Benchmark,
        runscript_option = "omit")
 Option("benchmark_name", str,
        gem5_option_use = "no",
+       runscript_option = "omit")
+Option("benchmark_full_name", str,
+       gem5_option_use = "no",
        runscript_option = "omit",
        descr_dir = "{value}")
 Option("benchmark_size", str,

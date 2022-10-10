@@ -31,6 +31,7 @@ base = {
     # Benchmark options
     benchmark: Vary(*get_benchmarks()),
     benchmark_name: Derived(lambda c: benchmark(c).name),
+    benchmark_full_name: Derived(lambda c: benchmark(c).suite +"." + benchmark(c).name),
     benchmark_size: Derived(lambda c: benchmark(c).size),
     benchmark_subdir: Derived(lambda c: benchmark(c).subdir),
     benchmark_binary_filename_base: Derived(lambda c: benchmark(c).binary_filename_base),

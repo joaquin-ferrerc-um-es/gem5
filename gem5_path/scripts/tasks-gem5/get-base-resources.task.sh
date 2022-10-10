@@ -10,12 +10,15 @@ x86_64   kernel      vmlinux-5.4.49                 ${PATH_IN_ECHO_PREFIX}/x86_6
 aarch64  kernel      vmlinux.arm64                  ${PATH_IN_ECHO_PREFIX}/aarch64/binaries/vmlinux.arm64                ${DEFAULT_URL_PREFIX}/aarch64/binaries/vmlinux.arm64.2021-11-25.xz
 aarch64  bootloader  boot_v2.arm64                  ${PATH_IN_ECHO_PREFIX}/aarch64/binaries/boot_v2.arm64                ${DEFAULT_URL_PREFIX}/aarch64/binaries/boot_v2.arm64.2021-11-25.xz
 all      qemu-server qemu-server.img                /home/users/caps/qemu-server.img                                     ${DEFAULT_URL_PREFIX}/qemu-server.2021-11-25.img.xz
+aarch64  qemu-server qemu-build-server-arm-ubuntu.qcow2   /home/users/caps/qemu-build-server-arm-ubuntu.qcow2            ${DEFAULT_URL_PREFIX}/qemu-build-server-arm-ubuntu.2022-10-10.qcow2.xz
+aarch64  qemu-server qemu-build-server-arm-ubuntu.initrd  /home/users/caps/qemu-build-server-arm-ubuntu.initrd           ${DEFAULT_URL_PREFIX}/qemu-build-server-arm-ubuntu.2022-10-10.initrd.xz
+aarch64  qemu-server qemu-build-server-arm-ubuntu.kernel  /home/users/caps/qemu-build-server-arm-ubuntu.kernel           ${DEFAULT_URL_PREFIX}/qemu-build-server-arm-ubuntu.2022-10-10.kernel.xz
 " | grep -v '^ *#.*' | grep -v '^ *$' | tr -s ' ')
 
 declare_task "get-base-resources" "Get base resources (disk images, kernels…). Options:
         --architecture X: Get only architecture X
         --overwrite: Overwrite existing files.
-        --download: Download resources from th web.
+        --download: Download resources from the web.
         --use-shared-caps: Use files from ${PATH_IN_ECHO_PREFIX} (default if possible)
         --no-common: Do not download architecture independent resources
 "
@@ -72,6 +75,12 @@ get_base_resources() {
     get_base_resource "$arch" base_image "${ARCH_BASE_IMAGE[$arch]}" "$(get_base_image "$arch")" "$mode" "$overwrite"
     if [[ -n "${ARCH_BOOTLOADER[$arch]}" ]] ; then 
         get_base_resource "$arch" bootloader "${ARCH_BOOTLOADER[$arch]}" "$(get_bootloader "$arch")" "$mode" "$overwrite"
+    fi
+
+    if [ "$arch" = "aarch64" ] ; then
+        get_base_resource "$arch" "qemu-server" "qemu-build-server-arm-ubuntu.qcow2" "gem5_path/other/qemu-build-server-arm-ubuntu.qcow2" "$mode" "$overwrite"
+        get_base_resource "$arch" "qemu-server" "qemu-build-server-arm-ubuntu.kernel" "gem5_path/other/qemu-build-server-arm-ubuntu.kernel" "$mode" "$overwrite"
+        get_base_resource "$arch" "qemu-server" "qemu-build-server-arm-ubuntu.initrd" "gem5_path/other/qemu-build-server-arm-ubuntu.initrd" "$mode" "$overwrite"
     fi
 } 
 

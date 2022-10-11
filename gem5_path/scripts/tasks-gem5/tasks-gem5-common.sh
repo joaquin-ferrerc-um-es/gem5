@@ -84,7 +84,7 @@ get_bootloader() {
 # returns the path relative to $GEM5_ROOT to the becnhamrks disk image for a given architecture
 get_benchmarks_disk_image() {
     local arch="$1"
-    echo "gem5_path/${arch}/disks/${arch}-benchmarks.img"
+    echo "gem5_path/${arch}/disks/benchmarks-${arch}.img"
 }
 
 # Get the arch name used by GEM5 (i.e, X86 instead of x86_64)

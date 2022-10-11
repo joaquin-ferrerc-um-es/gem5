@@ -26,8 +26,9 @@ help() {
     Prerequisites:
      - Native GCC (x86_64) for Gem5 and x86_64 benchmarks (tested with GCC 9.2.0).
      - GCC cross compiler for ARM (tested with GCC 10.2.0).
-     - scons and python 3
-     - Link to the STAMP repository in '${GEM5_ROOT}/gem5_path/benchmarks/benchmarks-htm/stamp'.
+     - scons and python 3.
+     - Link to the STAMP repository in '${GEM5_ROOT}/gem5_path/benchmarks/benchmarks-htm/stamp' (or disable STAMP).
+     - Link to the PARSEC repository in '${GEM5_ROOT}/gem5_path/benchmarks/parsec' (or disable PARSEC).
 "
 }
 

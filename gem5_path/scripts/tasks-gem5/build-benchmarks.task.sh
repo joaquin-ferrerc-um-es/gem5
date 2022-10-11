@@ -1,7 +1,7 @@
 
 declare_task "build-benchmarks" "Build benchmarks in the host system. Options:
         --architecture X: Build only architecture X
-        BUG: Due to the way that becnhmarks are built, only one architecture can be built each time.
+        BUG: Due to the way that STAMP becnhmarks are built, only one architecture can be built each time.
 "
 
 # TODO: Add options to choose what benchmarks should be built.
@@ -46,7 +46,13 @@ build_benchmarks() {
         echo "$(color yellow "Skipping build of test benchmark (sumarray) because it is not yet supported for '$arch'. TODO: fix this")"
     fi
 
-    build_benchmarks_stamp "$arch"
+    if [ "$BENCHMARKS_STAMP_ENABLED" = "yes" ] ; then
+        build_benchmarks_stamp "$arch"
+    fi
+
+    if [ "$BENCHMARKS_PARSEC_ENABLED" = "yes" ] ; then
+        build_benchmarks_parsec "$arch"
+    fi
 }
 
 build_benchmarks_sumarray() {
@@ -102,6 +108,38 @@ check_stamp_gem5_directory_links() {
 
     if [[ ! -d "$(absolute_path "$BENCHMARKS_HTM_STAMP")/gem5" ]] ; then
         ln -s "$GEM5_ROOT" "$(absolute_path "$BENCHMARKS_HTM_STAMP")/gem5"
+    fi
+}
+
+build_benchmarks_parsec() {
+    local arch="$1"
+
+    echo "$(color green "Building parsec benchmarks for $arch")"
+    
+    if [[ "$arch" = "x86_64" ]] ; then
+        export X86_CROSS_GCC_PREFIX="${BENCHMARKS_ARCH_COMPILER_PREFIX[$arch]}"
+    elif [[ "$arch" = "aarch64" ]] ; then
+        export AARCH64_CROSS_GCC_PREFIX="${BENCHMARKS_ARCH_COMPILER_PREFIX[$arch]}"
+    else
+        error_and_exit "Architecture $arch not supported for parsec"
+    fi
+
+    check_parsec_gem5_directory_links
+    
+    if [[ "$arch" = "x86_64" ]] ; then
+        (
+            echo "$(color green "Build PARSEC for $arch")"
+            cd "$(absolute_path "$BENCHMARKS_PARSEC_DIR")"
+            ./parsecmgmt-env -a build -p all -c gcc-hooks
+        )
+    else
+        echo "$(color red "Building PARSEC not implemented for $arch (try tasks-gem5 build-benchmarks-virtual)")"
+    fi
+}
+
+check_parsec_gem5_directory_links() {
+    if [[ ! -d "$(absolute_path "$BENCHMARKS_PARSEC_DIR")" || ! -L "${GEM5_ROOT}/${BENCHMARKS_PARSEC_DIR}" ]] ; then
+        error_and_exit "Parsec directory symlink '$(absolute_path "$BENCHMARKS_PARSEC_DIR")' not found. Clone the repository in a directory out of ${GEM5_ROOT} and create a symbolic link to it in '$(dirname "$(absolute_path "$BENCHMARKS_PARSEC_DIR")")'."
     fi
 }
 

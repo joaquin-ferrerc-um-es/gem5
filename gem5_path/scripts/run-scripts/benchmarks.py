@@ -5,8 +5,6 @@ from gem5_run import Benchmark
 
 # Benchmark suites and their directory in the disk image
 dir_stamp = "benchmarks-htm/stamp"
-dir_splash3 = "benchmarks-htm/Splash-3"
-
 
 # Benchmark(name, suite, size, nthreads_option, args_string, subdir, binary_filename)
 
@@ -36,17 +34,51 @@ Benchmark("yada", "stamp",       "medium", "-t", "-a20 -i inputs/633.2",   dir_s
 #Benchmark("bayes", "stamp",      "medium", "-t", "-v32 -r4096 -n2 -p20 -i2 -e2",   dir_stamp + "/bayes",   "bayes")
 #Benchmark("labyrinth", "stamp",  "medium", "-t", "-i inputs/random-x48-y48-z3-n64.txt", dir_stamp + "/labyrinth", "labyrinth")
 
-Benchmark("barnes", "splash3",  "small", "< inputs/n16384-p", "",             dir_splash3 + "/barnes",   "BARNES")
-Benchmark("fmm", "splash3",     "small", "< inputs/input.16384.", "",           dir_splash3 + "/fmm",   "FMM") # WARNING: Input filename has been modified to work: 'for i in {1,2,4,8,16,32,64}; do mv input.${i}.16384 input.16384.${i}; done'
-Benchmark("ocean-c", "splash3",    "small", "-p", "-n258",             dir_splash3 + "/ocean-contiguous_partitions",   "OCEAN-CONT")
-Benchmark("ocean-nc", "splash3",   "small", "-p", "-n258",         dir_splash3 + "/ocean-non_contiguous_partitions",   "OCEAN-NOCONT")
-Benchmark("radiosity", "splash3",  "small", "-p ", " -ae 5000 -bf 0.1 -en 0.05 -room -batch", dir_splash3 + "/radiosity", "RADIOSITY")
-Benchmark("raytrace", "splash3",   "small", "-p", "-m64 inputs/car.env",         dir_splash3 + "/raytrace", "RAYTRACE")
-Benchmark("volrend", "splash3",    "small", "", "inputs/head 8",                 dir_splash3 + "/volrend",  "VOLREND")
-Benchmark("water-ns", "splash3",   "small", "< inputs/n512-p", "",               dir_splash3 + "/water-nsquared",   "WATER-NSQUARED")
-Benchmark("water-sp", "splash3",   "small", "< inputs/n512-p", "",               dir_splash3 + "/water-spatial",    "WATER-SPATIAL")
-Benchmark("cholesky", "splash3",   "small", "-p", "inputs/tk15.O",               dir_splash3 + "/cholesky", "CHOLESKY")
-Benchmark("fft", "splash3",        "small", "-p", "-m16",                        dir_splash3 + "/fft",   "FFT")
-Benchmark("radix", "splash3",      "small", "-p", "-n1048576",                   dir_splash3 + "/radix", "RADIX")
-Benchmark("lu-c", "splash3",       "small", "-p", "-n512",                       dir_splash3 + "/lu-contiguous_blocks",     "LU-CONT")
-Benchmark("lu-nc", "splash3",      "small", "-p", "-n512",                       dir_splash3 + "/lu-non_contiguous_blocks", "LU-NOCONT")
+for (suite, bench) in [
+        ("parsec", "blackscholes"),
+        ("parsec", "bodytrack"),
+        ("parsec", "canneal"),
+        ("parsec", "dedup"),
+        ("parsec", "facesim"),
+        ("parsec", "ferret"),
+        ("parsec", "fluidanimate"),
+        ("parsec", "freqmine"),
+        ("parsec", "netdedup"),
+        ("parsec", "netferret"),
+        ("parsec", "netstreamcluster"),
+        ("parsec", "raytrace"),
+        ("parsec", "streamcluster"),
+        ("parsec", "swaptions"),
+        ("parsec", "vips"),
+        ("parsec", "x264"),
+        ("splash2", "barnes"),
+        ("splash2", "cholesky"),
+        ("splash2", "fft"),
+        ("splash2", "fmm"),
+        ("splash2", "lu_cb"),
+        ("splash2", "lu_ncb"),
+        ("splash2", "ocean_cp"),
+        ("splash2", "ocean_ncp"),
+        ("splash2", "radiosity"),
+        ("splash2", "radix"),
+        ("splash2", "raytrace"),
+        ("splash2", "volrend"),
+        ("splash2", "water_nsquared"),
+        ("splash2", "water_spatial"),
+        ("splash2x", "barnes"),
+        ("splash2x", "cholesky"),
+        ("splash2x", "fft"),
+        ("splash2x", "fmm"),
+        ("splash2x", "lu_cb"),
+        ("splash2x", "lu_ncb"),
+        ("splash2x", "ocean_cp"),
+        ("splash2x", "ocean_ncp"),
+        ("splash2x", "radiosity"),
+        ("splash2x", "radix"),
+        ("splash2x", "raytrace"),
+        ("splash2x", "volrend"),
+        ("splash2x", "water_nsquared"),
+        ("splash2x", "water_spatial"),
+]:
+    for size in ["test", "simdev", "simsmall", "simmedium", "simlarge"]:
+        Benchmark(bench, suite, size, "-n", "-a run -c gcc-hooks -p %s.%s -i %s" % (suite, bench, size), "parsec", "parsecmgmt-env")

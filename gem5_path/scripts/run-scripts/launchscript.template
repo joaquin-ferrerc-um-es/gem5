@@ -28,10 +28,16 @@ sleep "${T:0:4}.${T:4:1}"
 
 cd "${benchmark_subdir}"
 
-echo Running: "./${benchmark_binary_filename_base}.${arch}${benchmark_binary_suffix}" ${benchmark_num_threads_option}${num_cpus} ${benchmark_args_string}
-"./${benchmark_binary_filename_base}.${arch}${benchmark_binary_suffix}" ${benchmark_num_threads_option}${num_cpus} ${benchmark_args_string}
+if [ "${benchmark_binary_filename_base}" = "parsecmgmt-env" ] ; then
+    # TODO temporary hack for PARSEC
+    echo Running: "./${benchmark_binary_filename_base}" ${benchmark_args_string} ${benchmark_num_threads_option} ${num_cpus} 
+    "./${benchmark_binary_filename_base}" ${benchmark_args_string} ${benchmark_num_threads_option} ${num_cpus} 
+else
+    echo Running: "./${benchmark_binary_filename_base}.${arch}${benchmark_binary_suffix}" ${benchmark_num_threads_option}${num_cpus} ${benchmark_args_string}
+    "./${benchmark_binary_filename_base}.${arch}${benchmark_binary_suffix}" ${benchmark_num_threads_option}${num_cpus} ${benchmark_args_string}
+fi
 echo 'Launch script done ($?='"$?"'). Exiting simulation... (m5 exit)'
 
-sync
-sleep 2
+sync # TODO: why?
+sleep 2 # TODO: why?
 /sbin/m5 exit

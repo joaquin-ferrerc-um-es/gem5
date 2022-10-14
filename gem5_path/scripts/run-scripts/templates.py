@@ -31,7 +31,7 @@ base = {
     # Benchmark options
     benchmark: Vary(*get_benchmarks()),
     benchmark_name: Derived(lambda c: benchmark(c).name),
-    benchmark_full_name: Derived(lambda c: benchmark(c).suite +"." + benchmark(c).name),
+    benchmark_full_name: Derived(lambda c: benchmark(c).suite + "." + benchmark(c).name),
     benchmark_size: Derived(lambda c: benchmark(c).size),
     benchmark_subdir: Derived(lambda c: benchmark(c).subdir),
     benchmark_binary_filename_base: Derived(lambda c: benchmark(c).binary_filename_base),
@@ -135,7 +135,7 @@ cache_baseline_2level = update(cache_baseline, {
 # HTM templates
 
 htm_cfg1_base = {
-    # TODO ? protocol: "MESI_Three_Level_HTM_umu", # These options don't work with e.g., MESI_Three_Level_HTM_umu
+    # TODO ? protocol: "MESI_Three_Level_HTM_umu", # These options don't work with e.g., MESI_Three_Level
     htm_disable_speculation: False,
     htm_binary_suffix: '.htm.fallbacklock',
     htm_lazy_vm: True,

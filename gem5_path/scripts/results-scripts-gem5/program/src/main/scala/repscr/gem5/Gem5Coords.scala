@@ -137,6 +137,7 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
       case (".htm.fallbacklock", true, true, true, false, true, true, "committer_wins", false, false, "token") => "l3rs_l1rpl_lazycd"
 
       case (".htm.fallbacklock", true, true, true, true, true, false, "requester_stalls_cda_hybrid", true, true, _) => "lxrs_l1rpl_reqstallh_precrs_log"
+      case (MissingProperty, _, _, _, _, _, _, _, _, _, _) => "NoHTM"
     },
     isConfig = true,
     ordering = dynamicOrdering("locks", "base_nopf",

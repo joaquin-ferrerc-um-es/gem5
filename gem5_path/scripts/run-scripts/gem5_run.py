@@ -212,10 +212,13 @@ class Benchmark:
 import benchmarks
 
 def get_benchmarks(name = None, suite = None, size = None):
-    return [b for b in known_benchmarks
+    ret = [b for b in known_benchmarks
             if (name == None or b.name == name or (isinstance(name, list) and b.name in name)) and
                (suite == None or b.suite == suite or (isinstance(suite, list) and b.suite in suite)) and
                (size == None or b.size == size or (isinstance(size, list) and b.size in size))]
+    if len(ret) == 0:
+        error(f"No benchmarks found such that name = {name}, suite = {suite}, size = {size}")
+    return ret
 
 # Applies conf2 over list_or_conf1 or over the elements of
 # list_or_conf1 if it is a list.  Returns a config (dict) if

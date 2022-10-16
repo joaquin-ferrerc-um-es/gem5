@@ -109,6 +109,8 @@ set_server_type() {
             -enable-kvm 
             -drive file="$SERVER_IMG",format=raw,index=0,media=disk,snapshot=on 
         )
+    else
+        error_and_exit "Invalid server type «$SERVER_TYPE»"
     fi
 }
 

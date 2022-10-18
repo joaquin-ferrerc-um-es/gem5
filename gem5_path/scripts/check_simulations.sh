@@ -83,6 +83,8 @@ find "${RESULTS_DIR}" -name simulate -o -name simulate.sh | sort | while IFS="" 
                 else
                     SIM_STATUS="FAILED_Panic"
                 fi
+            elif grep -q "^Program aborted" "${SIM_SIMERR}" ; then
+                SIM_STATUS="FAILED_Abort"
             elif grep -q "gem5 has encountered a segmentation fault!" "${SIM_SIMERR}" ; then
                 SIM_STATUS="FAILED_Segv"
             elif grep -q "slurm_script: error" "${SIM_STDOUT}" ; then

@@ -222,7 +222,7 @@ def get_benchmarks(name = None, suite = None, size = None):
 
 # Applies conf2 over list_or_conf1 or over the elements of
 # list_or_conf1 if it is a list.  Returns a config (dict) if
-# list_or_conf1 is a config (dict), or retruns a list of configs if
+# list_or_conf1 is a config (dict), or returns a list of configs if
 # list_or_conf1 is a list of configs
 def update(list_or_conf1, conf2: dict):
     if isinstance(list_or_conf1, list):

@@ -30,4 +30,4 @@ export OUTPUT_DIR="${OUTPUT_DIR:-$(realpath "$SCRIPT_DIR/../../../results/cost-e
     exit 1;
 }
 
-"$GEN_SCRIPTS" "${GEN_SCRIPTS_ARGS[@]}"
+"$GEN_SCRIPTS" "${GEN_SCRIPTS_ARGS[@]}" "$@"

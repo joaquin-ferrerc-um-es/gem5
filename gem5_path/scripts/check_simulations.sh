@@ -32,10 +32,16 @@ find "${RESULTS_DIR}" -name simulate -o -name simulate.sh | sort | while IFS="" 
     elif ! grep -q "#### Simulating from init checkpoint" "${SIM_STDOUT}" ; then
         if ! grep -q "#### Creating init checkpoint using" "${SIM_STDOUT}"  ; then
             SIM_STATUS="FAILED_CKPT"
-            # Waiting
+            # Error
+        elif grep -iq "Assertion" "${SIM_STDOUT}" ; then
+            SIM_STATUS="FAILED_CKPT_Ben"
+            # Error
+        elif grep -iq "Segmentation" "${SIM_STDOUT}" ; then
+            SIM_STATUS="FAILED_CKPT_Ben"
+            # Error
         else
             SIM_STATUS="NOCKPT"
-            # Error
+            # Waiting
         fi
     elif grep -q "#### Failed to create init checkpoint " "${SIM_STDOUT}" ; then
         SIM_STATUS="FAILED_CKPT"

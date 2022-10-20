@@ -109,7 +109,7 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
     def asMap[K, V] = o.asInstanceOf[Map[K, V]] // TODO: handle other cases if necessary (e.g., lists of pairs)
   }
 
-  /* Project specific coordinates */
+  /* Project specific coordinates. They are present here temporarily while they may be useful when using the web UI. TODO: move to a specific file once a project is closed */
   Coord("config_cost_effective",
     s => (s("htm_binary_suffix"), s("htm_heap_prefault"),
       s("htm_allow_read_set_l0_cache_evictions"), s("htm_allow_read_set_l1_cache_evictions"), s("htm_allow_read_set_l2_cache_evictions"),

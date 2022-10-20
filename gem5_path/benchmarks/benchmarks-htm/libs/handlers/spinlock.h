@@ -260,12 +260,12 @@ static inline void spinlock_init()
   /* If we ever need to use more than one lock, make sure to make room
      in each one maps to a different cache line in the lock array,
      which should be adequately sized using NUM_GLOBAL_LOCKS */
-  int numLock = 0;
   assert(CACHE_LINE_SIZE_BYTES*numLock < sizeof(lock_array));
   (locks.fallbackLock) = (long *)&lock_array[CACHE_LINE_SIZE_BYTES*numLock];
   *(locks.fallbackLock) = 0;
 
   ++numLock;
+  assert(numLock < NUM_GLOBAL_LOCKS);
   (locks.preFallbackLock) = (long *)&lock_array[CACHE_LINE_SIZE_BYTES*numLock];
   *(locks.preFallbackLock) = 0;
 
@@ -332,6 +332,8 @@ static inline spinlock_t * spinlock_basic_get()
 {
     assert(numLock < NUM_GLOBAL_LOCKS);
     spinlock_t * basic_lock = &((spinlock_t *)(lock_array))[numLock];
+    assert((long *)basic_lock != (long *)locks.preFallbackLock);
+    assert((long *)basic_lock != (long *)locks.fallbackLock);
     basic_lock->lock = 0;
     ++numLock;
     return basic_lock;
@@ -350,6 +352,8 @@ static inline void spinlock_basic_whileIsLocked(spinlock_t * lock)
 }
 
 static inline void spinlock_basic_lock(spinlock_t * basic_lock){
+    assert((long *)basic_lock != (long *)locks.preFallbackLock);
+    assert((long *)basic_lock != (long *)locks.fallbackLock);
     do {
         spinlock_basic_whileIsLocked(basic_lock);
     }
@@ -358,6 +362,8 @@ static inline void spinlock_basic_lock(spinlock_t * basic_lock){
 
 static inline void spinlock_basic_unlock(spinlock_t * basic_lock)
 {
+    assert((long *)basic_lock != (long *)locks.preFallbackLock);
+    assert((long *)basic_lock != (long *)locks.fallbackLock);
     __asm__ volatile (""); // acts as a memory barrier.
     basic_lock->lock= 0;
 }

@@ -144,5 +144,8 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
       "base", "l2rs", "l3rs", "lxrs",
       "l3rs_l1rpl", "l3rs_l1rpl_reqstallb", "l3rs_l1rpl_reqstallh",
       "l3rs_l1rpl_reqstallh_precrs", "l3rs_l1rpl_lazycd"
+
     ))
+
+
 }

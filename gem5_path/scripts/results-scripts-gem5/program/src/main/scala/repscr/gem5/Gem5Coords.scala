@@ -14,6 +14,7 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
   CoordFromProp("protocol", doc = "Coherence protocol")
   CoordFromProp("cpu_model", doc = "CPU model")
   CoordFromProp("benchmark_name", doc = "Benchmark name", axisTitle = "Benchmark")
+  CoordFromProp("benchmark_full_name", doc = "Benchmark name", axisTitle = "Benchmark")
   CoordFromProp("benchmark_size", ordering = dynamicOrdering("small", "medium", "large"), doc = "Benchmark problem size")
   CoordFromProp("random_seed", doc = "Random seeds used for this point")
   CoordFromProp("git_revision")

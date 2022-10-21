@@ -57,6 +57,7 @@ object Gem5Properties {
     ("protocol", _.parseString),
     ("cpu_model", _.parseString),
     ("benchmark_name", _.parseString),
+    ("benchmark_full_name", _.parseString),
     ("benchmark_size", _.parseString),
     ("git_revision", _.parseString),
 

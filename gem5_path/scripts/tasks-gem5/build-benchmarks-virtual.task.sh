@@ -45,11 +45,11 @@ build_benchmarks_virtual() {
         echo "$(color yellow "Skipping build of test benchmark (sumarray) in a virtual mechine because it is not yet supported for '$arch'. TODO: fix this")"
     fi
 
-    # TODO
-    #if [ "$BENCHMARKS_STAMP_ENABLED" = "yes" ] ; then
-    #    build_benchmarks_virtual_stamp "$arch"
-    #fi
-    echo "$(color yellow "Skipping build of STAMP in a virtual machine because it is not yet supported for '$arch'. TODO: fix this")"
+    if [ "$BENCHMARKS_STAMP_ENABLED" = "yes" ] ; then
+        echo "$(color yellow "Skipping build of STAMP in a virtual machine because it is not yet supported for '$arch'. TODO: fix this")"
+        # TODO
+        #build_benchmarks_virtual_stamp "$arch"
+    fi
 
     if [ "$BENCHMARKS_PARSEC_ENABLED" = "yes" ] ; then
         if [[ "$arch" = "aarch64" ]] ; then 
@@ -69,7 +69,7 @@ build_benchmarks_virtual_sumarray() {
     
     if [[ "$arch" = "x86_64" ]] ; then
         local makefile="Makefile.x86"
-        export X86_CROSS_GCC_PREFIX="${BENCHMARKS_ARCH_COMPILER_PREFIX[$arch]}"
+        # TODO
     else
         error_and_exit "Architecture $arch not supported for benchmark sumarray"
     fi
@@ -133,12 +133,56 @@ build_benchmarks_virtual_parsec() {
 
     if [[ "$arch" = "aarch64" ]] ; then
         build_benchmarks_virtual_parsec_update_source "$arch"
+
+        local -a compiler_img_commands
+        local -a compiler_build_commands
+        local scratch_image_name="$(absolute_path "gem5_path/${arch}/disks/build-gcc-tmp.img")"
+        if [[ "${BENCHMARKS_PARSEC_COMPILER_VM}" = "system" ]] ; then
+            compiler_img_commands=()
+            compiler_build_commands=()
+        elif [[ "${BENCHMARKS_PARSEC_COMPILER_VM}" = "compile" ]] ; then
+            # Building GCC requires a lot of temporary space. Use a scratch disk image for it.
+            if [[ -f "$scratch_image_name" ]] ; then
+                error_and_exit "Found unexpected «$scratch_image_name»"
+            else
+                echo "$(color green "Creating scratch image file for building gcc ($scratch_image_name)")."
+                truncate -s 12G "$scratch_image_name"
+                "$VDS" --img "$scratch_image_name" --command 'echo "- - - -" | sfdisk /dev/sdb && mke2fs -j -m0 -L "buildgcc_tmp" /dev/sdb1'
+            fi            
+            compiler_img_commands=(
+                --img "$scratch_image_name"
+            )
+            compiler_build_commands=(
+                --command "cd /benchmarks/parsec ; [ -e ./compiler-environment.sh ] || WORK_DIR='/mnt/vdc1/buildgcc-tmp' ./buildgcc buildgcc.native.${arch}.11.3.0.config"
+            )
+        elif [[ "${BENCHMARKS_PARSEC_COMPILER_VM}" = "prebuilt" ]] ; then
+            local gcctar="$(absolute_path "${BENCHMARKS_PARSEC_COMPILER_VM_PREBUILT_FILENAME[$arch]}")"
+            [[ -f "$gcctar" ]] || error_and_exit "«$gcctar» not found"
+            local envshpath="$(tar tf "$gcctar" --wildcards "*/env.sh" | head -n1)"
+            [[ -n "$envshpath" ]] || error_and_exit "«$gcctar» does not seem to contain an env.sh."
+            echo "$(color green "Installing prebuilt gcc ($gcctar)")."
+            # FIXME: avoid redundant copying
+            "$VDS" --img "$image_name" \
+                   --command "ln -s /mnt/sdb1/ /benchmarks" \
+                   --src "$gcctar" --copy-to "/benchmarks" \
+                   --command "cd /benchmarks/parsec ; [ -e ./compiler-environment.sh ] || { ln -sf 'localgcc/$envshpath' ./compiler-environment.sh ; mkdir -p localgcc ; cd localgcc ; tar xf /benchmarks/$(basename "$gcctar") ; }" \
+                   --command "rm /benchmarks/$(basename "$gcctar")"
+            compiler_img_commands=()
+            compiler_build_commands=()
+        else
+            error_and_exit "Unknown value for BENCHMARKS_PARSEC_COMPILER_VM (${BENCHMARKS_PARSEC_COMPILER_VM})'"
+        fi
+        
         "$VBS" --type arm-ubuntu \
                --img "$image_name" \
+               "${compiler_img_commands[@]}" \
                --command "[ -d /mnt/vdb1 ] || { echo \"Could not mount image '$image_name'\" ; exit 1 ; }" \
                \
                --command "ln -s /mnt/vdb1/ /benchmarks" \
-               --command "cd /benchmarks/parsec ; ./parsecmgmt-env -a build -c gcc-hooks -p aarch64_compatible" 
+               "${compiler_build_commands[@]}" \
+               --command "cd /benchmarks/parsec ; ./parsecmgmt-env -a build -c gcc-hooks -p aarch64_compatible"
+
+        [ -e "$scratch_image_name" ] && rm "$scratch_image_name"
     else
         echo "$(color red "Building PARSEC in a virtual machine not implemented for $arch")"
     fi

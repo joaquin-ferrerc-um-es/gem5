@@ -13,6 +13,7 @@ all      qemu-server qemu-server.img                /home/users/caps/qemu-server
 aarch64  qemu-server qemu-build-server-arm-ubuntu.qcow2   /home/users/caps/qemu-build-server-arm-ubuntu.qcow2            ${DEFAULT_URL_PREFIX}/qemu-build-server-arm-ubuntu.2022-10-10.qcow2.xz
 aarch64  qemu-server qemu-build-server-arm-ubuntu.initrd  /home/users/caps/qemu-build-server-arm-ubuntu.initrd           ${DEFAULT_URL_PREFIX}/qemu-build-server-arm-ubuntu.2022-10-10.initrd.xz
 aarch64  qemu-server qemu-build-server-arm-ubuntu.kernel  /home/users/caps/qemu-build-server-arm-ubuntu.kernel           ${DEFAULT_URL_PREFIX}/qemu-build-server-arm-ubuntu.2022-10-10.kernel.xz
+aarch64  compiler    gcc-11.3.0-aarch64-linux-native.tar.xz  /home/users/caps/gcc-11.3.0-aarch64-linux-native.tar.xz     ${DEFAULT_URL_PREFIX}/gcc-11.3.0-aarch64-linux-native.2022-10-20.tar.xz
 " | grep -v '^ *#.*' | grep -v '^ *$' | tr -s ' ')
 
 declare_task "get-base-resources" "Get base resources (disk images, kernels…). Options:
@@ -81,6 +82,7 @@ get_base_resources() {
         get_base_resource "$arch" "qemu-server" "qemu-build-server-arm-ubuntu.qcow2" "gem5_path/other/qemu-build-server-arm-ubuntu.qcow2" "$mode" "$overwrite"
         get_base_resource "$arch" "qemu-server" "qemu-build-server-arm-ubuntu.kernel" "gem5_path/other/qemu-build-server-arm-ubuntu.kernel" "$mode" "$overwrite"
         get_base_resource "$arch" "qemu-server" "qemu-build-server-arm-ubuntu.initrd" "gem5_path/other/qemu-build-server-arm-ubuntu.initrd" "$mode" "$overwrite"
+        get_base_resource "$arch" "compiler" "gcc-11.3.0-${arch}-linux-native.tar.xz" "gem5_path/${arch}/other/gcc-11.3.0-${arch}-linux-native.tar.xz" "$mode" "$overwrite"
     fi
 } 
 

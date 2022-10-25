@@ -42,8 +42,6 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
  : Sequencer * sequencer;
    CacheMemory * Icache;
    CacheMemory * Dcache;
-   Cycles request_latency := 2;
-   Cycles response_latency := 2;
    bool send_evictions;
 
    RubyPrefetcher * prefetcher;
@@ -546,7 +544,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
   // ACTIONS
   action(a_issueGETS, "a", desc="Issue GETS") {
     peek(mandatoryQueue_in, RubyRequest) {
-      enqueue(requestNetwork_out, CoherenceMsg, request_latency) {
+      enqueue(requestNetwork_out, CoherenceMsg, Dcache.getTagLatency()) {
         out_msg.addr := address;
         out_msg.Class := CoherenceClass:GETS;
         out_msg.Sender := machineID;
@@ -561,7 +559,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
 
   action(b_issueGETX, "b", desc="Issue GETX") {
     peek(mandatoryQueue_in, RubyRequest) {
-      enqueue(requestNetwork_out, CoherenceMsg, request_latency) {
+      enqueue(requestNetwork_out, CoherenceMsg, Dcache.getTagLatency()) {
         out_msg.addr := address;
         out_msg.Class := CoherenceClass:GETX;
         out_msg.Sender := machineID;
@@ -578,7 +576,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
 
   action(c_issueUPGRADE, "c", desc="Issue GETX") {
     peek(mandatoryQueue_in, RubyRequest) {
-      enqueue(requestNetwork_out, CoherenceMsg, request_latency) {
+      enqueue(requestNetwork_out, CoherenceMsg, Dcache.getTagLatency()) {
         out_msg.addr := address;
         out_msg.Class := CoherenceClass:UPGRADE;
         out_msg.Sender := machineID;
@@ -593,7 +591,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
   }
 
   action(f_sendDataToL1, "f", desc="Send data to the L1 cache") {
-    enqueue(requestNetwork_out, CoherenceMsg, response_latency) {
+    enqueue(requestNetwork_out, CoherenceMsg, Dcache.getDataLatency()) {
       assert(is_valid(cache_entry));
       out_msg.addr := address;
       out_msg.Class := CoherenceClass:INV_DATA;
@@ -608,7 +606,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
 
   action(fi_sendInvAck, "fi", desc="Send data to the L1 cache") {
     peek(messgeBuffer_in, CoherenceMsg) {
-      enqueue(requestNetwork_out, CoherenceMsg, response_latency) {
+      enqueue(requestNetwork_out, CoherenceMsg, Dcache.getTagLatency()) {
         out_msg.addr := address;
         out_msg.Class := CoherenceClass:INV_ACK;
         out_msg.Sender := machineID;
@@ -626,7 +624,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
   }
 
   action(g_issuePUTX, "g", desc="Relinquish line to the L1 cache") {
-    enqueue(requestNetwork_out, CoherenceMsg, response_latency) {
+    enqueue(requestNetwork_out, CoherenceMsg, Dcache.getDataLatency()) {
       assert(is_valid(cache_entry));
       out_msg.addr := address;
       out_msg.Class := CoherenceClass:PUTX;
@@ -797,7 +795,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
 
   action(pa_issuePfGETS, "pa", desc="Issue prefetch GETS") {
     peek(optionalQueue_in, RubyRequest) {
-      enqueue(requestNetwork_out, CoherenceMsg, request_latency) {
+      enqueue(requestNetwork_out, CoherenceMsg, Dcache.getTagLatency()) {
         out_msg.addr := address;
         out_msg.Class := CoherenceClass:GETS;
         out_msg.Sender := machineID;
@@ -813,7 +811,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
 
   action(pb_issuePfGETX, "pb", desc="Issue prefetch GETX") {
     peek(optionalQueue_in, RubyRequest) {
-      enqueue(requestNetwork_out, CoherenceMsg, request_latency) {
+      enqueue(requestNetwork_out, CoherenceMsg, Dcache.getTagLatency()) {
         out_msg.addr := address;
         out_msg.Class := CoherenceClass:GETX;
         out_msg.Sender := machineID;

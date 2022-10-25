@@ -39,6 +39,12 @@ find "${RESULTS_DIR}" -name simulate -o -name simulate.sh | sort | while IFS="" 
         elif grep -iq "Segmentation" "${SIM_STDOUT}" ; then
             SIM_STATUS="FAILED_CKPT_Ben"
             # Error
+        elif grep -qiE 'Binary.+cannot be found' "${SIM_STDOUT}" ; then
+            SIM_STATUS="FAILED_CKPT_Ben"
+            # Error
+        elif grep -iq "#### Simulated terminal End   ####" "${SIM_STDOUT}" ; then
+            SIM_STATUS="FAILED_CKPT_End"
+            # Error
         else
             SIM_STATUS="NOCKPT"
             # Waiting

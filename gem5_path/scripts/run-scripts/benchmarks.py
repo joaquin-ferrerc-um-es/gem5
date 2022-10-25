@@ -43,9 +43,9 @@ for (suite, bench) in [
         ("parsec", "ferret"),
         ("parsec", "fluidanimate"),
         ("parsec", "freqmine"),
-        ("parsec", "netdedup"),
-        ("parsec", "netferret"),
-        ("parsec", "netstreamcluster"),
+        #("parsec", "netdedup"),   # Does not work or x86 or arm
+        #("parsec", "netferret"),  # Does not work for arm, huge variability for x86
+        #("parsec", "netstreamcluster"),  # Does not work for arm, huge variability for x86
         ("parsec", "raytrace"),
         ("parsec", "streamcluster"),
         ("parsec", "swaptions"),

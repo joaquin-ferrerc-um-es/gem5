@@ -1,6 +1,7 @@
 
 declare_task "build-benchmarks-virtual" "Build benchmarks in a virtual machine, directly in the benchmarks image. Options:
         --architecture X: Build only architecture X
+        --clean-before yes/no: Clean before building
 "
 
 # TODO: Add options to choose what benchmarks should be built.
@@ -17,12 +18,16 @@ BENCHMARKS_STAMP_SELECTED=(
 
 task_build-benchmarks-virtual() {
     local -a archs=("${ENABLED_ARCHITECTURES[@]}")
-    options="$(simpler_getopt "architecture:" "$@")"
+    local clean_before="no"
+    options="$(simpler_getopt "architecture:,clean-before:" "$@")"
     eval set -- "$options"
     while [[ $# -gt 0 ]] ; do
         if [[ "--architecture" = "$1" ]] ; then
             shift
             archs=("$1")
+        elif [[ "--clean-before" = "$1" ]] ; then
+            shift
+            clean_before="$1"
         elif [[ "--" = "$1" ]] ; then
             true # ignore
         else 
@@ -31,15 +36,16 @@ task_build-benchmarks-virtual() {
         shift
     done
     for a in "${archs[@]}" ; do
-        build_benchmarks_virtual "$a"
+        build_benchmarks_virtual "$a" "$clean_before"
     done
 }
 
 build_benchmarks_virtual() {
     local arch="$1"
-
+    local clean_before="$2"
+    
     if [[ "$arch" = "none" ]] ; then 
-        build_benchmarks_virtual_sumarray "$arch"
+        build_benchmarks_virtual_sumarray "$arch" "$clean_before"
     else
         # TODO
         echo "$(color yellow "Skipping build of test benchmark (sumarray) in a virtual mechine because it is not yet supported for '$arch'. TODO: fix this")"
@@ -48,12 +54,12 @@ build_benchmarks_virtual() {
     if [ "$BENCHMARKS_STAMP_ENABLED" = "yes" ] ; then
         echo "$(color yellow "Skipping build of STAMP in a virtual machine because it is not yet supported for '$arch'. TODO: fix this")"
         # TODO
-        #build_benchmarks_virtual_stamp "$arch"
+        #build_benchmarks_virtual_stamp "$arch" "$clean_before"
     fi
 
     if [ "$BENCHMARKS_PARSEC_ENABLED" = "yes" ] ; then
         if [[ "$arch" = "aarch64" ]] ; then 
-            build_benchmarks_virtual_parsec "$arch"
+            build_benchmarks_virtual_parsec "$arch" "$clean_before"
         else
             echo "$(color yellow "Skipping build of PARSEC in a virtual machine because it is not yet supported for '$arch'. TODO: fix this")"
         fi
@@ -62,6 +68,7 @@ build_benchmarks_virtual() {
 
 build_benchmarks_virtual_sumarray() {
     local arch="$1"
+    local clean_before="$2"
 
     echo "$(color green "Building test benchmark (sumarray) for $arch")"
 
@@ -80,6 +87,7 @@ build_benchmarks_virtual_sumarray() {
 
 build_benchmarks_virtual_stamp() {
     local arch="$1"
+    local clean_before="$2"
 
     echo "$(color green "Building stamp benchmarks for $arch in a virtual machine")"
     
@@ -124,6 +132,7 @@ VBS="${SCRIPT_DIR}/../virtual-build-server"
 
 build_benchmarks_virtual_parsec() {
     local arch="$1"
+    local clean_before="$2"
 
     echo "$(color green "Building parsec benchmarks for $arch in a virtual machine")"
     
@@ -173,6 +182,13 @@ build_benchmarks_virtual_parsec() {
             error_and_exit "Unknown value for BENCHMARKS_PARSEC_COMPILER_VM (${BENCHMARKS_PARSEC_COMPILER_VM})'"
         fi
         
+        local -a clean_before_commands=()
+        if [[ "$clean_before" = "yes" ]] ; then
+            clean_before_commands=(
+                --command "cd /benchmarks/parsec ; ./fullclean"
+            )
+        fi
+        
         "$VBS" --type arm-ubuntu \
                --img "$image_name" \
                "${compiler_img_commands[@]}" \
@@ -180,6 +196,7 @@ build_benchmarks_virtual_parsec() {
                \
                --command "ln -s /mnt/vdb1/ /benchmarks" \
                "${compiler_build_commands[@]}" \
+               "${clean_before_commands[@]}" \
                --command "cd /benchmarks/parsec ; ./parsecmgmt-env -a build -c gcc-hooks -p aarch64_compatible"
 
         [ -e "$scratch_image_name" ] && rm "$scratch_image_name"

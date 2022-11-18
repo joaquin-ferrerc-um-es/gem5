@@ -27,7 +27,7 @@ test -n "$COOKIES_FILE" -a -f "$COOKIES_FILE" || { echo "No se pudo crear un fic
 urlencode() { echo -n "$1" | od -An -tx1 | tr ' ' % | xargs printf "%s" ; }
 
 if [ "$FORCE_RELOAD" == "yes" ] ; then 
-    wget -o/dev/null --load-cookies "$COOKIES_FILE" --save-cookies "$COOKIES_FILE" --keep-session-cookies --post-data "listingsDirectory=$(urlencode "$LISTINGS")&inputsDirectory=$(urlencode "$INS")" http://${HOST}/newReport
+    wget -O/dev/null --load-cookies "$COOKIES_FILE" --save-cookies "$COOKIES_FILE" --keep-session-cookies --post-data "listingsDirectory=$(urlencode "$LISTINGS")&inputsDirectory=$(urlencode "$INS")" http://${HOST}/newReport
 fi
 wget -r -p -l100 -nH -k --restrict-file-names=windows --reject-regex='.+edit=true$' --load-cookies "$COOKIES_FILE"  "http://${HOST}/viewReport"
 ln -s viewReport index.html

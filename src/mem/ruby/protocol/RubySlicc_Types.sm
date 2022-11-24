@@ -125,6 +125,13 @@ structure (NetDest, external = "yes", non_obj="yes") {
   NetDest AND(NetDest);
 }
 
+structure (PointerSharers, external = "yes", non_obj="yes") {
+  void add(MachineID);
+  void remove(MachineID);
+  void clear();
+  NetDest getSharers();
+}
+
 structure (Sequencer, external = "yes") {
   void readCallback(Addr, DataBlock);
   void readCallback(Addr, DataBlock, bool);

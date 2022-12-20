@@ -170,12 +170,10 @@ build_benchmarks_virtual_parsec() {
             local envshpath="$(tar tf "$gcctar" --wildcards "*/env.sh" | head -n1)"
             [[ -n "$envshpath" ]] || error_and_exit "«$gcctar» does not seem to contain an env.sh."
             echo "$(color green "Installing prebuilt gcc ($gcctar)")."
-            # FIXME: avoid redundant copying
             "$VDS" --img "$image_name" \
+                   --virtfs "$(dirname "$gcctar")" \
                    --command "ln -s /mnt/sdb1/ /benchmarks" \
-                   --src "$gcctar" --copy-to "/benchmarks" \
-                   --command "cd /benchmarks/parsec ; [ -e ./compiler-environment.sh ] || { ln -sf 'localgcc/$envshpath' ./compiler-environment.sh ; mkdir -p localgcc ; cd localgcc ; tar xf /benchmarks/$(basename "$gcctar") ; }" \
-                   --command "rm /benchmarks/$(basename "$gcctar")"
+                   --command "cd /benchmarks/parsec ; [ -e ./compiler-environment.sh ] || { ln -sf 'localgcc/$envshpath' ./compiler-environment.sh ; mkdir -p localgcc ; cd localgcc ; tar xf /mnt/host1/$(basename "$gcctar") ; }"
             compiler_img_commands=()
             compiler_build_commands=()
         else

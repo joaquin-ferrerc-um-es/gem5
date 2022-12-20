@@ -87,6 +87,9 @@ find_server_image() {
 
 set_server_type() {
     SERVER_TYPE="$1"
+    SERVER_SSH_USER=root
+    SERVER_SSH_PASSWORD=""
+    SERVER_SYSTEM_SNAPSHOT="${SERVER_SYSTEM_SNAPSHOT:-off}" # on
     if [ "$SERVER_TYPE" = "arm-ubuntu" ] ; then
         SERVER_IMG_FILENAME="qemu-build-server-${SERVER_TYPE}.qcow2"
         SERVER_KERNEL_FILENAME="qemu-build-server-${SERVER_TYPE}.kernel"
@@ -132,6 +135,16 @@ images_args() {
     done
 }
 
+init_ssh() {
+    # Para pasarle el password a ssh - Requiere ssh version ≥ 8.4
+    export SSH_ASKPASS="$(mktemp)"
+    echo $'#!/bin/bash\necho "'"$SERVER_SSH_PASSWORD"'"' > "$SSH_ASKPASS"
+    chmod +x "$SSH_ASKPASS"
+    export SSH_ASKPASS_REQUIRE=force
+    export DISPLAY="${DISPLAY:-:1}"
+    SSH_COMMAND=( ssh -p $PORT -o NoHostAuthenticationForLocalhost=yes -o ForwardX11=no )
+}
+
 PORT=$(find_free_port)
 start_server() {
     if [ -z "${SERVER_TYPE:-}" ] ; then
@@ -151,6 +164,8 @@ start_server() {
          2> >(grep -v "warning: host doesn't support requested feature: CPUID.01H:ECX.vmx" 1>&2) 
     QEMU_PID="$(cat "$QEMU_PIDFILE")"
     rm "$QEMU_PIDFILE"
+
+    init_ssh
     trap shutdown_server EXIT
     
     local SERVER_CONNECTION_TIMEOUT=300
@@ -158,7 +173,7 @@ start_server() {
     local server_ping=""
     while [[ "$server_ping" != "ping"
              && $(( $(date +%s) - start)) -lt $SERVER_CONNECTION_TIMEOUT ]] ; do
-        server_ping="$(ssh -o NoHostAuthenticationForLocalhost=yes -o ForwardX11=no root@127.0.0.1 -o ConnectTimeout=1 -o ConnectionAttempts=$(( SERVER_CONNECTION_TIMEOUT - ($(date +%s) - start))) -p $PORT -- echo ping 2> /dev/null || true)"
+        server_ping="$("${SSH_COMMAND[@]}" ${SERVER_SSH_USER}@127.0.0.1 -o ConnectTimeout=1 -o ConnectionAttempts=$(( SERVER_CONNECTION_TIMEOUT - ($(date +%s) - start))) -- echo ping 2> /dev/null || true)"
     done
 
     if [[ "$server_ping" == "ping" ]] ; then
@@ -175,11 +190,11 @@ start_server() {
 }
 
 in_server() {
-    ssh -o NoHostAuthenticationForLocalhost=yes -o ForwardX11=no root@127.0.0.1 -p $PORT -T -- "$(for i in "$@" ; do printf "%q " "$i" ; done)"
+    "${SSH_COMMAND[@]}" ${SERVER_SSH_USER}@127.0.0.1 -T -- "$(for i in "$@" ; do printf "%q " "$i" ; done)"
 }
 
 in_server_interactive() {
-    ssh -o NoHostAuthenticationForLocalhost=yes -o ForwardX11=no root@127.0.0.1 -p $PORT
+    "${SSH_COMMAND[@]}" ${SERVER_SSH_USER}@127.0.0.1
 }
 
 to_server_copy() {
@@ -202,7 +217,7 @@ to_server_rsync() {
     local dst="$2"
     rsync -rlptD --delete \
           $(for i in ${RSYNC_EXCLUDES_FROM[@]} ; do printf -- "--exclude-from %q" "${i}" ;done) \
-          -e "ssh -p $PORT -o NoHostAuthenticationForLocalhost=yes -o ForwardX11=no" \
+          -e "${SSH_COMMAND[*]}" \
           "$src" "root@127.0.0.1:${dst}"
     RSYNC_EXCLUDES_FROM=()
 }
@@ -212,7 +227,7 @@ from_server_rsync() {
     local dst="$2"
     rsync -rlptD --delete \
           $(for i in ${RSYNC_EXCLUDES_FROM[@]} ; do printf -- "--exclude-from %q" "${i}" ;done) \
-          -e "ssh -p $PORT -o NoHostAuthenticationForLocalhost=yes -o ForwardX11=no" \
+          -e "${SSH_COMMAND[*]}" \
           "root@127.0.0.1:${src}" "$dst"
     RSYNC_EXCLUDES_FROM=()
 }
@@ -226,6 +241,10 @@ shutdown_server() {
         sleep 5
         kill -KILL "$QEMU_PID" &> /dev/null || true
     ) &
+    if [ -n "$SSH_ASKPASS" ] ; then
+        rm "$SSH_ASKPASS" || true
+        export SSH_ASKPASS=""
+    fi
     while [[ -d "/proc/$QEMU_PID" ]] ; do
         true # wait for qemu to finish
         sleep 0.1

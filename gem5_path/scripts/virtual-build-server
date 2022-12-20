@@ -15,6 +15,8 @@ error_and_exit() {
 help() {
     echo "Use: $SCRIPT_COMMAND [OPTIONS]...
 
+    Configuration options:
+
     --type T:
       Set server type. T can be «file-server» or «arm-ubuntu».
 
@@ -30,7 +32,14 @@ help() {
       The image will be modified (you need write permission to the
       file).
 
-    --img and --type options must precede all others. 
+    --virtfs D:
+      Mounts host directory D in the guest using virtfs. Filesystems
+      will be mounted in /mnt/host0, /mnt/host1…
+
+    --img, --virtfs, --system-snapshot and --type options must precede
+      all others.
+
+    Command-like options:
 
     --upload:
       The next transfers will be from the host to the virtual sever
@@ -67,7 +76,7 @@ help() {
 
      $(basename "$SCRIPT_COMMAND") --type file-server --img x86_64-benchmarks.img --command \"mkdir -p /mnt/sdb1/benchmarks-htm/stamp/\" --src ../../benchmarks/benchmarks-htm/stamp/ --rsync-to=/mnt/sdb1/benchmarks-htm/stamp/
 
-     $(basename "$SCRIPT_COMMAND") --type file-server --img ubuntu-18-04.img --bash
+     $(basename "$SCRIPT_COMMAND") --type file-server --img ubuntu-18-04.img --virtfs /tmp/dir --bash
 "
 }
 
@@ -140,6 +149,14 @@ images_args() {
     done
 }
 
+virtfs_args() {
+    local index=1
+    for i in ${HOST_DIRS[@]} ; do
+        printf -- "-virtfs local,path=%q,mount_tag=host%q,security_model=passthrough " "$i" "$index"
+        index=$((index + 1))
+    done
+}
+
 init_ssh() {
     # Para pasarle el password a ssh - Requiere ssh version ≥ 8.4
     export SSH_ASKPASS="$(mktemp)"
@@ -161,6 +178,7 @@ start_server() {
 #         -nographic \
     "${SERVER_SPECIFIC_QEMU_CMD[@]}" \
          $(images_args) \
+         $(virtfs_args) \
          -m 4096 \
          -net user,hostfwd=::$PORT-:22 -net nic \
          -pidfile "$QEMU_PIDFILE" \
@@ -257,7 +275,8 @@ shutdown_server() {
 }
 
 mount_all_images_in_server() {
-    cat <<'EOF' | in_server bash -s
+    local tmpfile="$(mktemp)"
+    cat <<'EOF' > "$tmpfile"
     rmdir /mnt/sd* /mnt/vd* &> /dev/null || true
     for i in /dev/sd[b-z] /dev/vd[b-z] ; do
         if [[ -b ${i}1 ]] ; then
@@ -273,23 +292,33 @@ mount_all_images_in_server() {
         fi
     done
 EOF
+    local index=1
+    for i in ${HOST_DIRS[@]} ; do
+        printf -- "mkdir -p /mnt/host%q || true\n" "$index"
+        printf -- "mount -t 9p -o trans=virtio host%q /mnt/host%q -oversion=9p2000.L\n" "$index" "$index"
+        index=$((index + 1))
+    done >> "$tmpfile"
+    in_server bash -s < "$tmpfile"
     true
 }
 
 # list of disk images for qemu
 IMAGES=()
 
+# list of host directories for virtfs
+HOST_DIRS=()
+
 # list of files containing exclude patterns for rsync
 RSYNC_EXCLUDES_FROM=()
 
 
-ARGS=$(getopt -n "$SCRIPT_COMMAND" --options "" --long "type:,img:,src:,copy-to:,rsync-exclude-from:,rsync-to:,command:,script:,bash,download,upload,system-snapshot:" -- "$@" || { help 1>&2 ; error_and_exit "Invalid options." ; })
+ARGS=$(getopt -n "$SCRIPT_COMMAND" --options "" --long "type:,img:,virtfs:,src:,copy-to:,rsync-exclude-from:,rsync-to:,command:,script:,bash,download,upload,system-snapshot:" -- "$@" || { help 1>&2 ; error_and_exit "Invalid options." ; })
 eval set -- "$ARGS"
 
 direction=upload
 server_started=no
 while [[ $# -gt 0 ]] ; do
-    if [[ "$1" !=  "--img" && "$1" !=  "--type" && "$1" !=  "--system-snapshot" && "$server_started" == "no" ]] ; then
+    if [[ "$1" !=  "--img" && "$1" !=  "--virtfs" && "$1" !=  "--type" && "$1" !=  "--system-snapshot" && "$server_started" == "no" ]] ; then
         start_server
         server_started=yes
         mount_all_images_in_server
@@ -313,14 +342,21 @@ while [[ $# -gt 0 ]] ; do
             fi
             [ -n "$SERVER_TYPE" ] && set_server_type "$SERVER_TYPE"
         else
-            error_and_exit "--system-snapshot option must appear before all others except --type and --img ($@)."
+            error_and_exit "--system-snapshot option must appear before all others except --type, --img and --virtfs ($@)."
         fi
     elif [[ "$1" == "--img" ]] ; then
         if [[ "$server_started" == "no" ]] ; then
             shift
             IMAGES=("${IMAGES[@]}" "$1")
         else
-            error_and_exit "--img options must appear before all others except --type ($@)."
+            error_and_exit "--img options must appear before all others except --type, --virtfs, and --system-snapshot ($@)."
+        fi
+    elif [[ "$1" == "--virtfs" ]] ; then
+        if [[ "$server_started" == "no" ]] ; then
+            shift
+            HOST_DIRS=("${HOST_DIRS[@]}" "$1")
+        else
+            error_and_exit "--virtfs options must appear before all others except --type, --img and --system-snapshot ($@)."
         fi
     elif [[ "$1" == "--upload" ]] ; then
         direction=upload

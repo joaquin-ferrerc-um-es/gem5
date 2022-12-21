@@ -161,8 +161,9 @@ build_benchmarks_virtual_parsec() {
             compiler_img_commands=(
                 --img "$scratch_image_name"
             )
+            local buildgcc_config="buildgcc.native.${arch}.11.3.0.config"
             compiler_build_commands=(
-                --command "cd /benchmarks/parsec ; [ -e ./compiler-environment.sh ] || WORK_DIR='/mnt/vdc1/buildgcc-tmp' ./buildgcc buildgcc.native.${arch}.11.3.0.config"
+                --command "cd /benchmarks/parsec ; [ -e ./compiler-environment.sh ] || WORK_DIR='/mnt/vdc1/buildgcc-tmp' ./buildgcc ${buildgcc_config}"
             )
         elif [[ "${BENCHMARKS_PARSEC_COMPILER_VM}" = "prebuilt" ]] ; then
             local gcctar="$(absolute_path "${BENCHMARKS_PARSEC_COMPILER_VM_PREBUILT_FILENAME[$arch]}")"
@@ -186,8 +187,14 @@ build_benchmarks_virtual_parsec() {
                 --command "cd /benchmarks/parsec ; ./fullclean"
             )
         fi
-        
-        "$VBS" --type arm-ubuntu \
+
+        if [[ "$arch" = "aarch64" ]] ; then
+            local build_server_type="arm-ubuntu"
+        else
+            error_and_exit "build_server_type not defined for $arch"
+        fi
+
+        "$VBS" --type "$build_server_type" \
                --img "$image_name" \
                "${compiler_img_commands[@]}" \
                --command "[ -d /mnt/vdb1 ] || { echo \"Could not mount image '$image_name'\" ; exit 1 ; }" \

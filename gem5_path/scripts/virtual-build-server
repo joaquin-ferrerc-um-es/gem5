@@ -86,13 +86,16 @@ if [[ $# -eq 0 ]] ; then
 fi
 
 find_server_image() {
+    SERVER_IMG_FILENAME="$1"
+    SERVER_KERNEL_FILENAME="${2:-none}"
+    SERVER_INITRD_FILENAME="${3:-none}"
     SERVER_IMG_LOCATIONS=("${SCRIPT_DIR}" "${SCRIPT_DIR}/../other" "/home/users/caps")
     for i in "${SERVER_IMG_LOCATIONS[@]}" ; do
         f="${i}/${SERVER_IMG_FILENAME}"
         if [[ -f "$f" ]] ; then
-            SERVER_IMG="${SERVER_IMG:-$f}"
-            SERVER_KERNEL="${SERVER_KERNEL:-${i}/${SERVER_KERNEL_FILENAME:-none}}"
-            SERVER_INITRD="${SERVER_INITRD:-${i}/${SERVER_INITRD_FILENAME:-none}}"
+            SERVER_IMG="$f"
+            SERVER_KERNEL="${i}/${SERVER_KERNEL_FILENAME}"
+            SERVER_INITRD="${i}/${SERVER_INITRD_FILENAME}"
         fi
     done
     [[ -n "${SERVER_IMG:-}" ]] || error_and_exit "Server image (${SERVER_IMG_FILENAME}) not found. Tried: ${SERVER_IMG_LOCATIONS[@]}"
@@ -105,10 +108,9 @@ set_server_type() {
     SERVER_SSH_PASSWORD=""
     SERVER_SYSTEM_SNAPSHOT="${SERVER_SYSTEM_SNAPSHOT:-on}" # or off
     if [ "$SERVER_TYPE" = "arm-ubuntu" ] ; then
-        SERVER_IMG_FILENAME="qemu-build-server-${SERVER_TYPE}.qcow2"
         SERVER_KERNEL_FILENAME="qemu-build-server-${SERVER_TYPE}.kernel"
         SERVER_INITRD_FILENAME="qemu-build-server-${SERVER_TYPE}.initrd"
-        find_server_image
+        find_server_image "qemu-build-server-${SERVER_TYPE}".{qcow2,kernel,initrd}
         SERVER_SPECIFIC_QEMU_CMD=(
             qemu-system-aarch64
             -kernel "$SERVER_KERNEL" 
@@ -119,8 +121,7 @@ set_server_type() {
             -drive file="$SERVER_IMG",format=qcow2,index=0,media=disk,snapshot="${SERVER_SYSTEM_SNAPSHOT}"
         )
     elif [ "$SERVER_TYPE" = "file-server" ] ; then
-        SERVER_IMG_FILENAME="qemu-server.img"
-        find_server_image
+        find_server_image "qemu-server.img"
         SERVER_SPECIFIC_QEMU_CMD=(
             qemu-system-x86_64
             -enable-kvm 

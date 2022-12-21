@@ -59,11 +59,11 @@ update_benchmarks_image() {
     local -a update_stamp_cmds=()
     if [[ "$BENCHMARKS_STAMP_ENABLED" = "yes" ]] ; then
         update_stamp_cmds=(
-            --command "mkdir -p /mnt/sdb1/benchmarks-htm/"
-            --src "$GEM5_ROOT/tests/test-progs/" --rsync-to "/mnt/sdb1/test-progs/" 
-            --src "$GEM5_ROOT/gem5_path/benchmarks/benchmarks-htm/stamp/" --rsync-to "/mnt/sdb1/benchmarks-htm/stamp/" 
-            --command "/mnt/sdb1/benchmarks-htm/stamp/prepare-inputs" 
-            --src "$GEM5_ROOT/gem5_path/benchmarks/benchmarks-htm/libs/" --rsync-to "/mnt/sdb1/benchmarks-htm/libs/" 
+            --command "mkdir -p /mnt/img1p1/benchmarks-htm/"
+            --src "$GEM5_ROOT/tests/test-progs/" --rsync-to "/mnt/img1p1/test-progs/" 
+            --src "$GEM5_ROOT/gem5_path/benchmarks/benchmarks-htm/stamp/" --rsync-to "/mnt/img1p1/benchmarks-htm/stamp/" 
+            --command "/mnt/img1p1/benchmarks-htm/stamp/prepare-inputs" 
+            --src "$GEM5_ROOT/gem5_path/benchmarks/benchmarks-htm/libs/" --rsync-to "/mnt/img1p1/benchmarks-htm/libs/" 
         )
     fi
     local -a update_parsec_cmds=()
@@ -71,8 +71,8 @@ update_benchmarks_image() {
         if [[ "$arch" = "x86_64" ]] ; then
             local parsec_dir="$(absolute_path "$BENCHMARKS_PARSEC_DIR")"
             update_parsec_cmds=(
-                --command "mkdir -p /mnt/sdb1/parsec/"
-                --src "${parsec_dir}/" --rsync-to "/mnt/sdb1/parsec/"
+                --command "mkdir -p /mnt/img1p1/parsec/"
+                --src "${parsec_dir}/" --rsync-to "/mnt/img1p1/parsec/"
             )
         else
             echo "$(color green "PARSEC benchmarks will not be uploaded because they are built directly in the image for $arch.")"
@@ -80,9 +80,8 @@ update_benchmarks_image() {
     fi
     
     "$VDS" --img "$image_name" \
-           --command "[ -d /mnt/sdb1 ] || { echo \"Could not mount image '$image_name'\" ; exit 1 ; }" \
            \
-           --src "$GEM5_ROOT/util/m5/build/$(get_m5_arch_name "$arch")/out/m5" --copy-to "/mnt/sdb1/benchmarks-htm/" \
+           --src "$GEM5_ROOT/util/m5/build/$(get_m5_arch_name "$arch")/out/m5" --copy-to "/mnt/img1p1/benchmarks-htm/" \
            \
            "${update_stamp_cmds[@]}" \
            "${update_parsec_cmds[@]}"

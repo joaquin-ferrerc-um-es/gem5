@@ -277,23 +277,30 @@ shutdown_server() {
 mount_all_images_in_server() {
     local tmpfile="$(mktemp)"
     cat <<'EOF' > "$tmpfile"
-    rmdir /mnt/sd* /mnt/vd* &> /dev/null || true
+    rmdir /mnt/sd* /mnt/vd* /mnt/img* &> /dev/null || true
+    rm /mnt/sd* /mnt/vd* /mnt/img* &> /dev/null || true
+    imgidx=1
     for i in /dev/sd[b-z] /dev/vd[b-z] ; do
         if [[ -b ${i}1 ]] ; then
             # at least one partition
+            partidx=1
             for j in ${i}?* ; do
-                mkdir -p "/mnt/$(basename $j)"
-                mount -v $j "/mnt/$(basename $j)" || rmdir "/mnt/$(basename $i)" &> /dev/null || true
+                mkdir -p "/mnt/img${imgidx}p${partidx}"
+                mount -v $j "/mnt/img${imgidx}p${partidx}" || rmdir "/mnt/img${imgidx}p${partidx}" &> /dev/null || true
+                ln -s "/mnt/img${imgidx}p${partidx}" "/mnt/$(basename $j)"
+                partidx=$((partidx + 1))
             done
         elif [[ -b ${i} ]] ; then
             # no partitions, try to mount whole disk
-            mkdir -p "/mnt/$(basename $i)"
-            mount -v $i "/mnt/$(basename $i)" || rmdir "/mnt/$(basename $i)" &> /dev/null || true
+            mkdir -p "/mnt/img$imgidx"
+            ln -s "/mnt/img$imgidx" "/mnt/$(basename $i)" 
+            mount -v $i "/mnt/img$imgidx" || rmdir "/mnt/img$imgidx" &> /dev/null || true
         fi
+        imgidx=$((imgidx + 1))
     done
 EOF
     local index=1
-    for i in ${HOST_DIRS[@]} ; do
+    for i in "${HOST_DIRS[@]}" ; do
         printf -- "mkdir -p /mnt/host%q || true\n" "$index"
         printf -- "mount -t 9p -o trans=virtio host%q /mnt/host%q -oversion=9p2000.L\n" "$index" "$index"
         index=$((index + 1))

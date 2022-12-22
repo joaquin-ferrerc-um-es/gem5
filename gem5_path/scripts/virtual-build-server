@@ -297,7 +297,9 @@ mount_all_images_in_server() {
             ln -s "/mnt/img$imgidx" "/mnt/$(basename $i)" 
             mount -v $i "/mnt/img$imgidx" || rmdir "/mnt/img$imgidx" &> /dev/null || true
         fi
-        imgidx=$((imgidx + 1))
+        if [[ -e ${i} ]] ; then
+            imgidx=$((imgidx + 1))
+        fi
     done
 EOF
     local index=1

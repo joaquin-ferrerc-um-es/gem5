@@ -161,9 +161,10 @@ build_benchmarks_virtual_parsec() {
             compiler_img_commands=(
                 --img "$scratch_image_name"
             )
-            local buildgcc_config="buildgcc.native.${arch}.11.3.0.config"
+            local buildgcc_version="11.3.0"
+            local buildgcc_config="buildgcc.native.${arch}.${buildgcc_version}.config"
             compiler_build_commands=(
-                --command "cd /benchmarks/parsec ; [ -e ./compiler-environment.sh ] || WORK_DIR='/mnt/img2p1/buildgcc-tmp' ./buildgcc ${buildgcc_config}"
+                --command "cd /benchmarks/parsec ; [ -e ./compiler-environment.sh ] || WORK_DIR='/mnt/img2p1/buildgcc-tmp' ./buildgcc ${buildgcc_config} && ln -s localgcc/gcc-${buildgcc_version}-${arch}-native/env.sh compiler-environment.sh"
             )
         elif [[ "${BENCHMARKS_PARSEC_COMPILER_VM}" = "prebuilt" ]] ; then
             local gcctar="$(absolute_path "${BENCHMARKS_PARSEC_COMPILER_VM_PREBUILT_FILENAME[$arch]}")"

@@ -29,7 +29,8 @@ VDS="${SCRIPT_DIR}/../virtual-disk-server"
 [[ -x "$VDS" ]] || error_and_exit "virtual-disk-server script not found ($VDS)"
 
 clean_benchmarks_stamp_all() {
-    if [ "$BENCHMARKS_STAMP_ENABLED" = "yes" ] ; then
+    local arch="$1"
+    if [ "${BENCHMARKS_STAMP_ENABLED[$arch]}" = "yes" ] ; then
         check_stamp_gem5_directory_links
         "$(absolute_path "$BENCHMARKS_HTM_STAMP/make.all")" clean
     fi
@@ -49,7 +50,7 @@ update_benchmarks_image() {
 
     # TODO: make this optional
     # First ensure that the benchmarks are built
-    clean_benchmarks_stamp_all # clean stamp benchmark before rebuilding to include only the binaries for the desired arch
+    clean_benchmarks_stamp_all "$arch" # clean stamp benchmark before rebuilding to include only the binaries for the desired arch
     build_benchmarks "$arch"
 
     local image_name="$(absolute_path "$(get_benchmarks_disk_image "$arch")")"
@@ -57,7 +58,7 @@ update_benchmarks_image() {
     update_benchmarks_image_ensure_image_exists "$image_name"
 
     local -a update_stamp_cmds=()
-    if [[ "$BENCHMARKS_STAMP_ENABLED" = "yes" ]] ; then
+    if [[ "${BENCHMARKS_STAMP_ENABLED[$arch]}" = "yes" ]] ; then
         update_stamp_cmds=(
             --command "mkdir -p /mnt/img1p1/benchmarks-htm/"
             --src "$GEM5_ROOT/tests/test-progs/" --rsync-to "/mnt/img1p1/test-progs/" 
@@ -65,18 +66,24 @@ update_benchmarks_image() {
             --command "/mnt/img1p1/benchmarks-htm/stamp/prepare-inputs" 
             --src "$GEM5_ROOT/gem5_path/benchmarks/benchmarks-htm/libs/" --rsync-to "/mnt/img1p1/benchmarks-htm/libs/" 
         )
+    elif [[ "${BENCHMARKS_STAMP_ENABLED[$arch]}" = "no" ]] ; then
+        echo "$(color green "STAMP benchmarks disabled for $arch.")"
+    else
+        error_and_exit "Invalid value for BENCHMARKS_STAMP_ENABLED[$arch] (${BENCHMARKS_STAMP_ENABLED[$arch]})"
     fi
     local -a update_parsec_cmds=()
-    if [[ "$BENCHMARKS_PARSEC_ENABLED" = "yes" ]] ; then
-        if [[ "$arch" = "x86_64" ]] ; then
-            local parsec_dir="$(absolute_path "$BENCHMARKS_PARSEC_DIR")"
-            update_parsec_cmds=(
-                --command "mkdir -p /mnt/img1p1/parsec/"
-                --src "${parsec_dir}/" --rsync-to "/mnt/img1p1/parsec/"
-            )
-        else
-            echo "$(color green "PARSEC benchmarks will not be uploaded because they are built directly in the image for $arch.")"
-        fi
+    if [[ "${BENCHMARKS_PARSEC_ENABLED[$arch]}" = "yes-native" ]] ; then
+        local parsec_dir="$(absolute_path "$BENCHMARKS_PARSEC_DIR")"
+        update_parsec_cmds=(
+            --command "mkdir -p /mnt/img1p1/parsec/"
+            --src "${parsec_dir}/" --rsync-to "/mnt/img1p1/parsec/"
+        )
+    elif [[ "${BENCHMARKS_PARSEC_ENABLED[$arch]}" = "yes-virtual" ]] ; then
+        echo "$(color green "PARSEC benchmarks will not be uploaded because they are built directly in the image for $arch.")"
+    elif [[ "${BENCHMARKS_PARSEC_ENABLED[$arch]}" = "no" ]] ; then
+        echo "$(color green "PARSEC benchmarks will not be uploaded because they are disabled for $arch.")"
+    else
+        error_and_exit "Invalid value for BENCHMARKS_PARSEC_ENABLED[$arch] (${BENCHMARKS_PARSEC_ENABLED[$arch]})"
     fi
     
     "$VDS" --img "$image_name" \

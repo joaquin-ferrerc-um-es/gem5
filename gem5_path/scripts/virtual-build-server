@@ -28,7 +28,7 @@ help() {
     --img F:    
       Add image F as a block device in the server. The first images
       will be added as /dev/sdb, then /dev/sdc, etc. Filesystems in
-      the whole image or in partitions will be mounted in /mnt/sdX.
+      the whole image or in partitions will be mounted in /mnt/imgXpY.
       The image will be modified (you need write permission to the
       file).
 

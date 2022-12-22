@@ -13,24 +13,8 @@ check_glibc() {
     if ldd "${gem5_exec_path}" | grep "not found" | grep -q "GLIBCXX" ; then
         # Cannot find required GBLIC version
         echo "Cannot find GLIBCXX version required by current build of gem5 binary (${gem5_exec_path})"
-        # TODO: I don't think that trying to fix this automatically is really a good idea
-        if ! gcc -v 2>&1 | grep -q "gcc version 9.2" ; then 
-            local GCC92DIR="/opt/gcc/9.2.0/"
-            echo "Setting environment to gcc 9.2 in ${GCC92DIR}"
-            if [ -d "$GCC92DIR" ] ; then
-                export ORIGINAL_PATH="$PATH"
-                export PATH="$GCC92DIR/bin:$ORIGINAL_PATH"
-                export ORIGINAL_LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}"
-                export LD_LIBRARY_PATH="$GCC92DIR/lib:$GCC92DIR/lib64:$ORIGINAL_LD_LIBRARY_PATH"
-                export ORIGINAL_MANPATH="${MANPATH:-}"
-                export MANPATH="${GCC92DIR}/share/man:${ORIGINAL_MANPATH}"
-            fi
-        fi
-        if ldd "${gem5_exec_path}" | grep "not found" | grep -q "GLIBCXX" ; then
-            echo "Exiting simulation script due missing GLIBC version"
-            echo "Perhaps you can try to rebuild gem5 in your current environment"
-            exit 1
-        fi
+        echo "Exiting simulation script due missing GLIBC version"
+        exit 1
     fi
 }
 
@@ -111,19 +95,28 @@ reuse_init_checkpoint() {
         # TODO: Maybe add more files to the hash (gem5 binary, benchmarks_disk_image, os_disk_image, kernel…)
         local CHECKPOINT_HASH="$(cat "${output_directory}/${launchscript_filename}" | sha1sum | cut -d" " -f1)"
         CHECKPOINT_INIT_REUSED_DIR="${checkpoint_init_reuse_root_dir}/${CHECKPOINT_HASH}"
-        [[ ! -d "$CHECKPOINT_DIR" && -d "${CHECKPOINT_INIT_REUSED_DIR}" ]] && {
-            ln -s "${CHECKPOINT_INIT_REUSED_DIR}" "${CHECKPOINT_DIR}"
-        }
+        if [[ -d "${checkpoint_init_reuse_root_dir}" ]] ; then
+            [[ ! -d "$CHECKPOINT_DIR" && -d "${CHECKPOINT_INIT_REUSED_DIR}" ]] && {
+                ln -s "${CHECKPOINT_INIT_REUSED_DIR}" "${CHECKPOINT_DIR}"
+            }
+        else
+            echo "#### Warning: checkpoint_init_reuse (init checkpoint reuse) is enabled but checkpoint_init_reuse_root_dir does not exist (${checkpoint_init_reuse_root_dir}) ####"
+            return 1
+        fi
     }
 }
 
 save_checkpoint_for_reuse() {
     if [[ "${checkpoint_init_reuse}" = "True" ]] ; then
-        if mv -n -T "${CHECKPOINT_DIR}" "${CHECKPOINT_INIT_REUSED_DIR}" ; then 
-            ln -s "${CHECKPOINT_INIT_REUSED_DIR}" "${CHECKPOINT_DIR}"
-            echo "#### Init checkpoint moved to $CHECKPOINT_INIT_REUSED_DIR   ####"
+        if [[ -d "${checkpoint_init_reuse_root_dir}" ]] ; then
+            if mv -n -T "${CHECKPOINT_DIR}" "${CHECKPOINT_INIT_REUSED_DIR}" ; then 
+                ln -s "${CHECKPOINT_INIT_REUSED_DIR}" "${CHECKPOINT_DIR}"
+                echo "#### Init checkpoint moved to $CHECKPOINT_INIT_REUSED_DIR   ####"
+            else
+                echo "#### Could not move checkpoint to $CHECKPOINT_INIT_REUSED_DIR (probably it already exists due to a race condition)  ####"
+            fi
         else
-            echo "#### Could not move checkpoint to $CHECKPOINT_INIT_REUSED_DIR (probably it already exists due to a race condition)  ####"
+            echo "#### Warning: Cold not save checkpoint for reuse because checkpoint_init_reuse_root_dir does not exist (${checkpoint_init_reuse_root_dir}) ####"
         fi
     fi
 }

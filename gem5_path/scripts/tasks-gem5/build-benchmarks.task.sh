@@ -46,12 +46,22 @@ build_benchmarks() {
         echo "$(color yellow "Skipping build of test benchmark (sumarray) because it is not yet supported for '$arch'. TODO: fix this")"
     fi
 
-    if [ "$BENCHMARKS_STAMP_ENABLED" = "yes" ] ; then
+    if [ "${BENCHMARKS_STAMP_ENABLED[$arch]}" = "yes" ] ; then
         build_benchmarks_stamp "$arch"
+    elif [[ "${BENCHMARKS_STAMP_ENABLED[$arch]}" = "no" ]] ; then
+        echo "$(color green "STAMP benchmarks disabled for $arch.")"
+    else
+        error_and_exit "Invalid value for BENCHMARKS_STAMP_ENABLED[$arch] (${BENCHMARKS_STAMP_ENABLED[$arch]})"
     fi
 
-    if [ "$BENCHMARKS_PARSEC_ENABLED" = "yes" ] ; then
+    if [[ "${BENCHMARKS_PARSEC_ENABLED[$arch]}" = "yes-native" ]] ; then
         build_benchmarks_parsec "$arch"
+    elif [[ "${BENCHMARKS_PARSEC_ENABLED[$arch]}" = "yes-virtual" ]] ; then
+        echo "$(color green "PARSEC benchmarks will not be built because they are built directly in the image for $arch.")"
+    elif [[ "${BENCHMARKS_PARSEC_ENABLED[$arch]}" = "no" ]] ; then
+        echo "$(color green "PARSEC benchmarks disabled for $arch.")"
+    else
+        error_and_exit "Invalid value for BENCHMARKS_PARSEC_ENABLED[$arch] (${BENCHMARKS_PARSEC_ENABLED[$arch]})"
     fi
 }
 

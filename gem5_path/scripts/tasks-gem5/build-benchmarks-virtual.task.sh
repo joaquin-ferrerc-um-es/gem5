@@ -51,13 +51,13 @@ build_benchmarks_virtual() {
         echo "$(color yellow "Skipping build of test benchmark (sumarray) in a virtual mechine because it is not yet supported for '$arch'. TODO: fix this")"
     fi
 
-    if [ "$BENCHMARKS_STAMP_ENABLED" = "yes" ] ; then
+    if [ "${BENCHMARKS_STAMP_ENABLED[$arch]}" = "yes" ] ; then
         echo "$(color yellow "Skipping build of STAMP in a virtual machine because it is not yet supported for '$arch'. TODO: fix this")"
         # TODO
         #build_benchmarks_virtual_stamp "$arch" "$clean_before"
     fi
 
-    if [ "$BENCHMARKS_PARSEC_ENABLED" = "yes" ] ; then
+    if [[ "${BENCHMARKS_PARSEC_ENABLED[$arch]}" = "yes-virtual" ]] ; then
         if [[ "$arch" = "aarch64" ]] ; then 
             build_benchmarks_virtual_parsec "$arch" "$clean_before"
         else

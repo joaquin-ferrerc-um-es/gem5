@@ -41,6 +41,9 @@ help() {
 
     Command-like options:
 
+    --serial:
+      Opens a serial console. This must be the first and only command.
+
     --upload:
       The next transfers will be from the host to the virtual sever
       (images). This is the default.
@@ -127,6 +130,31 @@ set_server_type() {
             -enable-kvm 
             -drive file="$SERVER_IMG",format=raw,index=0,media=disk,snapshot="${SERVER_SYSTEM_SNAPSHOT}" 
         )
+    elif [ "$SERVER_TYPE" = "gem5-x86_64" ] ; then # works with --serial and ssh
+        local tg5="${SCRIPT_DIR}/tasks-gem5/tasks-gem5" 
+        SERVER_IMG="$("$tg5" query-config '${GEM5_ROOT}/$(get_base_image x86_64)')"
+        SERVER_SPECIFIC_QEMU_CMD=(
+            qemu-system-x86_64
+            -enable-kvm 
+            -drive file="$SERVER_IMG",format=raw,index=0,media=disk,snapshot="${SERVER_SYSTEM_SNAPSHOT}" 
+        )
+        SERVER_SSH_USER=root
+        SERVER_SSH_PASSWORD=""
+    elif [ "$SERVER_TYPE" = "gem5-arm" ] ; then # works with --serial only (does not support network access)
+        local tg5="${SCRIPT_DIR}/tasks-gem5/tasks-gem5"
+        find_server_image "qemu-build-server-arm-ubuntu".{qcow2,kernel,initrd}
+        SERVER_IMG="$("$tg5" query-config '${GEM5_ROOT}/$(get_base_image aarch64)')"
+        SERVER_SPECIFIC_QEMU_CMD=(
+            qemu-system-aarch64
+            -kernel "$SERVER_KERNEL" 
+            -initrd "$SERVER_INITRD" 
+            -append 'root=/dev/vda1 init=/bin/bash console=ttyAMA0' 
+            -cpu cortex-a57 
+            -machine virt 
+            -drive file="$SERVER_IMG",format=raw,index=0,media=disk,snapshot="${SERVER_SYSTEM_SNAPSHOT}"
+        )
+        SERVER_SSH_USER=root
+        SERVER_SSH_PASSWORD=root
     else
         error_and_exit "Invalid server type «$SERVER_TYPE»"
     fi
@@ -170,46 +198,61 @@ init_ssh() {
 
 PORT=$(find_free_port)
 start_server() {
+    local mode="${1:-daemon}"
+    local -a mode_options
+    if [[ "$mode" = "daemon" ]] ; then
+        mode_options=(
+            -display none
+            -daemonize 
+        )
+    elif [[ "$mode" = "serial" ]] ; then
+        mode_options=(
+            -nographic
+            -serial mon:stdio
+        )
+    else
+        error_and_exit "Incorrect mode «${mode}»"
+    fi
     if [ -z "${SERVER_TYPE:-}" ] ; then
         error_and_exit "Server type not specified (use --type)."
     fi
     echo "Starting server $SERVER_TYPE at port $PORT..."
     QEMU_PIDFILE="$(mktemp)"
     # TODO: remove both -net… when qemu 6 is available, it is enough with -nic user,hostfwd=::9888-:22
-#         -nographic \
     "${SERVER_SPECIFIC_QEMU_CMD[@]}" \
          $(images_args) \
          $(virtfs_args) \
          -m 4096 \
          -net user,hostfwd=::$PORT-:22 -net nic \
          -pidfile "$QEMU_PIDFILE" \
-         -display none \
-         -daemonize \
-         2> >(grep -v "warning: host doesn't support requested feature: CPUID.01H:ECX.vmx" 1>&2) 
+         "${mode_options[@]}" \
+         2> >(grep -v "warning: host doesn't support requested feature: CPUID.01H:ECX.vmx" 1>&2)
     QEMU_PID="$(cat "$QEMU_PIDFILE")"
     rm "$QEMU_PIDFILE"
 
-    init_ssh
-    trap shutdown_server EXIT
-    
-    local SERVER_CONNECTION_TIMEOUT=300
-    local start="$(date +%s)"
-    local server_ping=""
-    while [[ "$server_ping" != "ping"
-             && $(( $(date +%s) - start)) -lt $SERVER_CONNECTION_TIMEOUT ]] ; do
-        server_ping="$("${SSH_COMMAND[@]}" ${SERVER_SSH_USER}@127.0.0.1 -o ConnectTimeout=1 -o ConnectionAttempts=$(( SERVER_CONNECTION_TIMEOUT - ($(date +%s) - start))) -- echo ping 2> /dev/null || true)"
-    done
+    if [[ "$mode" = "daemon" ]] ; then
+        init_ssh
+        trap shutdown_server EXIT
+        
+        local SERVER_CONNECTION_TIMEOUT=300
+        local start="$(date +%s)"
+        local server_ping=""
+        while [[ "$server_ping" != "ping"
+                 && $(( $(date +%s) - start)) -lt $SERVER_CONNECTION_TIMEOUT ]] ; do
+            server_ping="$("${SSH_COMMAND[@]}" ${SERVER_SSH_USER}@127.0.0.1 -o ConnectTimeout=1 -o ConnectionAttempts=$(( SERVER_CONNECTION_TIMEOUT - ($(date +%s) - start))) -- echo ping 2> /dev/null || true)"
+        done
 
-    if [[ "$server_ping" == "ping" ]] ; then
-        echo "Server accepting ssh connections at port $PORT after $(( $(date +%s) - start))s."
-    else
-        (
-            # Ensure tthat the VM is killed 
-            kill -TERM "$QEMU_PID" &> /dev/null || true
-            sleep 5
-            kill -KILL "$QEMU_PID" &> /dev/null || true
-        ) &
-        error_and_exit "Could not connect to the virtual server after $SERVER_CONNECTION_TIMEOUT seconds. It is taking too much time to start or there is some other problem."
+        if [[ "$server_ping" == "ping" ]] ; then
+            echo "Server accepting ssh connections at port $PORT after $(( $(date +%s) - start))s."
+        else
+            (
+                # Ensure tthat the VM is killed 
+                kill -TERM "$QEMU_PID" &> /dev/null || true
+                sleep 5
+                kill -KILL "$QEMU_PID" &> /dev/null || true
+            ) &
+            error_and_exit "Could not connect to the virtual server after $SERVER_CONNECTION_TIMEOUT seconds. It is taking too much time to start or there is some other problem."
+        fi
     fi
 }
 
@@ -322,16 +365,25 @@ HOST_DIRS=()
 RSYNC_EXCLUDES_FROM=()
 
 
-ARGS=$(getopt -n "$SCRIPT_COMMAND" --options "" --long "type:,img:,virtfs:,src:,copy-to:,rsync-exclude-from:,rsync-to:,command:,script:,bash,download,upload,system-snapshot:" -- "$@" || { help 1>&2 ; error_and_exit "Invalid options." ; })
+ARGS=$(getopt -n "$SCRIPT_COMMAND" --options "" --long "type:,img:,virtfs:,serial,src:,copy-to:,rsync-exclude-from:,rsync-to:,command:,script:,bash,download,upload,system-snapshot:" -- "$@" || { help 1>&2 ; error_and_exit "Invalid options." ; })
 eval set -- "$ARGS"
 
 direction=upload
 server_started=no
 while [[ $# -gt 0 ]] ; do
     if [[ "$1" !=  "--img" && "$1" !=  "--virtfs" && "$1" !=  "--type" && "$1" !=  "--system-snapshot" && "$server_started" == "no" ]] ; then
-        start_server
-        server_started=yes
-        mount_all_images_in_server
+        if [[ "$1" = "--serial" ]] ; then
+            if [[ "$#" -gt 2 ]] ; then
+                error_and_exit "There cannot be more commands after --serial "
+            else
+                start_server serial
+                exit 0
+            fi
+        else
+            start_server
+            server_started=yes
+            mount_all_images_in_server
+        fi
     fi
     if [[ "$1" == "--type" ]] ; then
         if [[ "$server_started" == "no" ]] ; then

@@ -22,7 +22,7 @@ help() {
 
     --system-snapshot X:
       Enables (X=on) or disables (X=off) using a snapshot of the root
-      filesystem. Defaults to on (i.e., changes tot the root fs are
+      filesystem. Defaults to on (i.e., changes to the root fs are
       not persistent by default).
 
     --img F:    
@@ -99,6 +99,7 @@ find_server_image() {
             SERVER_IMG="$f"
             SERVER_KERNEL="${i}/${SERVER_KERNEL_FILENAME}"
             SERVER_INITRD="${i}/${SERVER_INITRD_FILENAME}"
+            break
         fi
     done
     [[ -n "${SERVER_IMG:-}" ]] || error_and_exit "Server image (${SERVER_IMG_FILENAME}) not found. Tried: ${SERVER_IMG_LOCATIONS[@]}"

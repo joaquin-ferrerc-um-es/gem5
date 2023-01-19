@@ -81,6 +81,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     // Transient States
     IS, AccessPermission:Busy, desc="L1 idle, issued GETS, have not seen response yet";
     IM, AccessPermission:Busy, desc="L1 idle, issued GETX, have not seen response yet";
+    ISM, AccessPermission:Busy, desc="L1 idle, issued GETX, need data from L2, have not seen response yet";
     SM, AccessPermission:Read_Only, desc="L1 idle, issued GETX, have not seen response yet";
     IS_I, AccessPermission:Busy, desc="L1 idle, issued GETS, saw Inv before data because directory doesn't block on GETS hit";
     M_I, AccessPermission:Busy, desc="L1 replacing, waiting for ACK";
@@ -126,6 +127,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
 
     L0_Ack,        desc="Ack for processor";
     Ack,        desc="Ack for processor";
+    L2_Ack,     desc="Ack for processor";
     Ack_all,      desc="Last ack for processor";
 
     WB_Ack,        desc="Ack for replacement";
@@ -308,11 +310,13 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
             trigger(Event:Data, in_msg.addr, cache_entry, tbe);
           }
         } else if (in_msg.Type == CoherenceResponseType:ACK) {
-          if ( (getPendingAcks(tbe) - in_msg.AckCount) == 0 ) {
+          if ( (getPendingAcks(tbe) - in_msg.AckCount) == 0 && getState(tbe, cache_entry, in_msg.addr) == State:SM) {
             trigger(Event:Ack_all, in_msg.addr, cache_entry, tbe);
-          } else {
+          } else if (machineIDToMachineType(in_msg.Sender) == MachineType:L2Cache && in_msg.MessageSize == MessageSizeType:Response_Control) {
+            trigger(Event:L2_Ack, in_msg.addr, cache_entry, tbe);
+          } else{
             trigger(Event:Ack, in_msg.addr, cache_entry, tbe);
-          }
+          } 
         } else if (in_msg.Type == CoherenceResponseType:WB_ACK) {
           trigger(Event:WB_Ack, in_msg.addr, cache_entry, tbe);
         } else {
@@ -678,6 +682,18 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
        }
    }
 
+   action(nack_to_l2, "n", desc="Send Nack to L2 to request data."){
+    enqueue(unblockNetwork_out, ResponseMsg, to_l2_latency) {
+      out_msg.addr := address;
+      out_msg.Type := CoherenceResponseType:NACK;
+      out_msg.Sender := machineID;
+      out_msg.Destination.add(mapAddressToRange(address, MachineType:L2Cache,
+                          l2_select_low_bit, l2_select_num_bits, clusterID));
+      out_msg.MessageSize := MessageSizeType:Response_Control;
+      DPRINTF(RubySlicc, "%#x\n", address);
+    }
+   } 
+
   action(i_allocateTBE, "i", desc="Allocate TBE (number of invalidates=0)") {
     check_allocate(TBEs);
     assert(is_valid(cache_entry));
@@ -786,7 +802,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   //*****************************************************
 
   // Transitions for Load/Store/Replacement/WriteBack from transient states
-  transition({IS, IM, IS_I, M_I, SM, SINK_WB_ACK, S_IL0, M_IL0, E_IL0, MM_IL0},
+  transition({IS, IM, ISM, IS_I, M_I, SM, SINK_WB_ACK, S_IL0, M_IL0, E_IL0, MM_IL0},
              {Load, Store, L1_Replacement}) {
     z0_stallAndWaitL0Queue;
   }
@@ -1020,7 +1036,39 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     kd_wakeUpDependents;
   }
 
-  transition({SM, IM}, Ack) {
+  transition(IM, Ack){
+    q_updateAckCount;
+    o_popL2ResponseQueue;
+  } 
+
+  transition(IM, L2_Ack, ISM){
+    nack_to_l2;
+    q_updateAckCount;
+    o_popL2ResponseQueue;
+  } 
+
+  // Transitions from ISM
+  transition(ISM, Inv, ISM) {
+    fi_sendInvAck;
+    l_popL2RequestQueue;
+  }
+
+  transition(ISM, Data, SM) {
+    u_writeDataFromL2Response;
+    // q_updateAckCount;
+    o_popL2ResponseQueue;
+  }
+
+  transition(ISM, Data_all_Acks, M) {
+    u_writeDataFromL2Response;
+    hh_xdata_to_l0;
+    jj_sendExclusiveUnblock;
+    s_deallocateTBE;
+    o_popL2ResponseQueue;
+    kd_wakeUpDependents;
+  }
+
+  transition({ISM, SM},{Ack, L2_Ack}) {
     q_updateAckCount;
     o_popL2ResponseQueue;
   }

@@ -1,9 +1,7 @@
-#ifndef __MEM_RUBY_COMMON_POINTERSHARERS_HH__
-#define __MEM_RUBY_COMMON_POINTERSHARERS_HH__
+#ifndef __MEM_RUBY_COMMON_SHARERSSET_HH__
+#define __MEM_RUBY_COMMON_SHARERSSET_HH__
 
 #include "mem/ruby/common/NetDest.hh"
-
-#define MAX_POINTERS 16
 
 namespace gem5
 {
@@ -17,12 +15,11 @@ enum TypeRepresentation
     Representation_Broadcast
 };
 
-// Pointer specifies a L1 cache
-class PointerSharers
+class SharersSet
 {
   public:
-    PointerSharers();
-    ~PointerSharers() {};
+    SharersSet();
+    ~SharersSet() {};
     void add(MachineID newSharer);
     void remove(MachineID oldSharer);
     void clear();
@@ -31,15 +28,12 @@ class PointerSharers
     void resize();
     void print(std::ostream& out) const;
   private:
-    int maxPointers;
     Set sharers;
-
-    NodeID bitIndex(NodeID index) const { return index; }
     TypeRepresentation type;
 };
 
 inline std::ostream&
-operator<<(std::ostream& out, const PointerSharers& obj)
+operator<<(std::ostream& out, const SharersSet& obj)
 {
     obj.print(out);
     out << std::flush;
@@ -50,4 +44,4 @@ operator<<(std::ostream& out, const PointerSharers& obj)
 } // namespace gem5
 
 
-#endif // __MEM_RUBY_COMMON_POINTERSHARERS_HH__
+#endif // __MEM_RUBY_COMMON_SHARERSSET_HH__

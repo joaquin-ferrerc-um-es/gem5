@@ -76,6 +76,10 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
     Coord(s"cache_${cache}_miss_rate", s => s("cache_${cache}_misses") / s(s"cache_${cache}_accesses"), axisTitle = s"Miss rate to ${cache}")
   }
 
+  // network
+  CoordFromProp("network_msg_count", stacked = true, axisTitle = "messages")
+  CoordFromProp("network_msg_byte", stacked = true, axisTitle = "bytes")
+
   // htm_.+
   CoordFromProp("htm_transaction_count_per_cpu", stacked = true, axisTitle = "Transactions", doc = "Number of transactions per CPU")
   Coord("htm_transaction_count", s => s("htm_transaction_count_per_cpu").asMap[Any, Vwe].values.sum, axisTitle = "Transactions", doc = "Total number of transactions")

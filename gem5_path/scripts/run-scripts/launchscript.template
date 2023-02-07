@@ -27,8 +27,7 @@ sleep "${T:0:4}.${T:4:1}"
 
 cd "${benchmark_subdir}"
 
-if [ "${benchmark_binary_filename_base}" = "parsecmgmt-env" ] ; then
-    # TODO temporary hack for PARSEC
+if [[ "${benchmark_binary_suffix}" = "" || "${benchmark_binary_filename_base}" = "parsecmgmt-env" ]] ; then # TODO: remove hack for parsec
     echo Running: "./${benchmark_binary_filename_base}" ${benchmark_args_string} ${benchmark_num_threads_option} ${num_cpus} 
     "./${benchmark_binary_filename_base}" ${benchmark_args_string} ${benchmark_num_threads_option} ${num_cpus} 
 else

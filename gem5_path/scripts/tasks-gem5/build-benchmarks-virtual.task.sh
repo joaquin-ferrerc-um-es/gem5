@@ -1,7 +1,7 @@
 
 declare_task "build-benchmarks-virtual" "Build benchmarks in a virtual machine, directly in the benchmarks image. Options:
         --architecture X: Build only architecture X
-        --clean-before yes/no: Clean before building
+        --clean-before yes/no: Clean before building (default: no)
 "
 
 # TODO: Add options to choose what benchmarks should be built.
@@ -51,13 +51,13 @@ build_benchmarks_virtual() {
         echo "$(color yellow "Skipping build of test benchmark (sumarray) in a virtual mechine because it is not yet supported for '$arch'. TODO: fix this")"
     fi
 
-    if [ "$BENCHMARKS_STAMP_ENABLED" = "yes" ] ; then
+    if [ "${BENCHMARKS_STAMP_ENABLED[$arch]}" = "yes" ] ; then
         echo "$(color yellow "Skipping build of STAMP in a virtual machine because it is not yet supported for '$arch'. TODO: fix this")"
         # TODO
         #build_benchmarks_virtual_stamp "$arch" "$clean_before"
     fi
 
-    if [ "$BENCHMARKS_PARSEC_ENABLED" = "yes" ] ; then
+    if [[ "${BENCHMARKS_PARSEC_ENABLED[$arch]}" = "yes-virtual" ]] ; then
         if [[ "$arch" = "aarch64" ]] ; then 
             build_benchmarks_virtual_parsec "$arch" "$clean_before"
         else
@@ -117,12 +117,12 @@ build_benchmarks_virtual_parsec_update_source() {
     update_benchmarks_image_ensure_image_exists "$image_name"
     local parsec_dir="$(absolute_path "$BENCHMARKS_PARSEC_DIR")"
     local -a update_parsec_cmds=(
-        --command "mkdir -p /mnt/sdb1/parsec/"
+        --command "mkdir -p /mnt/img1p1/parsec/"
         --rsync-exclude-from="${parsec_dir}/.gitignore"
-        --src "${parsec_dir}/" --rsync-to "/mnt/sdb1/parsec/"
+        --src "${parsec_dir}/" --rsync-to "/mnt/img1p1/parsec/"
     )
     "$VDS" --img "$image_name" \
-           --command "[ -d /mnt/sdb1 ] || { echo \"Could not mount image '$image_name'\" ; exit 1 ; }" \
+           --command "[ -d /mnt/img1p1 ] || { echo \"Could not mount image '$image_name'\" ; exit 1 ; }" \
            \
            "${update_parsec_cmds[@]}"
 }
@@ -161,8 +161,10 @@ build_benchmarks_virtual_parsec() {
             compiler_img_commands=(
                 --img "$scratch_image_name"
             )
+            local buildgcc_version="11.3.0"
+            local buildgcc_config="buildgcc.native.${arch}.${buildgcc_version}.config"
             compiler_build_commands=(
-                --command "cd /benchmarks/parsec ; [ -e ./compiler-environment.sh ] || WORK_DIR='/mnt/vdc1/buildgcc-tmp' ./buildgcc buildgcc.native.${arch}.11.3.0.config"
+                --command "cd /benchmarks/parsec ; [ -e ./compiler-environment.sh ] || WORK_DIR='/mnt/img2p1/buildgcc-tmp' ./buildgcc ${buildgcc_config} && ln -s localgcc/gcc-${buildgcc_version}-${arch}-native/env.sh compiler-environment.sh"
             )
         elif [[ "${BENCHMARKS_PARSEC_COMPILER_VM}" = "prebuilt" ]] ; then
             local gcctar="$(absolute_path "${BENCHMARKS_PARSEC_COMPILER_VM_PREBUILT_FILENAME[$arch]}")"
@@ -170,12 +172,10 @@ build_benchmarks_virtual_parsec() {
             local envshpath="$(tar tf "$gcctar" --wildcards "*/env.sh" | head -n1)"
             [[ -n "$envshpath" ]] || error_and_exit "«$gcctar» does not seem to contain an env.sh."
             echo "$(color green "Installing prebuilt gcc ($gcctar)")."
-            # FIXME: avoid redundant copying
             "$VDS" --img "$image_name" \
-                   --command "ln -s /mnt/sdb1/ /benchmarks" \
-                   --src "$gcctar" --copy-to "/benchmarks" \
-                   --command "cd /benchmarks/parsec ; [ -e ./compiler-environment.sh ] || { ln -sf 'localgcc/$envshpath' ./compiler-environment.sh ; mkdir -p localgcc ; cd localgcc ; tar xf /benchmarks/$(basename "$gcctar") ; }" \
-                   --command "rm /benchmarks/$(basename "$gcctar")"
+                   --virtfs "$(dirname "$gcctar")" \
+                   --command "ln -s /mnt/img1p1/ /benchmarks" \
+                   --command "cd /benchmarks/parsec ; [ -e ./compiler-environment.sh ] || { ln -sf 'localgcc/$envshpath' ./compiler-environment.sh ; mkdir -p localgcc ; cd localgcc ; tar xf /mnt/host1/$(basename "$gcctar") ; }"
             compiler_img_commands=()
             compiler_build_commands=()
         else
@@ -188,13 +188,19 @@ build_benchmarks_virtual_parsec() {
                 --command "cd /benchmarks/parsec ; ./fullclean"
             )
         fi
-        
-        "$VBS" --type arm-ubuntu \
+
+        if [[ "$arch" = "aarch64" ]] ; then
+            local build_server_type="arm-ubuntu"
+        else
+            error_and_exit "build_server_type not defined for $arch"
+        fi
+
+        "$VBS" --type "$build_server_type" \
                --img "$image_name" \
                "${compiler_img_commands[@]}" \
-               --command "[ -d /mnt/vdb1 ] || { echo \"Could not mount image '$image_name'\" ; exit 1 ; }" \
+               --command "[ -d /mnt/img1p1 ] || { echo \"Could not mount image '$image_name'\" ; exit 1 ; }" \
                \
-               --command "ln -s /mnt/vdb1/ /benchmarks" \
+               --command "ln -s /mnt/img1p1/ /benchmarks" \
                "${compiler_build_commands[@]}" \
                "${clean_before_commands[@]}" \
                --command "cd /benchmarks/parsec ; ./parsecmgmt-env -a build -c gcc-hooks -p aarch64_compatible"

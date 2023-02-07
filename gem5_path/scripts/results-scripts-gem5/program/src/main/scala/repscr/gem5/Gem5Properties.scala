@@ -1,6 +1,6 @@
 package repscr.gem5
 
-import SimulationMix.mixers
+import repscr.gem5.SimulationMix.mixers
 
 object Gem5Properties {
   sealed trait PropertyType
@@ -126,6 +126,19 @@ object Gem5Properties {
       Prop(Result, s"cache_${ourName}_${stat}", s => (s.stats / "system" / "ruby" / re_controllers / gem5Name /+ s"demand_${stat}").map(_.parseLong).sum, mixer = mixers.samples)
     }
   }
+
+  // network
+  Prop(Result, "network_msg_count", { s =>
+    (s.stats / "system" / "ruby" / "network" / "msg_count" /+- "(.+)".r)
+      .groupBy(_._1.parseString).view.mapValues(_.map(_._2.splitWords.head.parseLong).sum)
+      .toMap
+  }, mixers.mapMixer(mixers.samples), optional = true)
+
+  Prop(Result, "network_msg_byte", { s =>
+    (s.stats / "system" / "ruby" / "network" / "msg_byte" /+- "(.+)".r)
+      .groupBy(_._1.parseString).view.mapValues(_.map(_._2.splitWords.head.parseLong).sum)
+      .toMap
+  }, mixers.mapMixer(mixers.samples), optional = true)
 
   // htm_.+
   {

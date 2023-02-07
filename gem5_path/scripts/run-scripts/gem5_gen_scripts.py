@@ -122,9 +122,14 @@ if not (args.list or args.list_mixed):
 
     if not args.no_snapshot_binaries:
         configs = [snapshot_binaries_config(c) for c in configs]
-    
+
+    for path in set([options.checkpoint_init_reuse_root_dir(c) for c in configs if options.checkpoint_init_reuse(c)]):
+        if not os.path.exists(path):
+            print("Warning: checkpoint_init_reuse is enabled but checkpoint_init_reuse_root_dir does not exist (%s)" % path)
+
     for c in configs:
         gen_scripts(c)
+
     if args.enqueue:
         job_ids = []
         for c in configs:

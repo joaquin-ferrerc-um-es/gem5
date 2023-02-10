@@ -75,6 +75,7 @@ object Gem5Properties {
     ("cache_l2_num_caches", _.parseLong),
     ("cache_l2_size_per_cache", _.parseLong),
     ("cache_l2_assoc", _.parseLong),
+    ("cache_l2_lp", _.parseLong),
 
     ("disable_transparent_hugepages", _.parseBoolean),
 

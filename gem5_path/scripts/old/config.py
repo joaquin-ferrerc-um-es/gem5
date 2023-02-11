@@ -121,7 +121,7 @@ simulation_list = []
 
 
 #############################################################
-# Simulation infrastructure options 
+# Simulation infrastructure options
 #############################################################
 arch_name= "x86_64" # aarch64" # {aarch64,x86_64}"
 
@@ -219,7 +219,7 @@ for processors in processor_list :
         for benchmark_config in benchmark_list :
             for detailed_simulation_cpu_model in detailed_simulation_cpu_model_list:
                 benchmark_suite, benchmark, arg_prefix, processors_opt, arg_string, benchmark_subdir, binary_filename  = benchmark_config
-                
+
                 configuration = (processors, benchmark_config,
                                  detailed_simulation_cpu_model,
                                  protocol, htm_config, cache_config)

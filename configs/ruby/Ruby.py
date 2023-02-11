@@ -203,6 +203,9 @@ def create_system(options, full_system, system, piobus = None, dma_ports = [],
     if cpus is None:
         cpus = system.cpu
 
+    # LP: pass limited pointers to RubySystem
+    ruby.limited_pointers = options.l2_lp
+
     protocol = buildEnv['PROTOCOL']
     exec("from . import %s" % protocol)
     try:

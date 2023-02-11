@@ -55,3 +55,5 @@ class RubySystem(ClockedObject):
     all_instructions = Param.Bool(False, "")
     num_of_sequencers = Param.Int("")
     number_of_virtual_networks = Param.Unsigned("")
+
+    limited_pointers = Param.Int("")

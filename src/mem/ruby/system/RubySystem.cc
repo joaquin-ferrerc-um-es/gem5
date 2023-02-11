@@ -79,6 +79,7 @@ bool RubySystem::m_warmup_enabled = false;
 unsigned RubySystem::m_systems_to_warmup = 0;
 bool RubySystem::m_cooldown_enabled = false;
 std::string RubySystem::m_protocol;
+int RubySystem::n_limited_pointers;
 bool RubySystem::m_l0_downgrade_on_l1_gets = false;
 
 RubySystem::RubySystem(const Params &p)
@@ -108,6 +109,7 @@ RubySystem::RubySystem(const Params &p)
     m_profiler = new Profiler(p, this);
     m_phys_mem = p.phys_mem;
     m_protocol = p.protocol;
+    n_limited_pointers = p.limited_pointers;
     if (m_htm != nullptr) {
         m_l0_downgrade_on_l1_gets  = m_htm->params().l0_downgrade_on_l1_gets;
         if (m_htm->params().value_checker) {

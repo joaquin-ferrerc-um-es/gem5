@@ -63,6 +63,8 @@ base = {
     checkpoint_boot_dir: Derived(lambda c: os.path.join(gem5_root, "gem5_path", arch(c), "checkpoints", "booted", f"{num_cpus(c)}_cores")),
     
     network_model: "simple", # or 'garnet2.0'
+    network_topology: "Crossbar",
+    network_mesh_rows: 0,
     memory_type: "DDR3_1600_8x8", # or 'DDR3_200cycles'
     memory_size: Derived(lambda c: config_from_tasks_gem5(f"${{ARCH_MEMORY[{arch(c)}]}}")),
     
@@ -105,6 +107,7 @@ cache_baseline = {
     cache_l2_num_caches: Derived(lambda c: num_cpus(c)),
     cache_l2_size_per_cache: Derived(lambda c: 32 * 1024 * 1024 // num_cpus(c)),
     cache_l2_assoc: 16,
+    cache_l2_lp: 2,
 }
 
 cache_test = update(cache_baseline, {

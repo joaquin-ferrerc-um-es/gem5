@@ -204,7 +204,8 @@ def create_system(options, full_system, system, piobus = None, dma_ports = [],
         cpus = system.cpu
 
     # LP: pass limited pointers to RubySystem
-    ruby.limited_pointers = options.l2_lp
+    if buildEnv['PROTOCOL'] == 'MESI_Threee_Level_LP':
+        ruby.limited_pointers = options.l2_lp
 
     protocol = buildEnv['PROTOCOL']
     exec("from . import %s" % protocol)

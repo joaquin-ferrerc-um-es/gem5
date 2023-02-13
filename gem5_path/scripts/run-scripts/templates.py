@@ -107,7 +107,6 @@ cache_baseline = {
     cache_l2_num_caches: Derived(lambda c: num_cpus(c)),
     cache_l2_size_per_cache: Derived(lambda c: 32 * 1024 * 1024 // num_cpus(c)),
     cache_l2_assoc: 16,
-    cache_l2_lp: 2,
 }
 
 cache_test = update(cache_baseline, {

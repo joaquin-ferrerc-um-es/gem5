@@ -259,7 +259,8 @@ Option("cache_l2_size_per_cache", int,
 Option("cache_l2_assoc", int,
        gem5_option = "l2_assoc")
 Option("cache_l2_lp", int,
-       gem5_option = "l2_lp")
+       gem5_option = "l2_lp",
+       descr_dir = "{value}lp")
 
 # HTM Options
 Option("htm_disable_speculation", bool,

@@ -9,7 +9,7 @@ aarch64  base_image  ubuntu-18.04-arm64-docker.img  ${PATH_IN_ECHO_PREFIX}/aarch
 x86_64   kernel      vmlinux-5.4.49                 ${PATH_IN_ECHO_PREFIX}/x86_64/binaries/vmlinux-5.4.49                ${DEFAULT_URL_PREFIX}/x86_64/binaries/vmlinux-5.4.49.2021-11-25.xz
 aarch64  kernel      vmlinux.arm64                  ${PATH_IN_ECHO_PREFIX}/aarch64/binaries/vmlinux.arm64                ${DEFAULT_URL_PREFIX}/aarch64/binaries/vmlinux.arm64.2021-11-25.xz
 aarch64  bootloader  boot_v2.arm64                  ${PATH_IN_ECHO_PREFIX}/aarch64/binaries/boot_v2.arm64                ${DEFAULT_URL_PREFIX}/aarch64/binaries/boot_v2.arm64.2021-11-25.xz
-all      qemu-server qemu-server.img                /home/users/caps/qemu-server.img                                     ${DEFAULT_URL_PREFIX}/qemu-server.2022-01-10.img.xz
+all      qemu-server qemu-server.img                /home/users/caps/qemu-server.img                                     ${DEFAULT_URL_PREFIX}/qemu-server.2023-01-10.img.xz
 aarch64  qemu-server qemu-build-server-arm-ubuntu.qcow2   /home/users/caps/qemu-build-server-arm-ubuntu.qcow2            ${DEFAULT_URL_PREFIX}/qemu-build-server-arm-ubuntu.2022-12-20.qcow2.xz
 aarch64  qemu-server qemu-build-server-arm-ubuntu.initrd  /home/users/caps/qemu-build-server-arm-ubuntu.initrd           ${DEFAULT_URL_PREFIX}/qemu-build-server-arm-ubuntu.2022-10-10.initrd.xz
 aarch64  qemu-server qemu-build-server-arm-ubuntu.kernel  /home/users/caps/qemu-build-server-arm-ubuntu.kernel           ${DEFAULT_URL_PREFIX}/qemu-build-server-arm-ubuntu.2022-10-10.kernel.xz

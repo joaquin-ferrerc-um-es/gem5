@@ -61,12 +61,13 @@ object Simulation {
     if (file.length == 0) sys.error("Empty stats file")
     //val f = new java.io.FileReader(file)
     val f = new FileCharSequence(file) // workaround for bug in scala library for big files
+    val report_missing_properties = false
     def parseRawGEM5Simulation(rawprops: parser.RawGEM5Simulation): Simulation = {
       val s = new Simulation(file.getPath, PropertyMap((Gem5Properties.knownProperties.map { case (name, pinfo) => name -> (
         try pinfo.getter(rawprops)
         catch {
           case e: NoSuchElementException =>
-            if (!pinfo.optional) Console.err.println(s"Loading $file: Missing $name, ${e.getMessage}")
+            if (!pinfo.optional && report_missing_properties) Console.err.println(s"Loading $file: Missing $name, ${e.getMessage}")
             MissingProperty
           case e: Exception =>
             Console.err.println(s"Loading $file, $name, $e [${e.getStackTrace.take(6).mkString(", ")}]")

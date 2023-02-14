@@ -220,6 +220,10 @@ Option("benchmarks_image_mountpoint", str,
 # Other
 Option("network_model", str,
        gem5_option = "network")
+Option("network_topology", str,
+       gem5_option = "topology")
+Option("network_mesh_rows", int,
+       gem5_option = "mesh-rows")
 Option("memory_type", str,
        gem5_option = "mem-type")
 Option("memory_size", str,

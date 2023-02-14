@@ -79,6 +79,8 @@ object Gem5Properties {
     ("disable_transparent_hugepages", _.parseBoolean),
 
     ("network_model", _.parseString),
+    ("network_topology", _.parseString),
+    ("network_mesh_rows", _.parseLong),
 
     ("memory_type", _.parseString),
     ("memory_size", _.parseString),

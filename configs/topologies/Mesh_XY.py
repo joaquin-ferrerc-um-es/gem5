@@ -32,8 +32,8 @@ from common import FileSystemConfig
 
 from topologies.BaseTopology import SimpleTopology
 
-# Creates a generic Mesh assuming an equal number of cache
-# and directory controllers.
+# Creates a generic Mesh assuming an equal number of CPUs, L1 and L2 caches.
+# The number of directories (i.e, memory controlles) may be different.
 # XY routing is enforced (using link weights)
 # to guarantee deadlock freedom.
 
@@ -76,12 +76,19 @@ class Mesh_XY(SimpleTopology):
         # Add all but the remainder nodes to the list of nodes to be uniformly
         # distributed across the network.
         network_nodes = []
-        remainder_nodes = []
+        remainder_dir_nodes = []
+        remainder_dma_nodes = []
         for node_index in range(len(nodes)):
             if node_index < (len(nodes) - remainder):
                 network_nodes.append(nodes[node_index])
             else:
-                remainder_nodes.append(nodes[node_index])
+                if (nodes[node_index].type == 'Directory_Controller'):
+                    assert(len(remainder_dma_nodes) == 0); # All directories must appear before DMA nodes
+                    remainder_dir_nodes.append(nodes[node_index])
+                else:
+                    assert(nodes[node_index].type == 'DMA_Controller')
+                    remainder_dma_nodes.append(nodes[node_index])
+        assert(len(remainder_dir_nodes) + len(remainder_dma_nodes) == remainder)
 
         # Connect each node to the appropriate router
         ext_links = []
@@ -93,11 +100,21 @@ class Mesh_XY(SimpleTopology):
                                     latency = link_latency))
             link_count += 1
 
+        # Connect the remaining directory nodes to router 0, to
+        # support the case where num_dirs ≠ nuumber of tiles.
+        for (i, node) in enumerate(remainder_dir_nodes):
+            assert(node.type == 'Directory_Controller')
+            assert(i < remainder - len(remainder_dma_nodes))
+            ext_links.append(ExtLink(link_id=link_count, ext_node=node,
+                                    int_node=routers[0],
+                                    latency = link_latency))
+            link_count += 1
+
         # Connect the remainding nodes to router 0.  These should only be
         # DMA nodes.
-        for (i, node) in enumerate(remainder_nodes):
+        for (i, node) in enumerate(remainder_dma_nodes):
             assert(node.type == 'DMA_Controller')
-            assert(i < remainder)
+            assert(i < remainder - len(remainder_dir_nodes))
             ext_links.append(ExtLink(link_id=link_count, ext_node=node,
                                     int_node=routers[0],
                                     latency = link_latency))

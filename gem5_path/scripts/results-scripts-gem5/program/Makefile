@@ -15,8 +15,7 @@ MEM=$(shell printf "24576\\n$$(($$(grep "MemTotal:" /proc/meminfo | tr -s " " | 
 PORT=9056
 
 run:
-	sbt compile
-	sbt -mem $(MEM) "run $PORT"
+	sbt -mem $(MEM) "run --port $(PORT)"
 
 clean:
 	rm -f results-scripts.jar

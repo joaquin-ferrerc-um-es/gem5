@@ -372,6 +372,11 @@ class TimingSimpleCPU : public BaseSimpleCPU
      * @returns true if the CPU is drained, false otherwise.
      */
     bool tryCompleteDrain();
+
+    /**
+     * Send HTM signal to memory system
+     */
+    void htmSendSignal(Addr addr, const Request::Flags flags);
 };
 
 } // namespace gem5

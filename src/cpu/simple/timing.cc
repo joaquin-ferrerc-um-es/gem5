@@ -80,6 +80,12 @@ TimingSimpleCPU::TimingSimpleCPU(const TimingSimpleCPUParams &p)
       fetchEvent([this]{ fetch(); }, name())
 {
     _status = Idle;
+    if (system->getHTM()) {
+        // Sanity checks for HTM - UMU model + TimingSimpleCPU
+        assert(!system->getHTM()->params().reload_if_stale);
+        assert(!system->getHTM()->params().precise_read_set_tracking);
+    }
+
 }
 
 
@@ -1012,17 +1018,33 @@ TimingSimpleCPU::completeDataAccess(PacketPtr pkt)
     // hardware transactional memory
     // sanity checks
     // ensure htmTransactionUids are equivalent
-    if (pkt->isHtmTransactional())
+    if (pkt->isHtmTransactional()) {
         assert (pkt->getHtmTransactionUid() ==
                 t_info->getHtmTransactionUid());
 
+        // hardware transactional memory
+        if (pkt->isHtmFailedCacheAccess()) { // Nacked access
+            // Always abort. TODO: retry (req-stalls)
+            assert(pkt->htmTransactionFailedInCache());
+            assert(pkt->getHtmTransactionFailedInCacheRC() ==
+                   HtmCacheFailure::FAIL_REMOTE);
+        }
+
+        if (!pkt->req->isHTMCmd() &&
+            !pkt->isWrite()) {
+            // Transactional load
+            htmSendSignal(pkt->getAddr(),
+                          Request::HTM_ISOLATE);
+        }
+    }
     // can't have a packet that fails a transaction while not in a transaction
     if (pkt->htmTransactionFailedInCache())
         assert(is_htm_speculative);
 
     // shouldn't fail through stores because this would be inconsistent w/ O3
     // which cannot fault after the store has been sent to memory
-    if (pkt->htmTransactionFailedInCache() && !pkt->isWrite()) {
+    if (pkt->htmTransactionFailedInCache() &&
+        (!pkt->isWrite() || pkt->isHtmFailedCacheAccess())) { // Nacked store
         const HtmCacheFailure htm_rc =
             pkt->getHtmTransactionFailedInCacheRC();
         DPRINTF(HtmCpu, "HTM abortion in cache (rc=%s) detected htmUid=%u\n",
@@ -1235,10 +1257,6 @@ TimingSimpleCPU::initiateHtmCmd(Request::Flags flags)
 
     assert(req->isHTMCmd());
 
-    if (system->getHTM() != nullptr) {
-        panic("Configurable HTM support not tested for TimingSimpleCPU!");
-    }
-
     // Use the payload as a sanity check,
     // the memory subsystem will clear allocated data
     uint8_t *data = new uint8_t[size];
@@ -1295,6 +1313,37 @@ TimingSimpleCPU::htmSendAbortSignal(HtmFailureFaultCause cause)
     memcpy (data, &rc, size);
 
     sendData(req, data, nullptr, true);
+}
+
+void
+TimingSimpleCPU::htmSendSignal(Addr addr, const Request::Flags flags)
+{
+    if (system->getHTM() == nullptr) return;
+    // Using UMU HTM model
+    SimpleExecContext& t_info = *threadInfo[curThread];
+    SimpleThread* thread = t_info.thread;
+
+    const int size = 8;
+
+    RequestPtr req =
+        std::make_shared<Request>(addr, size, flags, _dataRequestorId);
+
+    req->taskId(taskId());
+    req->setContext(thread->contextId());
+
+    assert(req->isHTMCmd());
+
+    PacketPtr pkt = Packet::createRead(req);
+    uint8_t *memData = new uint8_t[8];
+    uint64_t htm_uid = t_info.getHtmTransactionUid();
+    assert(memData);
+    pkt->dataStatic(memData);
+    pkt->setHtmTransactional(htm_uid);
+
+    // TODO include correct error handling here
+    if (!dcachePort.sendTimingReq(pkt)) {
+        panic("HTM signal was not sent to the memory subsystem.");
+    }
 }
 
 } // namespace gem5

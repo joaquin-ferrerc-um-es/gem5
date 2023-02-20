@@ -892,23 +892,20 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
         out_msg.MessageSize := MessageSizeType:Control;
         out_msg.AccessMode := in_msg.AccessMode;
 	if (in_msg.htmFromTransaction) {
+          assert(is_valid(tbe));
+          tbe.HtmFromTransaction := true;
           out_msg.Transactional := in_msg.Transactional;
           out_msg.Timestamp := xact_mgr.getOldestTimestamp();
           APPEND_TRANSITION_COMMENT(" trans");
+          DPRINTF(RubyHTM, "Transactional load miss %#x\n", address);
+          if (xact_mgr.config_reloadIfStale()) {
+             tbe.HtmReloadIfStale := true;
+          }
 	} else {
            out_msg.Timestamp := curCycle();
         }
         APPEND_TRANSITION_COMMENT(" TS: ");
         APPEND_TRANSITION_COMMENT(out_msg.Timestamp);
-      }
-      if (in_msg.htmFromTransaction) {
-          tbe.HtmFromTransaction := true;
- 	  assert(!xact_mgr.checkReadSignature(address));
-          DPRINTF(RubyHTM, "Transactional load miss %#x\n", address);
-          assert(is_valid(tbe));
-          if (xact_mgr.config_reloadIfStale()) {
-             tbe.HtmReloadIfStale := true;
-          }
       }
     }
   }

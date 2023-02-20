@@ -881,6 +881,8 @@ Sequencer::issueRequest(PacketPtr pkt, RubyRequestType secondary_type)
                                       RubyAccessMode_Supervisor, pkt,
                                       PrefetchBit_No, proc_id, core_id);
 
+    setFlagsPreIssueRequest(pkt, msg);
+
     DPRINTFR(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s %#x %s %s %s %s %#x\n",
              curTick(), m_version, "Seq", "Begin", "", "",
              printAddress(msg->getPhysicalAddress()),
@@ -891,6 +893,18 @@ Sequencer::issueRequest(PacketPtr pkt, RubyRequestType secondary_type)
              pkt->req->hasVaddr() ? "Vaddr" : "PhysAddr",
              vaddr);
 
+    Tick latency = cyclesToTicks(
+                        m_controller->mandatoryQueueLatency(secondary_type));
+    assert(latency > 0);
+
+    assert(m_mandatory_q_ptr != NULL);
+    m_mandatory_q_ptr->enqueue(msg, clockEdge(), latency);
+}
+
+void
+Sequencer::setFlagsPreIssueRequest(PacketPtr pkt,
+                                   std::shared_ptr<RubyRequest>& msg)
+{
     // hardware transactional memory
     // If the request originates in a transaction,
     // then mark the Ruby message as such.
@@ -898,13 +912,6 @@ Sequencer::issueRequest(PacketPtr pkt, RubyRequestType secondary_type)
         msg->m_htmFromTransaction = true;
         msg->m_htmTransactionUid = pkt->getHtmTransactionUid();
     }
-
-    Tick latency = cyclesToTicks(
-                        m_controller->mandatoryQueueLatency(secondary_type));
-    assert(latency > 0);
-
-    assert(m_mandatory_q_ptr != NULL);
-    m_mandatory_q_ptr->enqueue(msg, clockEdge(), latency);
 }
 
 template <class KEY, class VALUE>

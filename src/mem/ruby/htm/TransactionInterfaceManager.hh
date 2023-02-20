@@ -15,6 +15,7 @@
 #include "mem/request.hh"
 #include "mem/ruby/common/Address.hh"
 #include "mem/ruby/htm/htm.hh"
+#include "mem/ruby/protocol/TransactionBit.hh"
 #include "mem/ruby/structures/CacheMemory.hh"
 #include "mem/ruby/system/RubySystem.hh"
 #include "mem/ruby/system/TransactionalSequencer.hh"
@@ -55,13 +56,14 @@ public:
   bool shouldNackLoad(Addr addr,
                       MachineID requestor,
                       Cycles remote_timestamp,
-                      bool remote_trans);
+                      TransactionBit remote_trans);
   bool shouldNackStore(Addr addr,
                        MachineID requestor,
                        Cycles remote_timestamp,
-                       bool remote_trans,
+                       TransactionBit remote_trans,
                        bool local_is_exclusive);
   void notifyReceiveNack(Addr addr, Cycles remote_timestamp,
+                         TransactionBit remote_trans,
                          MachineID remote_id);
   Cycles getOldestTimestamp();
 
@@ -90,6 +92,7 @@ public:
   Addr getAbortAddress();
 
   int getTransactionLevel();
+  TransactionBit getTransactionBit();
 
   bool inTransaction();
   void isolateTransactionLoad(Addr physicalAddr);

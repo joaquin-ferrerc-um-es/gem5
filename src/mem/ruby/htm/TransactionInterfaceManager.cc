@@ -580,6 +580,15 @@ TransactionInterfaceManager::getTransactionLevel(){
     return m_transactionLevel;
 }
 
+TransactionBit
+TransactionInterfaceManager::getTransactionBit() {
+    if (inTransaction()) {
+        return TransactionBit_Trans;
+    } else {
+        return TransactionBit_NonTrans;
+    }
+}
+
 bool
 TransactionInterfaceManager::inTransaction(){
     return (m_transactionLevel > 0 && m_escapeLevel == 0);
@@ -1117,7 +1126,7 @@ bool
 TransactionInterfaceManager::shouldNackLoad(Addr addr,
                                             MachineID requestor,
                                             Cycles remote_timestamp,
-                                            bool remote_trans)
+                                            TransactionBit remote_trans)
 {
     return getXactConflictManager()->shouldNackLoad(addr, requestor,
                                                     remote_timestamp,
@@ -1129,7 +1138,7 @@ bool
 TransactionInterfaceManager::shouldNackStore(Addr addr,
                                              MachineID requestor,
                                              Cycles remote_timestamp,
-                                             bool remote_trans,
+                                             TransactionBit remote_trans,
                                              bool local_is_exclusive)
 {
     return getXactConflictManager()->
@@ -1142,10 +1151,12 @@ TransactionInterfaceManager::shouldNackStore(Addr addr,
 void
 TransactionInterfaceManager::notifyReceiveNack(Addr addr,
                                                Cycles remote_timestamp,
+                                               TransactionBit remote_trans,
                                                MachineID remote_id)
 {
     getXactConflictManager()->notifyReceiveNack(addr,
                                                 remote_timestamp,
+                                                remote_trans,
                                                 remote_id);
 }
 Cycles

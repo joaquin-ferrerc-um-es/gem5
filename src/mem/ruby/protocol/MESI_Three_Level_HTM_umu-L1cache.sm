@@ -182,6 +182,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     // Conservative deadlock avoidance based on timestamps
     Cycles    eldestNackerTimestamp, desc="";
     MachineID eldestNacker, desc="";
+    TransactionBit NackerIsTransactional, desc="";
     // LogTM
     NetDest Nackers;
     NetDest NackersWriters;
@@ -206,6 +207,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   // nack to remote INV/GETS/GETX request
   bool l0_nack_else, default="false";
   Addr l0_nack_else_addr;
+  TransactionBit l0_nack_else_transactional, default="TransactionBit_NonTrans";
 
   Tick clockEdge();
   Cycles ticksToCycles(Tick t);
@@ -323,7 +325,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   }
   bool shouldNackLoad(Addr addr, MachineID remote_id,
                       Cycles remote_timestamp,
-                      bool remote_transactional){
+                      TransactionBit remote_transactional){
       if (!xact_mgr.config_allowWriteSetL1CacheEvictions() &&
           !xact_mgr.config_allowReadSetL1CacheEvictions()) {
           return false;
@@ -336,7 +338,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
 
   bool shouldNackStore(Addr addr, MachineID remote_id,
                        Cycles remote_timestamp,
-                       bool remote_transactional,
+                       TransactionBit remote_transactional,
                        bool local_is_exclusive){
       if (!xact_mgr.config_allowReadSetL1CacheEvictions()) {
           return false;
@@ -353,15 +355,23 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
       return tbe.Nack;
   }
 
-  void setNack(TBE tbe, MachineID nacker, Cycles timestamp, bool isWriter) {
+  void setNack(TBE tbe, MachineID nacker, Cycles timestamp, bool isWriter,
+               TransactionBit trans) {
      assert(machineIDToMachineType(nacker) == MachineType:L1Cache);
       if (!tbe.Nack) {
          tbe.Nack := true;
          tbe.eldestNacker := nacker;
          tbe.eldestNackerTimestamp := timestamp;
+         tbe.NackerIsTransactional := trans;
       } else if (timestamp < tbe.eldestNackerTimestamp) {
          tbe.eldestNacker := nacker;
          tbe.eldestNackerTimestamp := timestamp;
+      }
+      if (trans != tbe.NackerIsTransactional) {
+         if (tbe.NackerIsTransactional == TransactionBit:Trans) {
+            assert(trans != TransactionBit:NonTrans);
+            tbe.NackerIsTransactional := trans;
+         }
       }
       // LogTM
 	tbe.Nackers.add(nacker);
@@ -432,7 +442,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
                    (in_msg.Type == CoherenceResponseType:NACK)) {
             if (in_msg.Type == CoherenceResponseType:NACK) {
                 setNack(tbe, in_msg.Sender, in_msg.Timestamp,
-                        in_msg.NackerIsWriter);
+                        in_msg.NackerIsWriter, in_msg.Transactional);
             }
             if ( (getPendingAcks(tbe) - in_msg.AckCount) == 0 ) {
                 if (isNack(tbe)) {
@@ -613,7 +623,6 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
         out_msg.Transactional := in_msg.Transactional;
         out_msg.Timestamp := in_msg.Timestamp;
         assert(is_valid(tbe));
-        tbe.HtmFromTransaction := in_msg.Transactional;
       }
     }
   }
@@ -635,7 +644,6 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
         out_msg.Transactional := in_msg.Transactional;
         out_msg.Timestamp := in_msg.Timestamp;
         assert(is_valid(tbe));
-        tbe.HtmFromTransaction := in_msg.Transactional;
       }
     }
   }
@@ -656,7 +664,6 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
         out_msg.Transactional := in_msg.Transactional;
         out_msg.Timestamp := in_msg.Timestamp;
         assert(is_valid(tbe));
-        tbe.HtmFromTransaction := in_msg.Transactional;
       }
     }
   }
@@ -687,6 +694,9 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
         out_msg.Destination.add(in_msg.Requestor);
         out_msg.MessageSize := MessageSizeType:Response_Control;
         out_msg.Timestamp := xact_mgr.getOldestTimestamp();
+        out_msg.Transactional := l0_nack_else_transactional;
+        APPEND_TRANSITION_COMMENT(" Sending Nack - Trans: ");
+        APPEND_TRANSITION_COMMENT(out_msg.Transactional);
         APPEND_TRANSITION_COMMENT(" Local TS: ");
         APPEND_TRANSITION_COMMENT(out_msg.Timestamp);
       }
@@ -722,9 +732,12 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
         out_msg.Destination.add(in_msg.Requestor);
         out_msg.MessageSize := MessageSizeType:Response_Control;
         out_msg.Timestamp := xact_mgr.getOldestTimestamp();
+        out_msg.Transactional := l0_nack_else_transactional;
         out_msg.AckCount := 1;
         APPEND_TRANSITION_COMMENT(" Local TS: ");
         APPEND_TRANSITION_COMMENT(out_msg.Timestamp);
+        APPEND_TRANSITION_COMMENT(" Sending Nack - Trans: ");
+        APPEND_TRANSITION_COMMENT(out_msg.Transactional);
       }
     }
   }

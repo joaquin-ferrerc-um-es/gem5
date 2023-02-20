@@ -349,9 +349,17 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     return tbe.pendingAcks;
   }
 
+  bool isTransactionalMsg(TransactionBit trans) {
+    return trans != TransactionBit:NonTrans;
+  }
+
+  TransactionBit getTransactionBit() {
+      return xact_mgr.getTransactionBit();
+  }
+
   bool shouldNackLoad(Addr addr, MachineID remote_id,
                       Cycles remote_timestamp,
-                      bool remote_transactional){
+                      TransactionBit remote_transactional){
       assert(machineIDToMachineType(remote_id) == MachineType:L1Cache);
       return xact_mgr.shouldNackLoad(addr, remote_id,
                                      remote_timestamp,
@@ -360,7 +368,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
 
   bool shouldNackStore(Addr addr, MachineID remote_id,
                        Cycles remote_timestamp,
-                       bool remote_transactional,
+                       TransactionBit remote_transactional,
                        bool local_is_exclusive){
       // May get INVs coming from replacements
       return xact_mgr.shouldNackStore(addr, remote_id,
@@ -608,7 +616,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
               } else {
                   // Don't nack requestor, yield so that L2 provides clean data
                   assert(xact_mgr.config_lazyVM());
-                  if (in_msg.Transactional) {
+                  if (isTransactionalMsg(in_msg.Transactional)) {
                       xact_mgr.xactReplacement(in_msg.addr, in_msg.OriginalRequestor);
                       trigger(Event:Fwd_TGETX_Discard, in_msg.addr,
                               getCacheEntry(in_msg.addr), tbe);
@@ -620,7 +628,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
                   }
               }
 	  }
-	  else if (in_msg.Transactional && xact_mgr.config_lazyVM()) {
+          else if (isTransactionalMsg(in_msg.Transactional) && xact_mgr.config_lazyVM()) {
 	    // Requestor is transactional: if local data is dirty,
 	    // write it back to L2 (requestor may discard it on abort)
 	    trigger(Event:Fwd_TGETX, in_msg.addr, getCacheEntry(in_msg.addr), tbe);
@@ -884,7 +892,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
         out_msg.MessageSize := MessageSizeType:Control;
         out_msg.AccessMode := in_msg.AccessMode;
 	if (in_msg.htmFromTransaction) {
-          out_msg.Transactional := true;
+          out_msg.Transactional := in_msg.Transactional;
           out_msg.Timestamp := xact_mgr.getOldestTimestamp();
           APPEND_TRANSITION_COMMENT(" trans");
 	} else {
@@ -893,12 +901,14 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
         APPEND_TRANSITION_COMMENT(" TS: ");
         APPEND_TRANSITION_COMMENT(out_msg.Timestamp);
       }
-      if (in_msg.htmFromTransaction &&
-          xact_mgr.config_reloadIfStale() &&
-          !xact_mgr.checkReadSignature(address)) {
+      if (in_msg.htmFromTransaction) {
+          tbe.HtmFromTransaction := true;
+ 	  assert(!xact_mgr.checkReadSignature(address));
+          DPRINTF(RubyHTM, "Transactional load miss %#x\n", address);
           assert(is_valid(tbe));
-         tbe.HtmReloadIfStale := true;
-         tbe.HtmFromTransaction := true;
+          if (xact_mgr.config_reloadIfStale()) {
+             tbe.HtmReloadIfStale := true;
+          }
       }
     }
   }
@@ -922,7 +932,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
                 address, out_msg.Dest);
         out_msg.MessageSize := MessageSizeType:Control;
         out_msg.AccessMode := RubyAccessMode:User;
-        out_msg.Transactional := true;
+        out_msg.Transactional := getTransactionBit();
         out_msg.Timestamp := xact_mgr.getOldestTimestamp();
         APPEND_TRANSITION_COMMENT(" trans");
         APPEND_TRANSITION_COMMENT(" TS: ");
@@ -944,7 +954,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
         out_msg.MessageSize := MessageSizeType:Control;
         out_msg.AccessMode := in_msg.AccessMode;
 	if (in_msg.htmFromTransaction) {
-          out_msg.Transactional := true;
+          out_msg.Transactional := in_msg.Transactional;
           out_msg.Timestamp := xact_mgr.getOldestTimestamp();
           APPEND_TRANSITION_COMMENT(" trans");
 	} else {
@@ -969,7 +979,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
         out_msg.MessageSize := MessageSizeType:Control;
         out_msg.AccessMode := in_msg.AccessMode;
 	if (in_msg.htmFromTransaction) {
-          out_msg.Transactional := true;
+          out_msg.Transactional := in_msg.Transactional;
           out_msg.Timestamp := xact_mgr.getOldestTimestamp();
           APPEND_TRANSITION_COMMENT(" trans");
 	} else {
@@ -1021,6 +1031,9 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
         out_msg.Dest := createMachineID(MachineType:L1Cache, version);
         out_msg.MessageSize := MessageSizeType:Response_Control;
         out_msg.Timestamp := xact_mgr.getOldestTimestamp();
+        out_msg.Transactional := getTransactionBit();
+        APPEND_TRANSITION_COMMENT(" Sending Nack - Trans: ");
+        APPEND_TRANSITION_COMMENT(out_msg.Transactional);
       }
     }
   }
@@ -1252,7 +1265,9 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
       peek(messgeBuffer_in, CoherenceMsg) {
           sequencer.failedCallback(address,
                                    cache_entry.DataBlk,
-                                   in_msg.Timestamp, in_msg.Sender,
+                                   in_msg.Timestamp,
+                                   in_msg.Transactional,
+                                   in_msg.Sender,
                                    false);
           APPEND_TRANSITION_COMMENT("Nacker: ");
           APPEND_TRANSITION_COMMENT(in_msg.Sender);
@@ -1267,7 +1282,9 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
       assert(is_valid(tbe));
       peek(messgeBuffer_in, CoherenceMsg) {
           sequencer.failedCallback(address, cache_entry.DataBlk,
-                                   in_msg.Timestamp, in_msg.Sender,
+                                   in_msg.Timestamp,
+                                   in_msg.Transactional,
+                                   in_msg.Sender,
                                    true);
           APPEND_TRANSITION_COMMENT("Nacker: ");
           APPEND_TRANSITION_COMMENT(in_msg.Sender);
@@ -1291,8 +1308,8 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
         out_msg.Prefetch := in_msg.Prefetch;
         out_msg.AccessMode := in_msg.AccessMode;
         if (in_msg.htmFromTransaction) {
-          out_msg.Transactional := true;
           out_msg.Timestamp := xact_mgr.getOldestTimestamp();
+          out_msg.Transactional := in_msg.Transactional;
           APPEND_TRANSITION_COMMENT(" trans");
 	} else {
            out_msg.Timestamp := curCycle();
@@ -1321,8 +1338,8 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
             // Exclusive prefetches also need to be tagged as
             // transactional for correct writeback of consistent
             // values to shared cache
-          out_msg.Transactional := true;
           out_msg.Timestamp := xact_mgr.getOldestTimestamp();
+          out_msg.Transactional := in_msg.Transactional;
           APPEND_TRANSITION_COMMENT(" trans");
 	} else {
            out_msg.Timestamp := curCycle();

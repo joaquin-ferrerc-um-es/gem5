@@ -34,11 +34,11 @@ public:
   bool shouldNackLoad(Addr addr,
                       MachineID remote_id,
                       Cycles remote_timestamp,
-                      bool remote_trans);
+                      TransactionBit remote_trans);
   bool shouldNackStore(Addr addr,
                        MachineID remote_id,
                        Cycles remote_timestamp,
-                       bool remote_trans,
+                       TransactionBit remote_trans,
                        bool local_is_exclusive);
 
   bool possibleCycle();
@@ -51,12 +51,14 @@ public:
   void notifySendNack(Addr physicalAddress, Cycles remote_timestamp,
                       MachineID remote_id);
   void notifyReceiveNack(Addr addr, Cycles remote_timestamp,
+                         TransactionBit remote_trans,
                          MachineID remote_id);
   bool hasHighestPriority();
 
   Cycles getTimestamp();
   Cycles getOldestTimestamp();
   bool isRequesterStallsPolicy();
+
   Addr getNackedPossibleCycleAddr() {
       assert(isRequesterStallsPolicy());
       assert(m_sentNack);

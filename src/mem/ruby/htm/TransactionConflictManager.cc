@@ -200,7 +200,7 @@ bool
 TransactionConflictManager::shouldNackLoad(Addr addr,
                                            MachineID remote_id,
                                            Cycles remote_timestamp,
-                                           bool remote_trans)
+                                           TransactionBit remote_trans)
 {
   string conflict_res_policy(XACT_CONFLICT_RES);
 
@@ -294,7 +294,7 @@ bool
 TransactionConflictManager::shouldNackStore(Addr addr,
                                             MachineID remote_id,
                                             Cycles remote_timestamp,
-                                            bool remote_trans,
+                                            TransactionBit remote_trans,
                                             bool local_is_exclusive)
 {
   string conflict_res_policy(XACT_CONFLICT_RES);
@@ -449,7 +449,8 @@ TransactionConflictManager::notifySendNack(Addr addr,
 void
 TransactionConflictManager::notifyReceiveNack(Addr addr,
                                               Cycles remote_timestamp,
-                                              MachineID remote_id){
+                                              TransactionBit remote_trans,
+                                              MachineID remote_id) {
     int transactionLevel = m_xact_mgr->getTransactionLevel();
     if (transactionLevel == 0) return;
 

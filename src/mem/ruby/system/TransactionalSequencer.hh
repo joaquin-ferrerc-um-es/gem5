@@ -68,6 +68,7 @@ class TransactionalSequencer : public Sequencer
 
     void failedCallback(Addr address, DataBlock& data,
                         Cycles remote_timestamp,
+                        TransactionBit remote_trans,
                         MachineID nacker, bool write);
     void handleFailedCallback(SequencerRequest* srequest);
 
@@ -120,6 +121,8 @@ class TransactionalSequencer : public Sequencer
     int getNumReissuedRequests() const;
     void checkForStall(PacketPtr pkt);
     void updateReissueTime(Addr addr);
+    void setFlagsPreIssueRequest(PacketPtr pkt,
+                                 std::shared_ptr<RubyRequest>& msg);
 
     HTM * m_htm = NULL;
     TransactionInterfaceManager* m_xact_mgr = NULL;

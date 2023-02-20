@@ -265,6 +265,7 @@ void
 TransactionalSequencer::failedCallback(Addr address,
                                        DataBlock& data,
                                        Cycles remote_timestamp,
+                                       TransactionBit remote_trans,
                                        MachineID remote_nacker,
                                        bool write)
 {
@@ -272,6 +273,7 @@ TransactionalSequencer::failedCallback(Addr address,
 
     m_xact_mgr->notifyReceiveNack(address,
                                   remote_timestamp,
+                                  remote_trans,
                                   remote_nacker);
     if (write) {
         // failed stores must not call hitCallback but instead be
@@ -440,6 +442,18 @@ TransactionalSequencer::rubyHtmCallback(PacketPtr pkt)
 
     trySendRetries();
 }
+
+void
+TransactionalSequencer::setFlagsPreIssueRequest(PacketPtr pkt,
+                                    std::shared_ptr<RubyRequest>& msg)
+{
+    Sequencer::setFlagsPreIssueRequest(pkt, msg);
+
+    if (msg->m_htmFromTransaction) {
+        msg->m_Transactional = m_xact_mgr->getTransactionBit();
+    }
+}
+
 // Insert the request in the request table. Return
 // RequestStatus_Aliased if the entry was already present.
 RequestStatus

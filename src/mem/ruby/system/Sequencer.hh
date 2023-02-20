@@ -227,6 +227,8 @@ class Sequencer : public RubyPort
     virtual RequestStatus insertRequest(PacketPtr pkt,
                                         RubyRequestType primary_type,
                                         RubyRequestType secondary_type);
+    virtual void setFlagsPreIssueRequest(PacketPtr pkt,
+                                         std::shared_ptr<RubyRequest>& msg);
 
     CacheMemory* m_dataCache_ptr;
 

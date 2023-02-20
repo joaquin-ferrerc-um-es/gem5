@@ -183,6 +183,8 @@ std::string htmFailureToStr(HtmCacheFailure rc);
 class HtmPolicyStrings {
 public:
   static const std::string requester_wins;
+  static const std::string requester_loses;
+  static const std::string power_tm;
   static const std::string committer_wins;
   static const std::string requester_stalls;
   static const std::string magic;

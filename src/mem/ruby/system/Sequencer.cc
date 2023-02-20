@@ -902,8 +902,7 @@ Sequencer::issueRequest(PacketPtr pkt, RubyRequestType secondary_type)
 }
 
 void
-Sequencer::setFlagsPreIssueRequest(PacketPtr pkt,
-                                   std::shared_ptr<RubyRequest>& msg)
+Sequencer::setFlagsPreIssueRequest(PacketPtr pkt, std::shared_ptr<RubyRequest>& msg)
 {
     // hardware transactional memory
     // If the request originates in a transaction,

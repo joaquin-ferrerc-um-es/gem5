@@ -176,7 +176,7 @@ TransactionInterfaceManager::beginTransaction(PacketPtr pkt)
         assert(!m_unrollingLogFlag);
 
         m_xactIsolationManager->beginTransaction();
-        m_xactConflictManager->beginTransaction();
+        m_xactConflictManager->beginTransaction(pkt->req->isHTMPower());
         if (XACT_LAZY_VM) {
             if (XACT_EAGER_CD) {
                 // EL system use the L1D cache to store speculative updates
@@ -189,9 +189,13 @@ TransactionInterfaceManager::beginTransaction(PacketPtr pkt)
         else { // LogTM
             m_xactEagerVersionManager->beginTransaction();
         }
-        XACT_PROFILER->moveTo(getProcID(),
+        if (pkt->req->isHTMPower()) {
+            XACT_PROFILER->moveTo(getProcID(),
+                              AnnotatedRegion_TRANSACTIONAL_POWER);
+        } else {
+            XACT_PROFILER->moveTo(getProcID(),
                               AnnotatedRegion_TRANSACTIONAL);
-
+        }
 
         if (getXactConflictManager()->getNumRetries() == 0) {
 
@@ -583,6 +587,9 @@ TransactionInterfaceManager::getTransactionLevel(){
 TransactionBit
 TransactionInterfaceManager::getTransactionBit() {
     if (inTransaction()) {
+        if (isPowerMode()) {
+            return TransactionBit_PowerTrans;
+        }
         return TransactionBit_Trans;
     } else {
         return TransactionBit_NonTrans;
@@ -670,6 +677,21 @@ TransactionInterfaceManager::isolateTransactionStore(Addr addr){
             "address=%x\n", physicalAddr);
 }
 
+bool
+TransactionInterfaceManager::config_isReqLosesPolicy() {
+    return getXactConflictManager()->isReqLosesPolicy();
+}
+
+bool
+TransactionInterfaceManager::config_isPowerTMPolicy() {
+    return getXactConflictManager()->isPowerTMPolicy();
+}
+
+bool
+TransactionInterfaceManager::isPowerMode() {
+    return getXactConflictManager()->isPowered();
+}
+
 void
 TransactionInterfaceManager::
 profileHtmFailureFaultCause(HtmFailureFaultCause cause)
@@ -746,8 +768,14 @@ profileHtmFailureFaultCause(HtmFailureFaultCause cause)
             (cause == HtmFailureFaultCause::LSQ)) {
             Addr addr = m_abortAddress;
             // Sanity checks
-            if (m_htm->params().precise_read_set_tracking &&
-                getXactConflictManager()->isRequesterStallsPolicy()){
+            if (getXactConflictManager()->isReqLosesPolicy() ||
+                getXactConflictManager()->isPowerTMPolicy()) {
+                // TODO: May be aborted for an address that is not
+                // part of our RWset (e.g. write-first block, write
+                // gets nacked, so it is not added to Wset, nor Rset)
+            }
+            else if (m_htm->params().precise_read_set_tracking &&
+                     getXactConflictManager()->isRequesterStallsPolicy()) {
 #if 0 // Some of these checks do not always hold
                 // It is possible to have conflict-induced aborts on
                 // addresses that are not yet part of the read set

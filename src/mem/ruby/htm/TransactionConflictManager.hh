@@ -27,7 +27,7 @@ public:
                              int version);
   ~TransactionConflictManager();
 
-  void beginTransaction();
+  void beginTransaction(bool power_mode = false);
   void commitTransaction();
   void restartTransaction();
 
@@ -58,6 +58,9 @@ public:
   Cycles getTimestamp();
   Cycles getOldestTimestamp();
   bool isRequesterStallsPolicy();
+  bool isReqLosesPolicy();
+  bool isPowerTMPolicy();
+  bool isPowered();
 
   Addr getNackedPossibleCycleAddr() {
       assert(isRequesterStallsPolicy());
@@ -86,6 +89,7 @@ private:
   bool   m_sentNack;
   Addr   m_sentNackAddr;
   bool   m_doomed;
+  bool   m_powered;
   std::string    m_policy;
   std::string    m_lazy_validated_policy;
   bool m_policy_is_req_stalls_cda;

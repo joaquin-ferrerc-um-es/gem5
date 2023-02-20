@@ -47,6 +47,8 @@ namespace gem5
 {
 
 const std::string HtmPolicyStrings::requester_wins = "requester_wins";
+const std::string HtmPolicyStrings::requester_loses = "requester_loses";
+const std::string HtmPolicyStrings::power_tm = "power_tm";
 const std::string HtmPolicyStrings::committer_wins = "committer_wins";
 const std::string HtmPolicyStrings::requester_stalls = "requester_stalls";
 const std::string HtmPolicyStrings::magic = "magic";

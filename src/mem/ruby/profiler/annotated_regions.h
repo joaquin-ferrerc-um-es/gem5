@@ -12,6 +12,7 @@ typedef enum AnnotatedRegion {
     AnnotatedRegion_TRANSACTIONAL, // For visualization only, stats split into aborted vs committed
     AnnotatedRegion_TRANSACTIONAL_COMMITTED,
     AnnotatedRegion_TRANSACTIONAL_ABORTED,
+    AnnotatedRegion_TRANSACTIONAL_POWER,
     AnnotatedRegion_COMMITTING,
     AnnotatedRegion_ABORTING,
     AnnotatedRegion_ABORT_HANDLER_HASLOCK,
@@ -92,6 +93,7 @@ AnnotatedRegion_isHardwareTransaction(AnnotatedRegion_t region)
 {
     switch (region) {
     case AnnotatedRegion_TRANSACTIONAL:
+    case AnnotatedRegion_TRANSACTIONAL_POWER:
     case AnnotatedRegion_COMMITTING:
     case AnnotatedRegion_ABORTING:
         return true;
@@ -124,6 +126,7 @@ static inline const char* AnnotatedRegion_to_string(AnnotatedRegion_t region)
     case AnnotatedRegion_TRANSACTIONAL: return "TRANSACTIONAL";
     case AnnotatedRegion_TRANSACTIONAL_COMMITTED: return "TRANSACTIONAL_COMMITTED";
     case AnnotatedRegion_TRANSACTIONAL_ABORTED: return "TRANSACTIONAL_ABORTED";
+    case AnnotatedRegion_TRANSACTIONAL_POWER: return "TRANSACTIONAL_POWER";
     case AnnotatedRegion_COMMITTING: return "COMMITTING";
     case AnnotatedRegion_ABORTING: return "ABORTING";
     case AnnotatedRegion_ABORT_HANDLER_HASLOCK: return "HASLOCK";

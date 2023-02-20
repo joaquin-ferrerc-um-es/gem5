@@ -187,6 +187,12 @@ public:
   bool config_reloadIfStale() const {
       return m_htm->params().reload_if_stale;
   }
+  bool config_isReqLosesPolicy();
+
+  bool config_isPowerTMPolicy();
+
+  bool isPowerMode();
+
   int config_reloadIfStaleMaxRetries() const {
       return m_htm->params().reload_if_stale_max_retries;
   }

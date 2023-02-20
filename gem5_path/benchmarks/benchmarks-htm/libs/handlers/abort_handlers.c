@@ -22,6 +22,7 @@
 #include "m5iface.h"
 #include "logtm.h"
 #include "mt19937ar_1.h"
+#include "xbeginFlags.h"
 
 // global array of thread contexts
 _tm_thread_context_t     *thread_contexts       = NULL;
@@ -83,13 +84,19 @@ void beginTransaction_fallbackLock(long tag,
                                    _tm_thread_context_t *ctx) {
     u_int64_t ret, retryWithLock = 0;
     int nretries = 0;
-
+    u_int64_t flags = 0x0;
     assert(ctx == &thread_contexts[ctx->info.threadId]);
     handleHeapPrefault(ctx->info.threadId);
     simSetLogBase(ctx->info.logtm_transactionLog);
     do {
         ++nretries;
-        ret = htm_start(0);
+#if defined(HANDLER_POWERTM)
+        flags |= (*(locks.powerFlag) == ctx->info.threadId) ? POWER_TM_FLAG : 0x0;
+
+#else
+        flags = 0x0;
+#endif
+        ret = htm_start(flags);
 
         if (htm_started(ret)) {
             if (!spinlock_isLocked()) return; /* Start transaction */
@@ -119,7 +126,9 @@ void beginTransaction_fallbackLock(long tag,
          * b) Transaction cannot succeed on retry (e.g. page fault or
          * capacity abort)
          */
-
+#if defined(HANDLER_POWERTM)
+        bool txExecOnPower = *(locks.powerFlag) == ctx->info.threadId;
+#endif
         bool explicit = htm_abort_cause_explicit(ret);
         if (explicit) {
             if (htm_abort_code_is_lock_acquired
@@ -147,15 +156,30 @@ void beginTransaction_fallbackLock(long tag,
                 // Lockstep replayer will acquire lock below and
                 // execute the transaction non-speculatively
             }
+#if defined(HANDLER_POWERTM)
+        } else if (*(locks.powerFlag) != -1 &&
+                   !txExecOnPower) {
+            // Probably killed by powered transaction
+            // Avoid lemming effect and do not count as retry
+            nretries--;
+#endif
         }
-
-        if (!explicit && // Ignore retry bit for explicit aborts
-            !htm_may_succeed_on_retry(ret)) {
+        if ((!explicit && // Ignore retry bit for explicit aborts
+            !htm_may_succeed_on_retry(ret))
+#if defined(HANDLER_POWERTM)
+            || txExecOnPower
+#endif
+           ) {
             // Transaction may not succeed on retry
             retryWithLock=1;
         } else if (nretries >= env.config.htm_max_retries) {
+#if defined(HANDLER_POWERTM)
+            /* Go into power mode  */
+            txExecOnPower = __sync_bool_compare_and_swap((locks.powerFlag), -1, ctx->info.threadId);
+#else
             /* Grab the lock  */
             retryWithLock=1;   /* Execute non-speculatively */
+#endif
         }
 #if defined(HANDLER_FALLBACKLOCK_2PHASE)
         /* Wait until nobody is trying to acquire the fallback lock: do
@@ -164,10 +188,21 @@ void beginTransaction_fallbackLock(long tag,
            may trigger the lemming effect */
         while (spinlock_prefb_isLocked())_mm_pause();
 #endif
-        if (useBackoff()) {
+        if (useBackoff()
+#if defined(HANDLER_POWERTM)
+            && !txExecOnPower // Skip backoff if retrying in power mode
+#endif
+            ) {
             doBackoff(nretries, ctx);
         }
     } while (retryWithLock == 0);
+
+#if defined(HANDLER_POWERTM)
+    // Release power flag - Dice et. al
+    if (*(locks.powerFlag) == ctx->info.threadId) {
+         *(locks.powerFlag) = -1;
+    }
+#endif
 
 #if defined(HANDLER_FALLBACKLOCK_2PHASE)
     /* Acquire "pre-fallback lock" to signal "retrying threads" that
@@ -201,6 +236,11 @@ void commitTransaction_fallbackLock(long tag, _tm_thread_context_t *ctx)
     }
     else {
         htm_commit(tag);
+#if defined(HANDLER_POWERTM)
+        if (*(locks.powerFlag) == ctx->info.threadId) {
+            *(locks.powerFlag) = -1;
+        }
+#endif
     }
 }
 

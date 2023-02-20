@@ -41,6 +41,8 @@ else ifeq ($(HANDLER),fallbacklock2phase)
 CFLAGS += -DHANDLER_FALLBACKLOCK -DHANDLER_FALLBACKLOCK_2PHASE
 else ifeq ($(HANDLER),sgl)
 CFLAGS += -DHANDLER_SGL
+else ifeq ($(HANDLER),powertm)
+CFLAGS += -DHANDLER_FALLBACKLOCK -DHANDLER_POWERTM
 else
 $(error HANDLER $(HANDLER) not supported)
 endif

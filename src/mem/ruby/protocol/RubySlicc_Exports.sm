@@ -312,6 +312,8 @@ enumeration(PrefetchBit, default="PrefetchBit_No", desc="...") {
 enumeration(TransactionBit, default="TransactionBit_NonTrans", desc="...") {
   NonTrans,    desc="No, not from a transaction";
   Trans,   desc="Yes, regular transaction";
+  PowerTrans, desc="Yes, power transaction";
+  ConsumerTrans, desc="Yes, speculative consumer transaction";
 }
 
 // CacheMsg

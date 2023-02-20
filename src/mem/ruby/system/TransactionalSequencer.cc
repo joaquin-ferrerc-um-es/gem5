@@ -134,19 +134,21 @@ TransactionalSequencer::notifyXactionEvent(PacketPtr pkt)
   if (pkt->req->isHTMStart()) {
       DPRINTF(RubyHTM, "HTM_BEGIN\n");
       m_xact_mgr->beginTransaction(pkt);
+      bool power = pkt->req->isHTMPower();
       DPRINTFR(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s \n",
                curTick(), m_version, "Seq",
-               "HTM_START" , "", "");
+               power ? "HTM_START_POW " : "HTM_START     " , "", "");
   } else if (pkt->req->isHTMCommit()) {
       DPRINTF(RubyHTM, "HTM_COMMIT\n");
       // Store value returned by canCommit, used to signal CPU whether
       // xend must fault. Prevent calling canCommit again after
       // initiateCommitTransaction since it changes the returned value
       if (m_xact_mgr->canCommitTransaction(pkt)) {
+          bool power = m_xact_mgr->isPowerMode();
           m_xact_mgr->commitTransaction(pkt);
           DPRINTFR(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s \n",
                    curTick(), m_version, "Seq",
-                   "HTM_COMMIT", "", "");
+                   power ? "HTM_COMMIT_POW" : "HTM_COMMIT    "  , "", "");
           m_commitPending = false;
           m_lastStateBeforeStall = AnnotatedRegion_INVALID;
           m_stalled = false;
@@ -444,8 +446,7 @@ TransactionalSequencer::rubyHtmCallback(PacketPtr pkt)
 }
 
 void
-TransactionalSequencer::setFlagsPreIssueRequest(PacketPtr pkt,
-                                    std::shared_ptr<RubyRequest>& msg)
+TransactionalSequencer::setFlagsPreIssueRequest(PacketPtr pkt, std::shared_ptr<RubyRequest>& msg)
 {
     Sequencer::setFlagsPreIssueRequest(pkt, msg);
 
@@ -811,6 +812,13 @@ TransactionalSequencer::handleFailedCallback(SequencerRequest* srequest)
     }
     // Skip all the following actions and do not call
     // Sequencer::hitCallback
+    if (m_xact_mgr->
+        config_isReqLosesPolicy() || m_xact_mgr->config_isPowerTMPolicy()) {
+        ruby_hit_callback(pkt);
+        failedCallbackCleanup(pkt);
+        testDrainComplete();
+        return;
+    }
     pkt->setHtmFailedCacheAccess(true);
     checkForStall(pkt);
     ruby_hit_callback(pkt);

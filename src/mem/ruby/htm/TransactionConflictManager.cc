@@ -41,6 +41,7 @@ TransactionConflictManager(TransactionInterfaceManager *xact_mgr,
   m_possible_cycle = false;
   m_lock_timestamp = false;
   m_numRetries     = 0;
+  m_powered        = false;
   m_sentNack         = false;
   m_receivedNack         = false;
   m_doomed         = false;
@@ -81,7 +82,7 @@ TransactionConflictManager::getProcID() const{
 }
 
 void
-TransactionConflictManager::beginTransaction(){
+TransactionConflictManager::beginTransaction(bool power_mode){
   int transactionLevel = m_xact_mgr->getTransactionLevel();
   assert(transactionLevel >= 1);
 
@@ -89,6 +90,13 @@ TransactionConflictManager::beginTransaction(){
     string conflict_res_policy(XACT_CONFLICT_RES);
     m_timestamp = m_xact_mgr->curCycle();
     m_lock_timestamp = true;
+  }
+  if (power_mode) {
+      assert(isPowerTMPolicy());
+      DPRINTF(RubyHTM, "Power Transaction! num retries counted"
+              " by conflict manager: %d\n",
+              getNumRetries());
+      m_powered = true;
   }
 }
 
@@ -101,6 +109,7 @@ TransactionConflictManager::commitTransaction(){
   if (transactionLevel == 1){
     m_lock_timestamp = false;
     m_numRetries     = 0;
+    m_powered        = false;
     m_receivedNack         = false;
     clearPossibleCycle();
 
@@ -114,6 +123,7 @@ TransactionConflictManager::restartTransaction(){
   m_sentNack         = false;
   m_receivedNack = false;
   m_doomed = false;
+  m_powered = false;
 }
 
 int
@@ -165,6 +175,28 @@ TransactionConflictManager::getTimestamp(){
 bool
 TransactionConflictManager::isRequesterStallsPolicy(){
     return m_policy_is_req_stalls_cda;
+}
+
+bool
+TransactionConflictManager::isReqLosesPolicy(){
+  string conflict_res_policy(m_policy);
+  return conflict_res_policy == HtmPolicyStrings::requester_loses;
+}
+
+bool
+TransactionConflictManager::isPowerTMPolicy(){
+  string conflict_res_policy(m_policy);
+  return conflict_res_policy == HtmPolicyStrings::power_tm;
+}
+
+bool
+TransactionConflictManager::isPowered(){
+    if (m_powered) {
+        assert(isPowerTMPolicy());
+        return true;
+    }
+    else
+        return false;
 }
 
 Cycles
@@ -223,6 +255,11 @@ TransactionConflictManager::shouldNackLoad(Addr addr,
       } else if (m_xact_mgr->isDoomed()) {
           shouldNack = false;
 #endif
+      } else if (isReqLosesPolicy()) {
+          shouldNack = true;
+          assert (remote_trans != TransactionBit_NonTrans);
+      } else if (m_powered) {
+          shouldNack = (remote_trans == TransactionBit_Trans);
       } else if (m_policy_is_req_stalls_cda) {
           if (!remote_trans &&
               !m_policy_nack_non_transactional) {
@@ -254,6 +291,7 @@ TransactionConflictManager::shouldNackLoad(Addr addr,
       else {
           assert(conflict_res_policy ==
                  HtmPolicyStrings::requester_wins ||
+                 (isPowerTMPolicy() && !m_powered) ||
                  (!m_xact_mgr->config_eagerCD() &&
                   !m_xact_mgr->getXactLazyCommitArbiter()->validated()));
           DPRINTF(RubyHTM, "Conflict (%s):  Local writer"
@@ -274,6 +312,8 @@ TransactionConflictManager::shouldNackLoad(Addr addr,
       // Finally, if req not nacked, resolve by aborting local tx
       if (!shouldNack) {
           assert(!m_policy_is_req_stalls_cda ||
+                 !isReqLosesPolicy() ||
+                 !(isPowerTMPolicy() && m_powered) ||
                  (!hasHighestPriority() ||
                   remoteNonTransWins ||
                   (machineIDToMachineType(remote_id) == MachineType_L2Cache)));
@@ -338,6 +378,11 @@ TransactionConflictManager::shouldNackStore(Addr addr,
       } else if (m_xact_mgr->isDoomed()) {
           shouldNack = false;
 #endif
+      } else if (isReqLosesPolicy()) {
+          shouldNack = true;
+          assert (remote_trans != TransactionBit_NonTrans);
+      } else if (m_powered) {
+          shouldNack = (remote_trans == TransactionBit_Trans);
       } else if (m_policy_is_req_stalls_cda) {
           if (!remote_trans &&
               !m_policy_nack_non_transactional) {
@@ -380,6 +425,7 @@ TransactionConflictManager::shouldNackStore(Addr addr,
       } else {
           assert(conflict_res_policy ==
                  HtmPolicyStrings::requester_wins ||
+                 (isPowerTMPolicy() && !m_powered) ||
                  (!m_xact_mgr->config_eagerCD() &&
                   !m_xact_mgr->getXactLazyCommitArbiter()->validated()));
 
@@ -402,6 +448,8 @@ TransactionConflictManager::shouldNackStore(Addr addr,
       // Finally, if req not nacked, resolve by aborting local tx
       if (!shouldNack) {
           assert(!m_policy_is_req_stalls_cda ||
+                 !isReqLosesPolicy() ||
+                 !(isPowerTMPolicy() && m_powered) ||
                  (!hasHighestPriority() ||
                   localIsYoungerReader ||
                   remoteNonTransWins ||
@@ -486,6 +534,18 @@ TransactionConflictManager::notifyReceiveNack(Addr addr,
                     getProcID(), machineIDToNodeID(remote_id),
                     addr, local_timestamp, remote_timestamp);
         }
+    // For now we will allow several power Tx
+    // And its behaviour should be imho: req-abort
+    } if (isReqLosesPolicy() ||
+          isPowerTMPolicy()) {
+      // Whenever a nack is received, abort always.
+      // Set abort flag will only notify cpu once. That's neat!
+      m_xact_mgr->setAbortFlag(addr,remote_id);
+      DPRINTF(RubyHTM,"HTM: PROC %d notifyReceiveNack "
+              "Received Nack from PROC %d (remote=%s), addr %#x "
+              "aborting local transaction.\n",
+              getProcID(), machineIDToNodeID(remote_id),
+              remote_trans, addr);
     }
 }
 

@@ -68,14 +68,14 @@
  * checks on the returned abort status code is essential for
  * functional correctness of the eager versioning implementation.
  */
-#define htm_start(arg) ({                                      \
+#define htm_start(flags) ({                                      \
             uint64_t ret;                                       \
             __asm__ volatile ("mov %1, %%rdi\n\t"               \
                               "mov $0xffffffff,%%eax\n\t"       \
                               "xbegin   .+6 \n\t"               \
                               "mov %%rax, %0\n\t"               \
                               : "=r"(ret)                       \
-                              : "I"(arg)                        \
+                              : "r"(flags)                        \
                               : "%rdi", "rax");                 \
             ret;                                                \
         })

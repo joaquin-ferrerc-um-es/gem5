@@ -1419,22 +1419,13 @@ TransactionalSequencer::suppressOutstandingRequests()
 PacketPtr
 TransactionalSequencer::getPacketFromRequestTable(Addr address)
 {
-    //
-    // Free up read requests until we hit the first Write request
-    // or end of the corresponding list.
-    //
     assert(address == makeLineAddress(address));
     assert(m_RequestTable.find(address) != m_RequestTable.end());
     auto &seq_req_list = m_RequestTable[address];
-
-    // Perform hitCallback on every cpu request made to this cache block while
-    // ruby request was outstanding. Since only 1 ruby request was made,
-    // profile the ruby latency once.
-    bool ruby_request = true;
-    int aliased_loads = 0;
     while (!seq_req_list.empty()) {
         SequencerRequest &seq_req = seq_req_list.front();
-        assert(seq_req.m_type == RubyRequestType_LD); // TODO
+	// Should only find lingering loads
+        assert(seq_req.m_type == RubyRequestType_LD);
         // Write request: reissue request to the cache hierarchy
         return seq_req.pkt;
     }

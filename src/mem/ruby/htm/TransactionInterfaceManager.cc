@@ -1111,6 +1111,14 @@ TransactionInterfaceManager::xactReplacement(Addr addr, MachineID source,
         // Do not set the abort flag if already set or no longer in a
         // transaction
         if (isDoomed() || !inTransaction()) return;
+        PacketPtr pkt = m_sequencer->getPacketFromRequestTable(addr);
+        if (pkt->getHtmTransactionUid() <= m_sequencer->getLastAbortHtmUid()) {
+            warn("HTM: dataStale abort from lingering transactional access ");
+            // Add to Rset to pass sanity checks
+            if (!m_htm->params().precise_read_set_tracking) {
+                isolateTransactionLoad(addr);
+            }
+        }
     } else {
         assert(checkReadSignature(addr));
         DPRINTF(RubyHTM, "HTM: xactReplacement "

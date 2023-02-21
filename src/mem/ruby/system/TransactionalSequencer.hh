@@ -82,6 +82,8 @@ class TransactionalSequencer : public Sequencer
                        const bool noCoales = false) override;
     bool isStalled() const { return m_stalled; };
 
+    uint64_t getLastAbortHtmUid() const { return m_lastAbortHtmUid; };
+    PacketPtr getPacketFromRequestTable(Addr address);
   private:
     // Private copy constructor and assignment operator
     TransactionalSequencer(const TransactionalSequencer& obj);

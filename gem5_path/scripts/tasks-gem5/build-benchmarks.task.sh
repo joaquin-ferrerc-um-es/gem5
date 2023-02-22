@@ -10,6 +10,7 @@ BENCHMARKS_STAMP_SELECTED=(
     "genome"
     "intruder"
     "intruder-no-fsharing"
+    "intruder-queuesync"
     "kmeans"
     "labyrinth"
     "ssca2"

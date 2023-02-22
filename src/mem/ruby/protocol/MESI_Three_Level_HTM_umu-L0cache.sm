@@ -897,7 +897,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
           out_msg.Transactional := in_msg.Transactional;
           out_msg.Timestamp := xact_mgr.getOldestTimestamp();
           APPEND_TRANSITION_COMMENT(" trans");
-          DPRINTF(RubyHTM, "Transactional load miss %#x\n", address);
+          //DPRINTF(RubyHTM, "Transactional load miss %#x\n", address);
           if (xact_mgr.config_reloadIfStale()) {
              tbe.HtmReloadIfStale := true;
           }

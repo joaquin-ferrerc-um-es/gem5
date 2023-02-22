@@ -250,7 +250,7 @@ TransactionalSequencer::notifyXactionEvent(PacketPtr pkt)
           // retirement, always keep track of blocks referenced by
           // retired loads ("retired read set")
           m_xact_mgr->addToRetiredReadSet(addr);
-          DPRINTF(RubyHTM,
+          DPRINTF(RubyHTMverbose,
                   "Committed load to %#x (%#x) adding block"
                   " address to retired read set\n",
                   pkt->getAddr(),
@@ -377,7 +377,7 @@ TransactionalSequencer::rubyHtmCallback(PacketPtr pkt)
     // Note: Only loads may signal abort back to CPU
     // Cache access for stores & ifetches simply suppressed
     if (pkt->req->isHTMCmd()) {
-        DPRINTF(RubyHTM, "rubyHtmcallback: start=%d, commit=%d, "
+        DPRINTF(RubyHTMverbose, "rubyHtmcallback: start=%d, commit=%d, "
                 "cancel=%d isolate=%d\n",
                 pkt->req->isHTMStart(), pkt->req->isHTMCommit(),
                 pkt->req->isHTMCancel(), pkt->req->isHTMIsolate());

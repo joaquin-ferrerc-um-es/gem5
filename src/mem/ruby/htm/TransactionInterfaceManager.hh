@@ -231,6 +231,7 @@ private:
   LazyTransactionCommitArbiter    * m_xactLazyCommitArbiter;
 
   int      m_transactionLevel; // nesting depth, where outermost has depth 1
+  uint64_t m_currentHtmUid;
   int      m_escapeLevel; // nesting depth, where outermost has depth 1
   bool     m_abortFlag;
   bool     m_unrollingLogFlag;

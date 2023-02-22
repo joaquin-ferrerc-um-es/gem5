@@ -86,6 +86,7 @@ TransactionInterfaceManager::TransactionInterfaceManager(const Params &p)
     }
 
     m_transactionLevel   = 0;
+    m_currentHtmUid      = 0;
     m_escapeLevel        = 0;
     m_abortFlag          = false;
     m_unrollingLogFlag   = false;
@@ -174,6 +175,8 @@ TransactionInterfaceManager::beginTransaction(PacketPtr pkt)
     m_transactionLevel++;
     if (m_transactionLevel == 1){
         assert(!m_unrollingLogFlag);
+        assert(m_currentHtmUid < pkt->getHtmTransactionUid());
+        m_currentHtmUid = pkt->getHtmTransactionUid();
 
         m_xactIsolationManager->beginTransaction();
         m_xactConflictManager->beginTransaction(pkt->req->isHTMPower());
@@ -1112,7 +1115,7 @@ TransactionInterfaceManager::xactReplacement(Addr addr, MachineID source,
         // transaction
         if (isDoomed() || !inTransaction()) return;
         PacketPtr pkt = m_sequencer->getPacketFromRequestTable(addr);
-        if (pkt->getHtmTransactionUid() <= m_sequencer->getLastAbortHtmUid()) {
+        if (pkt->getHtmTransactionUid() < m_currentHtmUid) {
             warn("HTM: dataStale abort from lingering transactional access ");
             // Add to Rset to pass sanity checks
             if (!m_htm->params().precise_read_set_tracking) {

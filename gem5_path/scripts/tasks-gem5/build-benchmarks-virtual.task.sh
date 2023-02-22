@@ -9,6 +9,7 @@ BENCHMARKS_STAMP_SELECTED=(
     "bayes"
     "genome"
     "intruder"
+    "intruder-no-fsharing"
     "kmeans"
     "labyrinth"
     "ssca2"

@@ -1661,6 +1661,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
       // First trans store in L0 raced with fwd_gets to L1, and we get
       // the datacopy from L0 before the downgrade ack
     u_writeDataFromL0Response;
+    smr_setMRU;
     k_popL0RequestQueue;
     kd_wakeUpDependents;
   }
@@ -1784,11 +1785,13 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   // to the L1 before any further modifications occur at the L0.
   transition({M,E}, Writeback_Copy, M) {
     u_writeDataFromL0Request;
+    smr_setMRU;
     k_popL0RequestQueue;
   }
 
   transition({M_IL0, E_IL0}, Writeback_Copy, M_IL0) {
     u_writeDataFromL0Request;
+    smr_setMRU;
     k_popL0RequestQueue;
   }
 

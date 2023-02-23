@@ -6,6 +6,7 @@ from options import *
 from options import gem5_root as gem5_root_option
 from gem5_run import gem5_root
 import os
+import math
 
 # Basic config options
 base = {
@@ -63,6 +64,8 @@ base = {
     checkpoint_boot_dir: Derived(lambda c: os.path.join(gem5_root, "gem5_path", arch(c), "checkpoints", "booted", f"{num_cpus(c)}_cores")),
     
     network_model: "simple", # or 'garnet2.0'
+    network_topology: "Crossbar",
+    network_mesh_rows: Derived(lambda c: int(math.sqrt(num_cpus(c)))),
     memory_type: "DDR3_1600_8x8", # or 'DDR3_200cycles'
     memory_size: Derived(lambda c: config_from_tasks_gem5(f"${{ARCH_MEMORY[{arch(c)}]}}")),
     

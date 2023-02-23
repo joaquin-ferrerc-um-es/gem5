@@ -221,7 +221,8 @@ Option("benchmarks_image_mountpoint", str,
 Option("network_model", str,
        gem5_option = "network")
 Option("network_topology", str,
-       gem5_option = "topology")
+       gem5_option = "topology",
+       descr_dir = "{value}")
 Option("network_mesh_rows", int,
        gem5_option = "mesh-rows")
 Option("memory_type", str,

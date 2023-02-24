@@ -134,7 +134,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
   // CacheEntry
   structure(Entry, desc="...", interface="AbstractCacheEntry") {
     State CacheState,          desc="cache state";
-    SharersSet Sharers,               desc="tracks the L1 shares on-chip";
+    SharersSetCBV Sharers,               desc="tracks the L1 shares on-chip";
     MachineID Exclusive,          desc="Exclusive holder of block";
     DataBlock DataBlk,       desc="data for the block";
     bool Dirty, default="false", desc="data is dirty";

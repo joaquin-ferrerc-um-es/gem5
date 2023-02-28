@@ -772,12 +772,14 @@ TransactionalSequencer::handleFailedCallback(SequencerRequest* srequest)
     PacketPtr pkt = srequest->pkt;
     Addr address = makeLineAddress(pkt->getAddr());
     assert(m_failedCallback);
-    if (pkt->isWrite()) {
+    if (pkt->isWrite() || m_xact_mgr->isAborting()) {
         // Failed writes should never go through this path unless we
         // are aborting and want to "sink" them instead of retrying
-        assert(m_xact_mgr->isAborting());
         // Set the HtmTransactionFailedInCache in the packet, the CPU
         // expects it set for writes with HtmFailedCacheAccess set
+        if (pkt->isWrite()) {
+            assert(m_xact_mgr->isAborting());
+        }
         HtmCacheFailure reason =
             m_xact_mgr->getHtmTransactionalReqResponseCode();
         pkt->setHtmTransactionFailedInCache(reason);
@@ -812,13 +814,6 @@ TransactionalSequencer::handleFailedCallback(SequencerRequest* srequest)
     }
     // Skip all the following actions and do not call
     // Sequencer::hitCallback
-    if (m_xact_mgr->
-        config_isReqLosesPolicy() || m_xact_mgr->config_isPowerTMPolicy()) {
-        ruby_hit_callback(pkt);
-        failedCallbackCleanup(pkt);
-        testDrainComplete();
-        return;
-    }
     pkt->setHtmFailedCacheAccess(true);
     checkForStall(pkt);
     ruby_hit_callback(pkt);

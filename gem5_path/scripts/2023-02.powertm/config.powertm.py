@@ -20,6 +20,7 @@ configs_vary(
 configs_vary(
     { htm_binary_suffix: '.htm.fallbacklock', htm_conflict_resolution: "requester_wins"},
     { htm_binary_suffix: '.htm.powertm', htm_conflict_resolution: "power_tm"},
+    { htm_binary_suffix: '.htm.powertmplus', htm_conflict_resolution: "power_tmplus"},
 
 )
 

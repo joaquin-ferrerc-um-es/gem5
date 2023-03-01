@@ -130,6 +130,7 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
       case (".htm.fallbacklock", false, _, _, _, _, true, "requester_wins", _, true, _) => "base_nopf"
       case (".htm.fallbacklock", true, false, _, _, _, true, "requester_wins", _, true, _) => "base"
       case (".htm.powertm",      true, true,  _, _, _, true, "power_tm",       _, true, _) => "power"
+      case (".htm.powertmplus",  true, true,  _, _, _, true, "power_tm",       _, true, _) => "powerplus"
 
       case (".htm.fallbacklock", true, true, false, _, _, true, "requester_wins", _, true, _) => "l2rs"
       case (".htm.fallbacklock", true, true, true, false, false, true, "requester_wins", _, true, _) => "l3rs"
@@ -150,7 +151,7 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
     isConfig = true,
     ordering = dynamicOrdering("locks", "base_nopf",
       "base", "l2rs", "l3rs", "lxrs",
-      "power",
+      "power", "powerplus",
       "l3rs_l1rpl", "l3rs_l1rpl_reqstallb", "l3rs_l1rpl_reqstallh",
       "l3rs_l1rpl_reqstallh_precrs", "l3rs_l1rpl_lazycd"
 

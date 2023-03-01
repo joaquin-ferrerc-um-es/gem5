@@ -1,4 +1,4 @@
-y#!/usr/bin/python3
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
 from gem5_run import configs_set, configs_update, configs_vary, Vary, get_benchmarks, update
@@ -7,20 +7,20 @@ import templates
 
 configs_set(templates.base)
 configs_update(templates.cache_baseline) 
-configs_vary({cpu_model: "TimingSimpleCPU"},
-             {cpu_model: "DerivO3CPU"},
+configs_vary({cpu_model: "DerivO3CPU"},
+             {cpu_model: "TimingSimpleCPU"},
 )
 
 configs_vary(
 #    update(templates.htm_cfg0_locks, { num_cpus: 1 }),
 #    update(templates.htm_cfg1_base, { num_cpus: Vary(1, 16) }),
-    update(templates.htm_cfg2_l0rsetevict, { num_cpus: Vary(1, 2, 4, 8, 16) }),
+    update(templates.htm_cfg2_l1rsetevict, { num_cpus: Vary(16) }),
 )
 
 configs_vary(
     { htm_binary_suffix: '.htm.fallbacklock', htm_conflict_resolution: "requester_wins"},
-    { htm_binary_suffix: '.htm.powertm', htm_conflict_resolution: "power_tm"},
-    { htm_binary_suffix: '.htm.powertmplus', htm_conflict_resolution: "power_tm"},
+    { htm_binary_suffix: '.htm.powertm', htm_conflict_resolution: "power_tm",  htm_max_retries: 2},
+    { htm_binary_suffix: '.htm.powertmplus', htm_conflict_resolution: "power_tm",  htm_max_retries: 2},
 
 )
 
@@ -29,6 +29,7 @@ configs_update({
     htm_visualizer: True,
     htm_isolation_checker: True,
     htm_precise_read_set_tracking: False,
+
     #htm_l0_downgrade_on_l1_gets: True, # Check why it causes a slowdown in some cases (intruder-nfs)
 
     exit_at_roi_end: True,
@@ -38,8 +39,9 @@ configs_update({
     benchmark: Vary(*(get_benchmarks(suite = "stamp", size = "medium",
                                      name = ["vacation-h",
                                              "kmeans-h",
-                                             #"intruder-nfs",
-                                             "intruder",
+                                             "intruder-qs",
+                                             "intruder-nfs",
+                                             #"intruder",
                                              "yada",
                                              "ssca2",
                                      ]))),

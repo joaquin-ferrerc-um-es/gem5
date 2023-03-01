@@ -86,7 +86,7 @@ base = {
     launchscript_template_filename: os.path.join(gem5_root, "gem5_path/scripts/run-scripts/launchscript.template"),
     checkpoint_init_subdir: "ckpt",
     checkpoint_init_reuse_root_dir: Derived(lambda c: os.path.join(gem5_root, "gem5_path", arch(c), "checkpoints", "init")),
-    checkpoint_init_reuse: True,
+    checkpoint_init_reuse: False,
     gem5_exec_snapshots_dir: Derived(lambda c: os.path.join(gem5_root, "gem5_path", "tmp-bin")),
 }
 

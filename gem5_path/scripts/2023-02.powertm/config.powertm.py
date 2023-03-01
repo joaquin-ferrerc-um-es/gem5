@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+y#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
 from gem5_run import configs_set, configs_update, configs_vary, Vary, get_benchmarks, update
@@ -20,7 +20,7 @@ configs_vary(
 configs_vary(
     { htm_binary_suffix: '.htm.fallbacklock', htm_conflict_resolution: "requester_wins"},
     { htm_binary_suffix: '.htm.powertm', htm_conflict_resolution: "power_tm"},
-    { htm_binary_suffix: '.htm.powertmplus', htm_conflict_resolution: "power_tmplus"},
+    { htm_binary_suffix: '.htm.powertmplus', htm_conflict_resolution: "power_tm"},
 
 )
 

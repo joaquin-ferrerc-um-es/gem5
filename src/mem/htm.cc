@@ -85,6 +85,9 @@ getIsaVisibleHtmFailureCause(HtmFailureFaultCause cause)
     case HtmFailureFaultCause::MEMORY_FALSESHARING:
         isaVisibleCause = HtmFailureFaultCause::MEMORY;
         break;
+    case HtmFailureFaultCause::MEMORY_POWER:
+        isaVisibleCause = HtmFailureFaultCause::MEMORY_POWER;
+        break;
     case HtmFailureFaultCause::SIZE_RSET:
     case HtmFailureFaultCause::SIZE_WSET:
     case HtmFailureFaultCause::SIZE_L1PRIV:
@@ -126,6 +129,7 @@ htmFailureToStr(HtmFailureFaultCause cause)
           "memory_conflict_staledata" },
         { HtmFailureFaultCause::MEMORY_FALSESHARING,
           "memory_conflict_falsesharing" },
+        { HtmFailureFaultCause::MEMORY_POWER, "memory_conflict_power" },
         { HtmFailureFaultCause::OTHER, "other" }
     };
 

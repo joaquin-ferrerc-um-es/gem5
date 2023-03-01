@@ -1026,8 +1026,10 @@ TimingSimpleCPU::completeDataAccess(PacketPtr pkt)
         if (pkt->isHtmFailedCacheAccess()) { // Nacked access
             // Always abort. TODO: retry (req-stalls)
             assert(pkt->htmTransactionFailedInCache());
-            assert(pkt->getHtmTransactionFailedInCacheRC() ==
-                   HtmCacheFailure::FAIL_REMOTE);
+            assert((pkt->getHtmTransactionFailedInCacheRC() ==
+                   HtmCacheFailure::FAIL_REMOTE) ||
+                   (pkt->getHtmTransactionFailedInCacheRC() ==
+                    HtmCacheFailure::FAIL_REMOTE_POWER));
         }
 
         if (!pkt->req->isHTMCmd() &&
@@ -1066,6 +1068,10 @@ TimingSimpleCPU::completeDataAccess(PacketPtr pkt)
             fault = std::make_shared<GenericHtmFailureFault>(
                 t_info->getHtmTransactionUid(),
                 HtmFailureFaultCause::MEMORY);
+        } else if (htm_rc == HtmCacheFailure::FAIL_REMOTE_POWER) {
+            fault = std::make_shared<GenericHtmFailureFault>(
+                t_info->getHtmTransactionUid(),
+                HtmFailureFaultCause::MEMORY_POWER);
         } else {
             panic("HTM - unhandled rc %s", htmFailureToStr(htm_rc));
         }

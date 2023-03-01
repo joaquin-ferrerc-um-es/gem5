@@ -24,6 +24,8 @@
 #define _XABORT_DISABLED	(1 << 6)
   // Set if an abort was not complete (requires log unroll)
 #define _XABORT_UNDO_LOG  	(1 << 7)
+  // Set if an abort was caused by a conflict with a power transaction
+#define _XABORT_CONFLICT_POWER  	(1 << 8)
 
 #endif
 

@@ -156,11 +156,21 @@ void beginTransaction_fallbackLock(long tag,
                 // Lockstep replayer will acquire lock below and
                 // execute the transaction non-speculatively
             }
-#if defined(HANDLER_POWERTM)
+#if defined(HANDLER_POWERTM_PRECISEABORTS)
+        } else if (htm_abort_cause_conflict_power(ret)) {
+            // Abort status code says this tx was killed by powered
+            // transaction: Avoid lemming effect
+            nretries--;
+#elif defined(HANDLER_POWERTM)
         } else if (*(locks.powerFlag) != -1 &&
                    !txExecOnPower) {
             // Probably killed by powered transaction
             // Avoid lemming effect and do not count as retry
+
+            // NOTE: This is just an heuristic and may increase aborts
+            // and degrade performance in high contention as
+            // transactions may wrongly interpret "regular" aborts as
+            // "power-induced" and thus take longer to become power
             nretries--;
 #endif
         }

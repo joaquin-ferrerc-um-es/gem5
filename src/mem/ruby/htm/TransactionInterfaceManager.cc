@@ -762,9 +762,11 @@ profileHtmFailureFaultCause(HtmFailureFaultCause cause)
         break;
     case HTMStats::AbortCause::FallbackLock:
     case HTMStats::AbortCause::ConflictStale:
+    case HTMStats::AbortCause::ConflictPower:
     case HTMStats::AbortCause::Conflict:
         // Conflict
         if (cause == HtmFailureFaultCause::MEMORY ||
+            cause == HtmFailureFaultCause::MEMORY_POWER ||
             // Can also get LSQ cause if block in R/W set and CPU
             // found outstanding load in lsq (see checkSnoop) and
             // HTM config says not to reload stale data
@@ -819,6 +821,9 @@ profileHtmFailureFaultCause(HtmFailureFaultCause cause)
             } else if (m_abortCause ==
                        HTMStats::AbortCause::ConflictStale) {
                 preciseFaultCause = HtmFailureFaultCause::MEMORY_STALEDATA;
+            } else if (m_abortCause ==
+                       HTMStats::AbortCause::ConflictPower) {
+                preciseFaultCause = HtmFailureFaultCause::MEMORY_POWER;
             } else {
                 preciseFaultCause = HtmFailureFaultCause::MEMORY;
                 if (!XACT_EAGER_CD &&
@@ -873,6 +878,8 @@ TransactionInterfaceManager::getHtmTransactionalReqResponseCode()
     case HTMStats::AbortCause::ConflictStale:
     case HTMStats::AbortCause::FallbackLock:
         return HtmCacheFailure::FAIL_REMOTE;
+    case HTMStats::AbortCause::ConflictPower:
+        return HtmCacheFailure::FAIL_REMOTE_POWER;
     default:
         panic("Invalid htm return code\n");
         return HtmCacheFailure::FAIL_OTHER;
@@ -882,7 +889,7 @@ TransactionInterfaceManager::getHtmTransactionalReqResponseCode()
 void
 TransactionInterfaceManager::setAbortFlag(Addr addr,
                                           MachineID abortSource,
-                                          bool remoteTrans,
+                                          TransactionBit remote_trans,
                                           bool capacity, bool wset,
                                           bool dataStale)
 {
@@ -946,6 +953,9 @@ TransactionInterfaceManager::setAbortFlag(Addr addr,
             // Source of abort is Data_Stale event (inv seen while
             // outstanding trans load)
             m_abortCause = HTMStats::AbortCause::ConflictStale;
+        } else if (remote_trans == TransactionBit_PowerTrans) {
+            // Source of abort is power transaction
+            m_abortCause = HTMStats::AbortCause::ConflictPower;
         } else if (machineIDToNodeID(abortSource) == getProcID() &&
             machineIDToMachineType(abortSource) != MachineType_L2Cache) {
             // Source of abort is self L0/L1 cache
@@ -976,7 +986,7 @@ TransactionInterfaceManager::setAbortFlag(Addr addr,
         } else if (machineIDToNodeID(abortSource) != getProcID()) {
             // Remote conflicting requestor, for now assume L1 cache
             assert(machineIDToMachineType(abortSource) == MachineType_L1Cache);
-            m_abortSourceNonTransactional = !remoteTrans;
+            m_abortSourceNonTransactional = (remote_trans == TransactionBit_NonTrans);
             // Conflict-induced aborts are split into fallback-lock
             // conflicts vs rest
             assert(m_abortAddress);
@@ -1152,7 +1162,7 @@ TransactionInterfaceManager::xactReplacement(Addr addr, MachineID source,
             }
         }
     }
-    setAbortFlag(addr, source, false, capacity, wset, dataStale);
+    setAbortFlag(addr, source, TransactionBit_NonTrans, capacity, wset, dataStale);
 }
 
 void

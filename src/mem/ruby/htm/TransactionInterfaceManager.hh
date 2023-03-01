@@ -69,7 +69,7 @@ public:
 
   void setAbortFlag(Addr addr,
                     MachineID abortSource,
-                    bool remote_trans = false,
+                    TransactionBit remote_trans = TransactionBit_NonTrans,
                     bool capacity = false, bool wset = false,
                     bool dataStale = false);
   void cancelTransaction(PacketPtr pkt);

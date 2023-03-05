@@ -85,14 +85,20 @@ void beginTransaction_fallbackLock(long tag,
     u_int64_t ret, retryWithLock = 0;
     int nretries = 0;
     u_int64_t flags = 0x0;
+#if defined(HANDLER_POWERTM)
+    bool txExecOnPower = false;
+#endif
     assert(ctx == &thread_contexts[ctx->info.threadId]);
     handleHeapPrefault(ctx->info.threadId);
     simSetLogBase(ctx->info.logtm_transactionLog);
     do {
         ++nretries;
 #if defined(HANDLER_POWERTM)
-        flags |= (*(locks.powerFlag) == ctx->info.threadId) ? POWER_TM_FLAG : 0x0;
-
+        txExecOnPower = false;
+        if (*(locks.powerFlag) == ctx->info.threadId) {
+            txExecOnPower = true;
+            flags |= POWER_TM_FLAG;
+        }
 #else
         flags = 0x0;
 #endif
@@ -127,7 +133,12 @@ void beginTransaction_fallbackLock(long tag,
          * capacity abort)
          */
 #if defined(HANDLER_POWERTM)
-        bool txExecOnPower = *(locks.powerFlag) == ctx->info.threadId;
+        if (txExecOnPower) {
+            if (htm_may_succeed_on_retry(ret)) {
+                // Retry in power mode unless retry bit set, no backoff
+                continue;
+            }
+        }
 #endif
         bool explicit = htm_abort_cause_explicit(ret);
         if (explicit) {
@@ -162,8 +173,7 @@ void beginTransaction_fallbackLock(long tag,
             // transaction: Avoid lemming effect
             nretries--;
 #elif defined(HANDLER_POWERTM)
-        } else if (*(locks.powerFlag) != -1 &&
-                   !txExecOnPower) {
+        } else if (!txExecOnPower && *(locks.powerFlag) != -1) {
             // Probably killed by powered transaction
             // Avoid lemming effect and do not count as retry
 
@@ -176,14 +186,12 @@ void beginTransaction_fallbackLock(long tag,
         }
         if ((!explicit && // Ignore retry bit for explicit aborts
             !htm_may_succeed_on_retry(ret))
-#if defined(HANDLER_POWERTM)
-            || txExecOnPower
-#endif
            ) {
             // Transaction may not succeed on retry
             retryWithLock=1;
         } else if (nretries >= env.config.htm_max_retries) {
 #if defined(HANDLER_POWERTM)
+            assert(!txExecOnPower);
             /* Go into power mode  */
             txExecOnPower = __sync_bool_compare_and_swap((locks.powerFlag), -1, ctx->info.threadId);
 #else
@@ -198,9 +206,9 @@ void beginTransaction_fallbackLock(long tag,
            may trigger the lemming effect */
         while (spinlock_prefb_isLocked())_mm_pause();
 #endif
-        if (useBackoff()
+        if (!retryWithLock && useBackoff()
 #if defined(HANDLER_POWERTM)
-            && !txExecOnPower // Skip backoff if retrying in power mode
+            && !txExecOnPower // In case we just acquired the power
 #endif
             ) {
             doBackoff(nretries, ctx);
@@ -210,6 +218,8 @@ void beginTransaction_fallbackLock(long tag,
 #if defined(HANDLER_POWERTM)
     // Release power flag - Dice et. al
     if (*(locks.powerFlag) == ctx->info.threadId) {
+        assert(txExecOnPower);
+        assert(!htm_may_succeed_on_retry(ret));
          *(locks.powerFlag) = -1;
     }
 #endif

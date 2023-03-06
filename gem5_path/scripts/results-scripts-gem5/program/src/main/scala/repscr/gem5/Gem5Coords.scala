@@ -88,8 +88,8 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
   CoordFromProp(s"htm_transaction_cycles_per_cpu", stacked = true, axisTitle = "Average cycles per transaction (cycles)", doc = "Average cycles per transaction per CPU")
   Coord("htm_transaction_cycles", s => s("htm_transaction_cycles_per_cpu").asMap[Any, Vwe].values.sum, axisTitle = "Average cycles per transaction (cycles)", doc = "Average cycles per transaction")
   CoordFromProp("htm_transaction_instructions", axisTitle = "Averge cycles per transaction (cycles)")
-  CoordFromProp("htm_transaction_abort_cause", stacked = true, axisTitle = "transactions")
-  CoordFromProp("htm_cycles_in_region", stacked = true, axisTitle = "cycles")
+  CoordFromProp("htm_transaction_abort_cause", stacked = true, axisTitle = "transactions", ordering = dynamicOrdering("memory_conflict","memory_conflict_power", "memory_conflict_fallbacklock", "explicit_fallbacklock", "exception", "transaction_size_wset", "transaction_size_l1priv", "lsq_conflict", "memory_conflict_staledata"))
+  CoordFromProp("htm_cycles_in_region", stacked = true, axisTitle = "cycles", ordering = dynamicOrdering("BARRIER","DEFAULT", "TRANSACTIONAL_COMMITTED", "TRANSACTIONAL_POWER", "HASLOCK", "TRANSACTIONAL_ABORTED", "ABORTING", "ABORT_HANDLER", "BACKOFF", "WAITFORRETRY_THRESHOLD", "WAITFORRETRY_EXCEPTION", "WAITFORRETRY_SIZE", "STALLED_NONTRANS"))
 
   def addSimulationsDependentCoords(simulations: Iterable[Gem5DataPoint]): Unit = {
     /* none */

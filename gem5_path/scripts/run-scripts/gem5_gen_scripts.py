@@ -38,20 +38,21 @@ def snapshot_binaries_config(conf):
 def gen_scripts(c):
     # TODO: copy binary with timestamp
 
-    create_directory(options.output_directory(c))
+    output_directory = options.output_directory(c)
+    create_directory(output_directory)
     
     with open(options.launchscript_template_filename(c), "r") as launchscript_template_file:
-        with open(os.path.join(options.output_directory(c), options.launchscript_filename(c)), "w") as launchscript_file:
+        with open(os.path.join(output_directory, options.launchscript_filename(c)), "w") as launchscript_file:
             template_text = launchscript_template_file.read()
             variables_text = "".join([o.launchscript_text_value(c) for o in config_list_options(c)])
             launchscript_file.write(template_text.replace("{{{variables}}}", variables_text))
        
-    with open(os.path.join(options.output_directory(c), options.siminfo_filename(c)), "w") as siminfo_file:
+    with open(os.path.join(output_directory, options.siminfo_filename(c)), "w") as siminfo_file:
         siminfo_file.write("[SimulationInfo]\n")
         for o in config_list_options(c):
             siminfo_file.write(o.siminfo_text_value(c))
 
-    runscript_filename = os.path.join(options.output_directory(c), options.runscript_filename(c))
+    runscript_filename = os.path.join(output_directory, options.runscript_filename(c))
     with open(options.runscript_template_filename(c), "r") as runscript_template_file:
         with open(runscript_filename, "w") as runscript_file:
             template_text = runscript_template_file.read()
@@ -62,24 +63,29 @@ def gen_scripts(c):
                 "GEM5_OPTIONS_GENERAL=(\n" + \
                 "\n".join([f"    '{otv}'" for otv in [o.gem5_option_text_value(c, "general") for o in config_list_options(c)] if otv != ""]) + \
                 ")\n"
-            runscript_file.write(template_text.replace("{{{variables}}}", variables_text))
-        
+            runscript_file.write(template_text.replace("{{{variables}}}", variables_text))        
     os.chmod(runscript_filename, 0o755)
 
+    enqueue_script_filename = os.path.join(output_directory, "enqueue")
+    with open(enqueue_script_filename, "w") as enqueue_script_file:
+        enqueue_script_file.write(f"#!/bin/bash\n")
+        # TODO
+        # --exclude nodes
+        enqueue_script_file.write(
+            f"exec sbatch " +
+            f"--parsable " +
+            f"-J '{options.config_description(c)}' " +
+            f"-e '{os.path.join(output_directory, 'stderr')}' " +
+            f"-o '{os.path.join(output_directory, 'stdout')}' " +
+            f"'{os.path.join(output_directory, options.runscript_filename(c))}' " + 
+            f"| cut -d';' -f1 | tee '{os.path.join(output_directory, 'job_id')}'")
+    os.chmod(enqueue_script_filename, 0o755)
+
 def enqueue(c):
-# TODO
-# --exclude nodes
     if options.htm_visualizer(c):
         print(f"WARNING: htm_visualizer enabled while enqueueing.")
-    od = options.output_directory(c)
-    stderr = os.path.join(od, "stderr")
-    stdout = os.path.join(od, "stdout")
-    runscript_filename = os.path.join(od, options.runscript_filename(c))
-    cmd = ["sbatch", "--parsable", "-J", options.config_description(c), "-e", stderr, "-o", stdout, runscript_filename]
-    sbatch_output = subprocess.check_output(cmd, encoding = "UTF-8")
-    job_id = sbatch_output.strip().split(";")[0]
-    with open(os.path.join(od, "job_id"), "w") as job_id_file:
-        job_id_file.write(f"{job_id}\n")
+    cmd = [os.path.join(options.output_directory(c), "enqueue")]
+    job_id = subprocess.check_output(cmd, encoding = "UTF-8").strip()
     return job_id
 
 def parse_args(argsp = argparse.ArgumentParser()):

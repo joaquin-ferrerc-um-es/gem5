@@ -282,8 +282,8 @@ class Report(val listingsDir: String,
     }
     def loadListings = {
       def examples = TreeMap(("example": ListingId) -> Listing(Report.this, Listing.sources.SimulationsMixes,
-        Seq(IndexColumn("num_cpus".toCoord, use = Section), IndexColumn("protocol".toCoord, use = SerieColumn), IndexColumn("benchmark".toCoord, use = XColumn)),
-        Seq(ResultColumn("cycles".toCoord, normalize = true))))
+        Seq(IndexColumn("num_cpus".toCoord, use = Section), IndexColumn("protocol".toCoord, use = SerieColumn), IndexColumn("benchmark_name".toCoord, use = XColumn)),
+        Seq(ResultColumn("cycles_ticks".toCoord, normalize = true))))
       try {
         val files = new java.io.File(listingsDir).listFiles() match {
           case null =>

@@ -200,6 +200,8 @@ def create_system(options, full_system, system, piobus = None, dma_ports = [],
         Network.create_network(options, ruby)
     ruby.network = network
 
+    ruby.network_mesh_rows = options.mesh_rows
+
     if cpus is None:
         cpus = system.cpu
 

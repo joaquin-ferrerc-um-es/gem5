@@ -93,7 +93,7 @@ SharersSetCBV::getSetSharers()
 {
   if (type == Representation_CoarseBitVector) {
     Set sh;
-    sh.setSize(MachineType_base_count(MACHINETYPE));
+    sh.setSize(NUMNODES);
     for (int i = 0; i < MAXPOINTERS; i++) {
       for (int j = 0; j < BITSPERPOINTER; j++) {
         if (pointers[i].isElement(j)) {
@@ -121,7 +121,7 @@ SharersSetCBV::getSharers()
 void
 SharersSetCBV::resize()
 {
-  sharers.setSize(MachineType_base_count(MACHINETYPE));
+  sharers.setSize(NUMNODES);
   for (int i = 0; i < MAXPOINTERS; i++) {
     pointers[i].setSize(BITSPERPOINTER);
   }

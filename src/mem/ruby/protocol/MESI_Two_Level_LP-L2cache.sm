@@ -134,7 +134,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
   // CacheEntry
   structure(Entry, desc="...", interface="AbstractCacheEntry") {
     State CacheState,          desc="cache state";
-    SharersSetCBV Sharers,               desc="tracks the L1 shares on-chip";
+    SharersDash Sharers,               desc="tracks the L1 shares on-chip";
     MachineID Exclusive,          desc="Exclusive holder of block";
     DataBlock DataBlk,       desc="data for the block";
     bool Dirty, default="false", desc="data is dirty";
@@ -489,6 +489,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
           out_msg.AckCount := out_msg.AckCount + 1;
         }
         APPEND_TRANSITION_COMMENT(out_msg.AckCount);
+	APPEND_TRANSITION_COMMENT(cache_entry.Sharers.getSharers());
       }
     }
   }
@@ -508,6 +509,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
         if (cache_entry.Sharers.getSharers().isElement(in_msg.Requestor)) {
           out_msg.AckCount := out_msg.AckCount + 1;
         }
+	APPEND_TRANSITION_COMMENT(cache_entry.Sharers.getSharers());
       }
     }
   }
@@ -524,6 +526,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
         out_msg.MessageSize := MessageSizeType:Response_Data;
         out_msg.AckCount := 0;
         APPEND_TRANSITION_COMMENT(in_msg.Sender);
+	APPEND_TRANSITION_COMMENT(cache_entry.Sharers.getSharers());
       }
     }
   }

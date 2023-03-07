@@ -9,10 +9,7 @@ namespace ruby
 {
 
 #define MACHINETYPE MachineType_L1Cache
-
-// #define MAXPOINTERS MachineType_base_count(MACHINETYPE)
-// #define MAXPOINTERS 2
-# define MAXPOINTERS RubySystem::getLP()
+#define MAXPOINTERS RubySystem::getLP()
 
 SharersSet::SharersSet()
 {

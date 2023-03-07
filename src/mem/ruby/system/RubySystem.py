@@ -57,3 +57,4 @@ class RubySystem(ClockedObject):
     number_of_virtual_networks = Param.Unsigned("")
 
     limited_pointers = Param.Int("")
+    network_mesh_rows = Param.Int("")

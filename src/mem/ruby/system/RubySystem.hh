@@ -82,6 +82,7 @@ class RubySystem : public ClockedObject
     static bool getCooldownEnabled() { return m_cooldown_enabled; }
     static std::string getProtocol() { return m_protocol; }
     static int getLP(){ return n_limited_pointers; }
+    static int getNetworkRows() { return n_network_mesh_rows; }
     // HTM-related performance bug
     static bool enableL0DowngradeOnL1Gets()
       { return m_l0_downgrade_on_l1_gets; }
@@ -176,6 +177,7 @@ class RubySystem : public ClockedObject
     static bool m_cooldown_enabled;
     static std::string m_protocol;
     static int n_limited_pointers;
+    static int n_network_mesh_rows;
     static bool m_l0_downgrade_on_l1_gets;
     memory::SimpleMemory *m_phys_mem;
     const bool m_access_backing_store;

@@ -84,10 +84,12 @@ class DataBlock
     void setByte(int whichByte, uint8_t data);
     void setData(const uint8_t *data, int offset, int len);
     void setData(PacketPtr pkt);
+    void copyFrom(DataBlock *cp);
     void copyPartial(const DataBlock &dblk, int offset, int len);
     void copyPartial(const DataBlock &dblk, const WriteMask &mask);
     void atomicPartial(const DataBlock & dblk, const WriteMask & mask);
     bool equal(const DataBlock& obj) const;
+    std::string diff(const DataBlock& obj) const;
     void print(std::ostream& out) const;
     std::string toString() const;
 

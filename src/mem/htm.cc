@@ -47,6 +47,8 @@ namespace gem5
 {
 
 const std::string HtmPolicyStrings::requester_wins = "requester_wins";
+const std::string HtmPolicyStrings::requester_loses = "requester_loses";
+const std::string HtmPolicyStrings::power_tm = "power_tm";
 const std::string HtmPolicyStrings::committer_wins = "committer_wins";
 const std::string HtmPolicyStrings::requester_stalls = "requester_stalls";
 const std::string HtmPolicyStrings::magic = "magic";
@@ -82,6 +84,9 @@ getIsaVisibleHtmFailureCause(HtmFailureFaultCause cause)
     case HtmFailureFaultCause::MEMORY_STALEDATA:
     case HtmFailureFaultCause::MEMORY_FALSESHARING:
         isaVisibleCause = HtmFailureFaultCause::MEMORY;
+        break;
+    case HtmFailureFaultCause::MEMORY_POWER:
+        isaVisibleCause = HtmFailureFaultCause::MEMORY_POWER;
         break;
     case HtmFailureFaultCause::SIZE_RSET:
     case HtmFailureFaultCause::SIZE_WSET:
@@ -124,6 +129,7 @@ htmFailureToStr(HtmFailureFaultCause cause)
           "memory_conflict_staledata" },
         { HtmFailureFaultCause::MEMORY_FALSESHARING,
           "memory_conflict_falsesharing" },
+        { HtmFailureFaultCause::MEMORY_POWER, "memory_conflict_power" },
         { HtmFailureFaultCause::OTHER, "other" }
     };
 

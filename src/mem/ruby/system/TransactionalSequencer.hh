@@ -68,6 +68,7 @@ class TransactionalSequencer : public Sequencer
 
     void failedCallback(Addr address, DataBlock& data,
                         Cycles remote_timestamp,
+                        TransactionBit remote_trans,
                         MachineID nacker, bool write);
     void handleFailedCallback(SequencerRequest* srequest);
 
@@ -81,6 +82,7 @@ class TransactionalSequencer : public Sequencer
                        const bool noCoales = false) override;
     bool isStalled() const { return m_stalled; };
 
+    PacketPtr getPacketFromRequestTable(Addr address);
   private:
     // Private copy constructor and assignment operator
     TransactionalSequencer(const TransactionalSequencer& obj);
@@ -120,6 +122,8 @@ class TransactionalSequencer : public Sequencer
     int getNumReissuedRequests() const;
     void checkForStall(PacketPtr pkt);
     void updateReissueTime(Addr addr);
+    void setFlagsPreIssueRequest(PacketPtr pkt,
+                                 std::shared_ptr<RubyRequest>& msg);
 
     HTM * m_htm = NULL;
     TransactionInterfaceManager* m_xact_mgr = NULL;

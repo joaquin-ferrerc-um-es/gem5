@@ -70,6 +70,7 @@ public:
         WrongL0,
         ConflictStale,
         Undefined,
+        ConflictPower,
         NumAbortCauses
     };
 
@@ -119,6 +120,8 @@ public:
             return "WrongL0";
         case ConflictStale:
             return "ConflictStale";
+        case ConflictPower:
+            return "ConflictPower";
         case Undefined:
             return "Undefined";
         case NumAbortCauses:
@@ -159,6 +162,7 @@ enum class HtmFailureFaultCause : int
     MEMORY_FALLBACKLOCK,
     MEMORY_STALEDATA,
     MEMORY_FALSESHARING,
+    MEMORY_POWER,
     NUM_CAUSES
 };
 
@@ -167,6 +171,7 @@ enum class HtmCacheFailure
     NO_FAIL,     // no failure in cache
     FAIL_SELF,   // failed due local cache's replacement policy
     FAIL_REMOTE, // failed due remote invalidation
+    FAIL_REMOTE_POWER, // failed due remote power transaction
     FAIL_OTHER,  // failed due other circumstances
 };
 
@@ -183,6 +188,8 @@ std::string htmFailureToStr(HtmCacheFailure rc);
 class HtmPolicyStrings {
 public:
   static const std::string requester_wins;
+  static const std::string requester_loses;
+  static const std::string power_tm;
   static const std::string committer_wins;
   static const std::string requester_stalls;
   static const std::string magic;

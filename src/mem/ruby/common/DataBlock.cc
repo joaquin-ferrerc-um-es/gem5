@@ -76,6 +76,14 @@ DataBlock::equal(const DataBlock& obj) const
     return !memcmp(m_data, obj.m_data, RubySystem::getBlockSizeBytes());
 }
 
+
+void
+DataBlock::copyFrom(DataBlock *cp)
+{
+    assert(m_alloc);
+    memcpy(m_data, cp->m_data, RubySystem::getBlockSizeBytes());
+}
+
 void
 DataBlock::copyPartial(const DataBlock &dblk, const WriteMask &mask)
 {
@@ -105,6 +113,26 @@ DataBlock::print(std::ostream& out) const
             << "0x" << (int)m_data[i] << " " << std::setfill(' ');
     }
     out << std::dec << "]" << std::flush;
+}
+
+std::string
+DataBlock::diff(const DataBlock& old) const
+{
+    using namespace std;
+    stringstream sstream;
+
+    int size = RubySystem::getBlockSizeBytes();
+    sstream  << "[ ";
+    for (int i = 0; i < size; i++) {
+        if (m_data[i] == old.m_data[i]) { // No differences
+            sstream  << "__";
+        } else { // Print new data
+            sstream  << setfill('0') << setw(2) << hex <<  (int)m_data[i];
+        }
+    }
+    sstream  << setfill(' ') << setw(0) << dec << "]";
+    string str = sstream.str();
+    return str;
 }
 
 std::string

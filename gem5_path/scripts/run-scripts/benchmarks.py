@@ -12,8 +12,13 @@ Benchmark("simpletest", "test-progs-caps",     "small",      "-t",       "-a1048
 
 Benchmark("genome", "stamp",     "small", "-t", "-g256 -s16 -n16384",             dir_stamp + "/genome",   "genome")
 Benchmark("intruder", "stamp",   "small", "-t", " -a10 -l4 -n2048 -s1"  ,         dir_stamp + "/intruder", "intruder")
+Benchmark("intruder-nfs","stamp","small", "-t", " -a10 -l4 -n2048 -s1"  ,         dir_stamp + "/intruder-no-fsharing", "intruder")
+Benchmark("intruder-qs", "stamp","small", "-t", " -a10 -l4 -n2048 -s1"  ,         dir_stamp + "/intruder-queuesync", "intruder")
 Benchmark("kmeans-l", "stamp",   "small", "-p", "-m40 -n40 -t0.05 -i inputs/random-n2048-d16-c16.txt", dir_stamp + "/kmeans",  "kmeans")
+Benchmark("kmeans-qs-l", "stamp", "small","-p", "-m40 -n40 -t0.05 -i inputs/random-n2048-d16-c16.txt", dir_stamp + "/kmeans-queuesync",  "kmeans")
 Benchmark("kmeans-h", "stamp",   "small", "-p", "-m15 -n15 -t0.05 -i inputs/random-n2048-d16-c16.txt", dir_stamp + "/kmeans", "kmeans")
+Benchmark("kmeans-qs-h", "stamp","small", "-p", "-m15 -n15 -t0.05 -i inputs/random-n2048-d16-c16.txt", dir_stamp + "/kmeans-queuesync", "kmeans")
+
 Benchmark("ssca2", "stamp",      "small", "-t", "-s13 -i1.0 -u1.0 -l3 -p3",       dir_stamp + "/ssca2",    "ssca2")
 Benchmark("vacation-l", "stamp", "small", "-c", "-n2 -q90 -u98 -r16384 -t4096",   dir_stamp + "/vacation", "vacation")
 Benchmark("vacation-h", "stamp", "small", "-c", "-n4 -q60 -u90 -r16384 -t4096",   dir_stamp + "/vacation", "vacation")
@@ -23,8 +28,12 @@ Benchmark("yada", "stamp",       "small", "-t", "-a20 -i inputs/633.2",         
 
 Benchmark("genome", "stamp",     "medium", "-t", "-g512 -s32 -n32768",             dir_stamp + "/genome",   "genome")
 Benchmark("intruder", "stamp",   "medium", "-t", " -a10 -l16 -n4096 -s1",          dir_stamp + "/intruder", "intruder")
+Benchmark("intruder-nfs","stamp","medium", "-t", " -a10 -l16 -n4096 -s1",          dir_stamp + "/intruder-no-fsharing", "intruder")
+Benchmark("intruder-qs","stamp", "medium", "-t", " -a10 -l16 -n4096 -s1",          dir_stamp + "/intruder-queuesync", "intruder")
 Benchmark("kmeans-l", "stamp",   "medium", "-p", "-m40 -n40 -t0.05 -i inputs/random-n16384-d24-c16.txt", dir_stamp + "/kmeans",  "kmeans")
+Benchmark("kmeans-qs-l", "stamp","medium", "-p", "-m40 -n40 -t0.05 -i inputs/random-n16384-d24-c16.txt", dir_stamp + "/kmeans-queuesync",  "kmeans")
 Benchmark("kmeans-h", "stamp",   "medium", "-p", "-m15 -n15 -t0.05 -i inputs/random-n16384-d24-c16.txt", dir_stamp + "/kmeans", "kmeans")
+Benchmark("kmeans-qs-h", "stamp","medium", "-p", "-m15 -n15 -t0.05 -i inputs/random-n16384-d24-c16.txt", dir_stamp + "/kmeans-queuesync", "kmeans")
 Benchmark("ssca2", "stamp",      "medium", "-t", "-s14 -i1.0 -u1.0 -l9 -p9",       dir_stamp + "/ssca2",    "ssca2")
 Benchmark("vacation-l", "stamp", "medium", "-c", "-n2 -q90 -u98 -r1048576 -t4096", dir_stamp + "/vacation", "vacation")
 Benchmark("vacation-h", "stamp", "medium", "-c", "-n4 -q60 -u90 -r1048576 -t4096", dir_stamp + "/vacation", "vacation")

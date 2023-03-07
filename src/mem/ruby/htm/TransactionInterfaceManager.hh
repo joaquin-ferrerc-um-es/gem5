@@ -15,6 +15,7 @@
 #include "mem/request.hh"
 #include "mem/ruby/common/Address.hh"
 #include "mem/ruby/htm/htm.hh"
+#include "mem/ruby/protocol/TransactionBit.hh"
 #include "mem/ruby/structures/CacheMemory.hh"
 #include "mem/ruby/system/RubySystem.hh"
 #include "mem/ruby/system/TransactionalSequencer.hh"
@@ -55,19 +56,20 @@ public:
   bool shouldNackLoad(Addr addr,
                       MachineID requestor,
                       Cycles remote_timestamp,
-                      bool remote_trans);
+                      TransactionBit remote_trans);
   bool shouldNackStore(Addr addr,
                        MachineID requestor,
                        Cycles remote_timestamp,
-                       bool remote_trans,
+                       TransactionBit remote_trans,
                        bool local_is_exclusive);
   void notifyReceiveNack(Addr addr, Cycles remote_timestamp,
+                         TransactionBit remote_trans,
                          MachineID remote_id);
   Cycles getOldestTimestamp();
 
   void setAbortFlag(Addr addr,
                     MachineID abortSource,
-                    bool remote_trans = false,
+                    TransactionBit remote_trans = TransactionBit_NonTrans,
                     bool capacity = false, bool wset = false,
                     bool dataStale = false);
   void cancelTransaction(PacketPtr pkt);
@@ -90,6 +92,7 @@ public:
   Addr getAbortAddress();
 
   int getTransactionLevel();
+  TransactionBit getTransactionBit();
 
   bool inTransaction();
   void isolateTransactionLoad(Addr physicalAddr);
@@ -184,6 +187,12 @@ public:
   bool config_reloadIfStale() const {
       return m_htm->params().reload_if_stale;
   }
+  bool config_isReqLosesPolicy();
+
+  bool config_isPowerTMPolicy();
+
+  bool isPowerMode();
+
   int config_reloadIfStaleMaxRetries() const {
       return m_htm->params().reload_if_stale_max_retries;
   }
@@ -222,6 +231,7 @@ private:
   LazyTransactionCommitArbiter    * m_xactLazyCommitArbiter;
 
   int      m_transactionLevel; // nesting depth, where outermost has depth 1
+  uint64_t m_currentHtmUid;
   int      m_escapeLevel; // nesting depth, where outermost has depth 1
   bool     m_abortFlag;
   bool     m_unrollingLogFlag;

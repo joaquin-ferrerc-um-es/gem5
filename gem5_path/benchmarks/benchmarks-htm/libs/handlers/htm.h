@@ -68,14 +68,14 @@
  * checks on the returned abort status code is essential for
  * functional correctness of the eager versioning implementation.
  */
-#define htm_start(arg) ({                                      \
+#define htm_start(flags) ({                                      \
             uint64_t ret;                                       \
             __asm__ volatile ("mov %1, %%rdi\n\t"               \
                               "mov $0xffffffff,%%eax\n\t"       \
                               "xbegin   .+6 \n\t"               \
                               "mov %%rax, %0\n\t"               \
                               : "=r"(ret)                       \
-                              : "I"(arg)                        \
+                              : "r"(flags)                        \
                               : "%rdi", "rax");                 \
             ret;                                                \
         })
@@ -118,6 +118,7 @@
     // NOTE: TODO: use XABORT_CODE_FALLBACK_LOCK_LOCKED immediate ("I")
 
 #define htm_abort_cause_conflict(status) (status & _XABORT_CONFLICT)
+#define htm_abort_cause_conflict_power(status) (status & _XABORT_CONFLICT_POWER)
 #define htm_abort_cause_explicit(status) (status & _XABORT_EXPLICIT)
 #define htm_abort_cause_explicit_code(status) (_XABORT_CODE_DECODE(status))
 #define htm_abort_code_is_lock_acquired(abort_code) (abort_code == XABORT_CODE_FALLBACK_LOCK_LOCKED)

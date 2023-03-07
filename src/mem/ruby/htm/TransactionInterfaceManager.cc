@@ -86,6 +86,7 @@ TransactionInterfaceManager::TransactionInterfaceManager(const Params &p)
     }
 
     m_transactionLevel   = 0;
+    m_currentHtmUid      = 0;
     m_escapeLevel        = 0;
     m_abortFlag          = false;
     m_unrollingLogFlag   = false;
@@ -174,9 +175,11 @@ TransactionInterfaceManager::beginTransaction(PacketPtr pkt)
     m_transactionLevel++;
     if (m_transactionLevel == 1){
         assert(!m_unrollingLogFlag);
+        assert(m_currentHtmUid < pkt->getHtmTransactionUid());
+        m_currentHtmUid = pkt->getHtmTransactionUid();
 
         m_xactIsolationManager->beginTransaction();
-        m_xactConflictManager->beginTransaction();
+        m_xactConflictManager->beginTransaction(pkt->req->isHTMPower());
         if (XACT_LAZY_VM) {
             if (XACT_EAGER_CD) {
                 // EL system use the L1D cache to store speculative updates
@@ -189,9 +192,13 @@ TransactionInterfaceManager::beginTransaction(PacketPtr pkt)
         else { // LogTM
             m_xactEagerVersionManager->beginTransaction();
         }
-        XACT_PROFILER->moveTo(getProcID(),
+        if (pkt->req->isHTMPower()) {
+            XACT_PROFILER->moveTo(getProcID(),
+                              AnnotatedRegion_TRANSACTIONAL_POWER);
+        } else {
+            XACT_PROFILER->moveTo(getProcID(),
                               AnnotatedRegion_TRANSACTIONAL);
-
+        }
 
         if (getXactConflictManager()->getNumRetries() == 0) {
 
@@ -580,6 +587,18 @@ TransactionInterfaceManager::getTransactionLevel(){
     return m_transactionLevel;
 }
 
+TransactionBit
+TransactionInterfaceManager::getTransactionBit() {
+    if (inTransaction()) {
+        if (isPowerMode()) {
+            return TransactionBit_PowerTrans;
+        }
+        return TransactionBit_Trans;
+    } else {
+        return TransactionBit_NonTrans;
+    }
+}
+
 bool
 TransactionInterfaceManager::inTransaction(){
     return (m_transactionLevel > 0 && m_escapeLevel == 0);
@@ -661,6 +680,21 @@ TransactionInterfaceManager::isolateTransactionStore(Addr addr){
             "address=%x\n", physicalAddr);
 }
 
+bool
+TransactionInterfaceManager::config_isReqLosesPolicy() {
+    return getXactConflictManager()->isReqLosesPolicy();
+}
+
+bool
+TransactionInterfaceManager::config_isPowerTMPolicy() {
+    return getXactConflictManager()->isPowerTMPolicy();
+}
+
+bool
+TransactionInterfaceManager::isPowerMode() {
+    return getXactConflictManager()->isPowered();
+}
+
 void
 TransactionInterfaceManager::
 profileHtmFailureFaultCause(HtmFailureFaultCause cause)
@@ -728,17 +762,25 @@ profileHtmFailureFaultCause(HtmFailureFaultCause cause)
         break;
     case HTMStats::AbortCause::FallbackLock:
     case HTMStats::AbortCause::ConflictStale:
+    case HTMStats::AbortCause::ConflictPower:
     case HTMStats::AbortCause::Conflict:
         // Conflict
         if (cause == HtmFailureFaultCause::MEMORY ||
+            cause == HtmFailureFaultCause::MEMORY_POWER ||
             // Can also get LSQ cause if block in R/W set and CPU
             // found outstanding load in lsq (see checkSnoop) and
             // HTM config says not to reload stale data
             (cause == HtmFailureFaultCause::LSQ)) {
             Addr addr = m_abortAddress;
             // Sanity checks
-            if (m_htm->params().precise_read_set_tracking &&
-                getXactConflictManager()->isRequesterStallsPolicy()){
+            if (getXactConflictManager()->isReqLosesPolicy() ||
+                getXactConflictManager()->isPowerTMPolicy()) {
+                // TODO: May be aborted for an address that is not
+                // part of our RWset (e.g. write-first block, write
+                // gets nacked, so it is not added to Wset, nor Rset)
+            }
+            else if (m_htm->params().precise_read_set_tracking &&
+                     getXactConflictManager()->isRequesterStallsPolicy()) {
 #if 0 // Some of these checks do not always hold
                 // It is possible to have conflict-induced aborts on
                 // addresses that are not yet part of the read set
@@ -779,6 +821,9 @@ profileHtmFailureFaultCause(HtmFailureFaultCause cause)
             } else if (m_abortCause ==
                        HTMStats::AbortCause::ConflictStale) {
                 preciseFaultCause = HtmFailureFaultCause::MEMORY_STALEDATA;
+            } else if (m_abortCause ==
+                       HTMStats::AbortCause::ConflictPower) {
+                preciseFaultCause = HtmFailureFaultCause::MEMORY_POWER;
             } else {
                 preciseFaultCause = HtmFailureFaultCause::MEMORY;
                 if (!XACT_EAGER_CD &&
@@ -833,6 +878,8 @@ TransactionInterfaceManager::getHtmTransactionalReqResponseCode()
     case HTMStats::AbortCause::ConflictStale:
     case HTMStats::AbortCause::FallbackLock:
         return HtmCacheFailure::FAIL_REMOTE;
+    case HTMStats::AbortCause::ConflictPower:
+        return HtmCacheFailure::FAIL_REMOTE_POWER;
     default:
         panic("Invalid htm return code\n");
         return HtmCacheFailure::FAIL_OTHER;
@@ -842,7 +889,7 @@ TransactionInterfaceManager::getHtmTransactionalReqResponseCode()
 void
 TransactionInterfaceManager::setAbortFlag(Addr addr,
                                           MachineID abortSource,
-                                          bool remoteTrans,
+                                          TransactionBit remote_trans,
                                           bool capacity, bool wset,
                                           bool dataStale)
 {
@@ -906,6 +953,9 @@ TransactionInterfaceManager::setAbortFlag(Addr addr,
             // Source of abort is Data_Stale event (inv seen while
             // outstanding trans load)
             m_abortCause = HTMStats::AbortCause::ConflictStale;
+        } else if (remote_trans == TransactionBit_PowerTrans) {
+            // Source of abort is power transaction
+            m_abortCause = HTMStats::AbortCause::ConflictPower;
         } else if (machineIDToNodeID(abortSource) == getProcID() &&
             machineIDToMachineType(abortSource) != MachineType_L2Cache) {
             // Source of abort is self L0/L1 cache
@@ -936,7 +986,7 @@ TransactionInterfaceManager::setAbortFlag(Addr addr,
         } else if (machineIDToNodeID(abortSource) != getProcID()) {
             // Remote conflicting requestor, for now assume L1 cache
             assert(machineIDToMachineType(abortSource) == MachineType_L1Cache);
-            m_abortSourceNonTransactional = !remoteTrans;
+            m_abortSourceNonTransactional = (remote_trans == TransactionBit_NonTrans);
             // Conflict-induced aborts are split into fallback-lock
             // conflicts vs rest
             assert(m_abortAddress);
@@ -1074,6 +1124,14 @@ TransactionInterfaceManager::xactReplacement(Addr addr, MachineID source,
         // Do not set the abort flag if already set or no longer in a
         // transaction
         if (isDoomed() || !inTransaction()) return;
+        PacketPtr pkt = m_sequencer->getPacketFromRequestTable(addr);
+        if (pkt->getHtmTransactionUid() < m_currentHtmUid) {
+            warn("HTM: dataStale abort from lingering transactional access ");
+            // Add to Rset to pass sanity checks
+            if (!m_htm->params().precise_read_set_tracking) {
+                isolateTransactionLoad(addr);
+            }
+        }
     } else {
         assert(checkReadSignature(addr));
         DPRINTF(RubyHTM, "HTM: xactReplacement "
@@ -1104,7 +1162,7 @@ TransactionInterfaceManager::xactReplacement(Addr addr, MachineID source,
             }
         }
     }
-    setAbortFlag(addr, source, false, capacity, wset, dataStale);
+    setAbortFlag(addr, source, TransactionBit_NonTrans, capacity, wset, dataStale);
 }
 
 void
@@ -1117,7 +1175,7 @@ bool
 TransactionInterfaceManager::shouldNackLoad(Addr addr,
                                             MachineID requestor,
                                             Cycles remote_timestamp,
-                                            bool remote_trans)
+                                            TransactionBit remote_trans)
 {
     return getXactConflictManager()->shouldNackLoad(addr, requestor,
                                                     remote_timestamp,
@@ -1129,7 +1187,7 @@ bool
 TransactionInterfaceManager::shouldNackStore(Addr addr,
                                              MachineID requestor,
                                              Cycles remote_timestamp,
-                                             bool remote_trans,
+                                             TransactionBit remote_trans,
                                              bool local_is_exclusive)
 {
     return getXactConflictManager()->
@@ -1142,10 +1200,12 @@ TransactionInterfaceManager::shouldNackStore(Addr addr,
 void
 TransactionInterfaceManager::notifyReceiveNack(Addr addr,
                                                Cycles remote_timestamp,
+                                               TransactionBit remote_trans,
                                                MachineID remote_id)
 {
     getXactConflictManager()->notifyReceiveNack(addr,
                                                 remote_timestamp,
+                                                remote_trans,
                                                 remote_id);
 }
 Cycles

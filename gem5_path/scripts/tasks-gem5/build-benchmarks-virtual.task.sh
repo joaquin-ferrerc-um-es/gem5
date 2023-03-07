@@ -12,6 +12,7 @@ BENCHMARKS_STAMP_SELECTED=(
     "intruder-no-fsharing"
     "intruder-queuesync"
     "kmeans"
+    "kmeans-queuesync"
     "labyrinth"
     "ssca2"
     "vacation"

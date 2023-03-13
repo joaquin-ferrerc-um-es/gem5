@@ -125,7 +125,7 @@ structure (NetDest, external = "yes", non_obj="yes") {
   NetDest AND(NetDest);
 }
 
-structure (SharersSet, external = "yes", non_obj="yes") {
+/*structure (SharersSet, external = "yes", non_obj="yes") {
   void add(MachineID);
   void remove(MachineID);
   void clear();
@@ -140,6 +140,13 @@ structure (SharersSetCBV, external = "yes", non_obj="yes") {
 }
 
 structure (SharersDash, external = "yes", non_obj="yes") {
+  void add(MachineID);
+  void remove(MachineID);
+  void clear();
+  NetDest getSharers();
+}*/
+
+structure (SharersJFC, external = "yes", non_obj="yes") {
   void add(MachineID);
   void remove(MachineID);
   void clear();

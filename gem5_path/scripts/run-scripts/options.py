@@ -263,6 +263,9 @@ Option("cache_l2_assoc", int,
 Option("cache_l2_lp", int,
        gem5_option = "l2_lp",
        descr_dir = "{value}lp")
+Option("jfc_representation", str,
+       gem5_option = "jfc_representation",
+       descr_dir = "{value}")
 
 # HTM Options
 Option("htm_disable_speculation", bool,

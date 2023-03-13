@@ -10,8 +10,8 @@ namespace ruby
 
 #define MACHINETYPE MachineType_L1Cache
 #define NUMNODES MachineType_base_count(MACHINETYPE)
-# define MAXPOINTERS RubySystem::getLP()
-# define BITSPERPOINTER 8
+#define MAXPOINTERS RubySystem::getLP()
+#define BITSPERPOINTER 8
 #define NODESPERGROUP (NUMNODES / (BITSPERPOINTER*MAXPOINTERS))
 
 SharersSetCBV::SharersSetCBV()

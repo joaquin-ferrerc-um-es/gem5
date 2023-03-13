@@ -10,8 +10,8 @@ namespace ruby
 
 #define MACHINETYPE MachineType_L1Cache
 #define NUMNODES MachineType_base_count(MACHINETYPE)
-#define NUMROWS 4 // RubySystem::getNetworkRows()
-#define NUMCOLUMNS NUMNODES/NUMROWS
+#define NUMROWS RubySystem::getNetworkRows()
+#define NUMCOLUMNS (NUMNODES/NUMROWS)
 
 SharersDash::SharersDash()
 {

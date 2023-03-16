@@ -826,6 +826,8 @@ void
 TimingSimpleCPU::completeIfetch(PacketPtr pkt)
 {
     SimpleExecContext& t_info = *threadInfo[curThread];
+    GEM5_VAR_USED const bool is_htm_speculative =
+        t_info.inHtmTransactionalState();
 
     DPRINTF(SimpleCPU, "Complete ICache Fetch for addr %#x\n", pkt ?
             pkt->getAddr() : 0);
@@ -845,6 +847,23 @@ TimingSimpleCPU::completeIfetch(PacketPtr pkt)
 
 
     preExecute();
+
+    if (curStaticInst && is_htm_speculative && curStaticInst->isSyscall()) {
+        warn("Syscall within transaction at PC %s\n",
+             t_info.thread->pcState());
+        DPRINTF(HtmCpu, "Syscall within transaction at PC %s"
+                " (generating GenericHtmFailureFault)\n",
+                t_info.thread->pcState());
+        Fault fault =
+            std::make_shared<GenericHtmFailureFault>(
+                          t_info.getHtmTransactionUid(),
+                          HtmFailureFaultCause::EXCEPTION);
+        advanceInst(fault);
+        if (pkt) {
+            delete pkt;
+        }
+        return;
+    }
 
     // hardware transactional memory
     if (curStaticInst && curStaticInst->isHtmStart()) {
@@ -1021,7 +1040,6 @@ TimingSimpleCPU::completeDataAccess(PacketPtr pkt)
     if (pkt->isHtmTransactional()) {
         assert (pkt->getHtmTransactionUid() ==
                 t_info->getHtmTransactionUid());
-
         // hardware transactional memory
         if (pkt->isHtmFailedCacheAccess()) { // Nacked access
             // Always abort. TODO: retry (req-stalls)

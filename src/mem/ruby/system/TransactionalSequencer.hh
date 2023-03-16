@@ -108,6 +108,8 @@ class TransactionalSequencer : public Sequencer
     void handleTransactionalWrite(SequencerRequest *request,
                                   DataBlock& data, bool externalHit,
                                   const MachineType respondingMach);
+    bool logTransactionalStores(SequencerRequest &seq_req,
+                                Addr address, DataBlock& data);
     LogRequestInfo buildLogPackets(PacketPtr mainPkt, DataBlock& data);
     bool makeLogRequests(LogRequestInfo &logreqinfo);
     void handleStoresToLog(Addr address, PacketPtr pkt,
@@ -141,6 +143,8 @@ class TransactionalSequencer : public Sequencer
     AnnotatedRegion m_lastStateBeforeStall = AnnotatedRegion_INVALID;
 
     uint64_t m_lastAbortHtmUid = 0;
+    // Support for handling Locked RMW inside transactions
+    std::map<Addr,int> outstandingTransLockedRMWAccesses;
 
     // LogTM (eager VM) RequestTable contains outstanding log requests
     // for pending program stores (per line address)

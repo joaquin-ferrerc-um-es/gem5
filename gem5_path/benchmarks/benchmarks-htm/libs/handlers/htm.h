@@ -93,9 +93,11 @@
 #define htm_commit(arg) ({                              \
             __asm__ volatile ("mov %0,%%rdi\n\t"        \
                               "xend\n\t"                \
-                              :                         \
-                              : "r"(arg)                \
-                              : "%rdi");                \
+                              "mov %%rax, %0\n\t"               \
+                              : "=r"(ret)                       \
+                              : "r"(arg)                        \
+                              : "%rdi", "rax");                 \
+            ret;                                                \
         })
 
 #define htm_cancel(code) ({                             \

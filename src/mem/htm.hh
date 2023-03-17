@@ -229,6 +229,9 @@ class HTM : public ClockedObject
     virtual int getLogNumEntries(int cpuId) {
         panic("Not implemented");
     };
+    virtual int getCommitStatus(int cpuId) {
+        panic("Not implemented");
+    };
     void requestCommitToken(int cpuId);
     void releaseCommitToken(int cpuId);
     void removeCommitTokenRequest(int cpuId);

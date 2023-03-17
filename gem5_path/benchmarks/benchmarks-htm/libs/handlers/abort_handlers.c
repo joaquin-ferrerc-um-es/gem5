@@ -255,7 +255,8 @@ void commitTransaction_fallbackLock(long tag, _tm_thread_context_t *ctx)
         simCodeRegionEnd(AnnotatedRegion_ABORT_HANDLER_HASLOCK);
     }
     else {
-        htm_commit(tag);
+        u_int64_t commitStatus = htm_commit(tag);
+        assert(commitStatus == 0); // TODO: Act based on commit status
 #if defined(HANDLER_POWERTM)
         if (*(locks.powerFlag) == ctx->info.threadId) {
             *(locks.powerFlag) = -1;

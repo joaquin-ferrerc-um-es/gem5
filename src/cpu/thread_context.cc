@@ -317,4 +317,9 @@ ThreadContext::getHtmUndoLogSize() {
     }
 }
 
+int
+ThreadContext::getHtmCommitStatus() {
+    return getSystemPtr()->getHTM()->getCommitStatus(cpuId());
+}
+
 } // namespace gem5

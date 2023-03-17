@@ -32,6 +32,8 @@ class RubyHTM : public HTM
     bool setupLog(int cpuId, Addr addr) override;
     void endLogUnroll(int cpuId) override;
     int getLogNumEntries(int cpuId) override;
+    int getCommitStatus(int cpuId) override;
+
     void profileRegion(AnnotatedRegion region, uint64_t cycles);
     private:
       struct RubyHTMStats : public statistics::Group

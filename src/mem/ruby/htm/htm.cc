@@ -113,6 +113,12 @@ RubyHTM::getLogNumEntries(int cpuId)
         getLogNumEntries();
 }
 
+int
+RubyHTM::getCommitStatus(int cpuId)
+{
+    return 0;
+}
+
 RubyHTM::
 RubyHTMStats::RubyHTMStats(statistics::Group *parent)
     : statistics::Group(parent),

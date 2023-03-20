@@ -88,6 +88,7 @@ CacheMemory::CacheMemory(const Params &p)
     m_use_occupancy = dynamic_cast<replacement_policy::WeightedLRU*>(
                                     m_replacementPolicy_ptr) ? true : false;
     m_xact_mgr = NULL;
+    //RubySystem::addCacheToDirectoryProfiler(this);
 }
 
 void
@@ -123,6 +124,27 @@ CacheMemory::~CacheMemory()
             delete m_cache[i][j];
         }
     }
+}
+
+void
+CacheMemory::getPrecisionStats(double* stats)
+{
+    int numLineasOcupadas = 0;
+    int numCompartidores = 0;
+
+    for (int i = 0; i < m_cache_num_sets; i++){
+        for (int j = 0; j < m_cache_assoc; j++) {
+            if ((m_cache[i][j]->getPermission() != AccessPermission_NotPresent)
+                 && (m_cache[i][j]->getPermission()
+                     != AccessPermission_Invalid)) {
+                    numLineasOcupadas++;
+                    // numCompartidores += m_cache[i][j]->getDataBlk()
+                 }
+        }
+    }
+
+    stats[0] = numCompartidores/numLineasOcupadas;
+    stats[1] = numLineasOcupadas/(m_cache_num_sets*m_cache_assoc);
 }
 
 // convert a Address to its location in the cache

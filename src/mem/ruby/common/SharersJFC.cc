@@ -8,22 +8,6 @@ namespace gem5
 namespace ruby
 {
 
-#define MACHINETYPE MachineType_L1Cache
-#define NUMNODES MachineType_base_count(MACHINETYPE)
-#define JFCREPRESENTATION RubySystem::getJFCRepresentation()
-
-// Sharers Set
-#define MAXPOINTERS RubySystem::getLP()
-
-// Sharers CBV
-#define BITSPERPOINTER 8
-#define NODESPERGROUP (NUMNODES / (BITSPERPOINTER*MAXPOINTERS))
-
-// Sharers Dash
-#define NUMROWS RubySystem::getNetworkRows()
-#define NUMCOLUMNS (NUMNODES/NUMROWS)
-
-
 SharersJFC::SharersJFC()
 {
   if (JFCREPRESENTATION == "lp") {
@@ -32,11 +16,11 @@ SharersJFC::SharersJFC()
   else if (JFCREPRESENTATION == "coarse_bit_vector") {
     JFCRep = CBV;
   }
-  else if (JFCREPRESENTATION == "dash") {
-    JFCRep = DASH;
+  else if (JFCREPRESENTATION == "dasc") {
+    JFCRep = DASC;
   }
   else {
-    assert(1 == 0);
+    assert(false);
   }
 
   switch (JFCRep)
@@ -50,41 +34,19 @@ SharersJFC::SharersJFC()
 
   case CBV:
   {
-    pointers = (Set*) malloc(sizeof(Set)*MAXPOINTERS);
     resize();
     typeCBV = Representation_PointersCBV;
     break;
   }
 
-  case DASH:
+  case DASC:
   {
     maxDistance = -1;
     break;
   }
 
   default:
-    assert(1 == 0);
-    break;
-  }
-}
-
-
-SharersJFC::~SharersJFC()
-{
-  switch (JFCRep)
-  {
-  case LP:
-    break;
-
-  case CBV:
-    free(pointers);
-    break;
-
-  case DASH:
-    break;
-
-  default:
-    assert(1 == 0);
+    assert(false);
     break;
   }
 }
@@ -106,6 +68,7 @@ SharersJFC::addToCBV(NodeID newSharer) {
     group -= BITSPERPOINTER;
   }
   assert(group < BITSPERPOINTER);
+  assert(i < MAXPOINTERS);
   pointers[i].add(group);
 }
 
@@ -149,7 +112,7 @@ SharersJFC::add(MachineID newSharer)
     break;
   }
 
-  case DASH:
+  case DASC:
   {
     if (maxDistance == -1) {
       home = newSharer;
@@ -165,9 +128,10 @@ SharersJFC::add(MachineID newSharer)
   }
 
   default:
-    assert(1 == 0);
+    assert(false);
     break;
   }
+  assert(getSharers().isElement(newSharer));
 }
 
 void
@@ -191,7 +155,7 @@ SharersJFC::remove(MachineID oldSharer)
     break;
   }
 
-  case DASH:
+  case DASC:
   {
     if (maxDistance == 0) {
       assert(home == oldSharer);
@@ -201,7 +165,7 @@ SharersJFC::remove(MachineID oldSharer)
   }
 
   default:
-    assert(1 == 0);
+    assert(false);
     break;
   }
 }
@@ -228,14 +192,14 @@ SharersJFC::clear()
     break;
   }
 
-  case DASH:
+  case DASC:
   {
     maxDistance = -1;
     break;
   }
 
   default:
-    assert(1 == 0);
+    assert(false);
     break;
   }
 }
@@ -264,69 +228,69 @@ SharersJFC::getSetSharersCBV()
 
 void
 SharersJFC::addSharers(int nodeAct, int distance,
-                        Direction direction, Set* sharers)
+                        Direction direction, Set* sh)
 {
   if (distance > 0) {
     if (((nodeAct / NUMCOLUMNS) > 0) && (direction != DOWN)) {
       int node = nodeAct - NUMCOLUMNS;
-      sharers->add(node);
-      addSharers(node, distance - 1, UP, sharers);
+      sh->add(node);
+      addSharers(node, distance - 1, UP, sh);
     }
 
     if (((nodeAct / NUMCOLUMNS) < (NUMROWS - 1)) && (direction != UP)) {
       int node = nodeAct + NUMCOLUMNS;
-      sharers->add(node);
-      addSharers(node, distance - 1, DOWN, sharers);
+      sh->add(node);
+      addSharers(node, distance - 1, DOWN, sh);
     }
 
     if (((nodeAct % NUMCOLUMNS) > 0) && (direction != RIGHT)) {
       int node = nodeAct - 1;
-      sharers->add(node);
-      addSharers(node, distance - 1, LEFT, sharers);
+      sh->add(node);
+      addSharers(node, distance - 1, LEFT, sh);
     }
 
     if (((nodeAct % NUMCOLUMNS) < (NUMCOLUMNS - 1)) && (direction != LEFT)) {
       int node = nodeAct + 1;
-      sharers->add(node);
-      addSharers(node, distance - 1, RIGHT, sharers);
+      sh->add(node);
+      addSharers(node, distance - 1, RIGHT, sh);
     }
   }
 }
 
 Set
-SharersJFC::getSetSharersDash()
+SharersJFC::getSetSharersDasc()
 {
-  Set sharers;
-  sharers.setSize(NUMNODES);
+  Set sh;
+  sh.setSize(NUMNODES);
   if (maxDistance > -1) {
-    sharers.add(home.num);
+    sh.add(home.num);
   }
   if (maxDistance > 0) {
     if ((home.num / NUMCOLUMNS) > 0) {
       int node = home.num - NUMCOLUMNS;
-      sharers.add(node);
-      addSharers(node, maxDistance - 1, UP, &sharers);
+      sh.add(node);
+      addSharers(node, maxDistance - 1, UP, &sh);
     }
 
     if ((home.num / NUMCOLUMNS) < (NUMROWS - 1)) {
       int node = home.num + NUMCOLUMNS;
-      sharers.add(node);
-      addSharers(node, maxDistance - 1, DOWN, &sharers);
+      sh.add(node);
+      addSharers(node, maxDistance - 1, DOWN, &sh);
     }
 
     if ((home.num % NUMCOLUMNS) > 0) {
       int node = home.num - 1;
-      sharers.add(node);
-      addSharers(node, maxDistance - 1, LEFT, &sharers);
+      sh.add(node);
+      addSharers(node, maxDistance - 1, LEFT, &sh);
     }
 
     if ((home.num % NUMCOLUMNS) < (NUMCOLUMNS - 1)) {
       int node = home.num + 1;
-      sharers.add(node);
-      addSharers(node, maxDistance - 1, RIGHT, &sharers);
+      sh.add(node);
+      addSharers(node, maxDistance - 1, RIGHT, &sh);
     }
   }
-  return sharers;
+  return sh;
 }
 
 bool
@@ -354,14 +318,14 @@ SharersJFC::isBroadcast()
     break;
   }
 
-  case DASH:
+  case DASC:
   {
-    return getSetSharersDash().isBroadcast();
+    return getSetSharersDasc().isBroadcast();
     break;
   }
 
   default:
-    assert(1 == 0);
+    assert(false);
     break;
   }
 }
@@ -384,9 +348,9 @@ SharersJFC::getSharers()
     break;
   }
 
-  case DASH:
+  case DASC:
   {
-    netSharers.setNetDest(MACHINETYPE, getSetSharersDash());
+    netSharers.setNetDest(MACHINETYPE, getSetSharersDasc());
     break;
   }
 
@@ -411,19 +375,20 @@ SharersJFC::resize()
   case CBV:
   {
     sharers.setSize(NUMNODES);
+    pointers.resize(MAXPOINTERS);
     for (int i = 0; i < MAXPOINTERS; i++) {
       pointers[i].setSize(BITSPERPOINTER);
     }
     break;
   }
 
-  case DASH:
+  case DASC:
   {
-  }
     break;
+  }
 
   default:
-    assert(1 == 0);
+    assert(false);
     break;
   }
 }
@@ -455,7 +420,7 @@ SharersJFC::print(std::ostream& out) const
       break;
     }
 
-    case DASH:
+    case DASC:
     {
       out << "[SharersDash";
 
@@ -465,11 +430,11 @@ SharersJFC::print(std::ostream& out) const
         }
       }*/
       out << "]";
-    }
       break;
+    }
 
     default:
-      assert(1 == 0);
+      assert(false);
       break;
     }
 }

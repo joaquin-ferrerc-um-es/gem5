@@ -76,6 +76,8 @@ class CacheMemory : public SimObject
 
     void init();
 
+    void getPrecisionStats(double* stats);
+
     // Public Methods
     // perform a cache access and see if we hit or not.  Return true on a hit.
     bool tryCacheAccess(Addr address, RubyRequestType type,

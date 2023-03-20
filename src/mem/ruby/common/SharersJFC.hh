@@ -9,6 +9,22 @@ namespace gem5
 namespace ruby
 {
 
+
+#define MACHINETYPE MachineType_L1Cache
+#define NUMNODES MachineType_base_count(MACHINETYPE)
+#define JFCREPRESENTATION RubySystem::getJFCRepresentation()
+
+// Sharers Set
+#define MAXPOINTERS RubySystem::getLP()
+
+// Sharers CBV
+#define BITSPERPOINTER 8
+#define NODESPERGROUP (NUMNODES / (BITSPERPOINTER*MAXPOINTERS))
+
+// Sharers Dasc
+#define NUMROWS RubySystem::getNetworkRows()
+#define NUMCOLUMNS (NUMNODES/NUMROWS)
+
 enum Direction
 {
   UP, DOWN, LEFT, RIGHT
@@ -16,7 +32,7 @@ enum Direction
 
 enum JFCRepresentation
 {
-  LP, CBV, DASH
+  LP, CBV, DASC
 };
 
 enum TypeRepresentation
@@ -35,7 +51,7 @@ class SharersJFC
 {
   public:
     SharersJFC();
-    ~SharersJFC();
+    ~SharersJFC() {};
     void add(MachineID newSharer);
     void remove(MachineID oldSharer);
     void clear();
@@ -52,16 +68,16 @@ class SharersJFC
 
     // Sharers CBV
     // Set sharers;           Also in Sharers Set
-    Set *pointers;
+    std::vector<Set> pointers;
     TypeRepresentationCBV typeCBV;
     void addToCBV(NodeID newSharer);
     void representationToCBV();
     Set getSetSharersCBV();
 
-    // Sharers Dash
+    // Sharers Dasc
     int getDistanceToHome(MachineID newSharer);
-    void addSharers(int node, int distance, Direction direction, Set *sharers);
-    Set getSetSharersDash();
+    void addSharers(int node, int distance, Direction direction, Set *sh);
+    Set getSetSharersDasc();
     MachineID home;
     int maxDistance;
 };

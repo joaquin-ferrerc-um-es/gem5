@@ -109,6 +109,7 @@ RubySystem::RubySystem(const Params &p)
     statistics::registerDumpCallback([this]() { collateStats(); });
     // Create the profiler
     m_profiler = new Profiler(p, this);
+    // n_directory_profiler = new DirectoryProfiler();
     m_phys_mem = p.phys_mem;
     m_protocol = p.protocol;
     n_limited_pointers = p.limited_pointers;
@@ -225,6 +226,7 @@ RubySystem::registerRequestorIDs()
 RubySystem::~RubySystem()
 {
     delete m_profiler;
+    // delete n_directory_profiler;
 }
 
 void

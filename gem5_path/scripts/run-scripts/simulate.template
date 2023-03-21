@@ -63,12 +63,16 @@ display_terminal_files() {
     local DIR="$1"
     local IFS=$'\n'
     local TERMINAL_FILES=( $(find -L "${DIR}" -name "${terminal_filename}" -printf "%T@ %p\n" | sort -n | cut -d " " -f2- ) )
-    echo "#### Simulated terminal Begin ####"
-    echo ${TERMINAL_FILES[@]}
-    echo "##################################"
-    cat ${TERMINAL_FILES[@]}
-    echo
-    echo "#### Simulated terminal End   ####"
+    if [[ ${#TERMINAL_FILES[@]} -gt 0 ]] ; then
+        echo "#### Simulated terminal Begin ####"
+        echo ${TERMINAL_FILES[@]}
+        echo "##################################"
+        cat ${TERMINAL_FILES[@]}
+        echo
+        echo "#### Simulated terminal End   ####"
+    else
+        echo "#### No terminal files ####"
+    fi
 }
 
 ensure_init_checkpoint() {
@@ -147,6 +151,7 @@ create_init_checkpoint() {
 
     GEM5_ARGS+=( ${arch_specific_opts}
                  "${GEM5_OPTIONS_GENERAL[@]}"
+                 "${GEM5_OPTIONS_FULL_SYSTEM[@]}"
                  "--checkpoint-dir=${CHECKPOINT_DIR}"
                  "-r" "1"
                  "--disk-image=${benchmarks_disk_image}")
@@ -199,23 +204,45 @@ run_detailed_simulation() {
                      "--debug-file=/dev/null" )
     fi
 
-    GEM5_ARGS+=("${GEM5_ROOT}/configs/example/fs.py")
+    if [[ "${simulation_mode}" == "full-system" ]] ; then
+        GEM5_ARGS+=("${GEM5_ROOT}/configs/example/fs.py")
+    elif [[ "${simulation_mode}" == "syscall-emulation" ]] ; then
+        GEM5_ARGS+=("${GEM5_ROOT}/configs/example/se.py")
+    else
+        echo "Incorrect simulation_mode (${simulation_mode})"
+        exit 1
+    fi
    
-    GEM5_ARGS+=("--ruby") # Ruby required by TME for functional correction
+    GEM5_ARGS+=("--ruby") # We don't support not using ruby
     
     # Exit after first work end (debugging only)
     if [[ "${exit_at_roi_end}" = "True" ]] ; then
-        GEM5_ARGS+=("--work-end-exit-count=1")
+        if [[ "${simulation_mode}" == "full-system" ]] ; then
+            GEM5_ARGS+=("--work-end-exit-count=1")
+        else
+            GEM5_ARGS+=("--work-end-exit-count=2")
+        fi
     fi
 
     # TODO
     #GEM5_ARGS+=("--proc-maps-file=${output_directory}/${proc_maps_file}")
     
     GEM5_ARGS+=( ${arch_specific_opts}
-                 "${GEM5_OPTIONS_GENERAL[@]}"
-                 "--checkpoint-dir=${CHECKPOINT_DIR}"
-                 "-r" "2"
-                 "--disk-image=${benchmarks_disk_image}" )
+                 "${GEM5_OPTIONS_GENERAL[@]}" )
+
+    if [[ "${simulation_mode}" == "full-system" ]] ; then
+        GEM5_ARGS+=( "${GEM5_OPTIONS_FULL_SYSTEM[@]}"
+                     "--checkpoint-dir=${CHECKPOINT_DIR}"
+                     "-r" "2"
+                     "--disk-image=${benchmarks_disk_image}" )
+        echo "#### Simulating from init checkpoint"
+    else
+        echo "#### Simulating from start of program"
+        ENVIRONMENT_FILE="${output_directory}/environment"
+        echo "${benchmark_environment:-}" > "${ENVIRONMENT_FILE}"
+        GEM5_ARGS+=( "${GEM5_OPTIONS_SYSCALL_EMULATION[@]}"
+                     "--env=${ENVIRONMENT_FILE}")
+    fi
                  
     GEM5_ARGS+=( "${GEM5_OPTIONS_DETAILED[@]}"
                  ${extra_detailed_args} )
@@ -232,9 +259,10 @@ run_detailed_simulation() {
         GEM5_ARGS+=("--htm-visualizer")
     fi
     
-    echo "#### Simulating from init checkpoint using ${cpu_model} + Ruby protocol ${protocol}..."
-
     if [ "${LOCKSTEP_MODE}" = yes ] ; then
+        if [[ "${simulation_mode}" != "full-system" ]] ; then
+            echo "LOCKSTEP_MODE not supported for simulation_mode=$simulation_mode"
+        fi
         local RECORD_GEM5_EXEC_PATH="${GEM5_ROOT}/build/${m5_arch}_${LOCKSTEP_RECORD_PROTOCOL}/gem5.${build_type}"
         local REPLAY_GEM5_EXEC_PATH="${GEM5_ROOT}/build/${m5_arch}_${LOCKSTEP_REPLAY_PROTOCOL}/gem5.${build_type}"
         local RECORD_OUT_DIR="${output_directory}/record"
@@ -283,8 +311,14 @@ run_detailed_simulation() {
                    "--restore-with-cpu=${cpu_model}"
                    "--cpu-type=${cpu_model}")
 
-        run_and_log "${DEBUG_COMMANDS[@]}" "${gem5_exec_path}" "${GEM5_ARGS[@]}"
-
+        (
+            if [[ "${simulation_mode}" == "syscall-emulation" ]] ; then
+                cd "${benchmark_se_work_directory}"
+                printf 'pwd = %q\n' "$(pwd)"
+            fi
+            run_and_log "${DEBUG_COMMANDS[@]}" "${gem5_exec_path}" "${GEM5_ARGS[@]}"
+        )
+        
         # NOTE: Keep the following strings (starting with ####) in sync with check_simulations-r.sh
         if grep -q "because m5_exit instruction encountered" "${output_directory}/simout" ; then
             echo "#### Simulation completed (m5 exit)  ####"
@@ -301,7 +335,9 @@ run_detailed_simulation() {
 }
 
 run_and_log() {
-    echo Running: "$@"
+    printf "Running: "
+    printf "%q " "$@"
+    printf "\n"
     "$@"
 }
 
@@ -370,27 +406,35 @@ parse_options() {
 
 parse_options "$@"
 
-check_glibc
-
-if ! is_valid_checkpoint_boot_dir "${checkpoint_boot_dir}" -name "cpt.*" ; then
-    echo "Cannot locate boot checkpoint in «${checkpoint_boot_dir}»"
-    exit 1
-fi
-CHECKPOINT_BOOT_PATH=$(realpath "${checkpoint_boot_dir}"/cpt.*)
-
-CHECKPOINT_DIR="${output_directory}/${checkpoint_init_subdir}"
-
-echo "**** Running full system mode ****"
-echo "Run configuration:"
 echo "arch=${arch}" 
-echo "os_disk_image=${os_disk_image}"
-echo "benchmarks_disk_image=${benchmarks_disk_image}"
-echo "kernel_binary=${kernel_binary}"
 echo "protocol=${protocol}"
+echo "cpu_model=${cpu_model}"
 echo "hostname=$(hostname)"
 [ -z "${SLURM_JOBID:-}" ] || echo "slurm_jobid=${SLURM_JOBID}"
 
-ensure_init_checkpoint
+check_glibc
+
+if [[ "${simulation_mode}" == "full-system" ]] ; then
+    if ! is_valid_checkpoint_boot_dir "${checkpoint_boot_dir}" -name "cpt.*" ; then
+        echo "Cannot locate boot checkpoint in «${checkpoint_boot_dir}»"
+        exit 1
+    fi
+    CHECKPOINT_BOOT_PATH=$(realpath "${checkpoint_boot_dir}"/cpt.*)
+
+    CHECKPOINT_DIR="${output_directory}/${checkpoint_init_subdir}"
+
+    echo "**** Running simulation_mode in full system mode ****"
+    echo "os_disk_image=${os_disk_image}"
+    echo "benchmarks_disk_image=${benchmarks_disk_image}"
+    echo "kernel_binary=${kernel_binary}"
+
+    ensure_init_checkpoint
+elif [[ "${simulation_mode}" == "syscall-emulation" ]] ; then
+    echo "**** Running simulation in syscall emulation mode ****"
+else
+    echo "Incorrect simulation_mode (${simulation_mode})"
+    exit 1
+fi
 
 run_detailed_simulation
 

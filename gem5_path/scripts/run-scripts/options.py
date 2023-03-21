@@ -191,6 +191,12 @@ Option("benchmark_input_filename", str,
        launchscript_option = "yes",
        siminfo_exclude = True,
        runscript_option = "omit")
+Option("benchmark_input_filename", str,
+       gem5_option = "input",
+       gem5_option_use = "syscall-emulation",
+       launchscript_option = "yes",
+       siminfo_exclude = True,
+       runscript_option = "omit")
 Option("benchmark_ld_preload", str,
        gem5_option_use = "no",
        launchscript_option = "export:LD_PRELOAD",

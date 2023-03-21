@@ -54,9 +54,21 @@ def abbrev_option_value(s):
 cache_config_from_tasks_gem5 = {}
 def config_from_tasks_gem5(s):
     if not s in cache_config_from_tasks_gem5:
-        cache_config_from_tasks_gem5[s] = subprocess.check_output([os.path.join(gem5_root, "gem5_path", "scripts", "tasks-gem5", "tasks-gem5"), "query-config", s],
-                                                                  stderr = subprocess.DEVNULL,
-                                                                  encoding = "UTF-8")
+        gem5_tasks = os.path.join(gem5_root, "gem5_path", "scripts", "tasks-gem5", "tasks-gem5")
+        # WORKAROUND: Sometimes the either the command fails or subprocess.check_output raises an exception incorrectly. It seems to work after a retry.
+        retries = 0
+        while True:
+            try:
+                cache_config_from_tasks_gem5[s] = subprocess.check_output([gem5_tasks, "query-config", s],
+                                                                          stderr = subprocess.DEVNULL,
+                                                                          encoding = "UTF-8")
+                break
+            except subprocess.CalledProcessError:
+                retries = retries + 1
+                if retries > 10:
+                    error(f"Could not execute '{gem5_tasks}' query-config '{s}'.")
+                else:
+                    print(f"RETRYING query-config {retries}")
     return cache_config_from_tasks_gem5[s]
 
 

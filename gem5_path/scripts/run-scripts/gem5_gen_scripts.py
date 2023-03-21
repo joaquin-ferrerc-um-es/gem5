@@ -58,10 +58,16 @@ def gen_scripts(c):
             template_text = runscript_template_file.read()
             variables_text = "".join([o.runscript_text_value(c) for o in config_list_options(c)]) + \
                 "GEM5_OPTIONS_DETAILED=(\n" + \
-                "\n".join([f"    '{otv}'" for otv in [o.gem5_option_text_value(c, "detailed") for o in config_list_options(c)] if otv != ""]) + \
+                "\n".join([f"    {otv}" for otv in [o.gem5_option_text_value(c, "detailed") for o in config_list_options(c)] if otv != ""]) + \
                 ")\n" + \
                 "GEM5_OPTIONS_GENERAL=(\n" + \
-                "\n".join([f"    '{otv}'" for otv in [o.gem5_option_text_value(c, "general") for o in config_list_options(c)] if otv != ""]) + \
+                "\n".join([f"    {otv}" for otv in [o.gem5_option_text_value(c, "general") for o in config_list_options(c)] if otv != ""]) + \
+                ")\n" + \
+                "GEM5_OPTIONS_FULL_SYSTEM=(\n" + \
+                "\n".join([f"    {otv}" for otv in [o.gem5_option_text_value(c, "full-system") for o in config_list_options(c)] if otv != ""]) + \
+                ")\n" + \
+                "GEM5_OPTIONS_SYSCALL_EMULATION=(\n" + \
+                "\n".join([f"    {otv}" for otv in [o.gem5_option_text_value(c, "syscall-emulation") for o in config_list_options(c)] if otv != ""]) + \
                 ")\n"
             runscript_file.write(template_text.replace("{{{variables}}}", variables_text))        
     os.chmod(runscript_filename, 0o755)
@@ -78,7 +84,7 @@ def gen_scripts(c):
             f"-e '{os.path.join(output_directory, 'stderr')}' " +
             f"-o '{os.path.join(output_directory, 'stdout')}' " +
             f"'{os.path.join(output_directory, options.runscript_filename(c))}' " + 
-            f"| cut -d';' -f1 | tee '{os.path.join(output_directory, 'job_id')}'")
+            f"| cut -d';' -f1 | tee '{os.path.join(output_directory, 'job_id')}'\n")
     os.chmod(enqueue_script_filename, 0o755)
 
 def enqueue(c):

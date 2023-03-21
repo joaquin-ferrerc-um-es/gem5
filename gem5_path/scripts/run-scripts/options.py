@@ -14,7 +14,10 @@ Option("arch", str,
        gem5_option_use = "no",
        launchscript_option = "yes",
        descr_dir = "{value}")
-Option("m5_arch", str,
+Option("m5_arch", str, # derived from arch, but a different notation
+       gem5_option_use = "no",
+       siminfo_exclude = True)
+Option("parsec_arch", str, # derived from arch, but a different notation
        gem5_option_use = "no",
        siminfo_exclude = True)
 Option("protocol", str,
@@ -55,6 +58,9 @@ Option("random_seed", int,
 Option("git_revision", str,
        gem5_option_use = "no",
        launchscript_option = "yes")
+Option("simulation_mode", str, # full-system or syscall-emulation
+       gem5_option_use = "no",
+       descr_dir = "{value}")
 Option("launchscript_filename", str, # unnecesary
        gem5_option_use = "no",
        siminfo_exclude = True)
@@ -117,18 +123,18 @@ Option("disable_transparent_hugepages", bool,
 # Boot options
 Option("kernel_binary", str,
        gem5_option = "kernel",
-       gem5_option_use = "general",
+       gem5_option_use = "full-system",
        runscript_option = "yes",
        siminfo_exclude = True)
 Option("bootloader", str,
-       gem5_option_use = "general",
+       gem5_option_use = "full-system",
        siminfo_exclude = True)
 Option("root_device", str,
-       gem5_option_use = "general",
+       gem5_option_use = "full-system",
        siminfo_exclude = True)
 Option("os_disk_image", str,
        gem5_option = "disk-image",
-       gem5_option_use = "general",
+       gem5_option_use = "full-system",
        runscript_option = "yes",
        siminfo_exclude = True)
 Option("terminal_filename", str,
@@ -170,11 +176,6 @@ Option("benchmark_subdir", str,
        launchscript_option = "yes",
        siminfo_exclude = True,
        runscript_option = "omit")
-Option("benchmark_binary_filename_base", str,
-       gem5_option_use = "no",
-       launchscript_option = "yes",
-       siminfo_exclude = True,
-       runscript_option = "omit")
 Option("benchmark_binary_suffix", str,
        gem5_option_use = "no",
        launchscript_option = "yes",
@@ -189,11 +190,43 @@ Option("benchmark_args_string", str,
        launchscript_option = "yes",
        siminfo_exclude = True,
        runscript_option = "omit")
+Option("benchmark_input_filename", str,
+       gem5_option = "input",
+       gem5_option_use = "syscall-emulation",
+       launchscript_option = "yes",
+       siminfo_exclude = True,
+       runscript_option = "omit")
 Option("benchmark_ld_preload", str,
        gem5_option_use = "no",
        launchscript_option = "export:LD_PRELOAD",
        siminfo_exclude = True,
        runscript_option = "omit")
+Option("benchmark_binary", str,
+       gem5_option = "cmd",
+       gem5_option_use = "syscall-emulation",
+       launchscript_option = "yes",
+       siminfo_exclude = True,
+       runscript_option = "omit")
+Option("benchmark_options", str,
+       gem5_option = "options",
+       gem5_option_use = "syscall-emulation",
+       launchscript_option = "yes",
+       siminfo_exclude = True,
+       runscript_option = "omit")
+Option("benchmark_se_work_directory", str,
+       gem5_option_use = "no",
+       launchscript_option = "omit",
+       siminfo_exclude = True)
+Option("benchmark_environment", str, # Format: concatenation of "VAR=VALUE\n" for each VAR
+       gem5_option_use = "no",
+       launchscript_option = "yes",
+       siminfo_exclude = True)
+
+# Benchmark source and working directories root
+Option("benchmarks_root_dir", str,
+       gem5_option_use = "no",
+       runscript_option = "yes",
+       siminfo_exclude = True)
 
 # Benchmark disk image options
 Option("benchmarks_mount_image", bool,
@@ -203,7 +236,7 @@ Option("benchmarks_mount_image", bool,
        runscript_option = "omit")
 Option("benchmarks_disk_image", str,
        gem5_option = "disk-image",
-       gem5_option_use = "general",
+       gem5_option_use = "full-system",
        runscript_option = "yes",
        siminfo_exclude = True)
 Option("benchmarks_image_device", str,

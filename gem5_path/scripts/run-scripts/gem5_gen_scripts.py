@@ -78,13 +78,14 @@ def gen_scripts(c):
         # TODO
         # --exclude nodes
         enqueue_script_file.write(
-            f"exec sbatch " +
-            f"--parsable " +
-            f"-J '{options.config_description(c)}' " +
-            f"-e '{os.path.join(output_directory, 'stderr')}' " +
-            f"-o '{os.path.join(output_directory, 'stdout')}' " +
-            f"'{os.path.join(output_directory, options.runscript_filename(c))}' " + 
-            f"| cut -d';' -f1 | tee '{os.path.join(output_directory, 'job_id')}'\n")
+            f"exec sbatch \\\n" +
+            f"    --parsable \\\n" +
+            f"    -J '{options.config_description(c)}' \\\n" +
+            f"    -e '{os.path.join(output_directory, 'stderr')}' \\\n" +
+            f"    -o '{os.path.join(output_directory, 'stdout')}' \\\n" +
+            f"    " + args.enqueue_options + " \\\n" +
+            f"    '{os.path.join(output_directory, options.runscript_filename(c))}' \\\n" + 
+            f"  | cut -d';' -f1 | tee '{os.path.join(output_directory, 'job_id')}'\n")
     os.chmod(enqueue_script_filename, 0o755)
 
 def enqueue(c):
@@ -96,6 +97,7 @@ def enqueue(c):
 
 def parse_args(argsp = argparse.ArgumentParser()):
     argsp.add_argument("--enqueue", action="store_true", help="Submit scripts to SLURM")
+    argsp.add_argument("--enqueue-options", type=str, default="", help="Extra options for sbatch")
     argsp.add_argument("--no-snapshot-binaries", action="store_true", help="Create snapshots of gem5_exec_path binaries")
     argsp.add_argument("--list", action="store_true", help="List configs instead of generating scripts")
     argsp.add_argument("--list-mixed", action="store_true", help="List all configs mixed in one using Vary values, instead of generating scripts")

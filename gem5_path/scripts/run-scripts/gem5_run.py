@@ -109,7 +109,7 @@ class Option:
             return ""
         elif self.launchscript_option.startswith("export:"):
             name = self.launchscript_option[7:]
-            return f"export {name}={quote(self(conf))}\n"
+            return f"export {name}={quote(str(self(conf)))}\n"
         elif self.launchscript_option.startswith("export_formatted:"):
             format_end = self.launchscript_option.index(":", 17)
             format = self.launchscript_option[17:format_end]

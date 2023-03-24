@@ -17,8 +17,14 @@ def config_list_options(conf):
     last = [k for k in config_preferred_order_last if k in conf]
     return first + rest + last
 
+config_describe_ignored_options=set([])
+
+def config_describe_set_ignored_options(l):
+    global config_describe_ignored_options
+    config_describe_ignored_options=set(l)
+
 def config_describe(conf):
-    dirs = [d for d in [c.descr_dir_text_value(conf) for c in config_list_options(conf)] if d != ""]
+    dirs = [d for d in [c.descr_dir_text_value(conf) for c in config_list_options(conf) if not c in config_describe_ignored_options] if d != ""]
     return os.path.join("/".join(dirs))
 
 def config_describe_abbrev(conf):
@@ -31,6 +37,21 @@ def print_config(conf):
         print(f"  {c.name}: {c(conf, allow_vary = True)}")
     print("}")
 
+def constant_options(configs):
+    if not configs:
+        return known_options
+    else:
+        missing = object()
+        first_c = configs[0]
+        def constant_opt(o):
+            def get(opt, conf):
+                if opt in conf:
+                    return opt(conf)
+                else:
+                    return missing
+            first_v = get(o, first_c)
+            return all(get(o, c) == first_v for c in configs)
+        return [o for o in known_options if constant_opt(o)]
     
 option_value_abbreviations = {
     "requester_wins": "rw",

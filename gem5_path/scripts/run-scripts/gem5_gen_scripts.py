@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from gem5_run import gem5_root, get_configs, error, known_options, mix_configs, Derived, Vary, update
-from gem5_config_utils import config_list_options, print_config, snapshot_binary
+from gem5_config_utils import config_list_options, print_config, snapshot_binary, constant_options, config_describe_set_ignored_options
 import options
 
 import os
@@ -99,6 +99,7 @@ def parse_args(argsp = argparse.ArgumentParser()):
     argsp.add_argument("--enqueue", action="store_true", help="Submit scripts to SLURM")
     argsp.add_argument("--enqueue-options", type=str, default="", help="Extra options for sbatch")
     argsp.add_argument("--no-snapshot-binaries", action="store_true", help="Create snapshots of gem5_exec_path binaries")
+    argsp.add_argument("--no-simplify-directories", action="store_true", help="Omit constant options from the description directories")
     argsp.add_argument("--list", action="store_true", help="List configs instead of generating scripts")
     argsp.add_argument("--list-mixed", action="store_true", help="List all configs mixed in one using Vary values, instead of generating scripts")
     argsp.add_argument("--config-file", type=str, default=os.path.join(gem5_root, "gem5_path/scripts/run-scripts/config.py"), help="Config file")
@@ -140,6 +141,9 @@ if not (args.list or args.list_mixed):
     for path in set([options.checkpoint_init_reuse_root_dir(c) for c in configs if options.checkpoint_init_reuse(c)]):
         if not os.path.exists(path):
             print("Warning: checkpoint_init_reuse is enabled but checkpoint_init_reuse_root_dir does not exist (%s)" % path)
+
+    if not args.no_simplify_directories:
+        config_describe_set_ignored_options(constant_options(configs))
 
     for c in configs:
         gen_scripts(c)

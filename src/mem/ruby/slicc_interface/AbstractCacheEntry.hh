@@ -51,6 +51,7 @@
 #include "mem/cache/replacement_policies/replaceable_entry.hh"
 #include "mem/ruby/common/Address.hh"
 #include "mem/ruby/common/DataBlock.hh"
+#include "mem/ruby/common/SharersJFC.hh"
 #include "mem/ruby/protocol/AccessPermission.hh"
 
 namespace gem5
@@ -108,6 +109,10 @@ class AbstractCacheEntry : public ReplaceableEntry
 
     AccessPermission m_Permission; // Access permission for this
                                    // block, required by CacheMemory
+
+    // JFC Representation.
+    SharersJFC Sharers_JFC;
+    SharersJFC& getSharersJFC() { return Sharers_JFC;}
 
     // Get the last access Tick.
     Tick getLastAccess() { return m_last_touch_tick; }

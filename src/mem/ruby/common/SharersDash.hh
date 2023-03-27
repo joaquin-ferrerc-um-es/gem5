@@ -2,6 +2,7 @@
 #define __MEM_RUBY_COMMON_SHARERSDASH_HH__
 
 #include "mem/ruby/common/NetDest.hh"
+#include "mem/ruby/common/SharersJFC.hh"
 
 namespace gem5
 {
@@ -9,10 +10,10 @@ namespace gem5
 namespace ruby
 {
 
-enum Direction
+/*enum Direction
 {
   UP, DOWN, LEFT, RIGHT
-};
+};*/
 
 class SharersDash
 {

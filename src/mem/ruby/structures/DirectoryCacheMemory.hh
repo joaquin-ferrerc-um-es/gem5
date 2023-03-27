@@ -39,8 +39,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __MEM_RUBY_STRUCTURES_CACHEMEMORY_HH__
-#define __MEM_RUBY_STRUCTURES_CACHEMEMORY_HH__
+#ifndef __MEM_RUBY_STRUCTURES_DIRECTORYCACHEMEMORY_HH__
+#define __MEM_RUBY_STRUCTURES_DIRECTORYCACHEMEMORY_HH__
 
 #include <string>
 #include <unordered_map>
@@ -57,7 +57,7 @@
 #include "mem/ruby/slicc_interface/RubySlicc_ComponentMapping.hh"
 #include "mem/ruby/structures/BankedArray.hh"
 #include "mem/ruby/system/CacheRecorder.hh"
-#include "params/RubyCache.hh"
+#include "params/RubyDirectoryCache.hh"
 #include "sim/sim_object.hh"
 
 namespace gem5
@@ -66,15 +66,17 @@ namespace gem5
 namespace ruby
 {
 
-class CacheMemory : public SimObject
+class DirectoryCacheMemory : public SimObject
 {
   public:
-    typedef RubyCacheParams Params;
+    typedef RubyDirectoryCacheParams Params;
     typedef std::shared_ptr<replacement_policy::ReplacementData> ReplData;
-    CacheMemory(const Params &p);
-    ~CacheMemory();
+    DirectoryCacheMemory(const Params &p);
+    ~DirectoryCacheMemory();
 
     void init();
+
+    void getPrecisionStats(std::vector<double> stats);
 
     // Public Methods
     // perform a cache access and see if we hit or not.  Return true on a hit.
@@ -180,8 +182,8 @@ class CacheMemory : public SimObject
     int findTagInSetIgnorePermissions(int64_t cacheSet, Addr tag) const;
 
     // Private copy constructor and assignment operator
-    CacheMemory(const CacheMemory& obj);
-    CacheMemory& operator=(const CacheMemory& obj);
+    DirectoryCacheMemory(const DirectoryCacheMemory& obj);
+    DirectoryCacheMemory& operator=(const DirectoryCacheMemory& obj);
 
   private:
     // Data Members (m_prefix)
@@ -228,9 +230,9 @@ class CacheMemory : public SimObject
     bool m_use_occupancy;
 
     private:
-      struct CacheMemoryStats : public statistics::Group
+      struct DirectoryCacheMemoryStats : public statistics::Group
       {
-          CacheMemoryStats(statistics::Group *parent);
+          DirectoryCacheMemoryStats(statistics::Group *parent);
 
           statistics::Scalar numDataArrayReads;
           statistics::Scalar numDataArrayWrites;
@@ -255,7 +257,7 @@ class CacheMemory : public SimObject
           statistics::Formula m_prefetch_accesses;
 
           statistics::Vector m_accessModeType;
-      } cacheMemoryStats;
+      } directoryCacheMemoryStats;
 
     public:
       // These function increment the number of demand hits/misses by one
@@ -266,9 +268,9 @@ class CacheMemory : public SimObject
       void profilePrefetchMiss();
 };
 
-std::ostream& operator<<(std::ostream& out, const CacheMemory& obj);
+std::ostream& operator<<(std::ostream& out, const DirectoryCacheMemory& obj);
 
 } // namespace ruby
 } // namespace gem5
 
-#endif // __MEM_RUBY_STRUCTURES_CACHEMEMORY_HH__
+#endif // __MEM_RUBY_STRUCTURES_DIRECTORYCACHEMEMORY_HH__

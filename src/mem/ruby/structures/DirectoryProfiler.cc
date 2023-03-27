@@ -8,10 +8,11 @@ namespace gem5
 namespace ruby
 {
 
-DirectoryProfiler::DirectoryProfiler()
+DirectoryProfiler::DirectoryProfiler(const Params &p)
+    : ClockedObject(p), directoryProfilerStats(this)
 {
+    caches.resize(MachineType_base_count(MachineType_L2Cache));
     numCaches = 0;
-    directoryProfilerStats(this);
 }
 
 DirectoryProfiler::
@@ -36,20 +37,21 @@ DirectoryProfiler::~DirectoryProfiler()
 }
 
 void
-DirectoryProfiler::addCacheMemory(CacheMemory* cacheMemory)
+DirectoryProfiler::addCacheMemory(SimObject* cacheMemory)
 {
-    assert(numCaches < MachineType_base_count(MachineType_L1Cache));
+    assert(numCaches < MachineType_base_count(MachineType_L2Cache));
     caches[numCaches] = cacheMemory;
     numCaches++;
-    if (numCaches == MachineType_base_count(MachineType_L1Cache)) {
-        eventq->schedule(, 100000);
+    if (numCaches == MachineType_base_count(MachineType_L2Cache)) {
+        eventq->schedule(nullptr, 100000);
     }
 }
 
 void
 DirectoryProfiler::wakeup()
 {
-    double* stats = malloc(sizeof(double)*2);
+    std::vector<double> stats;
+    stats.resize(2);
     double nSPL = 0;
     double nC = 0;
     for (int i = 0; i < numCaches; i++) {
@@ -62,8 +64,7 @@ DirectoryProfiler::wakeup()
 
     directoryProfilerStats.jfcSharersPerLine.sample(nSPL);
     directoryProfilerStats.jfcDirectoryUsage.sample(nC);
-    free(stats);
-    eventq->schedule(, 100000);
+    eventq->schedule(nullptr, 100000);
 }
 
 } // namespace ruby

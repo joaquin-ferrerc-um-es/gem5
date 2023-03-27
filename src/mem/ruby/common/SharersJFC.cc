@@ -355,7 +355,7 @@ SharersJFC::getSharers()
   }
 
   default:
-    assert(1 == 0);
+    assert(false);
     break;
   }
   return netSharers;

@@ -3,7 +3,9 @@
 
 
 #include "base/statistics.hh"
-#include "mem/ruby/structures/CacheMemory.hh"
+// #include "mem/ruby/structures/DirectoryCacheMemory.hh"
+#include "mem/ruby/protocol/MachineType.hh"
+#include "sim/clocked_object.hh"
 
 namespace gem5
 {
@@ -14,16 +16,16 @@ namespace ruby
 class DirectoryProfiler : public ClockedObject
 {
     public:
-      DirectoryProfiler();
+      DirectoryProfiler(const Params &p);
       ~DirectoryProfiler();
 
       void wakeup();
 
-      void addCacheMemory(CacheMemory* cacheMemory);
+      void addCacheMemory(SimObject* cacheMemory);
 
     private:
      int numCaches;
-     CacheMemory* caches[MachineType_base_count(MachineType_L1Cache)];
+     std::vector<SimObject*> caches;
 
      struct DirectoryProfilerStats : public statistics::Group
      {
@@ -31,7 +33,9 @@ class DirectoryProfiler : public ClockedObject
 
         statistics::Histogram jfcSharersPerLine;
         statistics::Histogram jfcDirectoryUsage;
-     } directoryProfilerStats;
+     };
+
+     DirectoryProfilerStats directoryProfilerStats;
 
 };
 

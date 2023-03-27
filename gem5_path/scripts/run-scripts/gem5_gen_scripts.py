@@ -75,7 +75,7 @@ def enqueue(c):
     stderr = os.path.join(od, "stderr")
     stdout = os.path.join(od, "stdout")
     runscript_filename = os.path.join(od, options.runscript_filename(c))
-    cmd = ["sbatch", "--parsable", "-J", options.config_description(c), "-e", stderr, "-o", stdout, runscript_filename]
+    cmd = ["sbatch", "--parsable", "-J", options.config_description(c), "-e", stderr, "-o", stdout, "--exclude=tetd00", runscript_filename]
     sbatch_output = subprocess.check_output(cmd, encoding = "UTF-8")
     job_id = sbatch_output.strip().split(";")[0]
     with open(os.path.join(od, "job_id"), "w") as job_id_file:

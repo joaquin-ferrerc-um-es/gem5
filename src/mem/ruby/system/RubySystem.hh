@@ -44,8 +44,8 @@
 #include "mem/ruby/common/Global.hh"
 #include "mem/ruby/htm/htm.hh"
 #include "mem/ruby/profiler/Profiler.hh"
-//#include "mem/ruby/structures/DirectoryProfiler.hh"
 #include "mem/ruby/slicc_interface/AbstractController.hh"
+#include "mem/ruby/structures/DirectoryProfiler.hh"
 #include "mem/ruby/system/CacheRecorder.hh"
 #include "params/RubySystem.hh"
 #include "sim/clocked_object.hh"
@@ -120,8 +120,8 @@ class RubySystem : public ClockedObject
     }
     */
     void collateStats() { m_profiler->collateStats(); }
-    // void addCacheToDirectoryProfiler(CacheMemory* cacheMemory)
-    // { n_directory_profiler->addCacheMemory(cacheMemory); }
+    static void addCacheToDirectoryProfiler(SimObject* cacheMemory)
+    { n_directory_profiler->addCacheMemory(cacheMemory); }
     void resetStats() override;
 
     void memWriteback() override;
@@ -202,7 +202,7 @@ class RubySystem : public ClockedObject
 
   public:
     Profiler* m_profiler;
-    // DirectoryProfiler* n_directory_profiler;
+    static DirectoryProfiler* n_directory_profiler;
     CacheRecorder* m_cache_recorder;
     std::vector<std::map<uint32_t, AbstractController *> > m_abstract_controls;
 };

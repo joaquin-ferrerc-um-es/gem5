@@ -5,9 +5,12 @@
 extern "C" {
 #endif
 
+#include <stdbool.h>
+  
 #define ENV_VAR_IN_SIMULATOR "M5_SIMULATOR"
 
 void simInit();
+bool simInSimulator(void);
 void simBeginRegionOfInterest();
 void simEndRegionOfInterest();
 void simSetLogBase(void *ptr);

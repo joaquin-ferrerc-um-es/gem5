@@ -68,11 +68,15 @@ static bool parseBoolEnv(char *envVarName, bool *envVar) {
 
 #define ENV_VAR_IN_SIMULATOR "M5_SIMULATOR"
 
+static bool inSimulator = false;
+
+bool simInSimulator(void) {
+  return inSimulator;
+}
 
 void
 simInit()
 {
-  bool inSimulator;
   bool set = parseBoolEnv(ENV_VAR_IN_SIMULATOR, &inSimulator);
   if (!set) {
     fprintf(stderr, MSG_PREFIX "WARNING %s env var is unset! Assuming false\n", ENV_VAR_IN_SIMULATOR);
@@ -92,18 +96,6 @@ simInit()
     m5_op_indirect_set_mode(M5_OP_INDIRECT_MODE_NOP);
     printf(MSG_PREFIX " Disabled gem5 interface\n");
   }
-
-#ifdef ANNOTATE_FALLBACKLOCK_ADDR
-    if (inSimulator) {
-        long fallBackLockAddr = (long)spinlock_getAddress();
-        // Max fallback lock filename length is 63 characters
-        char fallbackLockAddrFilename[CACHE_LINE_SIZE_BYTES]
-            __attribute__ ((aligned (CACHE_LINE_SIZE_BYTES))) =
-            FALLBACKLOCKADDR_FILENAME;
-        dumpValueToHostFileSystem(fallBackLockAddr,
-                                  fallbackLockAddrFilename);
-    }
-#endif
 
 #ifdef ANNOTATE_PROC_MAPS
     if (inSimulator)

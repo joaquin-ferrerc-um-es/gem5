@@ -42,7 +42,7 @@ CFLAGS += -O3 -Wall -std=c11
 
 CFLAGS += -g
 
-#CFLAGS += -fPIC
+CFLAGS += -fPIC
 
 all: build/$(ARCH)/libm5iface.a build/$(ARCH)/libm5iface.so
 
@@ -67,7 +67,7 @@ build/$(ARCH)/libm5iface.so: $(libm5iface_OBJS) | build/$(ARCH)/
 	$(CC) -shared $(CFLAGS) -o $@ $(libm5iface_OBJS)
 
 build/$(ARCH)/%.o: %.c $(libm5iface_HEADERS) | build/$(ARCH)/
-	$(CC) $(CFLAGS) -fPIC -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 build/$(ARCH)/%.o: %.S $(libm5iface_HEADERS) | build/$(ARCH)/
 	$(CC) $(CFLAGS) -fPIC -c $< -o $@
@@ -82,6 +82,6 @@ annotated_regions.h:
 
 .PHONY: clean
 clean:
-	rm -f $(libm5iface_OBJS) build/$(ARCH)/libm5iface.a
+	rm -f $(libm5iface_OBJS) build/$(ARCH)/libm5iface.a build/$(ARCH)/libm5iface.so
 	[ -e build/$(ARCH) ] && rmdir --ignore-fail-on-non-empty build/$(ARCH) || true
 	[ -e build ] && rmdir --ignore-fail-on-non-empty build/ || true

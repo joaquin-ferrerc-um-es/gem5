@@ -154,5 +154,10 @@ check_parsec_gem5_directory_links() {
     if [[ ! -d "$(absolute_path "$BENCHMARKS_PARSEC_DIR")" || ! -L "${GEM5_ROOT}/${BENCHMARKS_PARSEC_DIR}" ]] ; then
         error_and_exit "Parsec directory symlink '$(absolute_path "$BENCHMARKS_PARSEC_DIR")' not found. Clone the repository in a directory out of ${GEM5_ROOT} and create a symbolic link to it in '$(dirname "$(absolute_path "$BENCHMARKS_PARSEC_DIR")")'."
     fi
+
+    if [[ ! -d "$(absolute_path "$BENCHMARKS_PARSEC_DIR")/gem5-libs" ]] ; then
+        GEM5_LIBS_DIR="${GEM5_ROOT}/gem5_path/benchmarks/libs/"
+        ln -s "$(realpath --relative-to="$(absolute_path "${BENCHMARKS_PARSEC_DIR}")" "$GEM5_LIBS_DIR")" "$(absolute_path "${BENCHMARKS_PARSEC_DIR}")/gem5-libs"
+    fi
 }
 

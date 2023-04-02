@@ -46,26 +46,24 @@ TransactionConflictManager(TransactionInterfaceManager *xact_mgr,
   m_receivedNack         = false;
   m_abortedByNack  = false;
   m_doomed         = false;
+  m_policy_nack_non_transactional = false;
+  m_policy_power = false;
 
   m_default_policy = xact_mgr->getHTM()->getResolutionPolicy();
   assert(m_default_policy != HTM::ResolutionPolicy::Undefined);
 
   m_policy = xact_mgr->config_conflictResPolicy();
-  m_policy_power = false;
   if (m_policy == HtmPolicyStrings::power_tm ||
       m_policy == HtmPolicyStrings::woper_tm) {
       m_policy_power = true;
   }
-  m_policy_is_req_stalls_cda = false;
   if (m_policy.find("_cda") == 0) {
       assert(m_default_policy == HTM::ResolutionPolicy::RequesterStalls);
-      m_policy_is_req_stalls_cda = true;
-  }
-  if (m_policy == HtmPolicyStrings::requester_stalls_cda_base_ntx ||
-      m_policy == HtmPolicyStrings::requester_stalls_cda_hybrid_ntx) {
-      m_policy_nack_non_transactional = true;
-  } else {
-      m_policy_nack_non_transactional = false;
+      if (m_policy.find("_ntx") == 0) {
+          assert(m_policy == HtmPolicyStrings::requester_stalls_cda_base_ntx ||
+                 m_policy == HtmPolicyStrings::requester_stalls_cda_hybrid_ntx);
+          m_policy_nack_non_transactional = true;
+      }
   }
 }
 
@@ -247,6 +245,100 @@ TransactionConflictManager::isRemoteOlder(Cycles local_timestamp,
   }
   return older;
 }
+ 
+bool
+TransactionConflictManager::shouldNackRemoteRequest(Addr addr,
+                                                    MachineID remote_id,
+                                                    Cycles remote_timestamp,
+                                                    TransactionBit remote_trans)
+{
+    bool shouldNack; // Leave uninitialize so that compiler warns us if
+    bool remoteNonTransWins = false;
+    // we ever miss a case
+    if (isReqWinsPolicy()) {
+        // By default, never nack...
+        shouldNack = false;
+        if (m_powered) {
+            // Power transactions can nack transactional request,
+            // but cannot nack non-transactional code
+            shouldNack = isTransactionalRequest(remote_trans);
+            // If this tx is power, remote cannot be
+            assert(remote_trans != TransactionBit_PowerTrans);
+        }
+    } else if (isReqLosesPolicy()) {
+        // By default, always nack... (unless non-transactional)
+        shouldNack = isTransactionalRequest(remote_trans);
+        // Inverse-power ("woper") transactions use req-wins
+        if (remote_trans == TransactionBit_PowerTrans) {
+            // If remote is power, local is not
+            assert(!m_powered);
+            shouldNack = false;
+        }
+    } else if (isRequesterStallsPolicy()) {
+        if (m_xact_mgr->isUnrollingLog()) {
+            assert(!m_xact_mgr->config_lazyVM()); // LogTM
+            shouldNack = true;
+#if 0 // TODO: Check
+        } else if (m_xact_mgr->isDoomed()) {
+            shouldNack = false;
+#endif
+        } else if (!isTransactionalRequest(remote_trans) &&
+                   !m_policy_nack_non_transactional) {
+            if (!m_xact_mgr->config_lazyVM()) { // LogTM
+                shouldNack = true; // Nack until old value restored
+                // Abort but keep nacking until old value restored
+                // from log (or read signature cleared before log unroll)
+                m_xact_mgr->setAbortFlag(addr, remote_id,
+                                         remote_trans);
+                DPRINTF(RubyHTM,"Abort due to non-transactional conflicting"
+                        " access to address %#x from remote reader %d\n",
+                        addr, machineIDToNodeID(remote_id));
+            } else {
+                shouldNack = false;
+                remoteNonTransWins = true;
+
+                DPRINTF(RubyHTM,"Cannot nack non-transactional conflicting"
+                        " access to address %#x from remote reader %d\n",
+                        addr, machineIDToNodeID(remote_id));
+            }
+        } else { // trans-trans conflict
+            shouldNack = true;
+        }
+    } else if (m_policy == HtmPolicyStrings::committer_wins) {
+        panic("committer_wins policy untested!\n");
+        if (!m_xact_mgr->config_eagerCD() && // Lazy conflict detection
+            m_xact_mgr->getXactLazyCommitArbiter()->validated()) {
+            // Nack requests for blocks that have already been
+            // validated (exclusive permissions acquired)
+            shouldNack = true;
+        } else {
+            shouldNack = false;
+        }
+    }
+    else {
+        panic("Unexpected/untested case!\n");
+    }
+    DPRINTF(RubyHTM,"HTM: PROC %d shouldNackLoad detected conflict "
+            "with PROC %d for address %#x, %s %d\n", getProcID(),
+            machineIDToNodeID(remote_id), addr,
+            shouldNack ? "nacks" : "aborted by",
+            machineIDToNodeID(remote_id));
+
+    // Finally, if req not nacked, resolve by aborting local tx
+    if (!shouldNack) {
+        assert(!isRequesterStallsPolicy() ||
+               (isReqLosesPolicy() && remote_trans == TransactionBit_PowerTrans) ||
+               !(isReqWinsPolicy() && m_powered) ||
+               (!hasHighestPriority() ||
+                remoteNonTransWins ||
+                (machineIDToMachineType(remote_id) == MachineType_L2Cache)));
+        m_xact_mgr->setAbortFlag(addr,
+                                 remote_id, remote_trans);
+    } else{
+        notifySendNack(addr, remote_timestamp, remote_id);
+    }
+    return shouldNack;
+}
 
 bool
 TransactionConflictManager::shouldNackLoad(Addr addr,
@@ -254,11 +346,6 @@ TransactionConflictManager::shouldNackLoad(Addr addr,
                                            Cycles remote_timestamp,
                                            TransactionBit remote_trans)
 {
-  string conflict_res_policy(XACT_CONFLICT_RES);
-
-  bool shouldNack; // Leave uninitialize so that compiler warns us if
-                   // we ever miss a case
-  bool remoteNonTransWins = false;
   bool existConflict = m_xact_mgr->
     getXactIsolationManager()->isInWriteSetPerfectFilter(addr);
   if (existConflict) {
@@ -268,92 +355,11 @@ TransactionConflictManager::shouldNackLoad(Addr addr,
               " requestor=%d addr %#lx (%s)\n",
               machineIDToNodeID(remote_id), addr,
               TransactionBit_to_string(remote_trans));
-      if (m_xact_mgr->isUnrollingLog()) {
-          assert(!m_xact_mgr->config_lazyVM()); // LogTM
-          shouldNack = true;
-#if 0 // TODO: Check
-      } else if (m_xact_mgr->isDoomed()) {
-          shouldNack = false;
-#endif
-      } else if (m_powered) {
-          // Power transactions cannot nack non-transactional code
-          shouldNack = isTransactionalRequest(remote_trans);
-          // If this tx is power, remote cannot be
-          assert(remote_trans != TransactionBit_PowerTrans);
-      } else if (isReqLosesPolicy()) {
-              // Base woper and RL
-          shouldNack = (isTransactionalRequest(remote_trans) &&
-                        remote_trans != TransactionBit_PowerTrans);
-      } else if (m_policy_is_req_stalls_cda) {
-          if (!isTransactionalRequest(remote_trans) &&
-              !m_policy_nack_non_transactional) {
-              if (!m_xact_mgr->config_lazyVM()) { // LogTM
-                  shouldNack = true; // Nack until old value restored
-                  // Abort but keep nacking until old value restored
-                  // from log (or read signature cleared before log unroll)
-                  m_xact_mgr->setAbortFlag(addr, remote_id,
-                                           remote_trans);
-                  DPRINTF(RubyHTM,"Abort due to non-transactional conflicting"
-                          " access to address %#x from remote reader %d\n",
-                          addr, machineIDToNodeID(remote_id));
-              } else {
-                  shouldNack = false;
-                  remoteNonTransWins = true;
-
-                  DPRINTF(RubyHTM,"Cannot nack non-transactional conflicting"
-                          " access to address %#x from remote reader %d\n",
-                          addr, machineIDToNodeID(remote_id));
-              }
-          } else { // trans-trans conflict
-              shouldNack = true;
-          }
-      } else if (!m_xact_mgr->config_eagerCD() && // Lazy conflict detection
-                 m_xact_mgr->getXactLazyCommitArbiter()->validated() &&
-                 conflict_res_policy == HtmPolicyStrings::committer_wins) {
-          shouldNack = true;
-      }
-      else {
-          assert(conflict_res_policy ==
-                 HtmPolicyStrings::requester_wins ||
-                 (isPowerTMPolicy() && !m_powered) ||
-                 (isReqLosesPolicy() && remote_trans == TransactionBit_PowerTrans) ||
-                 (!m_xact_mgr->config_eagerCD() &&
-                  !m_xact_mgr->getXactLazyCommitArbiter()->validated()));
-          DPRINTF(RubyHTM, "Conflict (%s):  Local writer"
-                  " %d vs remote reader %d for addr %#lx\n",
-                  conflict_res_policy, getProcID(),
-                  machineIDToNodeID(remote_id), addr);
-          shouldNack = false;
-          if (!m_xact_mgr->config_lazyVM()) { // LogTM+reqwins
-              panic("Eager VM + requester wins not tested!\n");
-          }
-      }
-      DPRINTF(RubyHTM,"HTM: PROC %d shouldNackLoad detected conflict "
-              "with PROC %d for address %#x, %s %d\n", getProcID(),
-              machineIDToNodeID(remote_id), addr,
-              shouldNack ? "nacks" : "aborted by",
-              machineIDToNodeID(remote_id));
-
-      // Finally, if req not nacked, resolve by aborting local tx
-      if (!shouldNack) {
-          assert(!m_policy_is_req_stalls_cda ||
-                 !isReqLosesPolicy() ||
-                 (isReqLosesPolicy() && remote_trans == TransactionBit_PowerTrans) ||
-                 !(isPowerTMPolicy() && m_powered) ||
-                 (!hasHighestPriority() ||
-                  remoteNonTransWins ||
-                  (machineIDToMachineType(remote_id) == MachineType_L2Cache)));
-          m_xact_mgr->setAbortFlag(addr,
-                                   remote_id, remote_trans);
-      } else{
-          notifySendNack(addr, remote_timestamp, remote_id);
-      }
+      return shouldNackRemoteRequest(addr,remote_id,remote_timestamp,remote_trans);
   }
   else { // No conflict
-      shouldNack = false;
+      return false;
   }
-
-  return shouldNack;
 }
 
 bool
@@ -364,14 +370,11 @@ TransactionConflictManager::shouldNackStore(Addr addr,
                                             bool local_is_exclusive)
 {
   string conflict_res_policy(XACT_CONFLICT_RES);
-  bool shouldNack;
   bool local_is_writer = m_xact_mgr->getXactIsolationManager()->
       isInWriteSetPerfectFilter(addr);
   bool existConflict = local_is_writer ||
     m_xact_mgr->getXactIsolationManager()->
     isInReadSetPerfectFilter(addr);
-  bool localIsYoungerReader = false;
-  bool remoteNonTransWins = false;
 
   if (existConflict) {
       if (machineIDToMachineType(remote_id) == MachineType_L2Cache) {
@@ -392,28 +395,9 @@ TransactionConflictManager::shouldNackStore(Addr addr,
           assert(machineIDToMachineType(remote_id) == MachineType_L1Cache);
           assert(remote_timestamp > 0);
       }
-      DPRINTF(RubyHTM, "Conflict detected by shouldNackStore,"
-              " requestor=%d addr %#lx (%s)\n",
-              machineIDToNodeID(remote_id), addr,
-              TransactionBit_to_string(remote_trans));
-
-      if (m_xact_mgr->isUnrollingLog()) {
-          assert(!m_xact_mgr->config_lazyVM()); // LogTM
-          shouldNack = true;
-#if 0 // TODO: Check
-      } else if (m_xact_mgr->isDoomed()) {
-          shouldNack = false;
-#endif
-      } else if (m_powered) {
-          // Power transactions cannot nack non-transactional code
-          shouldNack = isTransactionalRequest(remote_trans);
-          // If this tx is power, remote cannot be
-          assert(remote_trans != TransactionBit_PowerTrans);
-      } else if (isReqLosesPolicy()) {
-              // Base woper and RL
-              shouldNack = (isTransactionalRequest(remote_trans) &&
-                        remote_trans != TransactionBit_PowerTrans);
-      } else if (m_policy_is_req_stalls_cda) {
+      bool shouldNack = shouldNackRemoteRequest(addr,remote_id,remote_timestamp,remote_trans);
+      if (isRequesterStallsPolicy()) {
+          panic("Not tested\n");
           if (!isTransactionalRequest(remote_trans) &&
               !m_policy_nack_non_transactional) {
               if (!m_xact_mgr->config_lazyVM() && // LogTM
@@ -428,8 +412,8 @@ TransactionConflictManager::shouldNackStore(Addr addr,
                           " access to address %#x from remote writer %d\n",
                           addr, machineIDToNodeID(remote_id));
               } else {
+                  // Remote non-trans wins
                   shouldNack = false;
-                  remoteNonTransWins = true;
 
                   DPRINTF(RubyHTM,"Cannot nack non-transactional conflicting"
                           " access to address %#x from remote writer %d\n",
@@ -444,59 +428,14 @@ TransactionConflictManager::shouldNackStore(Addr addr,
                   // See Bobba ISCA 2007: CDA hybrid allows an elder
                   // writer to simultanously abort a number of younger
                   // readers
-                  localIsYoungerReader = true;
                   shouldNack = false;
               }
           }
-      } else if (!m_xact_mgr->config_eagerCD() && // Lazy conflict detection
-                 m_xact_mgr->getXactLazyCommitArbiter()->validated() &&
-                 conflict_res_policy == HtmPolicyStrings::committer_wins) {
-          shouldNack = true;
-      } else {
-          assert(conflict_res_policy ==
-                 HtmPolicyStrings::requester_wins ||
-                 (isPowerTMPolicy() && !m_powered) ||
-                 (isReqLosesPolicy() && remote_trans == TransactionBit_PowerTrans) ||
-                 (!m_xact_mgr->config_eagerCD() &&
-                  !m_xact_mgr->getXactLazyCommitArbiter()->validated()));
-
-          DPRINTF(RubyHTM, "Conflict (%s):  Local %d %d "
-                  "vs remote writer %d for addr %#lx\n",
-                  conflict_res_policy,
-                  local_is_writer ? "writer" : "reader", getProcID(),
-                  machineIDToNodeID(remote_id), addr);
-          shouldNack = false;
-          if (!m_xact_mgr->config_lazyVM()) { // LogTM+reqwins
-              panic("Eager VM + requester wins not tested!\n");
-          }
       }
-      DPRINTF(RubyHTM,"HTM: PROC %d shouldNackStore detected conflict "
-              "with PROC %d for address %#x, %s %d\n", getProcID(),
-              machineIDToNodeID(remote_id), addr,
-              shouldNack ? "nacks" : "aborted by",
-              machineIDToNodeID(remote_id));
-
-      // Finally, if req not nacked, resolve by aborting local tx
-      if (!shouldNack) {
-          assert(!m_policy_is_req_stalls_cda ||
-                 !isReqLosesPolicy() ||
-                 (isReqLosesPolicy() && remote_trans == TransactionBit_PowerTrans) ||
-                 !(isPowerTMPolicy() && m_powered) ||
-                 (!hasHighestPriority() ||
-                  localIsYoungerReader ||
-                  remoteNonTransWins ||
-                  (machineIDToMachineType(remote_id) == MachineType_L2Cache)));
-          m_xact_mgr->setAbortFlag(addr, remote_id,
-                                   remote_trans);
-      } else{
-          notifySendNack(addr, remote_timestamp, remote_id);
-      }
+      return shouldNack;
+  } else { // No conflict
+      return false;
   }
-  else {
-       shouldNack = false;
-  }
-
-  return shouldNack;
 }
 
 
@@ -507,7 +446,7 @@ TransactionConflictManager::notifySendNack(Addr addr,
   // This method is used to update the deadlock avoidance logic, if used
   string conflict_res_policy(XACT_CONFLICT_RES);
 
-  if (m_policy_is_req_stalls_cda) {
+  if (isRequesterStallsPolicy()) {
       if (m_xact_mgr->getXactIsolationManager()->
           isInReadSetPerfectFilter(addr) ||
           m_xact_mgr->getXactIsolationManager()->
@@ -540,7 +479,7 @@ TransactionConflictManager::notifyReceiveNack(Addr addr,
     m_receivedNack = true;
     bool wasAborting = m_xact_mgr->isAborting();
 
-    if (m_policy_is_req_stalls_cda) {
+    if (isRequesterStallsPolicy()) {
         if (possibleCycle() &&
             isRemoteOlder(local_timestamp,
                           remote_timestamp, remote_id)){

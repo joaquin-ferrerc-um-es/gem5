@@ -81,6 +81,10 @@ public:
 
 private:
   int getProcID() const;
+  bool shouldNackRemoteRequest(Addr addr,
+                               MachineID remote_id,
+                               Cycles remote_timestamp,
+                               TransactionBit remote_trans);
 
   TransactionInterfaceManager *m_xact_mgr;
   int m_version;

@@ -315,6 +315,7 @@ enumeration(TransactionBit, default="TransactionBit_NonTrans", desc="...") {
   PowerTrans, desc="Yes, power transaction";
   ConsumerTrans, desc="Yes, speculative consumer transaction";
 }
+bool isTransactionalRequest(TransactionBit type);
 
 // CacheMsg
 structure(SequencerMsg, desc="...", interface="Message") {

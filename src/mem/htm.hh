@@ -190,6 +190,7 @@ public:
   static const std::string requester_wins;
   static const std::string requester_loses;
   static const std::string power_tm;
+  static const std::string woper_tm;
   static const std::string committer_wins;
   static const std::string requester_stalls;
   static const std::string magic;
@@ -238,6 +239,13 @@ class HTM : public ClockedObject
     bool existCommitTokenRequest(int cpuId);
     int getTokenOwner();
     int getNumTokenRequests();
+  enum ResolutionPolicy {
+      RequesterWins,
+      RequesterLoses,
+      RequesterStalls,
+      Undefined
+  };
+  ResolutionPolicy getResolutionPolicy();
 
 private:
     std::vector<int>  m_commitTokenRequestList;

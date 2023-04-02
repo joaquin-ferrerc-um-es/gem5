@@ -44,16 +44,22 @@ TransactionConflictManager(TransactionInterfaceManager *xact_mgr,
   m_powered        = false;
   m_sentNack         = false;
   m_receivedNack         = false;
+  m_abortedByNack  = false;
   m_doomed         = false;
 
+  m_default_policy = xact_mgr->getHTM()->getResolutionPolicy();
+  assert(m_default_policy != HTM::ResolutionPolicy::Undefined);
+
   m_policy = xact_mgr->config_conflictResPolicy();
-  if (m_policy == HtmPolicyStrings::requester_stalls_cda_base ||
-      m_policy == HtmPolicyStrings::requester_stalls_cda_hybrid ||
-      m_policy == HtmPolicyStrings::requester_stalls_cda_hybrid_ntx ||
-      m_policy == HtmPolicyStrings::requester_stalls_cda_base_ntx) {
+  m_policy_power = false;
+  if (m_policy == HtmPolicyStrings::power_tm ||
+      m_policy == HtmPolicyStrings::woper_tm) {
+      m_policy_power = true;
+  }
+  m_policy_is_req_stalls_cda = false;
+  if (m_policy.find("_cda") == 0) {
+      assert(m_default_policy == HTM::ResolutionPolicy::RequesterStalls);
       m_policy_is_req_stalls_cda = true;
-  } else {
-      m_policy_is_req_stalls_cda = false;
   }
   if (m_policy == HtmPolicyStrings::requester_stalls_cda_base_ntx ||
       m_policy == HtmPolicyStrings::requester_stalls_cda_hybrid_ntx) {
@@ -111,6 +117,7 @@ TransactionConflictManager::commitTransaction(){
     m_numRetries     = 0;
     m_powered        = false;
     m_receivedNack         = false;
+    m_abortedByNack  = false;
     clearPossibleCycle();
 
   }
@@ -122,6 +129,7 @@ TransactionConflictManager::restartTransaction(){
   clearPossibleCycle();
   m_sentNack         = false;
   m_receivedNack = false;
+  m_abortedByNack  = false;
   m_doomed = false;
   m_powered = false;
 }
@@ -152,6 +160,11 @@ TransactionConflictManager::nackReceived(){
 }
 
 bool
+TransactionConflictManager::abortedByNack(){
+  return m_abortedByNack;
+}
+
+bool
 TransactionConflictManager::doomed(){
   return m_doomed;
 }
@@ -174,19 +187,26 @@ TransactionConflictManager::getTimestamp(){
 
 bool
 TransactionConflictManager::isRequesterStallsPolicy(){
-    return m_policy_is_req_stalls_cda;
+    assert(m_default_policy != HTM::ResolutionPolicy::Undefined);
+    return m_default_policy == HTM::ResolutionPolicy::RequesterStalls;
 }
 
 bool
 TransactionConflictManager::isReqLosesPolicy(){
-  string conflict_res_policy(m_policy);
-  return conflict_res_policy == HtmPolicyStrings::requester_loses;
+    assert(m_default_policy != HTM::ResolutionPolicy::Undefined) ;
+    return m_default_policy == HTM::ResolutionPolicy::RequesterLoses;
+}
+
+bool
+TransactionConflictManager::isReqWinsPolicy(){
+    assert(m_default_policy != HTM::ResolutionPolicy::Undefined) ;
+    return m_default_policy == HTM::ResolutionPolicy::RequesterWins;
 }
 
 bool
 TransactionConflictManager::isPowerTMPolicy(){
-  string conflict_res_policy(m_policy);
-  return conflict_res_policy == HtmPolicyStrings::power_tm;
+    return (m_policy == HtmPolicyStrings::power_tm ||
+            m_policy == HtmPolicyStrings::woper_tm);
 }
 
 bool
@@ -247,7 +267,7 @@ TransactionConflictManager::shouldNackLoad(Addr addr,
       DPRINTF(RubyHTM, "Conflict detected by shouldNackLoad,"
               " requestor=%d addr %#lx (%s)\n",
               machineIDToNodeID(remote_id), addr,
-              remote_trans ? "trans" : "non-trans");
+              TransactionBit_to_string(remote_trans));
       if (m_xact_mgr->isUnrollingLog()) {
           assert(!m_xact_mgr->config_lazyVM()); // LogTM
           shouldNack = true;
@@ -255,13 +275,17 @@ TransactionConflictManager::shouldNackLoad(Addr addr,
       } else if (m_xact_mgr->isDoomed()) {
           shouldNack = false;
 #endif
-      } else if (isReqLosesPolicy()) {
-          shouldNack = true;
-          assert (remote_trans != TransactionBit_NonTrans);
       } else if (m_powered) {
-          shouldNack = (remote_trans == TransactionBit_Trans);
+          // Power transactions cannot nack non-transactional code
+          shouldNack = isTransactionalRequest(remote_trans);
+          // If this tx is power, remote cannot be
+          assert(remote_trans != TransactionBit_PowerTrans);
+      } else if (isReqLosesPolicy()) {
+              // Base woper and RL
+          shouldNack = (isTransactionalRequest(remote_trans) &&
+                        remote_trans != TransactionBit_PowerTrans);
       } else if (m_policy_is_req_stalls_cda) {
-          if (!remote_trans &&
+          if (!isTransactionalRequest(remote_trans) &&
               !m_policy_nack_non_transactional) {
               if (!m_xact_mgr->config_lazyVM()) { // LogTM
                   shouldNack = true; // Nack until old value restored
@@ -292,6 +316,7 @@ TransactionConflictManager::shouldNackLoad(Addr addr,
           assert(conflict_res_policy ==
                  HtmPolicyStrings::requester_wins ||
                  (isPowerTMPolicy() && !m_powered) ||
+                 (isReqLosesPolicy() && remote_trans == TransactionBit_PowerTrans) ||
                  (!m_xact_mgr->config_eagerCD() &&
                   !m_xact_mgr->getXactLazyCommitArbiter()->validated()));
           DPRINTF(RubyHTM, "Conflict (%s):  Local writer"
@@ -313,6 +338,7 @@ TransactionConflictManager::shouldNackLoad(Addr addr,
       if (!shouldNack) {
           assert(!m_policy_is_req_stalls_cda ||
                  !isReqLosesPolicy() ||
+                 (isReqLosesPolicy() && remote_trans == TransactionBit_PowerTrans) ||
                  !(isPowerTMPolicy() && m_powered) ||
                  (!hasHighestPriority() ||
                   remoteNonTransWins ||
@@ -369,7 +395,7 @@ TransactionConflictManager::shouldNackStore(Addr addr,
       DPRINTF(RubyHTM, "Conflict detected by shouldNackStore,"
               " requestor=%d addr %#lx (%s)\n",
               machineIDToNodeID(remote_id), addr,
-              remote_trans ? "trans" : "non-trans");
+              TransactionBit_to_string(remote_trans));
 
       if (m_xact_mgr->isUnrollingLog()) {
           assert(!m_xact_mgr->config_lazyVM()); // LogTM
@@ -378,13 +404,17 @@ TransactionConflictManager::shouldNackStore(Addr addr,
       } else if (m_xact_mgr->isDoomed()) {
           shouldNack = false;
 #endif
-      } else if (isReqLosesPolicy()) {
-          shouldNack = true;
-          assert (remote_trans != TransactionBit_NonTrans);
       } else if (m_powered) {
-          shouldNack = (remote_trans == TransactionBit_Trans);
+          // Power transactions cannot nack non-transactional code
+          shouldNack = isTransactionalRequest(remote_trans);
+          // If this tx is power, remote cannot be
+          assert(remote_trans != TransactionBit_PowerTrans);
+      } else if (isReqLosesPolicy()) {
+              // Base woper and RL
+              shouldNack = (isTransactionalRequest(remote_trans) &&
+                        remote_trans != TransactionBit_PowerTrans);
       } else if (m_policy_is_req_stalls_cda) {
-          if (!remote_trans &&
+          if (!isTransactionalRequest(remote_trans) &&
               !m_policy_nack_non_transactional) {
               if (!m_xact_mgr->config_lazyVM() && // LogTM
                   local_is_writer) {
@@ -426,6 +456,7 @@ TransactionConflictManager::shouldNackStore(Addr addr,
           assert(conflict_res_policy ==
                  HtmPolicyStrings::requester_wins ||
                  (isPowerTMPolicy() && !m_powered) ||
+                 (isReqLosesPolicy() && remote_trans == TransactionBit_PowerTrans) ||
                  (!m_xact_mgr->config_eagerCD() &&
                   !m_xact_mgr->getXactLazyCommitArbiter()->validated()));
 
@@ -449,6 +480,7 @@ TransactionConflictManager::shouldNackStore(Addr addr,
       if (!shouldNack) {
           assert(!m_policy_is_req_stalls_cda ||
                  !isReqLosesPolicy() ||
+                 (isReqLosesPolicy() && remote_trans == TransactionBit_PowerTrans) ||
                  !(isPowerTMPolicy() && m_powered) ||
                  (!hasHighestPriority() ||
                   localIsYoungerReader ||
@@ -505,6 +537,9 @@ TransactionConflictManager::notifyReceiveNack(Addr addr,
     Cycles local_timestamp = getTimestamp();
     string conflict_res_policy(XACT_CONFLICT_RES);
 
+    m_receivedNack = true;
+    bool wasAborting = m_xact_mgr->isAborting();
+
     if (m_policy_is_req_stalls_cda) {
         if (possibleCycle() &&
             isRemoteOlder(local_timestamp,
@@ -515,7 +550,8 @@ TransactionConflictManager::notifyReceiveNack(Addr addr,
                 return;
             }
             m_xact_mgr->setAbortFlag(m_sentNackAddr,
-                                     remote_id);
+                                     remote_id,
+                                     remote_trans);
             DPRINTF(RubyHTM,"HTM: PROC %d notifyReceiveNack "
                     "found possible cycle set after conflict "
                     "with PROC %d for address %#x, aborting "
@@ -540,14 +576,19 @@ TransactionConflictManager::notifyReceiveNack(Addr addr,
           isPowerTMPolicy()) {
       // Whenever a nack is received, abort always.
       // Set abort flag will only notify cpu once. That's neat!
-      m_xact_mgr->setAbortFlag(addr,remote_id);
+      m_xact_mgr->setAbortFlag(addr, remote_id,
+                               remote_trans);
       DPRINTF(RubyHTM,"HTM: PROC %d notifyReceiveNack "
               "Received Nack from PROC %d (remote=%s), addr %#x "
               "aborting local transaction.\n",
               getProcID(), machineIDToNodeID(remote_id),
               remote_trans, addr);
     }
+    if (!wasAborting && m_xact_mgr->isAborting()) {
+        m_abortedByNack = true;
+    }
 }
+
 
 bool
 TransactionConflictManager::hasHighestPriority()

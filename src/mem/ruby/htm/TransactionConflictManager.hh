@@ -45,6 +45,8 @@ public:
   void setPossibleCycle();
   void clearPossibleCycle();
   bool nackReceived();
+  bool abortedByNack();
+
   bool doomed();
   void setDoomed();
 
@@ -59,7 +61,9 @@ public:
   Cycles getOldestTimestamp();
   bool isRequesterStallsPolicy();
   bool isReqLosesPolicy();
+  bool isReqWinsPolicy();
   bool isPowerTMPolicy();
+  bool isWoperTMPolicy();
   bool isPowered();
 
   Addr getNackedPossibleCycleAddr() {
@@ -86,14 +90,17 @@ private:
   bool   m_lock_timestamp;
   int    m_numRetries;
   bool   m_receivedNack;
+  bool   m_abortedByNack;
   bool   m_sentNack;
   Addr   m_sentNackAddr;
   bool   m_doomed;
   bool   m_powered;
-  std::string    m_policy;
-  std::string    m_lazy_validated_policy;
+  HTM::ResolutionPolicy  m_default_policy;
+  std::string  m_policy;
+  std::string  m_lazy_validated_policy;
   bool m_policy_is_req_stalls_cda;
   bool m_policy_nack_non_transactional;
+  bool m_policy_power;
 };
 
 } // namespace ruby

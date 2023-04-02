@@ -48,7 +48,8 @@ namespace gem5
 
 const std::string HtmPolicyStrings::requester_wins = "requester_wins";
 const std::string HtmPolicyStrings::requester_loses = "requester_loses";
-const std::string HtmPolicyStrings::power_tm = "power_tm";
+const std::string HtmPolicyStrings::power_tm = "requester_wins_power";
+const std::string HtmPolicyStrings::woper_tm = "requester_loses_power";
 const std::string HtmPolicyStrings::committer_wins = "committer_wins";
 const std::string HtmPolicyStrings::requester_stalls = "requester_stalls";
 const std::string HtmPolicyStrings::magic = "magic";
@@ -232,6 +233,20 @@ int HTM::getTokenOwner()
 int HTM::getNumTokenRequests()
 {
  return m_commitTokenRequestList.size();
+}
+
+HTM::ResolutionPolicy
+HTM::getResolutionPolicy() {
+    std::string policy = _params.conflict_resolution;
+    if (policy.rfind("requester_wins", 0) == 0) {
+        return ResolutionPolicy::RequesterWins;
+    } else if (policy.rfind("requester_loses", 0) == 0) {
+        return ResolutionPolicy::RequesterLoses;
+    } else if (policy.rfind("requester_stalls", 0) == 0) {
+        return ResolutionPolicy::RequesterStalls;
+    } else {
+        return ResolutionPolicy::Undefined;
+    }
 }
 
 } // namespace gem5

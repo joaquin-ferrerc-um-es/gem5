@@ -7,7 +7,7 @@ import templates
 
 configs_set(templates.base)
 configs_update(templates.cache_baseline) 
-configs_vary({cpu_model: "DerivO3CPU"},
+configs_vary(#{cpu_model: "DerivO3CPU"},
              {cpu_model: "TimingSimpleCPU"},
 )
 
@@ -18,17 +18,20 @@ configs_vary(
 )
 
 configs_vary(
-    { htm_binary_suffix: '.htm.fallbacklock', htm_conflict_resolution: "requester_wins"},
-    { htm_binary_suffix: '.htm.powertm', htm_conflict_resolution: "power_tm",  htm_max_retries: 2},
-    { htm_binary_suffix: '.htm.powertmplus', htm_conflict_resolution: "power_tm",  htm_max_retries: 2},
+    { htm_binary_suffix: '.htm.fallbacklock', htm_conflict_resolution: "requester_wins",  htm_max_retries: 4},
+    { htm_binary_suffix: '.htm.powertm', htm_conflict_resolution: "requester_wins_power",  htm_max_retries: 2},
+    { htm_binary_suffix: '.htm.fallbacklock', htm_conflict_resolution: "requester_loses",  htm_max_retries: 4},
+    { htm_binary_suffix: '.htm.powertm', htm_conflict_resolution: "requester_loses_power",  htm_max_retries: 2},
+#    { htm_binary_suffix: '.htm.powertmplus', htm_conflict_resolution: "requester_wins_power",  htm_max_retries: 2},
 
 )
 
 configs_update({
     build_type: "opt", # Set binary_type (the dafult comes from tasks-gem5 and may include several values using Vary)
     htm_visualizer: True,
+    htm_backoff: True,
     htm_isolation_checker: True,
-    htm_precise_read_set_tracking: False,
+    htm_precise_read_set_tracking: True,
 
     #htm_l0_downgrade_on_l1_gets: True, # Check why it causes a slowdown in some cases (intruder-nfs)
 
@@ -36,17 +39,19 @@ configs_update({
 
     disable_transparent_hugepages: True,
 
-    benchmark: Vary(*(get_benchmarks(suite = "stamp", size = "medium",
-                                     name = ["vacation-h",
-                                             "kmeans-h",
-                                             "intruder-qs",
+    benchmark: Vary(*(get_benchmarks(suite = "stamp", size = "small",
+                                     name = [#"vacation-h",
+                                             #"kmeans-h",
+                                             #"kmeans-qs-h",
+                                             #"intruder-qs",
                                              "intruder-nfs",
+                                             #"intruder-nfs-qs",
                                              #"intruder",
-                                             "yada",
-                                             "ssca2",
+                                             #"yada",
+                                             #"ssca2",
                                      ]))),
 
-    random_seed: Vary(*range(10)),
+    random_seed: Vary(*range(1)),
 })
 
 import os

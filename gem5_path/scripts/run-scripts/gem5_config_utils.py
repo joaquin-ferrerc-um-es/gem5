@@ -34,8 +34,9 @@ def print_config(conf):
     
 option_value_abbreviations = {
     "requester_wins": "rw",
-    "power_tm": "pwr",
+    "requester_wins_power": "rwp",
     "requester_loses": "rl",
+    "requester_loses_power": "rlp",
     "magic": "mg",
     "token": "tkn",
     "committer_wins": "cw",

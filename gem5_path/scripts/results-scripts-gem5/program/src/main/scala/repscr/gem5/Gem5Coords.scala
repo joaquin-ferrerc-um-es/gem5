@@ -119,43 +119,23 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
   /* Project specific coordinates. They are present here temporarily while they may be useful when using the web UI. TODO: move to a specific file once a project is closed */
   Coord("config_cost_effective",
     s => (s("htm_binary_suffix"), s("htm_heap_prefault"),
-      s("htm_allow_read_set_l0_cache_evictions"), s("htm_allow_read_set_l1_cache_evictions"), s("htm_allow_read_set_l2_cache_evictions"),
-      s("htm_trans_aware_l0_replacements"),
+      s("htm_allow_read_set_l0_cache_evictions"), s("htm_allow_read_set_l1_cache_evictions"),
+      s("htm_precise_read_set_tracking"),
       s("htm_lazy_vm"),
       s("htm_conflict_resolution"),
-      s("htm_reload_if_stale"),
-      s("htm_eager_cd"),
-      s("htm_lazy_arbitration")) match {
-      case (".htm.sgl", _, _, _, _, _, _, _, _, _, _) => "locks"
-      case (".htm.fallbacklock", false, _, _, _, _, true, "requester_wins", _, true, _) => "base_nopf"
-      case (".htm.fallbacklock", true, false, _, _, _, true, "requester_wins", _, true, _) => "base"
-      case (".htm.powertm",      true, true,  _, _, _, true, "power_tm",       _, true, _) => "power"
-      case (".htm.powertmplus",  true, true,  _, _, _, true, "power_tm",       _, true, _) => "powerplus"
+      s("htm_reload_if_stale")) match {
 
-      case (".htm.fallbacklock", true, true, false, _, _, true, "requester_wins", _, true, _) => "l2rs"
-      case (".htm.fallbacklock", true, true, true, false, false, true, "requester_wins", _, true, _) => "l3rs"
-      case (".htm.fallbacklock", true, true, true, true, _, true, "requester_wins", _, true, _) => "lxrs"
-
-      case (".htm.fallbacklock", true, true, true, false, true, true, "requester_wins", _, true, _) => "l3rs_l1rpl"
-
-      case (".htm.fallbacklock", true, true, true, false, true, true, "requester_stalls_cda_base", false, true, _) => "l3rs_l1rpl_reqstallb"
-      case (".htm.fallbacklock", true, true, true, false, true, true, "requester_stalls_cda_hybrid", false, true, _) => "l3rs_l1rpl_reqstallh"
-
-      case (".htm.fallbacklock", true, true, true, false, true, true, "requester_stalls_cda_hybrid", true, true, _) => "l3rs_l1rpl_reqstallh_precrs"
-      case (".htm.fallbacklock", true, true, true, false, true, true, "committer_wins", false, false, "magic") => "l3rs_l1rpl_lazycd_magic"
-      case (".htm.fallbacklock", true, true, true, false, true, true, "committer_wins", false, false, "token") => "l3rs_l1rpl_lazycd"
-
-      case (".htm.fallbacklock", true, true, true, true, true, false, "requester_stalls_cda_hybrid", true, true, _) => "lxrs_l1rpl_reqstallh_precrs_log"
-      case (MissingProperty, _, _, _, _, _, _, _, _, _, _) => "NoHTM"
+      case (".htm.fallbacklock", true, true, true, _, true, "requester_wins",        _ ) => "rw"
+      case (".htm.fallbacklock", true, true, true, _, true, "requester_loses",       _ ) => "rl"
+      case (".htm.powertm",      true, true, true, _, true, "requester_wins_power",  _ ) => "power"
+      case (".htm.powertm",      true, true, true, _, true, "requester_loses_power", _ ) => "woper"
+      case (".htm.powertmplus",  true, true, true, _, true, "requester_wins_power",  _ ) => "powerplus"
+      case (MissingProperty, _, _, _, _, _, _, _) => "NoHTM"
     },
     isConfig = true,
-    ordering = dynamicOrdering("locks", "base_nopf",
-      "base", "l2rs", "l3rs", "lxrs",
-      "power", "powerplus",
-      "l3rs_l1rpl", "l3rs_l1rpl_reqstallb", "l3rs_l1rpl_reqstallh",
-      "l3rs_l1rpl_reqstallh_precrs", "l3rs_l1rpl_lazycd"
+    ordering = dynamicOrdering("rw", "rl", "power", "woper")
 
-    ))
+    )
 
 
 }

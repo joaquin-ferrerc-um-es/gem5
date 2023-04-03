@@ -83,7 +83,6 @@ TimingSimpleCPU::TimingSimpleCPU(const TimingSimpleCPUParams &p)
     if (system->getHTM()) {
         // Sanity checks for HTM - UMU model + TimingSimpleCPU
         assert(!system->getHTM()->params().reload_if_stale);
-        assert(!system->getHTM()->params().precise_read_set_tracking);
     }
 
 }
@@ -278,7 +277,24 @@ TimingSimpleCPU::handleReadPacket(PacketPtr pkt)
     if (req->isHTMCmd()) {
         assert(!req->isLocalAccess());
     }
-
+    if (system->getHTM()->params().precise_read_set_tracking &&
+        t_info.inHtmTransactionalState()) {
+        // Set pending load to detect conflicts via checkSnoop
+        if (pkt->senderState) {
+            // split load
+            SplitFragmentSenderState * send_state =
+                dynamic_cast<SplitFragmentSenderState *>(pkt->senderState);
+            assert(send_state);
+            int index = send_state->index;
+            assert(index >= 0 && index <= 1);
+            pendingTransactionalLoads[index] = (req->getPaddr() & dcachePort.cacheBlockMask);
+            panic("Split transactional loads not tested!\n");
+        }
+        else { // not split access
+            pendingTransactionalLoads[0] = (req->getPaddr() & dcachePort.cacheBlockMask);
+            pendingTransactionalLoads[1] = 0;
+        }
+    }
     // We're about the issues a locked load, so tell the monitor
     // to start caring about this address
     if (pkt->isRead() && pkt->req->isLLSC()) {
@@ -1055,6 +1071,22 @@ TimingSimpleCPU::completeDataAccess(PacketPtr pkt)
             // Transactional load
             htmSendSignal(pkt->getAddr(),
                           Request::HTM_ISOLATE);
+            if (system->getHTM()->params().precise_read_set_tracking) {
+                // After we isolate the load, clear pending trans loads
+                if (pkt->senderState) {
+                    // split load
+                    SplitFragmentSenderState * send_state =
+                        dynamic_cast<SplitFragmentSenderState *>(pkt->senderState);
+                    assert(send_state);
+                    int index = send_state->index;
+                    assert(index >= 0 && index <= 1);
+                    pendingTransactionalLoads[index] = 0;
+                }
+                else {
+                    pendingTransactionalLoads[0] = 0;
+                    pendingTransactionalLoads[1] = 0;
+                }
+            }
         }
     }
     // can't have a packet that fails a transaction while not in a transaction
@@ -1134,6 +1166,9 @@ TimingSimpleCPU::updateCycleCounts()
 void
 TimingSimpleCPU::DcachePort::recvTimingSnoopReq(PacketPtr pkt)
 {
+    if (pkt->isInvalidate()) {
+        cpu->checkSnoop(pkt);
+    }
     for (ThreadID tid = 0; tid < cpu->numThreads; tid++) {
         if (cpu->getCpuAddrMonitor(tid)->doMonitor(pkt)) {
             cpu->wakeup(tid);
@@ -1181,10 +1216,62 @@ TimingSimpleCPU::DcachePort::recvTimingResp(PacketPtr pkt)
         return false;
     }
 }
+void
+TimingSimpleCPU::checkForConflictingSnoops(PacketPtr pkt)
+{
+    if (!system->getHTM()->params().precise_read_set_tracking) return;
+    if (pkt->isHtmFailedCacheAccess()) { // Nacked access
+        panic("Nacked accesses not tested with precise read set tracking!\n");
+        if (conflictingSnoopSeen[0])
+            conflictingSnoopSeen[0] = false;
+        else if (conflictingSnoopSeen[1])
+            conflictingSnoopSeen[1] = false;
+    }
+    else {
+        // Transactional load completed via Sequencer::hitCallback,
+        // but in the meantime a conflicting snoop for this line
+        // address was seen: retry data access. Three cases:
+
+        // a) We obtained DataS_fromL1 after we saw the Inv, now we
+        // retry and hit in cache
+
+        // b) We obtained data from L2 after we saw the Inv
+        // (Data_all_Nacks), no copy was kept and conflictCallback
+        // was called (req->nackedTransactionConflict was set)
+
+        // c) (tricky race show above) We obtained data from L1/L2 and
+        // called hitCallback immediately before we saw the Inv, we
+        // invalidated the copy, now we refetch since obtained data
+        // may be stale data if writer commits (atomicity violation)
+        if (conflictingSnoopSeen[0]) {
+            if ((pkt->getAddr() & dcachePort.cacheBlockMask) == pendingTransactionalLoads[0]) {
+                conflictingSnoopSeen[0] = false;
+                DPRINTF(HtmCpu, "Conflicting snoop for trans load %#x\n", pkt->getAddr());
+            }
+            else { // This is a split load, conflicting snoop seen on the other half
+                //                assert(makeLineAddress(pkt->getAddr()) == pendingTransactionalLoads[1]);
+                DPRINTF(HtmCpu, "Conflicting snoop for other half of this split trans load %#x\n",
+                        pkt->getAddr());
+            }
+        }
+        if (conflictingSnoopSeen[1]) {
+            if ((pkt->getAddr() & dcachePort.cacheBlockMask) == pendingTransactionalLoads[1]) {
+                conflictingSnoopSeen[1] = false;
+                DPRINTF(HtmCpu, "Conflicting snoop for trans load %#x\n", pkt->getAddr());
+            }
+            else { // This is a split load, conflicting snoop seen on the other half
+                //                assert(makeLineAddress(pkt->getAddr()) == pendingTransactionalLoads[0]);
+                DPRINTF(HtmCpu, "Conflicting snoop for other half of this split trans load %#x\n",
+                        pkt->getAddr());
+            }
+        }
+    }
+}
 
 void
 TimingSimpleCPU::DcachePort::DTickEvent::process()
 {
+    cpu->checkForConflictingSnoops(pkt);
     cpu->completeDataAccess(pkt);
 }
 
@@ -1229,6 +1316,38 @@ TimingSimpleCPU::DcachePort::recvReqRetry()
         cpu->_status = DcacheWaitResponse;
         // memory system takes ownership of packet
         cpu->dcache_pkt = NULL;
+    }
+}
+
+/*
+ * There's a 1-cycle gap between the call to RubyPort::hitCallback and
+ * TimingSimpleCPU::completeDataAccess, during which an invalidation
+ * may arrive (see trace below) and miss a conflict if we don't check
+ * the forwarded invalidations (snoop interface) in the timing CPU
+ * like we do for the O3CPU.
+
+  1500  12        Seq                Done       >       [0xbf486300, line 0xbf486300] 77 cycles
+  1500  12    L1Cache       Data_all_Acks     IS>S      [0xbf486300, line 0xbf486300] 
+  1500  12    L1Cache                 Inv      S>I      [0xbf486300, line 0xbf486300] 
+*/
+
+void
+TimingSimpleCPU::checkSnoop(PacketPtr pkt)
+{
+    if (system->getHTM()->params().precise_read_set_tracking &&
+        _status == DcacheWaitResponse) {
+        Addr addr = (pkt->getAddr() & dcachePort.cacheBlockMask);
+        assert(addr);
+        if (pendingTransactionalLoads[0] == addr ||
+            pendingTransactionalLoads[1] == addr) {
+            if (pendingTransactionalLoads[0] == addr)
+                conflictingSnoopSeen[0] = true;
+            else
+                conflictingSnoopSeen[1] = true;
+
+            DPRINTF(HtmCpu, "Detected conflict on pending transactional"
+                    " load line addr %lx, retrying\n", addr);
+        }
     }
 }
 

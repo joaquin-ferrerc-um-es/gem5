@@ -116,6 +116,10 @@ BaseSimpleCPU::BaseSimpleCPU(const BaseSimpleCPUParams &p)
     } else {
         checker = NULL;
     }
+    pendingTransactionalLoads[0] = 0;
+    pendingTransactionalLoads[1] = 0;
+    conflictingSnoopSeen[0] = false;
+    conflictingSnoopSeen[1] = false;
 }
 
 void

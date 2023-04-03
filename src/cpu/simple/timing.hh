@@ -328,7 +328,8 @@ class TimingSimpleCPU : public BaseSimpleCPU
     Fault initiateHtmCmd(Request::Flags flags) override;
 
     void htmSendAbortSignal(HtmFailureFaultCause) override;
-
+    void checkSnoop(PacketPtr pkt);
+    void checkForConflictingSnoops(PacketPtr pkt);
   private:
 
     EventFunctionWrapper fetchEvent;

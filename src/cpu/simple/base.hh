@@ -124,7 +124,7 @@ class BaseSimpleCPU : public BaseCPU
     // HTM: detect conflicts on pending transactional loads
     Addr pendingTransactionalLoads[2];
     bool conflictingSnoopSeen[2];
-
+    bool abortedByConflitingSnoop;
     /**
      * Handler used when encountering a fault; its purpose is to
      * tear down the InstRecord. If a fault is meant to be traced,

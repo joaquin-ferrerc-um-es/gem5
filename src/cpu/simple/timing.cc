@@ -80,11 +80,6 @@ TimingSimpleCPU::TimingSimpleCPU(const TimingSimpleCPUParams &p)
       fetchEvent([this]{ fetch(); }, name())
 {
     _status = Idle;
-    if (system->getHTM()) {
-        // Sanity checks for HTM - UMU model + TimingSimpleCPU
-        assert(!system->getHTM()->params().reload_if_stale);
-    }
-
 }
 
 
@@ -1117,7 +1112,10 @@ TimingSimpleCPU::completeDataAccess(PacketPtr pkt)
         } else if (htm_rc == HtmCacheFailure::FAIL_REMOTE) {
             fault = std::make_shared<GenericHtmFailureFault>(
                 t_info->getHtmTransactionUid(),
+                abortedByConflitingSnoop ?
+                HtmFailureFaultCause::LSQ :
                 HtmFailureFaultCause::MEMORY);
+            abortedByConflitingSnoop = false;
         } else if (htm_rc == HtmCacheFailure::FAIL_REMOTE_POWER) {
             fault = std::make_shared<GenericHtmFailureFault>(
                 t_info->getHtmTransactionUid(),
@@ -1228,41 +1226,45 @@ TimingSimpleCPU::checkForConflictingSnoops(PacketPtr pkt)
             conflictingSnoopSeen[1] = false;
     }
     else {
+        Addr addr = pkt->getAddr() & dcachePort.cacheBlockMask;
         // Transactional load completed via Sequencer::hitCallback,
         // but in the meantime a conflicting snoop for this line
-        // address was seen: retry data access. Three cases:
+        // address was seen: abort
 
-        // a) We obtained DataS_fromL1 after we saw the Inv, now we
+        // a) We obtained Data after we saw the Inv: now we
         // retry and hit in cache
 
         // b) We obtained data from L2 after we saw the Inv
         // (Data_all_Nacks), no copy was kept and conflictCallback
         // was called (req->nackedTransactionConflict was set)
 
-        // c) (tricky race show above) We obtained data from L1/L2 and
+        // c) (tricky race shown above) We obtained data from L1/L2 and
         // called hitCallback immediately before we saw the Inv, we
         // invalidated the copy, now we refetch since obtained data
         // may be stale data if writer commits (atomicity violation)
-        if (conflictingSnoopSeen[0]) {
-            if ((pkt->getAddr() & dcachePort.cacheBlockMask) == pendingTransactionalLoads[0]) {
-                conflictingSnoopSeen[0] = false;
-                DPRINTF(HtmCpu, "Conflicting snoop for trans load %#x\n", pkt->getAddr());
-            }
-            else { // This is a split load, conflicting snoop seen on the other half
-                //                assert(makeLineAddress(pkt->getAddr()) == pendingTransactionalLoads[1]);
-                DPRINTF(HtmCpu, "Conflicting snoop for other half of this split trans load %#x\n",
-                        pkt->getAddr());
-            }
-        }
-        if (conflictingSnoopSeen[1]) {
-            if ((pkt->getAddr() & dcachePort.cacheBlockMask) == pendingTransactionalLoads[1]) {
-                conflictingSnoopSeen[1] = false;
-                DPRINTF(HtmCpu, "Conflicting snoop for trans load %#x\n", pkt->getAddr());
-            }
-            else { // This is a split load, conflicting snoop seen on the other half
-                //                assert(makeLineAddress(pkt->getAddr()) == pendingTransactionalLoads[0]);
-                DPRINTF(HtmCpu, "Conflicting snoop for other half of this split trans load %#x\n",
-                        pkt->getAddr());
+        for(int i=0; i < 2 ; ++i) {
+            int other = (i == 0) ? 1 : 0;
+            if (conflictingSnoopSeen[i]) {
+                if (addr == pendingTransactionalLoads[i]) {
+                    if (pkt->htmTransactionFailedInCache()) {
+                        // Saw Inv, then got Data_Stale
+                        DPRINTF(HtmCpu, "Conflicting snoop for"
+                                " pending transactional load %#x,"
+                                " got Data_Stale, aborting \n", addr);
+                    } else {
+                        pkt->setHtmTransactionFailedInCache(HtmCacheFailure::FAIL_REMOTE);
+                        abortedByConflitingSnoop = true; // Will set abort cause to LSQ
+                        DPRINTF(HtmCpu, "Conflicting snoop for "
+                                "pending transactional load %#x,"
+                                " got Data, will abort\n", addr);
+                    }
+                    conflictingSnoopSeen[i] = false;
+                }
+                else { // This is a split load, conflicting snoop seen on the other half
+                    assert(addr == pendingTransactionalLoads[other]);
+                    DPRINTF(HtmCpu, "Conflicting snoop for other half of this split trans load %#x\n",
+                            addr);
+                }
             }
         }
     }
@@ -1346,7 +1348,7 @@ TimingSimpleCPU::checkSnoop(PacketPtr pkt)
                 conflictingSnoopSeen[1] = true;
 
             DPRINTF(HtmCpu, "Detected conflict on pending transactional"
-                    " load line addr %lx, retrying\n", addr);
+                    " load line addr %lx\n", addr);
         }
     }
 }

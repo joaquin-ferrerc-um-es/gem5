@@ -761,8 +761,17 @@ profileHtmFailureFaultCause(HtmFailureFaultCause cause)
                     htmFailureToStr(preciseFaultCause));
         }
         break;
-    case HTMStats::AbortCause::FallbackLock:
     case HTMStats::AbortCause::ConflictStale:
+        if (m_htm->params().precise_read_set_tracking) {
+            // Can get data stale for addr not yet in Rset
+        } else {
+            assert(checkReadSignature(m_abortAddress));
+        }
+        assert(cause == HtmFailureFaultCause::MEMORY ||
+               cause == HtmFailureFaultCause::MEMORY_POWER);
+        preciseFaultCause = HtmFailureFaultCause::MEMORY_STALEDATA;
+        break;
+    case HTMStats::AbortCause::FallbackLock:
     case HTMStats::AbortCause::ConflictPower:
     case HTMStats::AbortCause::Conflict:
         // Conflict

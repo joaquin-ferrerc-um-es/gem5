@@ -18,10 +18,12 @@ configs_vary(
 )
 
 configs_vary(
-    { htm_binary_suffix: '.htm.fallbacklock', htm_conflict_resolution: "requester_wins",  htm_max_retries: 4},
-    { htm_binary_suffix: '.htm.powertm', htm_conflict_resolution: "requester_wins_power",  htm_max_retries: 2},
-    { htm_binary_suffix: '.htm.fallbacklock', htm_conflict_resolution: "requester_loses",  htm_max_retries: 4},
-    { htm_binary_suffix: '.htm.powertm', htm_conflict_resolution: "requester_loses_power",  htm_max_retries: 2},
+    { htm_binary_suffix: '.htm.fallbacklock', htm_conflict_resolution: "requester_wins",  htm_max_retries: 4,  htm_precise_read_set_tracking: True},
+    { htm_binary_suffix: '.htm.fallbacklock', htm_conflict_resolution: "requester_loses",  htm_max_retries: 4, htm_precise_read_set_tracking: True},
+    { htm_binary_suffix: '.htm.fallbacklock', htm_conflict_resolution: "requester_wins",  htm_max_retries: 4,  htm_precise_read_set_tracking: False},
+    { htm_binary_suffix: '.htm.fallbacklock', htm_conflict_resolution: "requester_loses",  htm_max_retries: 4, htm_precise_read_set_tracking: False},
+#    { htm_binary_suffix: '.htm.powertm', htm_conflict_resolution: "requester_wins_power",  htm_max_retries: 2},
+#    { htm_binary_suffix: '.htm.powertm', htm_conflict_resolution: "requester_loses_power",  htm_max_retries: 2},
 #    { htm_binary_suffix: '.htm.powertmplus', htm_conflict_resolution: "requester_wins_power",  htm_max_retries: 2},
 
 )
@@ -31,9 +33,8 @@ configs_update({
     htm_visualizer: True,
     htm_backoff: True,
     htm_isolation_checker: True,
-    htm_precise_read_set_tracking: True,
-
-    #htm_l0_downgrade_on_l1_gets: True, # Check why it causes a slowdown in some cases (intruder-nfs)
+    #htm_precise_read_set_tracking: True,
+    htm_l0_downgrade_on_l1_gets: True, # Currently required by precise read set tracking
 
     exit_at_roi_end: True,
 

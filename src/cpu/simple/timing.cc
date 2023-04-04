@@ -1218,53 +1218,54 @@ void
 TimingSimpleCPU::checkForConflictingSnoops(PacketPtr pkt)
 {
     if (!system->getHTM()->params().precise_read_set_tracking) return;
-    if (pkt->isHtmFailedCacheAccess()) { // Nacked access
-        panic("Nacked accesses not tested with precise read set tracking!\n");
-        if (conflictingSnoopSeen[0])
-            conflictingSnoopSeen[0] = false;
-        else if (conflictingSnoopSeen[1])
-            conflictingSnoopSeen[1] = false;
-    }
-    else {
-        Addr addr = pkt->getAddr() & dcachePort.cacheBlockMask;
-        // Transactional load completed via Sequencer::hitCallback,
-        // but in the meantime a conflicting snoop for this line
-        // address was seen: abort
+    Addr addr = pkt->getAddr() & dcachePort.cacheBlockMask;
+    // Transactional load completed via Sequencer::hitCallback,
+    // but in the meantime a conflicting snoop for this line
+    // address was seen: abort
 
-        // a) We obtained Data after we saw the Inv: now we
-        // retry and hit in cache
+    // a) We obtained Data after we saw the Inv: now we
+    // retry and hit in cache
 
-        // b) We obtained data from L2 after we saw the Inv
-        // (Data_all_Nacks), no copy was kept and conflictCallback
-        // was called (req->nackedTransactionConflict was set)
+    // b) We obtained data from L2 after we saw the Inv
+    // (Data_all_Nacks), no copy was kept and conflictCallback
+    // was called (req->nackedTransactionConflict was set)
 
-        // c) (tricky race shown above) We obtained data from L1/L2 and
-        // called hitCallback immediately before we saw the Inv, we
-        // invalidated the copy, now we refetch since obtained data
-        // may be stale data if writer commits (atomicity violation)
-        for(int i=0; i < 2 ; ++i) {
-            int other = (i == 0) ? 1 : 0;
-            if (conflictingSnoopSeen[i]) {
-                if (addr == pendingTransactionalLoads[i]) {
-                    if (pkt->htmTransactionFailedInCache()) {
-                        // Saw Inv, then got Data_Stale
-                        DPRINTF(HtmCpu, "Conflicting snoop for"
-                                " pending transactional load %#x,"
-                                " got Data_Stale, aborting \n", addr);
-                    } else {
-                        pkt->setHtmTransactionFailedInCache(HtmCacheFailure::FAIL_REMOTE);
-                        abortedByConflitingSnoop = true; // Will set abort cause to LSQ
-                        DPRINTF(HtmCpu, "Conflicting snoop for "
-                                "pending transactional load %#x,"
-                                " got Data, will abort\n", addr);
+    // c) (tricky race shown above) We obtained data from L1/L2 and
+    // called hitCallback immediately before we saw the Inv, we
+    // invalidated the copy, now we refetch since obtained data
+    // may be stale data if writer commits (atomicity violation)
+    for(int i=0; i < 2 ; ++i) {
+        int other = (i == 0) ? 1 : 0;
+        if (conflictingSnoopSeen[i]) {
+            if (addr == pendingTransactionalLoads[i]) {
+                if (pkt->isHtmFailedCacheAccess()) { // Nacked access
+                    // Abort flag already set by Ruby
+                    if (!pkt->htmTransactionFailedInCache()) {
+                        // Requester stalls not yet implemented
+                        panic("Retrying nacked accesses not implemented!\n");
                     }
-                    conflictingSnoopSeen[i] = false;
+                    DPRINTF(HtmCpu, "Conflicting snoop for"
+                            " pending transactional load %#x,"
+                            " got Nack, aborting \n", addr);
+                } else if (pkt->htmTransactionFailedInCache()) {
+                    // Saw Inv, then got Data_Stale
+                    DPRINTF(HtmCpu, "Conflicting snoop for"
+                            " pending transactional load %#x,"
+                            " got Data_Stale, aborting \n", addr);
+
+                } else {
+                    pkt->setHtmTransactionFailedInCache(HtmCacheFailure::FAIL_REMOTE);
+                    abortedByConflitingSnoop = true; // Will set abort cause to LSQ
+                    DPRINTF(HtmCpu, "Conflicting snoop for "
+                            "pending transactional load %#x,"
+                            " got Data, will abort\n", addr);
                 }
-                else { // This is a split load, conflicting snoop seen on the other half
-                    assert(addr == pendingTransactionalLoads[other]);
-                    DPRINTF(HtmCpu, "Conflicting snoop for other half of this split trans load %#x\n",
-                            addr);
-                }
+                conflictingSnoopSeen[i] = false;
+            }
+            else { // This is a split load, conflicting snoop seen on the other half
+                assert(addr == pendingTransactionalLoads[other]);
+                DPRINTF(HtmCpu, "Conflicting snoop for other half of this split trans load %#x\n",
+                        addr);
             }
         }
     }

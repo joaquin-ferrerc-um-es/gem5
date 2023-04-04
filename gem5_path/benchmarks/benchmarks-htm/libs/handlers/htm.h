@@ -91,6 +91,7 @@
 #define htm_abort_undo_log(status) (status & _XABORT_UNDO_LOG)
 
 #define htm_commit(arg) ({                              \
+            uint64_t ret;                                       \
             __asm__ volatile ("mov %0,%%rdi\n\t"        \
                               "xend\n\t"                \
                               "mov %%rax, %0\n\t"               \

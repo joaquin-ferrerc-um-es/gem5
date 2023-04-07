@@ -283,7 +283,6 @@ TimingSimpleCPU::handleReadPacket(PacketPtr pkt)
             int index = send_state->index;
             assert(index >= 0 && index <= 1);
             pendingTransactionalLoads[index] = (req->getPaddr() & dcachePort.cacheBlockMask);
-            panic("Split transactional loads not tested!\n");
         }
         else { // not split access
             pendingTransactionalLoads[0] = (req->getPaddr() & dcachePort.cacheBlockMask);
@@ -1068,26 +1067,20 @@ TimingSimpleCPU::completeDataAccess(PacketPtr pkt)
                           Request::HTM_ISOLATE);
             if (system->getHTM()->params().precise_read_set_tracking) {
                 // After we isolate the load, clear pending trans loads
-                if (pkt->senderState) {
-                    // split load
-                    SplitFragmentSenderState * send_state =
-                        dynamic_cast<SplitFragmentSenderState *>(pkt->senderState);
-                    assert(send_state);
-                    int index = send_state->index;
-                    assert(index >= 0 && index <= 1);
-                    pendingTransactionalLoads[index] = 0;
-                }
-                else {
-                    pendingTransactionalLoads[0] = 0;
-                    pendingTransactionalLoads[1] = 0;
-                }
+                assert(!pkt->senderState);
+                pendingTransactionalLoads[0] = 0;
+                pendingTransactionalLoads[1] = 0;
+                // Reset this, if conflict seen, this pkt was already
+                // marked via setHtmTransactionFailedInCache
+                conflictingSnoopSeen[0] = false;
+                conflictingSnoopSeen[1] = false;
             }
         }
     }
     // can't have a packet that fails a transaction while not in a transaction
-    if (pkt->htmTransactionFailedInCache())
+    if (pkt->htmTransactionFailedInCache()) {
         assert(is_htm_speculative);
-
+    }
     // shouldn't fail through stores because this would be inconsistent w/ O3
     // which cannot fault after the store has been sent to memory
     if (pkt->htmTransactionFailedInCache() &&
@@ -1238,27 +1231,23 @@ TimingSimpleCPU::checkForConflictingSnoops(PacketPtr pkt)
         int other = (i == 0) ? 1 : 0;
         if (conflictingSnoopSeen[i]) {
             if (addr == pendingTransactionalLoads[i]) {
-                if (pkt->isHtmFailedCacheAccess()) { // Nacked access
-                    // Abort flag already set by Ruby
-                    if (!pkt->htmTransactionFailedInCache()) {
-                        // Requester stalls not yet implemented
-                        panic("Retrying nacked accesses not implemented!\n");
-                    }
-                    DPRINTF(HtmCpu, "Conflicting snoop for"
-                            " pending transactional load %#x,"
-                            " got Nack, aborting \n", addr);
-                } else if (pkt->htmTransactionFailedInCache()) {
-                    // Saw Inv, then got Data_Stale
-                    DPRINTF(HtmCpu, "Conflicting snoop for"
-                            " pending transactional load %#x,"
-                            " got Data_Stale, aborting \n", addr);
-
-                } else {
-                    pkt->setHtmTransactionFailedInCache(HtmCacheFailure::FAIL_REMOTE);
+                assert(!pkt->isHtmFailedCacheAccess()); // Nacked access
+                PacketPtr p = pkt;
+                if (pkt->senderState) {
+                    SplitFragmentSenderState * send_state =
+                        dynamic_cast<SplitFragmentSenderState *>(pkt->senderState);
+                    assert(send_state);
+                    p = send_state->bigPkt;
+                }
+                DPRINTF(HtmCpu, "Conflicting snoop seen for "
+                        "pending %stransactional load %#x,"
+                        " %s\n",
+                        pkt->senderState ? "split " :"",
+                        addr, pkt->htmTransactionFailedInCache() ?
+                        "already failed in cache" : "aborting");
+                if (!pkt->htmTransactionFailedInCache()) {
+                    p->setHtmTransactionFailedInCache(HtmCacheFailure::FAIL_REMOTE);
                     abortedByConflitingSnoop = true; // Will set abort cause to LSQ
-                    DPRINTF(HtmCpu, "Conflicting snoop for "
-                            "pending transactional load %#x,"
-                            " got Data, will abort\n", addr);
                 }
                 conflictingSnoopSeen[i] = false;
             }

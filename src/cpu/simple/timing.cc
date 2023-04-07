@@ -1231,7 +1231,6 @@ TimingSimpleCPU::checkForConflictingSnoops(PacketPtr pkt)
         int other = (i == 0) ? 1 : 0;
         if (conflictingSnoopSeen[i]) {
             if (addr == pendingTransactionalLoads[i]) {
-                assert(!pkt->isHtmFailedCacheAccess()); // Nacked access
                 PacketPtr p = pkt;
                 if (pkt->senderState) {
                     SplitFragmentSenderState * send_state =
@@ -1248,6 +1247,7 @@ TimingSimpleCPU::checkForConflictingSnoops(PacketPtr pkt)
                 if (!pkt->htmTransactionFailedInCache()) {
                     p->setHtmTransactionFailedInCache(HtmCacheFailure::FAIL_REMOTE);
                     abortedByConflitingSnoop = true; // Will set abort cause to LSQ
+                } else {
                 }
                 conflictingSnoopSeen[i] = false;
             }

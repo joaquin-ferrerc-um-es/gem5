@@ -1054,10 +1054,6 @@ TimingSimpleCPU::completeDataAccess(PacketPtr pkt)
         if (pkt->isHtmFailedCacheAccess()) { // Nacked access
             // Always abort. TODO: retry (req-stalls)
             assert(pkt->htmTransactionFailedInCache());
-            assert((pkt->getHtmTransactionFailedInCacheRC() ==
-                   HtmCacheFailure::FAIL_REMOTE) ||
-                   (pkt->getHtmTransactionFailedInCacheRC() ==
-                    HtmCacheFailure::FAIL_REMOTE_POWER));
         }
 
         if (!pkt->req->isHTMCmd() &&

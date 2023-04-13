@@ -1,16 +1,16 @@
 #include "m5iface.h"
 
 #if ! defined(ENABLE_M5OPS)
-void simInit() {}
-void simBeginRegionOfInterest() {}
-void simEndRegionOfInterest() {}
+void simInit(void) {}
+void simBeginRegionOfInterest(void) {}
+void simEndRegionOfInterest(void) {}
 void simSetLogBase(void *ptr) {}
-void simWorkBegin() {}
-void simWorkEnd() {}
-void simBarrierBegin() {}
-void simBarrierEnd() {}
-void simBackoffBegin() {}
-void simBackoffEnd() {}
+void simWorkBegin(void) {}
+void simWorkEnd(void) {}
+void simBarrierBegin(void) {}
+void simBarrierEnd(void {}
+void simBackoffBegin(void) {}
+void simBackoffEnd(void) {}
 void simCodeRegionBegin(unsigned long int codeRegionId) {}
 void simCodeRegionEnd(unsigned long int codeRegionId) {}
 
@@ -75,7 +75,7 @@ bool simInSimulator(void) {
 }
 
 void
-simInit()
+simInit(void)
 {
   bool set = parseBoolEnv(ENV_VAR_IN_SIMULATOR, &inSimulator);
   if (!set) {
@@ -103,7 +103,7 @@ simInit()
 #endif
 }
 
-void simBeginRegionOfInterest() {
+void simBeginRegionOfInterest(void) {
     // IMPORTANT NOTICE (support for fast-forward using KVM): See
     // $(GEM5_ROOT)/src/sim/System.py for documentation. Basically, we
     // need to ensure that we checkpoint the state of the guest
@@ -129,15 +129,15 @@ void simBeginRegionOfInterest() {
     m5_reset_stats(0,0);
 }
 
-void simEndRegionOfInterest() {
+void simEndRegionOfInterest(void) {
     m5_work_end(0,0);
     m5_dump_stats(0,0);
 }
 
-void simWorkBegin() {
+void simWorkBegin(void) {
     m5_work_begin(0,0);
 }
-void simWorkEnd() {
+void simWorkEnd(void) {
     m5_work_end(0,0);
 }
 
@@ -175,23 +175,23 @@ void simCodeRegionEnd(unsigned long int codeRegionId)
            M5_SUM_HACK_TYPE_REGION_END, codeRegionId);
 }
 
-void simBarrierBegin()
+void simBarrierBegin(void)
 {
     m5_sum(M5_SUM_HACK_ARGS,
            M5_SUM_HACK_TYPE_REGION_BEGIN, AnnotatedRegion_BARRIER);
 }
-void simBarrierEnd()
+void simBarrierEnd(void)
 {
     m5_sum(M5_SUM_HACK_ARGS,
            M5_SUM_HACK_TYPE_REGION_END, AnnotatedRegion_BARRIER);
 }
 
-void simBackoffBegin()
+void simBackoffBegin(void)
 {
     m5_sum(M5_SUM_HACK_ARGS,
            M5_SUM_HACK_TYPE_REGION_BEGIN, AnnotatedRegion_BACKOFF);
 }
-void simBackoffEnd()
+void simBackoffEnd(void)
 {
     m5_sum(M5_SUM_HACK_ARGS,
            M5_SUM_HACK_TYPE_REGION_END, AnnotatedRegion_BACKOFF);
@@ -203,8 +203,8 @@ void simBackoffEnd()
 void annotateCodeRegionBegin(unsigned long int codeRegionId) {}
 void annotateCodeRegionEnd(unsigned long int codeRegionId) {}
 
-void annotateBarrierRegionBegin() {}
-void annotateBarrierRegionEnd() {}
+void annotateBarrierRegionBegin(void) {}
+void annotateBarrierRegionEnd(void) {}
 
 #endif // # defined(ANNOTATE_CODE_REGIONS)
 

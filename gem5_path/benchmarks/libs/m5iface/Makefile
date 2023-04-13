@@ -1,4 +1,5 @@
 # gem5 hooks library
+
 GEM5_ROOT = ../../../..
 
 ifndef ARCH
@@ -21,8 +22,6 @@ AR := $(GCC_PREFIX)ar
 LD := $(GCC_PREFIX)gcc
 
 $(info CC is $(shell which $(CC)))
-
-GEM5_ROOT=../../../..
 
 CFLAGS += -I$(GEM5_ROOT)/include
 

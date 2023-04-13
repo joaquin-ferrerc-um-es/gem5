@@ -9,17 +9,17 @@ extern "C" {
   
 #define ENV_VAR_IN_SIMULATOR "M5_SIMULATOR"
 
-void simInit();
+void simInit(void);
 bool simInSimulator(void);
-void simBeginRegionOfInterest();
-void simEndRegionOfInterest();
+void simBeginRegionOfInterest(void);
+void simEndRegionOfInterest(void);
 void simSetLogBase(void *ptr);
-void simWorkBegin();
-void simWorkEnd();
-void simBarrierBegin();
-void simBarrierEnd();
-void simBackoffBegin();
-void simBackoffEnd();
+void simWorkBegin(void);
+void simWorkEnd(void);
+void simBarrierBegin(void);
+void simBarrierEnd(void);
+void simBackoffBegin(void);
+void simBackoffEnd(void);
 void simCodeRegionBegin(unsigned long int codeRegionId);
 void simCodeRegionEnd(unsigned long int codeRegionId);
 void simDumpValueToHostFileSystem(long value, const char *out_filename);

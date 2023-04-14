@@ -142,19 +142,9 @@ void simWorkEnd(void) {
 }
 
 
-void walk_log(unsigned long *log) {
-  // TODO
-  assert(false);
-}
-
-void simSetLogBase(void *logptr) {
-    if (m5_sum(M5_SUM_HACK_ARGS, M5_SUM_HACK_TYPE_LOGTM_SETUP_LOG,
-               (unsigned long int )logptr) == 0) {
-        // simulator returns 0 if v2p translation table already set
-        // up. Otherwise, walk the log, simulator will intercept
-        // accesses and fill log v2p translation table
-        walk_log(logptr);
-    }
+bool simSetLogBase(void *logptr) {
+    return m5_sum(M5_SUM_HACK_ARGS, M5_SUM_HACK_TYPE_LOGTM_SETUP_LOG,
+                  (unsigned long int )logptr) == 0;
 }
 
 #if defined(ANNOTATE_CODE_REGIONS)

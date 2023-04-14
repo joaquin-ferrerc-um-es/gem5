@@ -1,12 +1,25 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdatomic.h>
 #include <string.h>
 
 #include "thread_context.h"
 #include "logtm.h"
 
-extern int inSimulator();
+// global array of thread contexts
+_tm_thread_context_t     *thread_contexts       = NULL;
+
+static _tm_thread_context_t *nextThreadContext = NULL;
+__thread _tm_thread_context_t *thread_context = NULL;
+
+_tm_thread_context_t * getUnusedThreadContext(void) {
+  const size_t offset = ((size_t) &nextThreadContext[1]) - ((size_t) &nextThreadContext[0]);
+  _tm_thread_context_t * ret = atomic_fetch_add((size_t*) &nextThreadContext, offset);
+  assert(ret != NULL);
+  assert(ret == &thread_contexts[ret->info.threadId]);
+  return ret;
+}
 
 _tm_thread_context_t * initThreadContexts(int numThreads, int inSimulator)
 {
@@ -15,8 +28,7 @@ _tm_thread_context_t * initThreadContexts(int numThreads, int inSimulator)
     assert(ptr != NULL);
     _tm_thread_context_t *thread_contexts = (_tm_thread_context_t *)ptr;
     assert(sizeof(_tm_thread_context_t) == 2*CACHE_LINE_SIZE_BYTES);
-    int i;
-    for (i = 0; i < numThreads; i++)  {
+    for (int i = 0; i < numThreads; i++)  {
         thread_contexts[i].info.threadId = i;
         thread_contexts[i].info.numThreads = numThreads;
         thread_contexts[i].info.inSimulator = inSimulator;
@@ -25,6 +37,7 @@ _tm_thread_context_t * initThreadContexts(int numThreads, int inSimulator)
     }
     init_log(thread_contexts);
     init_random_gen(thread_contexts);
+    nextThreadContext = &thread_contexts[0];
     return thread_contexts;
 }
 
@@ -43,3 +56,5 @@ void printThreadContexts(_tm_thread_context_t *thread_contexts)
     fprintf(stderr, "Total non-speculative executions: %lu\n",
             totals.info.nonSpecExecutions);
 }
+
+

@@ -37,4 +37,17 @@ typedef struct {
 _tm_thread_context_t * initThreadContexts(int numThreads, int inSimulator);
 void printThreadContexts(_tm_thread_context_t *thread_contexts);
 
+
+_tm_thread_context_t * getUnusedThreadContext(void);
+
+extern _tm_thread_context_t *thread_contexts;
+extern __thread _tm_thread_context_t *thread_context;
+
+static inline _tm_thread_context_t *thread_context_get(void) {
+  if (thread_context == NULL) {
+    thread_context = getUnusedThreadContext();
+  }
+  return thread_context;
+}
+
 #endif

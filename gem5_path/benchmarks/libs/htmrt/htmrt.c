@@ -23,9 +23,6 @@
 #include "mt19937ar_1.h"
 #include "xbeginFlags.h"
 
-// global array of thread contexts
-_tm_thread_context_t     *thread_contexts       = NULL;
-
 //Initialization. Called from STAMP to initialize common variables
 void initTransactionsGlobals(int nthreads)
 {
@@ -62,7 +59,12 @@ void deleteTransactionsGlobals () {
     // used to shutdown the log in all CPUs to stop stop monitoring
     // the virtual addresses allocated to the log (sanity checks)
     if (inSimulator()) {
-        simSetLogBase(NULL);
+      if (simSetLogBase(NULL)) {
+        // simulator returns 0 if v2p translation table already set
+        // up. Otherwise, walk the log, simulator will intercept
+        // accesses and fill log v2p translation table
+        walk_log(thread_context_get()->info.logtm_transactionLog);        
+      }
     }
 }
 
@@ -78,7 +80,11 @@ void handleHeapPrefault(int threadId) {
          (memory_get) before the transaction starts
       */
       //SimAnnotateRegionEntry(threadId, AnnotatedRegion_HEAP_TOUCH_PREFAULT);
-      memory_touch (threadId, PREFAULT_TOUCH_BYTES);
+        
+      // TODO: reimplement this:
+        //memory_touch (threadId, PREFAULT_TOUCH_BYTES);
+        assert(false);
+        
       //SimAnnotateRegionExit(threadId, AnnotatedRegion_HEAP_TOUCH_PREFAULT);
   }
 }
@@ -102,7 +108,12 @@ void beginTransaction_fallbackLock(long tag,
 #endif
     assert(ctx == &thread_contexts[ctx->info.threadId]);
     handleHeapPrefault(ctx->info.threadId);
-    simSetLogBase(ctx->info.logtm_transactionLog);
+    if (simSetLogBase(ctx->info.logtm_transactionLog)) {
+      // simulator returns 0 if v2p translation table already set
+      // up. Otherwise, walk the log, simulator will intercept
+      // accesses and fill log v2p translation table
+      walk_log(ctx->info.logtm_transactionLog);        
+    }
     do {
         ++nretries;
 #if defined(HANDLER_POWERTM)

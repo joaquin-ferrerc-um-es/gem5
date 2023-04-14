@@ -62,6 +62,7 @@ that page: "data" log grows from the log bottom towards the log top, while
 
 void init_random_gen(void *thread_contexts);
 void init_log(void *thread_contexts);
+void walk_log(unsigned long *log);
 long randomized_backoff(unsigned long num_retries, void *thread_contexts);
 
 /* Magic number used for sanity checks to signal completion of log unroll to simulator */

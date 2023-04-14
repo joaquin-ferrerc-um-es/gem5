@@ -33,3 +33,6 @@ configs/dram/lowp_sweep.cfg
 .pyenv
 gem5_path/scripts/tasks-gem5/tasks-gem5.config
 gem5_path/scripts/run-scripts/config.py
+gem5_path/benchmarks/benchmarks-htm/HTMBench
+gem5_path/benchmarks/benchmarks-htm/stamp
+gem5_path/benchmarks/benchmarks-htm/parsec

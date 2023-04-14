@@ -15,6 +15,7 @@ base = {
     protocol: Vary(*config_from_tasks_gem5("${ENABLED_PROTOCOLS[@]}").split(" ")),
     cpu_model: "DerivO3CPU", # or "TimingSimpleCPU"
     num_cpus: Vary(*[int(i) for i in config_from_tasks_gem5("${ENABLED_NUM_CPUS[@]}").split(" ")]),
+    num_cpus_half: Derived(lambda c: math.ceil(num_cpus(c) / 2)),
     random_seed: 0,
 
     output_directory_root: Derived(lambda c: os.path.join(gem5_root_option(c), "results")),
@@ -44,6 +45,7 @@ base = {
     benchmark_size: Derived(lambda c: benchmark(c).size),
     benchmark_subdir: Derived(lambda c: replace_template(benchmark(c).subdir_template, c)),
     benchmark_binary_suffix: Derived(lambda c: htm_binary_suffix(c) if htm_binary_suffix in c else ""),
+    benchmark_htmrt_config: Derived(lambda c: htm_binary_suffix(c).replace(".htm.", "") if htm_binary_suffix in c else ""),
     benchmark_args_string: Derived(lambda c: benchmark(c).args_string),
     benchmark_input_filename: Derived(lambda c: replace_template(benchmark(c).input_filename_template, c) if benchmark(c).input_filename_template != None else None),
     benchmark_ld_preload: "",

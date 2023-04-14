@@ -32,6 +32,9 @@ Option("num_cpus", int,
        gem5_option_use = "general",
        launchscript_option = "yes",
        descr_dir = "{value}p")
+Option("num_cpus_half", int, # derived as num_cpus / 2 rounded up
+       gem5_option_use = "no",
+       runscript_option = "omit")
 Option("output_directory_root", str,
        gem5_option_use = "no",
        runscript_option = "omit",
@@ -302,6 +305,10 @@ Option("htm_binary_suffix", str,
        gem5_option_use = "no",
        launchscript_option = "yes",
        runscript_option = "omit") # TODO: unnecesary, see benchmark_binary_suffix
+Option("benchmark_htmrt_config", str,
+       gem5_option_use = "no",
+       launchscript_option = "yes",
+       runscript_option = "omit")
 Option("htm_lazy_vm", bool,
        descr_abbrev = "LV")
 Option("htm_eager_cd", bool,

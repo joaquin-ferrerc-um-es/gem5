@@ -53,6 +53,18 @@ for (name, size, subdir, binary_base, args) in [
         subdir_template = f"benchmarks-htm/stamp/{subdir}",
         binary_filename_template = f"{binary_base}.${{arch}}${{benchmark_binary_suffix}}")
 
+# HTMBench
+for (name, size, subdir, binary_base, args) in [
+        ("berkely-db", "small", "berkely-db/bench", "ex_thread", "-i 128 -r ${num_cpus_half} -w ${num_cpus_half}"),
+]:
+    Benchmark(
+        suite = "htmbench",
+        name = name,
+        size = size,
+        args_string = args,
+        subdir_template = f"benchmarks-htm/HTMBench/benchmark/{subdir}",
+        binary_filename_template = f"build/${{arch}}/${{benchmark_htmrt_config}}/{binary_base}")
+
 # PARSEC and splash2
 for (suite, name) in [
         ("parsec", "blackscholes"),

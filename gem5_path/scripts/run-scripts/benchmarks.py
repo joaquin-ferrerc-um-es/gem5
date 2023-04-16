@@ -55,7 +55,8 @@ for (name, size, subdir, binary_base, args) in [
 
 # HTMBench
 for (name, size, subdir, binary_base, args) in [
-        ("berkely-db", "small", "berkely-db/bench", "ex_thread", "-i 128 -r ${num_cpus_half} -w ${num_cpus_half}"),
+        ("berkely-db", "small", "berkely-db/bench", "ex_thread", "-i 256 -r ${num_cpus_half} -w ${num_cpus_half}"),
+        ("berkely-db", "medium", "berkely-db/bench", "ex_thread", "-i 4096 -r ${num_cpus_half} -w ${num_cpus_half}"),
 ]:
     Benchmark(
         suite = "htmbench",

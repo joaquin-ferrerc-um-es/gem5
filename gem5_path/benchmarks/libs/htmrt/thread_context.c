@@ -15,7 +15,7 @@ __thread _tm_thread_context_t *thread_context = NULL;
 
 _tm_thread_context_t * getUnusedThreadContext(void) {
   const size_t offset = ((size_t) &nextThreadContext[1]) - ((size_t) &nextThreadContext[0]);
-  _tm_thread_context_t * ret = atomic_fetch_add((size_t*) &nextThreadContext, offset);
+  _tm_thread_context_t * ret = (_tm_thread_context_t *) atomic_fetch_add((size_t*) &nextThreadContext, offset);
   assert(ret != NULL);
   assert(ret == &thread_contexts[ret->info.threadId]);
   return ret;

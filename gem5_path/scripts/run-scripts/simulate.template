@@ -206,7 +206,7 @@ run_detailed_simulation() {
     fi
 
     if [ -n "$DEBUG_END_TICK" ] ; then
-        GEM5_ARGS+=( "--debug-end={DEBUG_START_TICK}")
+        GEM5_ARGS+=( "--debug-end=${DEBUG_END_TICK}")
     fi
     
     if [[ "${simulation_mode}" == "full-system" ]] ; then

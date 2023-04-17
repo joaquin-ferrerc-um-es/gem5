@@ -59,6 +59,8 @@ for (name, size, subdir, binary_base, args) in [
         ("berkely-db", "medium", "berkely-db/bench", "ex_thread", "-i 4096 -r ${num_cpus_half} -w ${num_cpus_half}"),
         ("avl_tree", "small", "avl_tree", "avl", "${num_cpus} 32768 0.5 0.0 2000000"),
         ("avl_tree", "medium", "avl_tree", "avl", "${num_cpus} 1000000 1 0.8 100000"),
+        ("bplus-tree", "small", "bplus-tree", "test-threaded-rw", "--threads=${num_cpus} --items=64 --times=10"),
+        ("bplus-tree", "medium", "bplus-tree", "test-threaded-rw", "--threads=${num_cpus} --items=100 --times=100"),
 ]:
     Benchmark(
         suite = "htmbench",

@@ -20,7 +20,9 @@ BENCHMARKS_STAMP_SELECTED=(
 )
 
 BENCHMARKS_HTMBENCH_SELECTED=(
+    "avl_tree"
     "berkely-db"
+    "bplus-tree"
 )
 
 task_build-benchmarks() {

@@ -1,8 +1,13 @@
 #ifndef THREAD_CONTEXT_H
 #define THREAD_CONTEXT_H 1
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
 
 #if ! defined(CACHE_LINE_SIZE_BYTES)
 #define CACHE_LINE_SIZE_BYTES 64
@@ -44,10 +49,14 @@ extern _tm_thread_context_t *thread_contexts;
 extern __thread _tm_thread_context_t *thread_context;
 
 static inline _tm_thread_context_t *thread_context_get(void) {
-  if (thread_context == NULL) {
+  if (__builtin_expect(thread_context == NULL, 0)) {
     thread_context = getUnusedThreadContext();
   }
   return thread_context;
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

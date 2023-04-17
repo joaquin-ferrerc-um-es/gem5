@@ -190,13 +190,10 @@ run_detailed_simulation() {
                # and appended to config.ini
                "--sim-info=${output_directory}/${siminfo_filename}")
 
-    if [ -n "$debug_flags" ] ; then
-        local DEBUG_FILE="debug_output_${protocol}_$(date +%Y-%m-%d-%H-%M-%S).trace"
-        GEM5_ARGS+=( "--debug-flags=${debug_flags}"
+    if [ -n "$DEBUG_FLAGS" ] ; then
+        local DEBUG_FILE="debug_output_$(date +%Y-%m-%d-%H-%M-%S).trace"
+        GEM5_ARGS+=( "--debug-flags=${DEBUG_FLAGS}"
                      "--debug-file=${DEBUG_FILE}" )
-        if [[ "$debug_start_tick" != "-1" ]] ; then
-            GEM5_ARGS+=("--debug-start=${debug_start_tick}")
-        fi
     elif [ "${LOCKSTEP_MODE}" = yes ] ; then
         # Exec flag is required by lockstep mode
         GEM5_ARGS+=( "--debug-flags=Exec"
@@ -204,6 +201,14 @@ run_detailed_simulation() {
                      "--debug-file=/dev/null" )
     fi
 
+    if [ -n "$DEBUG_START_TICK" ] ; then
+        GEM5_ARGS+=( "--debug-start=${DEBUG_START_TICK}")
+    fi
+
+    if [ -n "$DEBUG_END_TICK" ] ; then
+        GEM5_ARGS+=( "--debug-end={DEBUG_START_TICK}")
+    fi
+    
     if [[ "${simulation_mode}" == "full-system" ]] ; then
         GEM5_ARGS+=("${GEM5_ROOT}/configs/example/fs.py")
     elif [[ "${simulation_mode}" == "syscall-emulation" ]] ; then
@@ -344,7 +349,9 @@ run_and_log() {
 ### General options
 DEBUG_COMMANDS=()
 FORCE_HTM_VISUALIZER=no
-# TODO: Add options for debug_flags, debug_start_tick and debug_end_tick
+DEBUG_FLAGS="${debug_flags:-}"
+DEBUG_START_TICK="${debug_start_tick:-}"
+DEBUG_END_TICK="${debug_end_tick:-}"
 
 ### Lockstep mode options (TODO all except LOCKSTEP_MODE)
 LOCKSTEP_MODE=no
@@ -370,10 +377,13 @@ help() {
     echo "  --use-valgrind: Run simulation with Valgrind."
     echo "  --htm-visualizer: Enable the HTM visualizer."
     echo "  --lockstep: Enable lockstep simulation (TODO: add options to configure lockstep)"
+    echo "  --debug-flags: Override debug_flags"
+    echo "  --debug-start-tick: Override debug_start_tick"
+    echo "  --debug-end-tick: Override debug_end_tick"
 }
 
 parse_options() {
-    local optspec="help,use-gdb,use-valgrind,lockstep,htm-visualizer"
+    local optspec="help,use-gdb,use-valgrind,lockstep,htm-visualizer,debug-flags:,debug-start-tick:,debug-end-tick:"
     local errors="$(getopt -n error-detected -Q --options "" --long ${optspec} -- "$@" 2>&1 || true)"
     if [[ "$errors" =~ error-detected:.+ ]] ; then
         echo "$errors" | cut -d: -f2- | xargs -n1 -d'\n' -i% -- echo "Error:%."
@@ -393,6 +403,15 @@ parse_options() {
             LOCKSTEP_MODE=yes
         elif [[ "--htm-visualizer" == "$1" ]] ; then
             FORCE_HTM_VISUALIZER=yes
+        elif [[ "--debug-flags" == "$1" ]] ; then
+            shift
+            DEBUG_FLAGS="$1"
+        elif [[ "--debug-start-tick" == "$1" ]] ; then
+            shift
+            DEBUG_START_TICK="$1"
+        elif [[ "--debug-end-tick" == "$1" ]] ; then
+            shift
+            DEBUG_END_TICK="$1"
         elif [[ "--" == "$1" ]] ; then
             true # ignore
         else 

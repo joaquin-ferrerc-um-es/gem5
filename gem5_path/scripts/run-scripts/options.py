@@ -103,11 +103,19 @@ Option("enable_kvm", bool,
        gem5_option_use = "no",
        launchscript_option = "yes",
        siminfo_exclude = True)
-Option("debug_start_tick", int, # -1 to disable
-       gem5_option_use = "no",
+Option("debug_start_tick", int,
+       gem5_option_use = "no", # special treatment in simulate.template
+       runscript_option = "yes",
+       gem5_option = "debug-start",
+       siminfo_exclude = True)
+Option("debug_end_tick", int,
+       gem5_option_use = "no", # special treatment in simulate.template
+       runscript_option = "yes",
+       gem5_option = "debug-end",
        siminfo_exclude = True)
 Option("debug_flags", str,
-       gem5_option_use = "no",
+       gem5_option_use = "no", # special treatment in simulate.template
+       runscript_option = "yes",
        siminfo_exclude = True)
 Option("build_type", str, # 'opt', 'fast', 'debug'
        gem5_option_use = "no",

@@ -95,7 +95,6 @@ base = {
     enable_kvm: Derived(lambda c: {"x86_64": True,
                                    "aarch64": False,
                                    "riscv": False}[arch(c)]),
-    debug_start_tick: -1, # disabled
     debug_flags: "",
     build_type: Vary(*config_from_tasks_gem5("${ENABLED_BUILD_TYPES[@]}").split(" ")),
     exit_at_roi_end: False,

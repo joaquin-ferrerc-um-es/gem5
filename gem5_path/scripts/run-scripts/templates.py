@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-from gem5_run import update, Derived, Vary, get_benchmarks, get_default_output_subdirectory
+from gem5_run import update, Derived, Vary, get_benchmarks, get_default_output_subdirectory, replace_template
 from gem5_config_utils import config_describe, config_describe_abbrev, config_from_tasks_gem5, get_git_revision
 from options import *
 from options import gem5_root as gem5_root_option
@@ -10,10 +10,12 @@ import math
 
 # Basic config options
 base = {
+    simulation_mode: "full-system",
     arch: Vary(*config_from_tasks_gem5("${ENABLED_ARCHITECTURES[@]}").split(" ")),
     protocol: Vary(*config_from_tasks_gem5("${ENABLED_PROTOCOLS[@]}").split(" ")),
     cpu_model: "DerivO3CPU", # or "TimingSimpleCPU"
     num_cpus: Vary(*[int(i) for i in config_from_tasks_gem5("${ENABLED_NUM_CPUS[@]}").split(" ")]),
+    num_cpus_half: Derived(lambda c: math.ceil(num_cpus(c) / 2)),
     random_seed: 0,
 
     output_directory_root: Derived(lambda c: os.path.join(gem5_root_option(c), "results")),
@@ -28,18 +30,33 @@ base = {
     m5_arch: Derived(lambda c: {"x86_64": "X86",
                                 "aarch64": "ARM",
                                 "riscv": "riscv"}[arch(c)]),
+    m5_arch: Derived(lambda c: {"x86_64": "X86",
+                                "aarch64": "ARM",
+                                "riscv": "riscv"}[arch(c)]),
+    parsec_arch: Derived(lambda c: {"x86_64": "amd64-linux",
+                                    "aarch64": "aarch64-linux", # TODO: CHECK
+                                    "riscv": "riscv-linux" # TODO: CHECK
+                                    }[arch(c)]),
     
     # Benchmark options
     benchmark: Vary(*get_benchmarks()),
     benchmark_name: Derived(lambda c: benchmark(c).name),
     benchmark_full_name: Derived(lambda c: benchmark(c).suite + "." + benchmark(c).name),
     benchmark_size: Derived(lambda c: benchmark(c).size),
-    benchmark_subdir: Derived(lambda c: benchmark(c).subdir),
-    benchmark_binary_filename_base: Derived(lambda c: benchmark(c).binary_filename_base),
-    benchmark_binary_suffix: Derived(lambda c: htm_binary_suffix(c) if htm_binary_suffix in c else ".htm.fallbacklock"),
-    benchmark_num_threads_option: Derived(lambda c: benchmark(c).nthreads_option),
+    benchmark_subdir: Derived(lambda c: replace_template(benchmark(c).subdir_template, c)),
+    benchmark_binary_suffix: Derived(lambda c: htm_binary_suffix(c) if htm_binary_suffix in c else ""),
+    benchmark_htmrt_config: Derived(lambda c: htm_binary_suffix(c).replace(".htm.", "") if htm_binary_suffix in c else ""),
     benchmark_args_string: Derived(lambda c: benchmark(c).args_string),
+    benchmark_input_filename: Derived(lambda c: replace_template(benchmark(c).input_filename_template, c) if benchmark(c).input_filename_template != None else None),
     benchmark_ld_preload: "",
+
+    benchmark_binary: Derived(lambda c: replace_template(benchmark(c).binary_filename_template, c)),
+    benchmark_options: Derived(lambda c: replace_template(benchmark(c).args_string, c)),
+    benchmark_se_work_directory: Derived(lambda c: os.path.join(benchmarks_root_dir(c), benchmark_subdir(c))),
+    benchmark_environment: Derived(lambda c:
+                                   "M5_SIMULATOR=1\n" +
+                                   replace_template(benchmark(c).environment_template, c) +
+                                   "" ), # TODO: add options with launchscript_option=export
 
     # Benchmark disk image options
     benchmarks_mount_image: True,
@@ -48,6 +65,11 @@ base = {
                                                 "aarch64": "/dev/sdb1",
                                                 "riscv": "TODO"}[arch(c)]),
     benchmarks_image_mountpoint: "/benchmarks",
+    # Benchmark source and working directories root (syscall-emulation), or benchmarks mountpoint (full-system)
+    benchmarks_root_dir: Derived(lambda c: {
+        "syscall-emulation": os.path.join(gem5_root, config_from_tasks_gem5("${BENCHMARKS_ROOT_DIR}")),
+        "full-system": benchmarks_image_mountpoint(c),
+    }[simulation_mode(c)]),
 
     # other
     gem5_root_option: gem5_root,
@@ -73,10 +95,9 @@ base = {
     enable_kvm: Derived(lambda c: {"x86_64": True,
                                    "aarch64": False,
                                    "riscv": False}[arch(c)]),
-    debug_start_tick: -1, # disabled
     debug_flags: "",
     build_type: Vary(*config_from_tasks_gem5("${ENABLED_BUILD_TYPES[@]}").split(" ")),
-    exit_at_roi_end: True,
+    exit_at_roi_end: False,
     extra_detailed_args: "",
     proc_maps_file: "ckpt/proc_maps",
     disable_transparent_hugepages: False,

@@ -3,6 +3,7 @@
 
 import os
 import time
+from shlex import quote
 
 gem5_root = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
@@ -16,11 +17,14 @@ def set_options_module(m):
 # List of all Option objects in the order that they where defined
 known_options = []
 
+def get_option_by_name(name):
+    return options_module[name]
+
 # A configuration is a dict of Option objects to values
 class Option:
     def __init__(self, name, tipe,
                  gem5_option = "%same_s/_/-/g",
-                 gem5_option_use = "detailed", # one of "no", "general", "detailed", to use the option in GEM5_OPTIONS_GENERAL or GEM5_OPTIONS_DETAILED
+                 gem5_option_use = "detailed", # one of "no", "general", "full-system", "syscall-emulation", "detailed", to use the option in GEM5_OPTIONS_GENERAL, GEM5_OPTIONS_FULL_SYSTEM, GEM5_OPTIONS_SYSCALL_EMULATION or GEM5_OPTIONS_DETAILED
                  launchscript_option = "omit", # one of "omit", "export:VARNAME", "yes[:VARNAME]"
                  runscript_option = "yes_if_no_gem5_option", # one of "omit", "export:VARNAME", "export_formatted:FORMAT:VARNAME", "yes[:VARNAME]", "yes_if_no_gem5_option"
                  siminfo_exclude = False,
@@ -37,7 +41,7 @@ class Option:
         else:
             self.gem5_option = gem5_option
 
-        if gem5_option_use in ["no", "detailed", "general"]:
+        if gem5_option_use in ["no", "detailed", "general", "full-system", "syscall-emulation"]:
             self.gem5_option_use = gem5_option_use
         else:
             assert False, "Invalid value for gem5_option_use: " + gem5_option_use
@@ -101,23 +105,23 @@ class Option:
             return f"{self.name}={self(conf)}\n"
 
     def launchscript_text_value(self, conf):
-        if self.launchscript_option == "omit":
+        if self.launchscript_option == "omit" or self(conf) == None:
             return ""
         elif self.launchscript_option.startswith("export:"):
             name = self.launchscript_option[7:]
-            return f"export {name}='{self(conf)}'\n"
+            return f"export {name}={quote(str(self(conf)))}\n"
         elif self.launchscript_option.startswith("export_formatted:"):
             format_end = self.launchscript_option.index(":", 17)
             format = self.launchscript_option[17:format_end]
             v_formatted = ("{:" + format + "}").format(self(conf))
             name = self.launchscript_option[(format_end + 1):]
-            return f"export {name}='{v_formatted}'\n"
+            return f"export {name}={quote(v_formatted)}\n"
         elif self.launchscript_option == "yes" or self.launchscript_option.startswith("yes:"):
             if self.launchscript_option == "yes":
                 name = self.name
             else:
                 name = self.launchscript_option[4:]
-            return f"{name}='{self(conf)}'\n"
+            return f"{name}={quote(str(self(conf)))}\n"
         else:
             assert False, "Invalid value for launchscript_option"
     
@@ -126,13 +130,13 @@ class Option:
             return ""
         elif self.runscript_option.startswith("export:"):
             name = self.runscript_option[7:]
-            return f"export {name}='{self(conf)}'\n"
+            return f"export {name}={quote(str(self(conf)))}\n"
         elif self.runscript_option == "yes" or self.runscript_option.startswith("yes:"):
             if self.runscript_option == "yes":
                 name = self.name
             else:
                 name = self.runscript_option[4:]
-            return f"{name}='{self(conf)}'\n"
+            return f"{name}={quote(str(self(conf)))}\n"
         else:
             assert False, "Invalid value for runscript_option"
 
@@ -147,7 +151,7 @@ class Option:
                 else:
                     return ""
             else:
-                return f"--{self.gem5_option}={self(conf)}"
+                return f"--{self.gem5_option}={quote(str(self(conf)))}"
 
     def descr_dir_text_value(self, conf):
         if self.descr_dir == None or self(conf) == None:
@@ -191,18 +195,33 @@ class VaryFound(Exception):
     def __init__(self, opt):
         self.option = opt # for debug
 
+# Replaces references to options formatted as ${XXX} in a string by their value
+def replace_template(string, config):
+    i = 0
+    ret = ""
+    startv = string.find('${', i)
+    while startv >= 0:
+        ret = ret + string[i:startv]
+        endv = string.find('}', startv + 2)
+        var = string[(startv + 2):endv]
+        ret = ret + str(get_option_by_name(var)(config))
+        i = endv + 1
+        startv = string.find('${', i)
+    return ret + string[i:]
+
 # Benchmarks
 known_benchmarks = []
 
 class Benchmark:
-    def __init__(self, name, suite, size, nthreads_option, args_string, subdir, binary_filename_base):
+    def __init__(self, name, suite, size, args_string, subdir_template, binary_filename_template, input_filename_template = None, environment_template = ""):
         self.name = name
         self.suite = suite
         self.size = size
-        self.nthreads_option = nthreads_option
         self.args_string = args_string
-        self.subdir = subdir
-        self.binary_filename_base = binary_filename_base
+        self.subdir_template = subdir_template
+        self.binary_filename_template = binary_filename_template
+        self.input_filename_template = input_filename_template
+        self.environment_template = environment_template
 
         known_benchmarks.append(self)
         

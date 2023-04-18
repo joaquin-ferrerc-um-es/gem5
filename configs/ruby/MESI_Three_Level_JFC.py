@@ -40,7 +40,7 @@ from common import FileSystemConfig
 #
 class L0Cache(RubyCache): pass
 class L1Cache(RubyCache): pass
-class L2Cache(RubyCache): pass
+class L2Cache(RubyDirectoryCache): pass
 
 def define_options(parser):
     parser.add_argument(

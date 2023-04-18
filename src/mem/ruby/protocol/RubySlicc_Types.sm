@@ -239,7 +239,10 @@ structure(RubyRequest, desc="...", interface="Message", external="yes") {
 
 structure(AbstractCacheEntry, primitive="yes", external = "yes") {
   void changePermission(AccessPermission);
-  SharersJFC getSharersJFC();
+  void addSharerJFC(MachineID);
+  void removeSharerJFC(MachineID);
+  void clearSharersJFC();
+  NetDest getSharersJFC();
 }
 
 structure (DirectoryMemory, external = "yes") {

@@ -54,8 +54,8 @@ SharersJFC::SharersJFC()
 int
 SharersJFC::getDistanceToHome(MachineID newSharer)
 {
-  int distance = abs((home.num / NUMCOLUMNS) - (newSharer.num / NUMCOLUMNS));
-  distance += abs((home.num % NUMCOLUMNS) - (newSharer.num % NUMCOLUMNS));
+  int distance = abs((home.num / NUMROWS) - (newSharer.num / NUMROWS));
+  distance += abs((home.num % NUMROWS) - (newSharer.num % NUMROWS));
   return distance;
 }
 
@@ -231,25 +231,25 @@ SharersJFC::addSharers(int nodeAct, int distance,
                         Direction direction, Set* sh)
 {
   if (distance > 0) {
-    if (((nodeAct / NUMCOLUMNS) > 0) && (direction != DOWN)) {
-      int node = nodeAct - NUMCOLUMNS;
+    if (((nodeAct / NUMROWS) > 0) && (direction != DOWN)) {
+      int node = nodeAct - NUMROWS;
       sh->add(node);
       addSharers(node, distance - 1, UP, sh);
     }
 
-    if (((nodeAct / NUMCOLUMNS) < (NUMROWS - 1)) && (direction != UP)) {
-      int node = nodeAct + NUMCOLUMNS;
+    if (((nodeAct / NUMROWS) < (NUMCOLUMNS - 1)) && (direction != UP)) {
+      int node = nodeAct + NUMROWS;
       sh->add(node);
       addSharers(node, distance - 1, DOWN, sh);
     }
 
-    if (((nodeAct % NUMCOLUMNS) > 0) && (direction != RIGHT)) {
+    if (((nodeAct % NUMROWS) > 0) && (direction != RIGHT)) {
       int node = nodeAct - 1;
       sh->add(node);
       addSharers(node, distance - 1, LEFT, sh);
     }
 
-    if (((nodeAct % NUMCOLUMNS) < (NUMCOLUMNS - 1)) && (direction != LEFT)) {
+    if (((nodeAct % NUMROWS) < (NUMROWS - 1)) && (direction != LEFT)) {
       int node = nodeAct + 1;
       sh->add(node);
       addSharers(node, distance - 1, RIGHT, sh);
@@ -266,25 +266,25 @@ SharersJFC::getSetSharersDasc()
     sh.add(home.num);
   }
   if (maxDistance > 0) {
-    if ((home.num / NUMCOLUMNS) > 0) {
-      int node = home.num - NUMCOLUMNS;
+    if ((home.num / NUMROWS) > 0) {
+      int node = home.num - NUMROWS;
       sh.add(node);
       addSharers(node, maxDistance - 1, UP, &sh);
     }
 
-    if ((home.num / NUMCOLUMNS) < (NUMROWS - 1)) {
-      int node = home.num + NUMCOLUMNS;
+    if ((home.num / NUMROWS) < (NUMCOLUMNS - 1)) {
+      int node = home.num + NUMROWS;
       sh.add(node);
       addSharers(node, maxDistance - 1, DOWN, &sh);
     }
 
-    if ((home.num % NUMCOLUMNS) > 0) {
+    if ((home.num % NUMROWS) > 0) {
       int node = home.num - 1;
       sh.add(node);
       addSharers(node, maxDistance - 1, LEFT, &sh);
     }
 
-    if ((home.num % NUMCOLUMNS) < (NUMCOLUMNS - 1)) {
+    if ((home.num % NUMROWS) < (NUMROWS - 1)) {
       int node = home.num + 1;
       sh.add(node);
       addSharers(node, maxDistance - 1, RIGHT, &sh);

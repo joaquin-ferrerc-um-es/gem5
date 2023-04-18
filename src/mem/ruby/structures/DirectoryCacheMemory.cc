@@ -88,8 +88,6 @@ DirectoryCacheMemory::DirectoryCacheMemory(const Params &p)
     m_use_occupancy = dynamic_cast<replacement_policy::WeightedLRU*>(
                                     m_replacementPolicy_ptr) ? true : false;
     m_xact_mgr = NULL;
-
-    RubySystem::addCacheToDirectoryProfiler(this);
 }
 
 void
@@ -114,6 +112,8 @@ DirectoryCacheMemory::init()
                                 m_replacementPolicy_ptr->instantiateEntry();
         }
     }
+
+    RubySystem::addCacheToDirectoryProfiler(this);
 }
 
 DirectoryCacheMemory::~DirectoryCacheMemory()
@@ -140,7 +140,7 @@ DirectoryCacheMemory::getPrecisionStats(std::vector<double> stats)
                      != AccessPermission_Invalid)) {
                     numLineasOcupadas++;
                     numCompartidores +=
-                    m_cache[i][j]->Sharers_JFC.getSharers().count();
+                    m_cache[i][j]->Sharers_JFC->getSharers().count();
                  }
         }
     }

@@ -111,8 +111,12 @@ class AbstractCacheEntry : public ReplaceableEntry
                                    // block, required by CacheMemory
 
     // JFC Representation.
-    SharersJFC Sharers_JFC;
-    SharersJFC& getSharersJFC() { return Sharers_JFC;}
+    SharersJFC* Sharers_JFC;
+    void addSharerJFC(MachineID newSharer) {Sharers_JFC->add(newSharer); }
+    void removeSharerJFC(MachineID newSharer)
+      {Sharers_JFC->remove(newSharer); }
+    void clearSharersJFC() {Sharers_JFC->clear(); }
+    NetDest getSharersJFC() { return Sharers_JFC->getSharers(); }
 
     // Get the last access Tick.
     Tick getLastAccess() { return m_last_touch_tick; }

@@ -1,7 +1,5 @@
 #include "mem/ruby/structures/DirectoryProfiler.hh"
 
-#include "sim/eventq.hh"
-
 namespace gem5
 {
 
@@ -9,7 +7,9 @@ namespace ruby
 {
 
 DirectoryProfiler::DirectoryProfiler(const Params &p)
-    : ClockedObject(p), directoryProfilerStats(this)
+    : ClockedObject(p), directoryProfilerStats(this),
+    event([this]{profilePrecision();}, name()),
+    delay(200)
 {
     caches.resize(MachineType_base_count(MachineType_L2Cache));
     numCaches = 0;
@@ -39,16 +39,18 @@ DirectoryProfiler::~DirectoryProfiler()
 void
 DirectoryProfiler::addCacheMemory(SimObject* cacheMemory)
 {
+    assert(MachineType_base_count(MachineType_L2Cache) > 0);
     assert(numCaches < MachineType_base_count(MachineType_L2Cache));
+    caches.resize(MachineType_base_count(MachineType_L2Cache));
     caches[numCaches] = cacheMemory;
     numCaches++;
     if (numCaches == MachineType_base_count(MachineType_L2Cache)) {
-        eventq->schedule(nullptr, 100000);
+        schedule(&event, curTick() + delay);
     }
 }
 
 void
-DirectoryProfiler::wakeup()
+DirectoryProfiler::profilePrecision()
 {
     std::vector<double> stats;
     stats.resize(2);
@@ -64,7 +66,7 @@ DirectoryProfiler::wakeup()
 
     directoryProfilerStats.jfcSharersPerLine.sample(nSPL);
     directoryProfilerStats.jfcDirectoryUsage.sample(nC);
-    eventq->schedule(nullptr, 100000);
+    schedule(&event, curTick() + delay);
 }
 
 } // namespace ruby

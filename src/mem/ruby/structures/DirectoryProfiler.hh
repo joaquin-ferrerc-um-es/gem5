@@ -3,7 +3,6 @@
 
 
 #include "base/statistics.hh"
-// #include "mem/ruby/structures/DirectoryCacheMemory.hh"
 #include "mem/ruby/protocol/MachineType.hh"
 #include "sim/clocked_object.hh"
 
@@ -18,24 +17,22 @@ class DirectoryProfiler : public ClockedObject
     public:
       DirectoryProfiler(const Params &p);
       ~DirectoryProfiler();
-
-      void wakeup();
-
+      void profilePrecision();
       void addCacheMemory(SimObject* cacheMemory);
 
     private:
-     int numCaches;
-     std::vector<SimObject*> caches;
+      int numCaches;
+      std::vector<SimObject*> caches;
+      EventFunctionWrapper event;
+      const Tick delay;
 
-     struct DirectoryProfilerStats : public statistics::Group
-     {
+      struct DirectoryProfilerStats : public statistics::Group
+      {
         DirectoryProfilerStats(statistics::Group *parent);
 
         statistics::Histogram jfcSharersPerLine;
         statistics::Histogram jfcDirectoryUsage;
-     };
-
-     DirectoryProfilerStats directoryProfilerStats;
+      } directoryProfilerStats;
 
 };
 

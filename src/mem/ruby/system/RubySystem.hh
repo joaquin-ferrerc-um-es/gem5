@@ -121,7 +121,7 @@ class RubySystem : public ClockedObject
     */
     void collateStats() { m_profiler->collateStats(); }
     static void addCacheToDirectoryProfiler(SimObject* cacheMemory)
-    { n_directory_profiler->addCacheMemory(cacheMemory); }
+      { n_directory_profiler->addCacheMemory(cacheMemory); }
     void resetStats() override;
 
     void memWriteback() override;

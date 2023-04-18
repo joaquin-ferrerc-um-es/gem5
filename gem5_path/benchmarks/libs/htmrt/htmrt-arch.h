@@ -1,9 +1,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#if defined AARCH64
+#include "abort_status.h"
 
-#include "../isa/aarch64/abort_status.h"
+#if defined(__aarch64__)
+
 
 #define htm_start(arg) ({                                      \
             uint64_t ret;                                       \
@@ -48,9 +49,7 @@
 #define htm_may_succeed_on_retry(status) ( status & _TMFAILURE_RTRY)
 #define htm_abort_cause_disabled(status) (status & _TMFAILURE_DISABLED)
 
-#elif defined X86
-
-#include "../isa/x86/abort_status.h"
+#elif defined(__x86_64__)
 
 /* IMPORTANT NOTE: Eager HTM systems (log-based) abort in two steps:
  *  first, the register checkpoint is restored; then, the log is
@@ -91,14 +90,11 @@
 #define htm_abort_undo_log(status) (status & _XABORT_UNDO_LOG)
 
 #define htm_commit(arg) ({                              \
-            uint64_t ret;                                       \
             __asm__ volatile ("mov %0,%%rdi\n\t"        \
                               "xend\n\t"                \
-                              "mov %%rax, %0\n\t"               \
-                              : "=r"(ret)                       \
-                              : "r"(arg)                        \
-                              : "%rdi", "rax");                 \
-            ret;                                                \
+                              :                         \
+                              : "r"(arg)                \
+                              : "%rdi");                \
         })
 
 #define htm_cancel(code) ({                             \

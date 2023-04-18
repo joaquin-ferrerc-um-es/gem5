@@ -17,8 +17,14 @@ def config_list_options(conf):
     last = [k for k in config_preferred_order_last if k in conf]
     return first + rest + last
 
+config_describe_ignored_options=set([])
+
+def config_describe_set_ignored_options(l):
+    global config_describe_ignored_options
+    config_describe_ignored_options=set(l)
+
 def config_describe(conf):
-    dirs = [d for d in [c.descr_dir_text_value(conf) for c in config_list_options(conf)] if d != ""]
+    dirs = [d for d in [c.descr_dir_text_value(conf) for c in config_list_options(conf) if not c in config_describe_ignored_options] if d != ""]
     return os.path.join("/".join(dirs))
 
 def config_describe_abbrev(conf):
@@ -31,6 +37,21 @@ def print_config(conf):
         print(f"  {c.name}: {c(conf, allow_vary = True)}")
     print("}")
 
+def constant_options(configs):
+    if not configs:
+        return known_options
+    else:
+        missing = object()
+        first_c = configs[0]
+        def constant_opt(o):
+            def get(opt, conf):
+                if opt in conf:
+                    return opt(conf)
+                else:
+                    return missing
+            first_v = get(o, first_c)
+            return all(get(o, c) == first_v for c in configs)
+        return [o for o in known_options if constant_opt(o)]
     
 option_value_abbreviations = {
     "requester_wins": "rw",
@@ -55,9 +76,21 @@ def abbrev_option_value(s):
 cache_config_from_tasks_gem5 = {}
 def config_from_tasks_gem5(s):
     if not s in cache_config_from_tasks_gem5:
-        cache_config_from_tasks_gem5[s] = subprocess.check_output([os.path.join(gem5_root, "gem5_path", "scripts", "tasks-gem5", "tasks-gem5"), "query-config", s],
-                                                                  stderr = subprocess.DEVNULL,
-                                                                  encoding = "UTF-8")
+        gem5_tasks = os.path.join(gem5_root, "gem5_path", "scripts", "tasks-gem5", "tasks-gem5")
+        # WORKAROUND: Sometimes the either the command fails or subprocess.check_output raises an exception incorrectly. It seems to work after a retry.
+        retries = 0
+        while True:
+            try:
+                cache_config_from_tasks_gem5[s] = subprocess.check_output([gem5_tasks, "query-config", s],
+                                                                          stderr = subprocess.DEVNULL,
+                                                                          encoding = "UTF-8")
+                break
+            except subprocess.CalledProcessError:
+                retries = retries + 1
+                if retries > 10:
+                    error(f"Could not execute '{gem5_tasks}' query-config '{s}'.")
+                else:
+                    print(f"RETRYING query-config {retries}")
     return cache_config_from_tasks_gem5[s]
 
 

@@ -325,13 +325,13 @@ XactProfiler::profileRegionChange(int proc_no,
       Cycles diff = g_system_ptr->curCycle() -
           Cycles(m_xactLastRegionChange[proc_no]);
       if (diff > 2000000) { // Two million cycles without changes??
-          warn ("htm visualizer detected anomalous freeze in cpu %d: "
-                " Last state change was %ld cycles back (%ld)."
-                " Current tick is: %ld\n",
-                proc_no, diff,
-                g_system_ptr->
-                cyclesToTicks(Cycles(m_xactLastRegionChange[proc_no])),
-                g_system_ptr->cyclesToTicks(g_system_ptr->curCycle()));
+          warn_once ("htm visualizer detected anomalous freeze in cpu %d: "
+                     " Last state change was %ld cycles back (%ld)."
+                     " Current tick is: %ld\n",
+                     proc_no, diff,
+                     g_system_ptr->
+                     cyclesToTicks(Cycles(m_xactLastRegionChange[proc_no])),
+                     g_system_ptr->cyclesToTicks(g_system_ptr->curCycle()));
       }
   }
   m_annotatedRegion[proc_no] = nextRegion;

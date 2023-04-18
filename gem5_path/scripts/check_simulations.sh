@@ -60,16 +60,16 @@ find "${RESULTS_DIR}" -name simulate -o -name simulate.sh | sort | while IFS="" 
             SIM_TERMINAL="${SIM_DIR}/system.pc.com_1.device"
         elif grep -q "ARCH_NAME=aarch64" "${SIM_SCRIPT}" ; then
             SIM_TERMINAL="${SIM_DIR}/system.terminal"
-        elif grep -q "arch='x86_64'" "${SIM_SCRIPT}" ; then
+        elif grep -q -e "arch='\?x86_64'\?" "${SIM_SCRIPT}" ; then
             SIM_TERMINAL="${SIM_DIR}/system.pc.com_1.device"
-        elif grep -q "arch='aarch64'" "${SIM_SCRIPT}" ; then
+        elif grep -q -e "arch='\?aarch64'\?" "${SIM_SCRIPT}" ; then
             SIM_TERMINAL="${SIM_DIR}/system.terminal"
-        elif grep -q "arch='riscv'" "${SIM_SCRIPT}" ; then
+        elif grep -q -e "arch='\?riscv'\?" "${SIM_SCRIPT}" ; then
             echo "TODO"
             SIM_TERMINAL="${SIM_DIR}/???" # TODO
             exit 1
         else
-            echo "Cannot determine architecure in «$SIM_SCRIPT»"
+            echo "Cannot determine architecture in «$SIM_SCRIPT»"
             exit 1
         fi
         if grep -iq "Assertion" "${SIM_TERMINAL}" ; then

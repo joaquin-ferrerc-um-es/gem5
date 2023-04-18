@@ -9,6 +9,12 @@ trap 'echo "$SCRIPT_COMMAND: error $? at line $LINENO"' ERR
 
 {{{variables}}}
 
+IFS=$'\n'
+for l in $benchmark_environment ; do
+    eval "export $l"
+done
+IFS=$' \n\t'
+
 export M5_SIMULATOR=1
 if [ "${benchmarks_mount_image}" = "True" ] ; then
     mkdir -p "${benchmarks_image_mountpoint}"
@@ -27,13 +33,10 @@ sleep "${T:0:4}.${T:4:1}"
 
 cd "${benchmark_subdir}"
 
-if [[ "${benchmark_binary_suffix}" = "" || "${benchmark_binary_filename_base}" = "parsecmgmt-env" ]] ; then # TODO: remove hack for parsec
-    echo Running: "./${benchmark_binary_filename_base}" ${benchmark_args_string} ${benchmark_num_threads_option} ${num_cpus} 
-    "./${benchmark_binary_filename_base}" ${benchmark_args_string} ${benchmark_num_threads_option} ${num_cpus} 
-else
-    echo Running: "./${benchmark_binary_filename_base}.${arch}${benchmark_binary_suffix}" ${benchmark_num_threads_option}${num_cpus} ${benchmark_args_string}
-    "./${benchmark_binary_filename_base}.${arch}${benchmark_binary_suffix}" ${benchmark_num_threads_option}${num_cpus} ${benchmark_args_string}
-fi
+echo cwd: "$(pwd)"
+
+echo Running: "./${benchmark_binary}" ${benchmark_options} \< "${benchmark_input_filename:-/dev/null}"
+"./${benchmark_binary}" ${benchmark_options} < "${benchmark_input_filename:-/dev/null}"
 echo 'Launch script done ($?='"$?"'). Exiting simulation... (m5 exit)'
 
 sync # TODO: why?

@@ -269,7 +269,8 @@ Option("network_topology", str,
        gem5_option = "topology",
        descr_dir = "{value}")
 Option("network_mesh_rows", int,
-       gem5_option = "mesh-rows")
+       gem5_option = "mesh-rows",
+       descr_dir = "{value}-rows")
 Option("memory_type", str,
        gem5_option = "mem-type")
 Option("memory_size", str,
@@ -304,6 +305,12 @@ Option("cache_l2_size_per_cache", int,
        gem5_option = "l2_size") # must be cache_l2_size_total / cache_l2_num_caches
 Option("cache_l2_assoc", int,
        gem5_option = "l2_assoc")
+Option("cache_l2_lp", int,
+       gem5_option = "l2_lp",
+       descr_dir = "{value}lp")
+Option("jfc_representation", str,
+       gem5_option = "jfc_representation",
+       descr_dir = "{value}")
 
 # HTM Options
 Option("htm_disable_speculation", bool,

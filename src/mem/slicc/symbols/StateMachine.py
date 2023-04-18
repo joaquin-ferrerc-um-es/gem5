@@ -52,6 +52,7 @@ python_class_map = {
                     "std::string": "String",
                     "bool": "Bool",
                     "CacheMemory": "RubyCache",
+                    "DirectoryCacheMemory": "RubyDirectoryCache",
                     "WireBuffer": "RubyWireBuffer",
                     "Sequencer": "RubySequencer",
                     "HTMSequencer": "RubyHTMSequencer",
@@ -1074,7 +1075,7 @@ $c_ident::recordCacheTrace(int cntrl, CacheRecorder* tr)
         #
         code.indent()
         for param in self.config_parameters:
-            if param.type_ast.type.ident == "CacheMemory":
+            if param.type_ast.type.ident == "CacheMemory" or param.type_ast.type.ident == "DirectoryCacheMemory":
                 assert(param.pointer)
                 code('m_${{param.ident}}_ptr->recordCacheContents(cntrl, tr);')
 

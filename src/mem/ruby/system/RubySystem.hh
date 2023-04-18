@@ -45,6 +45,7 @@
 #include "mem/ruby/htm/htm.hh"
 #include "mem/ruby/profiler/Profiler.hh"
 #include "mem/ruby/slicc_interface/AbstractController.hh"
+#include "mem/ruby/structures/DirectoryProfiler.hh"
 #include "mem/ruby/system/CacheRecorder.hh"
 #include "params/RubySystem.hh"
 #include "sim/clocked_object.hh"
@@ -81,6 +82,9 @@ class RubySystem : public ClockedObject
     static bool getWarmupEnabled() { return m_warmup_enabled; }
     static bool getCooldownEnabled() { return m_cooldown_enabled; }
     static std::string getProtocol() { return m_protocol; }
+    static int getLP(){ return n_limited_pointers; }
+    static int getNetworkRows() { return n_network_mesh_rows; }
+    static std::string getJFCRepresentation() { return n_jfc_representation; }
     // HTM-related performance bug
     static bool enableL0DowngradeOnL1Gets()
       { return m_l0_downgrade_on_l1_gets; }
@@ -116,6 +120,8 @@ class RubySystem : public ClockedObject
     }
     */
     void collateStats() { m_profiler->collateStats(); }
+    static void addCacheToDirectoryProfiler(SimObject* cacheMemory)
+      { n_directory_profiler->addCacheMemory(cacheMemory); }
     void resetStats() override;
 
     void memWriteback() override;
@@ -174,6 +180,9 @@ class RubySystem : public ClockedObject
     static unsigned m_systems_to_warmup;
     static bool m_cooldown_enabled;
     static std::string m_protocol;
+    static int n_limited_pointers;
+    static int n_network_mesh_rows;
+    static std::string n_jfc_representation;
     static bool m_l0_downgrade_on_l1_gets;
     memory::SimpleMemory *m_phys_mem;
     const bool m_access_backing_store;
@@ -193,6 +202,7 @@ class RubySystem : public ClockedObject
 
   public:
     Profiler* m_profiler;
+    static DirectoryProfiler* n_directory_profiler;
     CacheRecorder* m_cache_recorder;
     std::vector<std::map<uint32_t, AbstractController *> > m_abstract_controls;
 };

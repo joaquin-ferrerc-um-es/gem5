@@ -58,6 +58,7 @@ AbstractCacheEntry::AbstractCacheEntry() : ReplaceableEntry()
     m_htmInReadSet = false;
     m_htmInWriteSet = false;
     m_htmLogPending = false;
+    Sharers_JFC = new SharersJFC();
 }
 
 AbstractCacheEntry::~AbstractCacheEntry()

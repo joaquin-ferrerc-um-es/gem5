@@ -28,6 +28,9 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
   Coord("cache_l1d", s => s"${s("cache_l1d_size")}-${s("cache_l1d_assoc")}w", isConfig = true)
   Coord("cache_l2", s => s"${s("cache_l2_num_caches")}×${s("cache_l2_size_per_cache")}-${s("cache_l2_assoc")}w", isConfig = true)
 
+  CoordFromProp("cache_l2_lp")
+  CoordFromProp("jfc_representation")
+
   CoordFromProp("disable_transparent_hugepages")
 
   CoordFromProp("network_model")

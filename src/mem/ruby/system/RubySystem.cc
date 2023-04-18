@@ -79,7 +79,12 @@ bool RubySystem::m_warmup_enabled = false;
 unsigned RubySystem::m_systems_to_warmup = 0;
 bool RubySystem::m_cooldown_enabled = false;
 std::string RubySystem::m_protocol;
+int RubySystem::n_limited_pointers;
+int RubySystem::n_network_mesh_rows;
+std::string RubySystem::n_jfc_representation;
 bool RubySystem::m_l0_downgrade_on_l1_gets = false;
+
+DirectoryProfiler* RubySystem::n_directory_profiler;
 
 RubySystem::RubySystem(const Params &p)
     : ClockedObject(p), m_access_backing_store(p.access_backing_store),
@@ -106,8 +111,12 @@ RubySystem::RubySystem(const Params &p)
     statistics::registerDumpCallback([this]() { collateStats(); });
     // Create the profiler
     m_profiler = new Profiler(p, this);
+    n_directory_profiler = new DirectoryProfiler(p);
     m_phys_mem = p.phys_mem;
     m_protocol = p.protocol;
+    n_limited_pointers = p.limited_pointers;
+    n_network_mesh_rows = p.network_mesh_rows;
+    n_jfc_representation = p.jfc_representation;
     if (m_htm != nullptr) {
         m_l0_downgrade_on_l1_gets  = m_htm->params().l0_downgrade_on_l1_gets;
         if (m_htm->params().value_checker) {
@@ -219,6 +228,7 @@ RubySystem::registerRequestorIDs()
 RubySystem::~RubySystem()
 {
     delete m_profiler;
+    delete n_directory_profiler;
 }
 
 void

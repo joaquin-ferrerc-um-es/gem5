@@ -200,8 +200,19 @@ def create_system(options, full_system, system, piobus = None, dma_ports = [],
         Network.create_network(options, ruby)
     ruby.network = network
 
+    ruby.network_mesh_rows = options.mesh_rows
+
     if cpus is None:
         cpus = system.cpu
+
+    # LP: pass limited pointers to RubySystem
+    ruby.limited_pointers = -1
+    if buildEnv['PROTOCOL'] == 'MESI_Three_Level_LP' or \
+       buildEnv['PROTOCOL'] == 'MESI_Three_Level_JFC':
+        ruby.limited_pointers = options.l2_lp
+
+    if buildEnv['PROTOCOL'] == 'MESI_Three_Level_JFC':
+        ruby.jfc_representation = options.jfc_representation
 
     protocol = buildEnv['PROTOCOL']
     exec("from . import %s" % protocol)

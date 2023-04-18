@@ -193,6 +193,9 @@ class SimObject : public EventManager, public Serializable, public Drainable,
      */
     virtual void init();
 
+    // JFC Statistics
+    virtual void getPrecisionStats(std::vector<double> stats) { return; }
+
     /**
      * loadState() is called on each SimObject when restoring from a
      * checkpoint.  The default implementation simply calls

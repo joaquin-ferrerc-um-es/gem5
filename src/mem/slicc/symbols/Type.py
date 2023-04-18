@@ -84,6 +84,9 @@ class Type(Symbol):
         if self.ident in ("CacheMemory"):
             self["cache"] = "yes"
 
+        if self.ident in ("DirectoryCacheMemory"):
+            self["cache"] = "yes"
+
         if self.ident in ("TBETable"):
             self["tbe"] = "yes"
 

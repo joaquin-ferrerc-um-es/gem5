@@ -35,8 +35,9 @@ extern "C" {
 
 #include <stdint.h>
 
-#include <gem5/asm/generic/m5ops.h>
+#include "asm/generic/m5ops.h"
 
+// M5 magic call functions. There is one for each op listed in M5OP_FOREACH
 void m5_arm(uint64_t address);
 void m5_quiesce(void);
 void m5_quiesce_ns(uint64_t ns);
@@ -44,10 +45,9 @@ void m5_quiesce_cycle(uint64_t cycles);
 uint64_t m5_quiesce_time(void);
 uint64_t m5_rpns();
 void m5_wake_cpu(uint64_t cpuid);
-
 void m5_exit(uint64_t ns_delay);
 void m5_fail(uint64_t ns_delay, uint64_t code);
-// m5_sum is for sanity checking the gem5 op interface.
+// m5_sum is used for sanity checking the gem5 op interface and to provide a two-way communication channel between benchmark (guest) and simulator.
 uint64_t m5_sum(uint64_t a, uint64_t b, uint64_t c,
                 uint64_t d, uint64_t e, uint64_t f);
 uint64_t m5_init_param(uint64_t key_str1, uint64_t key_str2);
@@ -66,6 +66,13 @@ void m5_load_symbol();
 void m5_panic(void);
 void m5_work_begin(uint64_t workid, uint64_t threadid);
 void m5_work_end(uint64_t workid, uint64_t threadid);
+/*
+ * Send a very generic poke to the workload so it can do something. It's up to
+ * the workload to know what information to look for to interpret an event,
+ * such as what PC it came from, what register values are, or the context of
+ * the workload itself (is this SE mode? which OS is running?).
+ */
+void m5_workload();
 
 /*
  * Two-way communication channel between benchmark (guest) and
@@ -92,25 +99,19 @@ void m5_work_end(uint64_t workid, uint64_t threadid);
 #define M5_SUM_HACK_TYPE_REGION_END   0xF00D
 #define M5_SUM_HACK_TYPE_LOGTM_SETUP_LOG   0xDEAD
 
-/*
- * Send a very generic poke to the workload so it can do something. It's up to
- * the workload to know what information to look for to interpret an event,
- * such as what PC it came from, what register values are, or the context of
- * the workload itself (is this SE mode? which OS is running?).
- */
-void m5_workload();
 
+  
 /*
- * Create _addr and _semi versions all declarations, e.g. m5_exit_addr and
- * m5_exit_semi. These expose the the memory and semihosting variants of the
- * ops.
+ * Create _nop, _indirect, _addr and _semi versions all declarations,
+ * e.g. m5_exit_addr and m5_exit_semi. 
  *
  * Some of those declarations are not defined for certain ISAs, e.g. X86
  * does not have _semi, but we felt that ifdefing them out could cause more
  * trouble tham leaving them in.
  */
 #define M5OP(name, func) __typeof__(name) M5OP_MERGE_TOKENS(name, _addr); \
-                         __typeof__(name) M5OP_MERGE_TOKENS(name, _semi);
+                         __typeof__(name) M5OP_MERGE_TOKENS(name, _semi); \
+                         __typeof__(name) M5OP_MERGE_TOKENS(name, _nop);
 M5OP_FOREACH
 #undef M5OP
 

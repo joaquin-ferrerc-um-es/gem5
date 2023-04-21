@@ -91,8 +91,8 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
   CoordFromProp(s"htm_transaction_cycles_per_cpu", stacked = true, axisTitle = "Average cycles per transaction (cycles)", doc = "Average cycles per transaction per CPU")
   Coord("htm_transaction_cycles", s => s("htm_transaction_cycles_per_cpu").asMap[Any, Vwe].values.sum, axisTitle = "Average cycles per transaction (cycles)", doc = "Average cycles per transaction")
   CoordFromProp("htm_transaction_instructions", axisTitle = "Averge cycles per transaction (cycles)")
-  CoordFromProp("htm_transaction_abort_cause", stacked = true, axisTitle = "transactions")
-  CoordFromProp("htm_cycles_in_region", stacked = true, axisTitle = "cycles")
+  CoordFromProp("htm_transaction_abort_cause", stacked = true, axisTitle = "transactions", ordering = dynamicOrdering("memory_conflict","memory_conflict_power", "memory_conflict_fallbacklock", "explicit_fallbacklock", "exception", "transaction_size_wset", "transaction_size_l1priv", "lsq_conflict", "memory_conflict_staledata"))
+  CoordFromProp("htm_cycles_in_region", stacked = true, axisTitle = "cycles", ordering = dynamicOrdering("BARRIER","DEFAULT", "TRANSACTIONAL_COMMITTED", "TRANSACTIONAL_POWER", "HASLOCK", "TRANSACTIONAL_ABORTED", "ABORTING", "ABORT_HANDLER", "BACKOFF", "WAITFORRETRY_THRESHOLD", "WAITFORRETRY_EXCEPTION", "WAITFORRETRY_SIZE", "STALLED_NONTRANS"))
 
   def addSimulationsDependentCoords(simulations: Iterable[Gem5DataPoint]): Unit = {
     /* none */
@@ -132,6 +132,8 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
       case (".htm.sgl", _, _, _, _, _, _, _, _, _, _) => "locks"
       case (".htm.fallbacklock", false, _, _, _, _, true, "requester_wins", _, true, _) => "base_nopf"
       case (".htm.fallbacklock", true, false, _, _, _, true, "requester_wins", _, true, _) => "base"
+      case (".htm.powertm",      true, true,  _, _, _, true, "power_tm",       _, true, _) => "power"
+      case (".htm.powertmplus",  true, true,  _, _, _, true, "power_tm",       _, true, _) => "powerplus"
 
       case (".htm.fallbacklock", true, true, false, _, _, true, "requester_wins", _, true, _) => "l2rs"
       case (".htm.fallbacklock", true, true, true, false, false, true, "requester_wins", _, true, _) => "l3rs"
@@ -152,6 +154,7 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
     isConfig = true,
     ordering = dynamicOrdering("locks", "base_nopf",
       "base", "l2rs", "l3rs", "lxrs",
+      "power", "powerplus",
       "l3rs_l1rpl", "l3rs_l1rpl_reqstallb", "l3rs_l1rpl_reqstallh",
       "l3rs_l1rpl_reqstallh_precrs", "l3rs_l1rpl_lazycd"
 

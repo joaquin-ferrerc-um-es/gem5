@@ -377,7 +377,7 @@
             //0x7: group12_Ev_Iz();
             0x7: decode MODRM_REG {
                 0x0: MOV(Ev,Iz);
-                0x7: XbeginInst::xbegin();
+                0x7: XbeginInst::xbegin({{xbeginFlags = Rdi;}});
                 default: UD2();
             }
         }

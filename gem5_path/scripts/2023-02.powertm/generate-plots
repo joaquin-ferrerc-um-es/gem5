@@ -1,0 +1,23 @@
+#!/bin/bash
+
+SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+SCRIPT_COMMAND="$0"
+set -o nounset
+set -o pipefail
+set -o errexit
+trap 'echo "$SCRIPT_COMMAND: error $? at line $LINENO"' ERR
+
+INPUTS_DIR="$(realpath "$SCRIPT_DIR/../../../results/powertm/")"
+OUTPUTS_DIR="$(realpath "$SCRIPT_DIR/plots/")"
+
+"$SCRIPT_DIR/../results-scripts-gem5/results-scripts" --script=Plots202204CostEffective --ins="$INPUTS_DIR" --outs="$OUTPUTS_DIR"
+
+(
+    cd "$OUTPUTS_DIR"
+    IFS=$'\n'
+    for i in $(find -name '*.pdf') ; do
+        mv "$i" "$i".croptmp.pdf
+        { pdfcrop "$i.croptmp.pdf" "$i" && rm "$i.croptmp.pdf" ; } | grep -v "Heiko Oberdiek"
+    done
+)
+

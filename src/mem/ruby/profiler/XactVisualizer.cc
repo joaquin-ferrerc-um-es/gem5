@@ -32,6 +32,7 @@ XactStateStruct s_xactStateStructMap[AnnotatedRegion_NUM] = {
   {AnnotatedRegion_TRANSACTIONAL, '$'},
   {AnnotatedRegion_TRANSACTIONAL_COMMITTED, 0},
   {AnnotatedRegion_TRANSACTIONAL_ABORTED, 0},
+  {AnnotatedRegion_TRANSACTIONAL_POWER, 'P'},
   {AnnotatedRegion_COMMITTING, 'C'},
   {AnnotatedRegion_ABORTING, 'X'},
   {AnnotatedRegion_ABORT_HANDLER_HASLOCK, 'L'},

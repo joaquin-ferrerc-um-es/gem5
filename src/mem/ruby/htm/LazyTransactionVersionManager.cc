@@ -345,7 +345,7 @@ CLASS_NS mergeDataFromWriteBuffer(Addr address, DataBlock& data)
         it = m_writeBuffer.find(byteAddr);
         if (it != m_writeBuffer.end()) {
             // Merge byte
-            assert(byteAddr =(*it).first);
+            assert(byteAddr ==(*it).first);
             uint8_t val =(*it).second;
             int offset = getOffset(byteAddr);
             data.setData(&val, offset, 1);

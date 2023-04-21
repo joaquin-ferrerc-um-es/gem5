@@ -9,7 +9,10 @@ BENCHMARKS_STAMP_SELECTED=(
     "bayes"
     "genome"
     "intruder"
+    "intruder-no-fsharing"
+    "intruder-queuesync"
     "kmeans"
+    "kmeans-queuesync"
     "labyrinth"
     "ssca2"
     "vacation"
@@ -98,16 +101,6 @@ build_benchmarks_virtual_stamp() {
     #else
         error_and_exit "Architecture $arch not supported for building stamp in a virtual machine"
     #fi
-}
-
-check_stamp_gem5_directory_links() {
-    if [[ ! -d "$(absolute_path "$BENCHMARKS_HTM_STAMP")" || ! -L "${GEM5_ROOT}/${BENCHMARKS_HTM_STAMP}" ]] ; then
-        error_and_exit "Stamp directory symlink '$(absolute_path "$BENCHMARKS_HTM_STAMP")' not found. Clone the repository in a directory out of ${GEM5_ROOT} and create a symbolic link to it in '$(dirname "$(absolute_path "$BENCHMARKS_HTM_STAMP")")'."
-    fi
-
-    if [[ ! -d "$(absolute_path "$BENCHMARKS_HTM_STAMP")/gem5" ]] ; then
-        ln -s "$GEM5_ROOT" "$(absolute_path "$BENCHMARKS_HTM_STAMP")/gem5"
-    fi
 }
 
 build_benchmarks_virtual_parsec_update_source() {
@@ -208,12 +201,6 @@ build_benchmarks_virtual_parsec() {
         [ -e "$scratch_image_name" ] && rm "$scratch_image_name"
     else
         echo "$(color red "Building PARSEC in a virtual machine not implemented for $arch")"
-    fi
-}
-
-check_parsec_gem5_directory_links() {
-    if [[ ! -d "$(absolute_path "$BENCHMARKS_PARSEC_DIR")" || ! -L "${GEM5_ROOT}/${BENCHMARKS_PARSEC_DIR}" ]] ; then
-        error_and_exit "Parsec directory symlink '$(absolute_path "$BENCHMARKS_PARSEC_DIR")' not found. Clone the repository in a directory out of ${GEM5_ROOT} and create a symbolic link to it in '$(dirname "$(absolute_path "$BENCHMARKS_PARSEC_DIR")")'."
     fi
 }
 

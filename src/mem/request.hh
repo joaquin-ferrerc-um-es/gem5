@@ -237,6 +237,9 @@ class Request
 
         /** The request adds an address to the Rset of a HTM transaction */
         HTM_ISOLATE                 = 0x0000100000000000,
+
+        /** The request starts a powered transaction*/
+        HTM_POWER                   = 0x0000200000000000,
         /**
          * These flags are *not* cleared when a Request object is
          * reused (assigned a new address).
@@ -983,6 +986,7 @@ class Request
     bool isHTMCancel() const { return _flags.isSet(HTM_CANCEL); }
     bool isHTMAbort() const { return _flags.isSet(HTM_ABORT); }
     bool isHTMIsolate() const { return _flags.isSet(HTM_ISOLATE); }
+    bool isHTMPower() const { return _flags.isSet(HTM_POWER); }
     bool
     isHTMCmd() const
     {

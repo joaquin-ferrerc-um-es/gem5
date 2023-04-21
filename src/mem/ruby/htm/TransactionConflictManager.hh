@@ -27,18 +27,18 @@ public:
                              int version);
   ~TransactionConflictManager();
 
-  void beginTransaction();
+  void beginTransaction(bool power_mode = false);
   void commitTransaction();
   void restartTransaction();
 
   bool shouldNackLoad(Addr addr,
                       MachineID remote_id,
                       Cycles remote_timestamp,
-                      bool remote_trans);
+                      TransactionBit remote_trans);
   bool shouldNackStore(Addr addr,
                        MachineID remote_id,
                        Cycles remote_timestamp,
-                       bool remote_trans,
+                       TransactionBit remote_trans,
                        bool local_is_exclusive);
 
   bool possibleCycle();
@@ -51,12 +51,17 @@ public:
   void notifySendNack(Addr physicalAddress, Cycles remote_timestamp,
                       MachineID remote_id);
   void notifyReceiveNack(Addr addr, Cycles remote_timestamp,
+                         TransactionBit remote_trans,
                          MachineID remote_id);
   bool hasHighestPriority();
 
   Cycles getTimestamp();
   Cycles getOldestTimestamp();
   bool isRequesterStallsPolicy();
+  bool isReqLosesPolicy();
+  bool isPowerTMPolicy();
+  bool isPowered();
+
   Addr getNackedPossibleCycleAddr() {
       assert(isRequesterStallsPolicy());
       assert(m_sentNack);
@@ -84,6 +89,7 @@ private:
   bool   m_sentNack;
   Addr   m_sentNackAddr;
   bool   m_doomed;
+  bool   m_powered;
   std::string    m_policy;
   std::string    m_lazy_validated_policy;
   bool m_policy_is_req_stalls_cda;

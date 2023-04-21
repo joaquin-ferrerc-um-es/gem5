@@ -134,19 +134,21 @@ TransactionalSequencer::notifyXactionEvent(PacketPtr pkt)
   if (pkt->req->isHTMStart()) {
       DPRINTF(RubyHTM, "HTM_BEGIN\n");
       m_xact_mgr->beginTransaction(pkt);
+      bool power = pkt->req->isHTMPower();
       DPRINTFR(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s \n",
                curTick(), m_version, "Seq",
-               "HTM_START" , "", "");
+               power ? "HTM_START_POW " : "HTM_START     " , "", "");
   } else if (pkt->req->isHTMCommit()) {
       DPRINTF(RubyHTM, "HTM_COMMIT\n");
       // Store value returned by canCommit, used to signal CPU whether
       // xend must fault. Prevent calling canCommit again after
       // initiateCommitTransaction since it changes the returned value
       if (m_xact_mgr->canCommitTransaction(pkt)) {
+          bool power = m_xact_mgr->isPowerMode();
           m_xact_mgr->commitTransaction(pkt);
           DPRINTFR(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s \n",
                    curTick(), m_version, "Seq",
-                   "HTM_COMMIT", "", "");
+                   power ? "HTM_COMMIT_POW" : "HTM_COMMIT    "  , "", "");
           m_commitPending = false;
           m_lastStateBeforeStall = AnnotatedRegion_INVALID;
           m_stalled = false;
@@ -248,7 +250,7 @@ TransactionalSequencer::notifyXactionEvent(PacketPtr pkt)
           // retirement, always keep track of blocks referenced by
           // retired loads ("retired read set")
           m_xact_mgr->addToRetiredReadSet(addr);
-          DPRINTF(RubyHTM,
+          DPRINTF(RubyHTMverbose,
                   "Committed load to %#x (%#x) adding block"
                   " address to retired read set\n",
                   pkt->getAddr(),
@@ -265,6 +267,7 @@ void
 TransactionalSequencer::failedCallback(Addr address,
                                        DataBlock& data,
                                        Cycles remote_timestamp,
+                                       TransactionBit remote_trans,
                                        MachineID remote_nacker,
                                        bool write)
 {
@@ -272,6 +275,7 @@ TransactionalSequencer::failedCallback(Addr address,
 
     m_xact_mgr->notifyReceiveNack(address,
                                   remote_timestamp,
+                                  remote_trans,
                                   remote_nacker);
     if (write) {
         // failed stores must not call hitCallback but instead be
@@ -373,7 +377,7 @@ TransactionalSequencer::rubyHtmCallback(PacketPtr pkt)
     // Note: Only loads may signal abort back to CPU
     // Cache access for stores & ifetches simply suppressed
     if (pkt->req->isHTMCmd()) {
-        DPRINTF(RubyHTM, "rubyHtmcallback: start=%d, commit=%d, "
+        DPRINTF(RubyHTMverbose, "rubyHtmcallback: start=%d, commit=%d, "
                 "cancel=%d isolate=%d\n",
                 pkt->req->isHTMStart(), pkt->req->isHTMCommit(),
                 pkt->req->isHTMCancel(), pkt->req->isHTMIsolate());
@@ -440,6 +444,17 @@ TransactionalSequencer::rubyHtmCallback(PacketPtr pkt)
 
     trySendRetries();
 }
+
+void
+TransactionalSequencer::setFlagsPreIssueRequest(PacketPtr pkt, std::shared_ptr<RubyRequest>& msg)
+{
+    Sequencer::setFlagsPreIssueRequest(pkt, msg);
+
+    if (msg->m_htmFromTransaction) {
+        msg->m_Transactional = m_xact_mgr->getTransactionBit();
+    }
+}
+
 // Insert the request in the request table. Return
 // RequestStatus_Aliased if the entry was already present.
 RequestStatus
@@ -757,12 +772,14 @@ TransactionalSequencer::handleFailedCallback(SequencerRequest* srequest)
     PacketPtr pkt = srequest->pkt;
     Addr address = makeLineAddress(pkt->getAddr());
     assert(m_failedCallback);
-    if (pkt->isWrite()) {
+    if (pkt->isWrite() || m_xact_mgr->isAborting()) {
         // Failed writes should never go through this path unless we
         // are aborting and want to "sink" them instead of retrying
-        assert(m_xact_mgr->isAborting());
         // Set the HtmTransactionFailedInCache in the packet, the CPU
         // expects it set for writes with HtmFailedCacheAccess set
+        if (pkt->isWrite()) {
+            assert(m_xact_mgr->isAborting());
+        }
         HtmCacheFailure reason =
             m_xact_mgr->getHtmTransactionalReqResponseCode();
         pkt->setHtmTransactionFailedInCache(reason);
@@ -1392,6 +1409,22 @@ TransactionalSequencer::suppressOutstandingRequests()
             }
         }
     }
+}
+
+PacketPtr
+TransactionalSequencer::getPacketFromRequestTable(Addr address)
+{
+    assert(address == makeLineAddress(address));
+    assert(m_RequestTable.find(address) != m_RequestTable.end());
+    auto &seq_req_list = m_RequestTable[address];
+    while (!seq_req_list.empty()) {
+        SequencerRequest &seq_req = seq_req_list.front();
+	// Should only find lingering loads
+        assert(seq_req.m_type == RubyRequestType_LD);
+        // Write request: reissue request to the cache hierarchy
+        return seq_req.pkt;
+    }
+    panic("Should never get this far!");
 }
 
 } // namespace ruby

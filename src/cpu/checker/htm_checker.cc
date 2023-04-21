@@ -269,6 +269,20 @@ HTMChecker::foundLocked(Trace::InstRecord *traceData)
    }
 }
 
+bool
+HTMChecker::foundUnlocked(Trace::InstRecord *traceData)
+{
+    if (cpu->system->getArch() == Arch::X86ISA) {
+        return (traceData->getIntData() == 0);
+    } else if (cpu->system->getArch() == Arch::ArmISA) {
+        // Simply ignore value
+        return true;
+    } else {
+        panic("Lockstep: lock interception not tested in this ISA!");
+        return false;
+   }
+}
+
 void
 HTMChecker::getLockValue(Trace::InstRecord *traceData,
                          uint64_t &value)
@@ -430,6 +444,9 @@ HTMChecker::retireInst(bool isMemRef, bool isTransactional,
                    value seen for lock in order to detect if this is a
                    successful "acquire" */
                 DPRINTF(HTMChecker, "Store found busy lock\n");
+            } else if (foundUnlocked(traceData)) {
+                DPRINTF(HTMChecker, "%s found free lock\n",
+                        traceData->getStaticInst()->getName());
             } else {
                 panic("Unexpected value for fallback lock");
             }

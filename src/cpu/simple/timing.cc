@@ -1126,6 +1126,14 @@ TimingSimpleCPU::completeDataAccess(PacketPtr pkt)
             t_info->thread->htmTransactionStops);
     }
 
+    if (curStaticInst && (fault == NoFault)) {
+        // HTM checker (record/replay): send trace data through fifo
+        // before it gets deallocated
+        retireInst(curStaticInst->isMemRef(),
+                        is_htm_speculative,
+                        traceData);
+    }
+
     // keep an instruction count
     if (fault == NoFault)
         countInst();

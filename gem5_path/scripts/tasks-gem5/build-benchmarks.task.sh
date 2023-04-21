@@ -23,6 +23,8 @@ BENCHMARKS_HTMBENCH_SELECTED=(
     "avl_tree"
     "berkely-db"
     "bplus-tree"
+    "parsec-2.1/pkgs/kernels/dedup"
+    "parsec-2.1/pkgs/kernels/dedup-cp"
 )
 
 task_build-benchmarks() {

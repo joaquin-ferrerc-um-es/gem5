@@ -450,7 +450,45 @@ HTMChecker::retireInst(bool isMemRef, bool isTransactional,
             } else {
                 panic("Unexpected value for fallback lock");
             }
-        } else { // Not an access to the lock
+        } else if (traceData->getAddr() == fallbackLockVirtAddr) {
+            // Load access to the lock: do not record/check
+            getLockValue(traceData, lastFallbackLockReadValue);
+            if (cpu->system->getLockstepMode() == enums::record) {
+                if (isTransactional) {
+                    assert(foundUnlocked(traceData));
+                } else {
+                    if (!values.empty()) { // recording with the lock
+                        assert(hasFallbackLock);
+                        assert(foundLocked(traceData));
+                    } else { // Not yet recording: maybe an access
+                             // during the abort handler
+                        assert(!hasFallbackLock);
+                    }
+                }
+            } else if (cpu->system->getLockstepMode() == enums::replay) {
+                assert(!isTransactional);
+                if (foundLocked(traceData)) {
+                    if (!values.empty()) {
+                        // Load prior to unlocking during commitTransaction
+                        assert(hasFallbackLock);
+                    } else {
+                        // Some other thread acquired the lock, this
+                        // threads spins in the abort handler
+                        assert(!hasFallbackLock);
+                    }
+                } else if (foundUnlocked(traceData)) {
+                    if (values.empty()) {
+                        // Load prior to locking before beginTransaction
+                        assert(!hasFallbackLock);
+                    } else {
+                        // Should never find lock free during value replay
+                        panic("Unexpected value for fallback lock");
+                    }
+                } else {
+                    panic("Found fallback lock neighther busy nor free?");
+                }
+            }
+        } else { // Access to a regular addr
             bool isStore = traceData->getStaticInst()->isStore();
             if (cpu->system->getLockstepMode() == enums::record) {
                 if (isTransactional || hasFallbackLock) {

@@ -455,7 +455,10 @@ HTMChecker::retireInst(bool isMemRef, bool isTransactional,
             getLockValue(traceData, lastFallbackLockReadValue);
             if (cpu->system->getLockstepMode() == enums::record) {
                 if (isTransactional) {
-                    assert(foundUnlocked(traceData));
+                    assert(foundUnlocked(traceData) ||
+                           // Lock subscription immediately after
+                           // xbegin found lock held
+                           values.empty());
                 } else {
                     if (!values.empty()) { // recording with the lock
                         assert(hasFallbackLock);
@@ -485,7 +488,7 @@ HTMChecker::retireInst(bool isMemRef, bool isTransactional,
                         panic("Unexpected value for fallback lock");
                     }
                 } else {
-                    panic("Found fallback lock neighther busy nor free?");
+                    panic("Found fallback lock neither busy nor free?");
                 }
             }
         } else { // Access to a regular addr

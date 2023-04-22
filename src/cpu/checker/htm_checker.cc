@@ -411,7 +411,8 @@ HTMChecker::retireInst(bool isMemRef, bool isTransactional,
     if (isMemRef) {
         if (traceData->getStaticInst()->isHtmCmd()) {
             // Skip htm commands
-        } else if ((traceData->getAddr() == fallbackLockVirtAddr) ||
+        } else if (((traceData->getAddr() == fallbackLockVirtAddr) &&
+                     traceData->getStaticInst()->isStore()) ||
                    (lockStatus == ArmISALockStatus::Acquiring)) {
             getLockValue(traceData, lastFallbackLockReadValue);
             if (isUnlock(traceData)) { // Unlock

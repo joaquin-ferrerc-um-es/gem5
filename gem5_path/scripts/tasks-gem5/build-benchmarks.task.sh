@@ -136,7 +136,7 @@ build_benchmarks_stamp() {
 
 check_stamp_gem5_directory_links() {
     if [[ ! -d "$(absolute_path "$BENCHMARKS_HTM_STAMP_DIR")" || ! -L "${GEM5_ROOT}/${BENCHMARKS_HTM_STAMP_DIR}" ]] ; then
-        error_and_exit "Stamp directory symlink '$(absolute_path "$BENCHMARKS_HTM_STAMP_DIR")' not found. Clone the repository in a directory out of ${GEM5_ROOT} and create a symbolic link to it in '$(dirname "$(absolute_path "$BENCHMARKS_HTM_STAMP_DIR")")'."
+        error_and_exit "Stamp directory symlink '$(absolute_path "$BENCHMARKS_HTM_STAMP_DIR")' not found. Clone the repository in a directory out of ${GEM5_ROOT} and create a symbolic link to it in '$(dirname "$(absolute_path "$BENCHMARKS_HTM_STAMP_DIR")")', or disable these benchmarks (BENCHMARKS_STAMP_ENABLED[*]=no)."
     fi
 
     if [[ ! -d "$(absolute_path "$BENCHMARKS_HTM_STAMP_DIR")/gem5" ]] ; then
@@ -172,7 +172,7 @@ build_benchmarks_htmbench() {
 
 check_htmbench_gem5_directory_links() {
     if [[ ! -d "$(absolute_path "$BENCHMARKS_HTM_HTMBENCH_DIR")" || ! -L "${GEM5_ROOT}/${BENCHMARKS_HTM_HTMBENCH_DIR}" ]] ; then
-        error_and_exit "HTMBench directory symlink '$(absolute_path "$BENCHMARKS_HTM_HTMBENCH_DIR")' not found. Clone the repository in a directory out of ${GEM5_ROOT} and create a symbolic link to it in '$(dirname "$(absolute_path "$BENCHMARKS_HTM_HTMBENCH_DIR")")'."
+        error_and_exit "HTMBench directory symlink '$(absolute_path "$BENCHMARKS_HTM_HTMBENCH_DIR")' not found. Clone the repository in a directory out of ${GEM5_ROOT} and create a symbolic link to it in '$(dirname "$(absolute_path "$BENCHMARKS_HTM_HTMBENCH_DIR")")', or disable these benchmarks (BENCHMARKS_HTMBENCH_ENABLED[*]=no)."
     fi
 
     if [[ ! -d "$(absolute_path "$BENCHMARKS_HTM_HTMBENCH_DIR")/gem5-libs" ]] ; then
@@ -209,7 +209,7 @@ build_benchmarks_parsec() {
 
 check_parsec_gem5_directory_links() {
     if [[ ! -d "$(absolute_path "$BENCHMARKS_PARSEC_DIR")" || ! -L "${GEM5_ROOT}/${BENCHMARKS_PARSEC_DIR}" ]] ; then
-        error_and_exit "Parsec directory symlink '$(absolute_path "$BENCHMARKS_PARSEC_DIR")' not found. Clone the repository in a directory out of ${GEM5_ROOT} and create a symbolic link to it in '$(dirname "$(absolute_path "$BENCHMARKS_PARSEC_DIR")")'."
+        error_and_exit "Parsec directory symlink '$(absolute_path "$BENCHMARKS_PARSEC_DIR")' not found. Clone the repository in a directory out of ${GEM5_ROOT} and create a symbolic link to it in '$(dirname "$(absolute_path "$BENCHMARKS_PARSEC_DIR")")', or disable these benchmarks (BENCHMARKS_PARSEC_ENABLED[*]=no)."
     fi
 
     if [[ ! -d "$(absolute_path "$BENCHMARKS_PARSEC_DIR")/gem5-libs" ]] ; then

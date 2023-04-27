@@ -119,6 +119,14 @@ RubyHTM::getCommitStatus(int cpuId)
     return 0;
 }
 
+bool
+RubyHTM::isHtmFailureFaultCauseMemoryPower(int cpuId)
+{
+    return g_system_ptr->
+        getTransactionInterfaceManager(cpuId)->
+        isTransactionAbortedByRemotePower();
+}
+
 RubyHTM::
 RubyHTMStats::RubyHTMStats(statistics::Group *parent)
     : statistics::Group(parent),

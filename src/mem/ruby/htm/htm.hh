@@ -33,6 +33,7 @@ class RubyHTM : public HTM
     void endLogUnroll(int cpuId) override;
     int getLogNumEntries(int cpuId) override;
     int getCommitStatus(int cpuId) override;
+    bool isHtmFailureFaultCauseMemoryPower(int cpuId) override;
 
     void profileRegion(AnnotatedRegion region, uint64_t cycles);
     private:

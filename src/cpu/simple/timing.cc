@@ -1105,10 +1105,6 @@ TimingSimpleCPU::completeDataAccess(PacketPtr pkt)
                 HtmFailureFaultCause::LSQ :
                 HtmFailureFaultCause::MEMORY);
             abortedByConflitingSnoop = false;
-        } else if (htm_rc == HtmCacheFailure::FAIL_REMOTE_POWER) {
-            fault = std::make_shared<GenericHtmFailureFault>(
-                t_info->getHtmTransactionUid(),
-                HtmFailureFaultCause::MEMORY_POWER);
         } else {
             panic("HTM - unhandled rc %s", htmFailureToStr(htm_rc));
         }

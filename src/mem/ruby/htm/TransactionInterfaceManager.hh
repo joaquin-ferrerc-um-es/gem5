@@ -75,6 +75,7 @@ public:
                     bool dataStale = false);
   void cancelTransaction(PacketPtr pkt);
   bool isCancelledTransaction();
+  bool isTransactionAbortedByRemotePower();
 
   void setAbortCause(HTMStats::AbortCause cause);
   void profileHtmFailureFaultCause(HtmFailureFaultCause cause);

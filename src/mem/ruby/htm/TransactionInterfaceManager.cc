@@ -767,8 +767,8 @@ profileHtmFailureFaultCause(HtmFailureFaultCause cause)
         } else {
             assert(checkReadSignature(m_abortAddress));
         }
-        assert(cause == HtmFailureFaultCause::MEMORY ||
-               cause == HtmFailureFaultCause::MEMORY_POWER);
+        assert((cause == HtmFailureFaultCause::MEMORY) ||
+               (cause == HtmFailureFaultCause::LSQ));
         preciseFaultCause = HtmFailureFaultCause::MEMORY_STALEDATA;
         break;
     case HTMStats::AbortCause::FallbackLock:
@@ -776,7 +776,6 @@ profileHtmFailureFaultCause(HtmFailureFaultCause cause)
     case HTMStats::AbortCause::Conflict:
         // Conflict
         if (cause == HtmFailureFaultCause::MEMORY ||
-            cause == HtmFailureFaultCause::MEMORY_POWER ||
             // Can also get LSQ cause if block in R/W set and CPU
             // found outstanding load in lsq (see checkSnoop) and
             // HTM config says not to reload stale data
@@ -887,9 +886,8 @@ TransactionInterfaceManager::getHtmTransactionalReqResponseCode()
     case HTMStats::AbortCause::Conflict:
     case HTMStats::AbortCause::ConflictStale:
     case HTMStats::AbortCause::FallbackLock:
-        return HtmCacheFailure::FAIL_REMOTE;
     case HTMStats::AbortCause::ConflictPower:
-        return HtmCacheFailure::FAIL_REMOTE_POWER;
+        return HtmCacheFailure::FAIL_REMOTE;
     default:
         panic("Invalid htm return code\n");
         return HtmCacheFailure::FAIL_OTHER;
@@ -1053,6 +1051,13 @@ TransactionInterfaceManager::isCancelledTransaction()
 {
     return (m_abortFlag &&
             m_abortCause == HTMStats::AbortCause::Explicit);
+}
+
+bool
+TransactionInterfaceManager::isTransactionAbortedByRemotePower()
+{
+    return (m_abortFlag &&
+            m_abortCause == HTMStats::AbortCause::ConflictPower);
 }
 
 void

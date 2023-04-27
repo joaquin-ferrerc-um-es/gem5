@@ -171,7 +171,6 @@ enum class HtmCacheFailure
     NO_FAIL,     // no failure in cache
     FAIL_SELF,   // failed due local cache's replacement policy
     FAIL_REMOTE, // failed due remote invalidation
-    FAIL_REMOTE_POWER, // failed due remote power transaction
     FAIL_OTHER,  // failed due other circumstances
 };
 
@@ -231,6 +230,9 @@ class HTM : public ClockedObject
         panic("Not implemented");
     };
     virtual int getCommitStatus(int cpuId) {
+        panic("Not implemented");
+    };
+    virtual bool isHtmFailureFaultCauseMemoryPower(int cpuId) {
         panic("Not implemented");
     };
     void requestCommitToken(int cpuId);

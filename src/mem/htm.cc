@@ -84,10 +84,8 @@ getIsaVisibleHtmFailureCause(HtmFailureFaultCause cause)
     case HtmFailureFaultCause::MEMORY_FALLBACKLOCK:
     case HtmFailureFaultCause::MEMORY_STALEDATA:
     case HtmFailureFaultCause::MEMORY_FALSESHARING:
-        isaVisibleCause = HtmFailureFaultCause::MEMORY;
-        break;
     case HtmFailureFaultCause::MEMORY_POWER:
-        isaVisibleCause = HtmFailureFaultCause::MEMORY_POWER;
+        isaVisibleCause = HtmFailureFaultCause::MEMORY;
         break;
     case HtmFailureFaultCause::SIZE_RSET:
     case HtmFailureFaultCause::SIZE_WSET:

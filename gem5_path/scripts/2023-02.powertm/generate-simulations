@@ -23,7 +23,7 @@ fi
 # TODO: check SIMPLE_BARRIER = 1 in stamp common/Defines.common.mk
 
 # This environment variable is used by $CONFIG_FILE
-export OUTPUT_DIR="${OUTPUT_DIR:-$(realpath "$SCRIPT_DIR/../../../results/caps-master_tests_rw_rl_rspec_power_woper-2023-04-27/")}"
+export OUTPUT_DIR="${OUTPUT_DIR:-$(realpath "$SCRIPT_DIR/../../../results/caps-master_tests_rw_rl_rspec_power_woper-2023-04-28/")}"
 
 [[ -n "${OUTPUT_DIR:-}" && -e "$OUTPUT_DIR" ]] && {
     echo "Output directory «$OUTPUT_DIR» already exists. Delete it or use another."

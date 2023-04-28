@@ -7,8 +7,8 @@ import templates
 
 configs_set(templates.base)
 configs_update(templates.cache_baseline) 
-configs_vary({cpu_model: "DerivO3CPU"},
-             {cpu_model: "TimingSimpleCPU"},
+configs_vary({cpu_model: "TimingSimpleCPU"},
+             {cpu_model: "DerivO3CPU"},
 )
 
 configs_vary(
@@ -18,14 +18,17 @@ configs_vary(
 )
 
 configs_vary(
-    { htm_binary_suffix: '.htm.fallbacklock', htm_conflict_resolution: "requester_wins",  htm_max_retries: 4,  htm_precise_read_set_tracking: True},
-    { htm_binary_suffix: '.htm.fallbacklock', htm_conflict_resolution: "requester_loses",  htm_max_retries: 4, htm_precise_read_set_tracking: True},
     { htm_binary_suffix: '.htm.fallbacklock', htm_conflict_resolution: "requester_wins",  htm_max_retries: 4,  htm_precise_read_set_tracking: False},
     { htm_binary_suffix: '.htm.fallbacklock', htm_conflict_resolution: "requester_loses",  htm_max_retries: 4, htm_precise_read_set_tracking: False},
-    { htm_binary_suffix: '.htm.powertm', htm_conflict_resolution: "requester_wins_power",  htm_max_retries: 2,  htm_precise_read_set_tracking: True},
-    { htm_binary_suffix: '.htm.powertm', htm_conflict_resolution: "requester_loses_power",  htm_max_retries: 2,  htm_precise_read_set_tracking: True},
     { htm_binary_suffix: '.htm.powertm', htm_conflict_resolution: "requester_wins_power",  htm_max_retries: 2,  htm_precise_read_set_tracking: False},
     { htm_binary_suffix: '.htm.powertm', htm_conflict_resolution: "requester_loses_power",  htm_max_retries: 2,  htm_precise_read_set_tracking: False},
+    ### Precise read set tracking
+
+    { htm_binary_suffix: '.htm.fallbacklock', htm_conflict_resolution: "requester_wins",  htm_max_retries: 4,  htm_precise_read_set_tracking: True},
+    { htm_binary_suffix: '.htm.fallbacklock', htm_conflict_resolution: "requester_loses",  htm_max_retries: 4, htm_precise_read_set_tracking: True},
+    { htm_binary_suffix: '.htm.powertm', htm_conflict_resolution: "requester_wins_power",  htm_max_retries: 2,  htm_precise_read_set_tracking: True},
+    { htm_binary_suffix: '.htm.powertm', htm_conflict_resolution: "requester_loses_power",  htm_max_retries: 2,  htm_precise_read_set_tracking: True},
+
 #    { htm_binary_suffix: '.htm.powertmplus', htm_conflict_resolution: "requester_wins_power",  htm_max_retries: 2},
 
 )
@@ -43,18 +46,19 @@ configs_update({
     disable_transparent_hugepages: True,
 
     benchmark: Vary(*(get_benchmarks(suite = "stamp", size = "small",
-                                     name = ["vacation-h",
+                                     name = ["genome",
                                              "kmeans-h",
                                              "kmeans-qs-h",
-                                             "intruder-qs",
-                                             "intruder-nfs",
-                                             "intruder-nfs-qs",
                                              "intruder",
-                                             "yada",
+                                             "intruder-qs",
+                                             #"intruder-nfs",
+                                             #"intruder-nfs-qs",
                                              "ssca2",
+                                             "vacation-h",
+                                             #"yada",
                                      ]))),
 
-    random_seed: Vary(*range(5)),
+    random_seed: Vary(*range(10)),
 })
 
 import os

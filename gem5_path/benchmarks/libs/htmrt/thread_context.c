@@ -9,14 +9,20 @@
 
 // global array of thread contexts
 _tm_thread_context_t     *thread_contexts       = NULL;
+static int num_thread_contexts = 0;
 
 static _tm_thread_context_t *nextThreadContext = NULL;
 __thread _tm_thread_context_t *thread_context = NULL;
 
 _tm_thread_context_t * getUnusedThreadContext(void) {
+  assert(nextThreadContext != NULL);
+  assert(thread_contexts != NULL);
   const size_t offset = ((size_t) &nextThreadContext[1]) - ((size_t) &nextThreadContext[0]);
   _tm_thread_context_t * ret = (_tm_thread_context_t *) atomic_fetch_add((size_t*) &nextThreadContext, offset);
-  assert(ret != NULL);
+  int tid = ret - thread_contexts;
+  assert(tid < num_thread_contexts);
+  assert(tid == thread_contexts[tid].info.threadId);
+  assert(tid == ret->info.threadId);
   assert(ret == &thread_contexts[ret->info.threadId]);
   return ret;
 }
@@ -38,6 +44,7 @@ _tm_thread_context_t * initThreadContexts(int numThreads, int inSimulator)
     init_log(thread_contexts);
     init_random_gen(thread_contexts);
     nextThreadContext = &thread_contexts[0];
+    num_thread_contexts = numThreads;
     return thread_contexts;
 }
 

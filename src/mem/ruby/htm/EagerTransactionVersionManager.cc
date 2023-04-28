@@ -135,7 +135,7 @@ int
 CLASS_NS addLogEntry()
 {
     // Should never be called unless we have set the log base
-    assert(m_initStatus = LogInitStatus::Ready);
+    assert(m_initStatus == LogInitStatus::Ready);
     // Return next available index in the log
     return m_logNumEntries++;
 }
@@ -163,7 +163,7 @@ CLASS_NS isEndLogUnrollSignal(PacketPtr pkt)
 void
 CLASS_NS shutdownLog()
 {
-    assert(m_initStatus = LogInitStatus::Ready);
+    assert(m_initStatus == LogInitStatus::Ready);
     m_initStatus = LogInitStatus::Invalid;
     m_logTLB.clear();
 }

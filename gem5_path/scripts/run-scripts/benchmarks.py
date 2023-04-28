@@ -61,6 +61,12 @@ for (name, size, subdir, binary_base, args) in [
         ("avl_tree", "medium", "avl_tree", "avl", "${num_cpus} 1000000 1 0.8 100000"),
         ("bplus-tree", "small", "bplus-tree", "test-threaded-rw", "--threads=${num_cpus} --items=64 --times=10"),
         ("bplus-tree", "medium", "bplus-tree", "test-threaded-rw", "--threads=${num_cpus} --items=100 --times=100"),
+        ("dedup", "small", "parsec-2.1/pkgs/kernels/dedup", "dedup", "-t ${num_cpus} -c -p -f -r 1 -i inputs/simsmall.dat"),
+        ("dedup", "medium", "parsec-2.1/pkgs/kernels/dedup", "dedup", "-t ${num_cpus} -c -p -f -r 1 -i inputs/simmedium.dat"),
+        ("dedup", "large", "parsec-2.1/pkgs/kernels/dedup", "dedup", "-t ${num_cpus} -c -p -f -r 1 -i inputs/simlarge.dat"),
+        ("dedup-cp", "small", "parsec-2.1/pkgs/kernels/dedup-cp", "dedup", "-t ${num_cpus} -c -p -f -r 1 -i inputs/simsmall.dat"),
+        ("dedup-cp", "medium", "parsec-2.1/pkgs/kernels/dedup-cp", "dedup", "-t ${num_cpus} -c -p -f -r 1 -i inputs/simmedium.dat"),
+        ("dedup-cp", "large", "parsec-2.1/pkgs/kernels/dedup-cp", "dedup", "-t ${num_cpus} -c -p -f -r 1 -i inputs/simlarge.dat"),
 ]:
     Benchmark(
         suite = "htmbench",

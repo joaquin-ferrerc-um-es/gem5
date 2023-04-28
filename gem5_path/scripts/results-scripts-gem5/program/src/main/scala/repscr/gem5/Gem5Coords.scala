@@ -121,19 +121,22 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
     s => (s("htm_binary_suffix"), s("htm_heap_prefault"),
       s("htm_allow_read_set_l0_cache_evictions"), s("htm_allow_read_set_l1_cache_evictions"),
       s("htm_precise_read_set_tracking"),
-      s("htm_lazy_vm"),
       s("htm_conflict_resolution"),
       s("htm_reload_if_stale")) match {
-
-      case (".htm.fallbacklock", true, true, true, _, true, "requester_wins",        _ ) => "rw"
-      case (".htm.fallbacklock", true, true, true, _, true, "requester_loses",       _ ) => "rl"
-      case (".htm.powertm",      true, true, true, _, true, "requester_wins_power",  _ ) => "power"
-      case (".htm.powertm",      true, true, true, _, true, "requester_loses_power", _ ) => "woper"
-      case (".htm.powertmplus",  true, true, true, _, true, "requester_wins_power",  _ ) => "powerplus"
-      case (MissingProperty, _, _, _, _, _, _, _) => "NoHTM"
+         /* SUFFIX               PFLT  RSL0E  RSL1Ev RSPREC  CONF-RES            RLDSTL */
+      case (".htm.fallbacklock", true,  true,  true,  false, "requester_wins",         _ ) => "rw"
+      case (".htm.fallbacklock", true,  true,  true,  false, "requester_loses",        _ ) => "rl"
+      case (".htm.powertm",      true,  true,  true,  false, "requester_wins_power",   _ ) => "power"
+      case (".htm.powertm",      true,  true,  true,  false, "requester_loses_power",  _ ) => "woper"
+      case (".htm.fallbacklock", true,  true,  true,  true,  "requester_wins",         _ ) => "rw_RSp"
+      case (".htm.fallbacklock", true,  true,  true,  true,  "requester_loses",        _ ) => "rl_RSp"
+      case (".htm.powertm",      true,  true,  true,  true,  "requester_wins_power",   _ ) => "power_RSp"
+      case (".htm.powertm",      true,  true,  true,  true,  "requester_loses_power",  _ ) => "woper_RSp"
+      case (".htm.powertmplus",  true,  true,  true,  _,     "requester_wins_power",   _ ) => "powerplus"
+      case (MissingProperty, _, _, _, _, _, _) => "NoHTM"
     },
     isConfig = true,
-    ordering = dynamicOrdering("rw", "rl", "power", "woper")
+    ordering = dynamicOrdering("rw", "rl", "power", "woper", "rw_RSp", "rl_RSp", "power_RSp", "woper_RSp")
 
     )
 

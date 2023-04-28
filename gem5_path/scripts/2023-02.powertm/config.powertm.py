@@ -8,7 +8,7 @@ import templates
 configs_set(templates.base)
 configs_update(templates.cache_baseline) 
 configs_vary({cpu_model: "DerivO3CPU"},
-             #{cpu_model: "TimingSimpleCPU"},
+             {cpu_model: "TimingSimpleCPU"},
 )
 
 configs_vary(
@@ -22,8 +22,10 @@ configs_vary(
     { htm_binary_suffix: '.htm.fallbacklock', htm_conflict_resolution: "requester_loses",  htm_max_retries: 4, htm_precise_read_set_tracking: True},
     { htm_binary_suffix: '.htm.fallbacklock', htm_conflict_resolution: "requester_wins",  htm_max_retries: 4,  htm_precise_read_set_tracking: False},
     { htm_binary_suffix: '.htm.fallbacklock', htm_conflict_resolution: "requester_loses",  htm_max_retries: 4, htm_precise_read_set_tracking: False},
-#    { htm_binary_suffix: '.htm.powertm', htm_conflict_resolution: "requester_wins_power",  htm_max_retries: 2},
-#    { htm_binary_suffix: '.htm.powertm', htm_conflict_resolution: "requester_loses_power",  htm_max_retries: 2},
+    { htm_binary_suffix: '.htm.powertm', htm_conflict_resolution: "requester_wins_power",  htm_max_retries: 2,  htm_precise_read_set_tracking: True},
+    { htm_binary_suffix: '.htm.powertm', htm_conflict_resolution: "requester_loses_power",  htm_max_retries: 2,  htm_precise_read_set_tracking: True},
+    { htm_binary_suffix: '.htm.powertm', htm_conflict_resolution: "requester_wins_power",  htm_max_retries: 2,  htm_precise_read_set_tracking: False},
+    { htm_binary_suffix: '.htm.powertm', htm_conflict_resolution: "requester_loses_power",  htm_max_retries: 2,  htm_precise_read_set_tracking: False},
 #    { htm_binary_suffix: '.htm.powertmplus', htm_conflict_resolution: "requester_wins_power",  htm_max_retries: 2},
 
 )

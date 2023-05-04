@@ -9,7 +9,7 @@ namespace ruby
 DirectoryProfiler::DirectoryProfiler(const Params &p)
     : ClockedObject(p), directoryProfilerStats(this),
     event([this]{profilePrecision();}, name()),
-    delay(200)
+    delay(250000000)
 {
     caches.resize(MachineType_base_count(MachineType_L2Cache));
     numCaches = 0;
@@ -19,17 +19,19 @@ DirectoryProfiler::
 DirectoryProfilerStats::DirectoryProfilerStats(statistics::Group *parent)
     : statistics::Group(parent),
       ADD_STAT(jfcSharersPerLine, "Number of sharers per cache line"),
-      ADD_STAT(jfcDirectoryUsage, "Percentage of directory usage")
+      ADD_STAT(jfcDirectoryUsage, "Percentage of directory usage"),
+      ADD_STAT(jfcNumIterations, "Number of iterations if JFC stats")
 {
+    jfcNumIterations
+        .flags(statistics::nozero);
+
     jfcSharersPerLine
         .init(8)
-        .flags(statistics::pdf | statistics::dist | statistics::nozero |
-            statistics::nonan);
+        .flags(statistics::pdf | statistics::dist | statistics::nonan);
 
     jfcDirectoryUsage
         .init(8)
-        .flags(statistics::pdf | statistics::dist | statistics::nozero |
-            statistics::nonan);
+        .flags(statistics::pdf | statistics::dist | statistics::nonan);
 }
 
 DirectoryProfiler::~DirectoryProfiler()
@@ -44,14 +46,19 @@ DirectoryProfiler::addCacheMemory(SimObject* cacheMemory)
     caches.resize(MachineType_base_count(MachineType_L2Cache));
     caches[numCaches] = cacheMemory;
     numCaches++;
-    if (numCaches == MachineType_base_count(MachineType_L2Cache)) {
-        schedule(&event, curTick() + delay);
-    }
+}
+
+void
+DirectoryProfiler::startup()
+{
+    assert(numCaches == MachineType_base_count(MachineType_L2Cache));
+    schedule(&event, curTick() + delay);
 }
 
 void
 DirectoryProfiler::profilePrecision()
 {
+    directoryProfilerStats.jfcNumIterations++;
     std::vector<double> stats;
     stats.resize(2);
     double nSPL = 0;

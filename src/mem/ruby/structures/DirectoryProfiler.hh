@@ -19,6 +19,7 @@ class DirectoryProfiler : public ClockedObject
       ~DirectoryProfiler();
       void profilePrecision();
       void addCacheMemory(SimObject* cacheMemory);
+      void startup();
 
     private:
       int numCaches;
@@ -32,6 +33,7 @@ class DirectoryProfiler : public ClockedObject
 
         statistics::Histogram jfcSharersPerLine;
         statistics::Histogram jfcDirectoryUsage;
+        statistics::Scalar jfcNumIterations;
       } directoryProfilerStats;
 
 };

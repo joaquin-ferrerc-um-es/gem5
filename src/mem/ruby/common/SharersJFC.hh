@@ -24,6 +24,7 @@ namespace ruby
 // Sharers Dasc
 #define NUMROWS RubySystem::getNetworkRows()
 #define NUMCOLUMNS (NUMNODES/NUMROWS)
+#define MAXDISTANCE ((NUMROWS - 1) + (NUMCOLUMNS - 1))
 
 enum Direction
 {

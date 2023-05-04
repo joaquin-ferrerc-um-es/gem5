@@ -56,6 +56,7 @@ SharersJFC::getDistanceToHome(MachineID newSharer)
 {
   int distance = abs((home.num / NUMROWS) - (newSharer.num / NUMROWS));
   distance += abs((home.num % NUMROWS) - (newSharer.num % NUMROWS));
+  assert(distance <= MAXDISTANCE);
   return distance;
 }
 
@@ -86,6 +87,7 @@ SharersJFC::representationToCBV() {
 void
 SharersJFC::add(MachineID newSharer)
 {
+  NetDest old = getSharers();
   switch (JFCRep)
   {
   case LP:
@@ -132,6 +134,7 @@ SharersJFC::add(MachineID newSharer)
     break;
   }
   assert(getSharers().isElement(newSharer));
+  assert(getSharers().isSuperset(old));
 }
 
 void
@@ -233,24 +236,28 @@ SharersJFC::addSharers(int nodeAct, int distance,
   if (distance > 0) {
     if (((nodeAct / NUMROWS) > 0) && (direction != DOWN)) {
       int node = nodeAct - NUMROWS;
+      assert(node < NUMNODES);
       sh->add(node);
       addSharers(node, distance - 1, UP, sh);
     }
 
     if (((nodeAct / NUMROWS) < (NUMCOLUMNS - 1)) && (direction != UP)) {
       int node = nodeAct + NUMROWS;
+      assert(node < NUMNODES);
       sh->add(node);
       addSharers(node, distance - 1, DOWN, sh);
     }
 
     if (((nodeAct % NUMROWS) > 0) && (direction != RIGHT)) {
       int node = nodeAct - 1;
+      assert(node < NUMNODES);
       sh->add(node);
       addSharers(node, distance - 1, LEFT, sh);
     }
 
     if (((nodeAct % NUMROWS) < (NUMROWS - 1)) && (direction != LEFT)) {
       int node = nodeAct + 1;
+      assert(node < NUMNODES);
       sh->add(node);
       addSharers(node, distance - 1, RIGHT, sh);
     }
@@ -268,24 +275,28 @@ SharersJFC::getSetSharersDasc()
   if (maxDistance > 0) {
     if ((home.num / NUMROWS) > 0) {
       int node = home.num - NUMROWS;
+      assert(node < NUMNODES);
       sh.add(node);
       addSharers(node, maxDistance - 1, UP, &sh);
     }
 
     if ((home.num / NUMROWS) < (NUMCOLUMNS - 1)) {
       int node = home.num + NUMROWS;
+      assert(node < NUMNODES);
       sh.add(node);
       addSharers(node, maxDistance - 1, DOWN, &sh);
     }
 
     if ((home.num % NUMROWS) > 0) {
       int node = home.num - 1;
+      assert(node < NUMNODES);
       sh.add(node);
       addSharers(node, maxDistance - 1, LEFT, &sh);
     }
 
     if ((home.num % NUMROWS) < (NUMROWS - 1)) {
       int node = home.num + 1;
+      assert(node < NUMNODES);
       sh.add(node);
       addSharers(node, maxDistance - 1, RIGHT, &sh);
     }

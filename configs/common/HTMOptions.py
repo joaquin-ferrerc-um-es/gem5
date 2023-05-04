@@ -78,6 +78,8 @@ def addHTMOptions(parser):
                       help="Eager conflict detection")
     parser.add_argument("--htm-conflict-resolution", default="requester_wins",
                       choices=["requester_wins",
+                               "requester_loses",
+                               "power_tm",
                                "committer_wins",
                                "requester_stalls_cda_hybrid",
                                "requester_stalls_cda_hybrid_ntx",

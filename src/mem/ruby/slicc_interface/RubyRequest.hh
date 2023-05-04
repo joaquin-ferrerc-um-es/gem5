@@ -51,6 +51,7 @@
 #include "mem/ruby/protocol/PrefetchBit.hh"
 #include "mem/ruby/protocol/RubyAccessMode.hh"
 #include "mem/ruby/protocol/RubyRequestType.hh"
+#include "mem/ruby/protocol/TransactionBit.hh"
 
 namespace gem5
 {
@@ -74,6 +75,7 @@ class RubyRequest : public Message
     DataBlock m_WTData;
     int m_wfid;
     uint64_t m_instSeqNum;
+    TransactionBit m_Transactional;
     bool m_htmFromTransaction;
     uint64_t m_htmTransactionUid;
 
@@ -90,6 +92,7 @@ class RubyRequest : public Message
           m_Prefetch(_pb),
           m_pkt(_pkt),
           m_contextId(_core_id),
+          m_Transactional(TransactionBit_NonTrans),
           m_htmFromTransaction(false),
           m_htmTransactionUid(0)
     {
@@ -116,6 +119,7 @@ class RubyRequest : public Message
           m_WTData(_Data),
           m_wfid(_proc_id),
           m_instSeqNum(_instSeqNum),
+          m_Transactional(TransactionBit_NonTrans),
           m_htmFromTransaction(false),
           m_htmTransactionUid(0)
     {
@@ -143,6 +147,7 @@ class RubyRequest : public Message
           m_WTData(_Data),
           m_wfid(_proc_id),
           m_instSeqNum(_instSeqNum),
+          m_Transactional(TransactionBit_NonTrans),
           m_htmFromTransaction(false),
           m_htmTransactionUid(0)
     {

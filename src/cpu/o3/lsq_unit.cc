@@ -158,6 +158,8 @@ LSQUnit::completeDataAccess(PacketPtr pkt)
                 fail_reason = HtmFailureFaultCause::SIZE;
             } else if (htm_rc == HtmCacheFailure::FAIL_REMOTE) {
                 fail_reason = HtmFailureFaultCause::MEMORY;
+            } else if (htm_rc == HtmCacheFailure::FAIL_REMOTE_POWER) {
+                fail_reason = HtmFailureFaultCause::MEMORY_POWER;
             } else if (htm_rc == HtmCacheFailure::FAIL_OTHER) {
                 // these are likely loads that were issued out of order
                 // they are faulted here, but it's unlikely that these will

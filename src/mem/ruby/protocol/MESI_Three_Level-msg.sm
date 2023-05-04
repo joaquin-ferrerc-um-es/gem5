@@ -84,8 +84,7 @@ structure(CoherenceMsg, desc="...", interface="Message") {
   DataBlock DataBlk,            desc="Data for the cache line (if PUTX)";
   bool Dirty, default="false",  desc="Dirty bit";
   PrefetchBit Prefetch,         desc="Is this a prefetch request";
-
-  bool Transactional, default="false", desc="Is this a transactional request";
+  TransactionBit Transactional, default="TransactionBit_NonTrans", desc="Is this a transactional request";
   MachineID OriginalRequestor,  desc="What component sent this message";
   Cycles Timestamp, default="Cycles(0)",desc="Timestamp";
   bool functionalRead(Packet *pkt) {

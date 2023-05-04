@@ -75,7 +75,7 @@ structure(RequestMsg, desc="...", interface="Message") {
   int Len;
   bool Dirty, default="false",  desc="Dirty bit";
   PrefetchBit Prefetch,         desc="Is this a prefetch request";
-  bool Transactional, default="false", desc="Is this a transactional request";
+  TransactionBit Transactional, default="TransactionBit_NonTrans", desc="Is this a transactional request";
   Cycles Timestamp, default="Cycles(0)",desc="Timestamp";
 
   bool functionalRead(Packet *pkt) {
@@ -109,6 +109,7 @@ structure(ResponseMsg, desc="...", interface="Message") {
   bool NackerIsWriter, default="false", desc="This NACk response comes from a writer tx (LogTM)";
   bool L2Miss, default="false",  desc="LogTM, rebuilding sharing code";
   Cycles Timestamp, default="Cycles(0)",desc="Timestamp";
+  TransactionBit Transactional, default="TransactionBit_NonTrans", desc="Is this a transactional request";
   MessageSizeType MessageSize,  desc="size category of the message";
 
   bool functionalRead(Packet *pkt) {

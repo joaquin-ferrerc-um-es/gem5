@@ -245,6 +245,7 @@ typedef struct {
 } spinlock_t __attribute__ ((aligned (CACHE_LINE_SIZE_BYTES)));
 
 typedef struct {
+    volatile long * powerFlag;
     volatile long * fallbackLock;
     volatile long * preFallbackLock; // see HANDLER_FALLBACKLOCK_2PHASE
 } lockPtr_t __attribute__ ((aligned (CACHE_LINE_SIZE_BYTES)));
@@ -269,6 +270,10 @@ static inline void spinlock_init()
   (locks.preFallbackLock) = (long *)&lock_array[CACHE_LINE_SIZE_BYTES*numLock];
   *(locks.preFallbackLock) = 0;
 
+  ++numLock;
+
+  (locks.powerFlag) = (long *)&lock_array[CACHE_LINE_SIZE_BYTES*numLock];
+  *(locks.powerFlag) = -1;
   ++numLock;
   // Sanity check: remember to increase lock_array size accordingly
   assert(numLock < NUM_GLOBAL_LOCKS);

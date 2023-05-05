@@ -16,6 +16,7 @@ BENCHMARKS_STAMP_SELECTED=(
     "kmeans-queuesync"
     "labyrinth"
     "ssca2"
+    "ssca2-txphase"
     "vacation"
     "yada"
 )

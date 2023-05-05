@@ -11,6 +11,7 @@ BENCHMARKS_STAMP_SELECTED=(
     "intruder"
     "intruder-no-fsharing"
     "intruder-queuesync"
+    "intruder-rmwonly"
     "kmeans"
     "kmeans-queuesync"
     "labyrinth"

@@ -117,13 +117,14 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
   }
 
   /* Project specific coordinates. They are present here temporarily while they may be useful when using the web UI. TODO: move to a specific file once a project is closed */
+  /*
   Coord("config_cost_effective",
     s => (s("htm_binary_suffix"), s("htm_heap_prefault"),
       s("htm_allow_read_set_l0_cache_evictions"), s("htm_allow_read_set_l1_cache_evictions"),
       s("htm_precise_read_set_tracking"),
       s("htm_conflict_resolution"),
       s("htm_reload_if_stale")) match {
-         /* SUFFIX               PFLT  RSL0E  RSL1Ev RSPREC  CONF-RES            RLDSTL */
+         // SUFFIX               PFLT  RSL0E  RSL1Ev RSPREC  CONF-RES            RLDSTL
       case (".htm.fallbacklock", true,  true,  true,  false, "requester_wins",         _ ) => "rw"
       case (".htm.fallbacklock", true,  true,  true,  false, "requester_loses",        _ ) => "rl"
       case (".htm.powertm",      true,  true,  true,  false, "requester_wins_power",   _ ) => "power"
@@ -137,8 +138,27 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
     },
     isConfig = true,
     ordering = dynamicOrdering("rw", "rl", "power", "woper", "rw_RSp", "rl_RSp", "power_RSp", "woper_RSp")
+    )
+    */
+  /* Project specific coordinates. They are present here temporarily while they may be useful when using the web UI. TODO: move to a specific file once a project is closed */
+  Coord("config_max_retries",
+    s => (s("htm_binary_suffix"),
+      s("htm_precise_read_set_tracking"),
+      s("htm_max_retries"),
+      s("htm_conflict_resolution"),
+      s("htm_reload_if_stale")) match {
+         // SUFFIX                RSPREC  RETRIES  CONF-RES                  RLDSTL
+      case (".htm.fallbacklock", false, rtry,    "requester_wins",         _ ) => s"rw${rtry}"
+      case (".htm.fallbacklock", false, rtry,    "requester_loses",        _ ) => s"rl${rtry}"
+      case (".htm.powertm",      false, rtry,    "requester_wins_power",   _ ) => s"pw${rtry}"
+      case (".htm.powertm",      false, rtry,    "requester_loses_power",  _ ) => s"wp${rtry}"
+      case (MissingProperty, _, _, _, _) => "NoHTM"
+    },
+    isConfig = true,
+    ordering = dynamicOrdering("rw2", "rw4", "rw8", "rw16",
+                               "rl2", "rl4", "rl8", "rl16",
+                               "power", "woper", "rw_RSp", "rl_RSp", "power_RSp", "woper_RSp")
 
     )
-
 
 }

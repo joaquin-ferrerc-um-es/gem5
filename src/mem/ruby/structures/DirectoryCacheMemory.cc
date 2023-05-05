@@ -113,7 +113,7 @@ DirectoryCacheMemory::init()
         }
     }
 
-    RubySystem::addCacheToDirectoryProfiler(this);
+    g_system_ptr->addCacheToDirectoryProfiler(this);
 }
 
 DirectoryCacheMemory::~DirectoryCacheMemory()
@@ -135,7 +135,7 @@ DirectoryCacheMemory::getPrecisionStats(std::vector<double> stats)
 
     for (int i = 0; i < m_cache_num_sets; i++){
         for (int j = 0; j < m_cache_assoc; j++) {
-            if ((m_cache[i][j]->getPermission() != AccessPermission_NotPresent)
+            if ((m_cache[i][j] != nullptr && m_cache[i][j]->getPermission() != AccessPermission_NotPresent)
                  && (m_cache[i][j]->getPermission()
                      != AccessPermission_Invalid)) {
                     numLineasOcupadas++;

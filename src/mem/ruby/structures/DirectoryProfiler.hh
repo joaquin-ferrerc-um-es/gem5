@@ -12,10 +12,12 @@ namespace gem5
 namespace ruby
 {
 
-class DirectoryProfiler : public ClockedObject
+class RubySystem;
+
+class DirectoryProfiler : Named
 {
     public:
-      DirectoryProfiler(const Params &p);
+      DirectoryProfiler(RubySystem* rs);
       ~DirectoryProfiler();
       void profilePrecision();
       void addCacheMemory(SimObject* cacheMemory);
@@ -24,8 +26,6 @@ class DirectoryProfiler : public ClockedObject
     private:
       int numCaches;
       std::vector<SimObject*> caches;
-      EventFunctionWrapper event;
-      const Tick delay;
 
       struct DirectoryProfilerStats : public statistics::Group, Named
       {

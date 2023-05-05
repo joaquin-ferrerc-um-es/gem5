@@ -1,4 +1,5 @@
 #include "mem/ruby/structures/DirectoryProfiler.hh"
+#include "mem/ruby/system/RubySystem.hh"
 #include "base/trace.hh"
 #include "debug/DirectoryProfiler.hh"
 
@@ -8,11 +9,8 @@ namespace gem5
 namespace ruby
 {
 
-DirectoryProfiler::DirectoryProfiler(const Params& p)
-    : ClockedObject(p),
-      event([this]{profilePrecision();}, name()),
-      delay(250000000),
-      directoryProfilerStats(this)
+DirectoryProfiler::DirectoryProfiler(RubySystem* rs)
+  : Named("DirectoryProfilerStats"), directoryProfilerStats(rs)
 {
     caches.resize(MachineType_base_count(MachineType_L2Cache));
     numCaches = 0;
@@ -60,7 +58,6 @@ DirectoryProfiler::startup()
 {
     DPRINTF(DirectoryProfiler, "DirectoryProfiler startup called\n");
     assert(numCaches == MachineType_base_count(MachineType_L2Cache));
-    schedule(&event, curTick() + delay);
 }
 
 void
@@ -82,7 +79,6 @@ DirectoryProfiler::profilePrecision()
 
     directoryProfilerStats.jfcSharersPerLine.sample(nSPL);
     directoryProfilerStats.jfcDirectoryUsage.sample(nC);
-    schedule(&event, curTick() + delay);
 }
 
 } // namespace ruby

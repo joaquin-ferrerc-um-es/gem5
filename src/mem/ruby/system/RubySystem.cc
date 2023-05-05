@@ -84,8 +84,6 @@ int RubySystem::n_network_mesh_rows;
 std::string RubySystem::n_jfc_representation;
 bool RubySystem::m_l0_downgrade_on_l1_gets = false;
 
-DirectoryProfiler* RubySystem::n_directory_profiler;
-
 RubySystem::RubySystem(const Params &p)
     : ClockedObject(p), m_access_backing_store(p.access_backing_store),
       m_xactValueChecker(NULL),
@@ -111,7 +109,14 @@ RubySystem::RubySystem(const Params &p)
     statistics::registerDumpCallback([this]() { collateStats(); });
     // Create the profiler
     m_profiler = new Profiler(p, this);
-    n_directory_profiler = new DirectoryProfiler(p);
+    n_directory_profiler = new DirectoryProfiler(this);
+    m_directory_profiler_event = new EventFunctionWrapper(
+      [this]{
+        n_directory_profiler->profilePrecision();
+        schedule(m_directory_profiler_event, curTick() + directoryProfilerDelay);
+      },
+      "DirectoryProfiler::profilePrecision");
+
     m_phys_mem = p.phys_mem;
     m_protocol = p.protocol;
     n_limited_pointers = p.limited_pointers;
@@ -516,6 +521,7 @@ RubySystem::startup()
         resetClock();
     }
 
+    schedule(m_directory_profiler_event, curTick() + directoryProfilerDelay);
     resetStats();
 }
 

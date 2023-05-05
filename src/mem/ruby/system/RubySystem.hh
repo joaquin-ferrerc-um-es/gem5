@@ -120,7 +120,7 @@ class RubySystem : public ClockedObject
     }
     */
     void collateStats() { m_profiler->collateStats(); }
-    static void addCacheToDirectoryProfiler(SimObject* cacheMemory)
+    void addCacheToDirectoryProfiler(SimObject* cacheMemory)
       { n_directory_profiler->addCacheMemory(cacheMemory); }
     void resetStats() override;
 
@@ -202,7 +202,9 @@ class RubySystem : public ClockedObject
 
   public:
     Profiler* m_profiler;
-    static DirectoryProfiler* n_directory_profiler;
+    DirectoryProfiler* n_directory_profiler;
+    EventFunctionWrapper *m_directory_profiler_event;
+    const int directoryProfilerDelay = 10000000; // TODO: make this an option
     CacheRecorder* m_cache_recorder;
     std::vector<std::map<uint32_t, AbstractController *> > m_abstract_controls;
 };

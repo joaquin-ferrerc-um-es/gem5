@@ -97,6 +97,15 @@ m5_init()
 }
 
 void simBeginRegionOfInterest() {
+    if (m5_sum(1,2,3,4,5,6)) { // i.e., inSimulator()
+        // Force writing all buffered user space data (messages printed to
+        // terminal) by calling fflush before GOTO_SIM (init checkpoint
+        // taken), to prevent noise during the ROI. NOTE: It is assumed
+        // GOTO_SIM only called by master thread
+        fflush(NULL);
+        fsync(1);
+        sleep(1); // hack! wait for the OS to drain all buffers...
+    }
     // IMPORTANT NOTICE (support for fast-forward using KVM): See
     // $(GEM5_ROOT)/src/sim/System.py for documentation. Basically, we
     // need to ensure that we checkpoint the state of the guest

@@ -27,7 +27,7 @@ class DirectoryProfiler : public ClockedObject
       EventFunctionWrapper event;
       const Tick delay;
 
-      struct DirectoryProfilerStats : public statistics::Group
+      struct DirectoryProfilerStats : public statistics::Group, Named
       {
         DirectoryProfilerStats(statistics::Group *parent);
 

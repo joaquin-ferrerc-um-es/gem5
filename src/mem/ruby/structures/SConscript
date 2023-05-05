@@ -47,3 +47,5 @@ Source('RubyPrefetcher.cc')
 Source('TimerTable.cc')
 Source('BankedArray.cc')
 Source('TBEStorage.cc')
+
+DebugFlag('DirectoryProfiler')

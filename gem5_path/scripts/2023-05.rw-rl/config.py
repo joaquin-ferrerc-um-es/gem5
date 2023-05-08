@@ -7,7 +7,7 @@ import templates
 
 configs_set(templates.base)
 configs_update(templates.cache_baseline) 
-configs_vary({cpu_model: "TimingSimpleCPU"},
+configs_vary(#{cpu_model: "TimingSimpleCPU"},
              {cpu_model: "DerivO3CPU"},
 )
 
@@ -27,8 +27,8 @@ configs_update({
 })
 configs_update({
     build_type: "opt", # Set binary_type (the dafult comes from tasks-gem5 and may include several values using Vary)
-    htm_visualizer: True,
-    htm_backoff: False,
+    htm_visualizer: False,
+    htm_backoff: True,
     htm_isolation_checker: True,
     #htm_precise_read_set_tracking: True,
     htm_l0_downgrade_on_l1_gets: True, # Currently required by precise read set tracking
@@ -37,7 +37,7 @@ configs_update({
 
     disable_transparent_hugepages: True,
 
-    benchmark: Vary(*(get_benchmarks(suite = "stamp", size = "small",
+    benchmark: Vary(*(get_benchmarks(suite = "stamp", size = "medium",
                                      name = ["genome",
                                              "kmeans-h",
                                              "kmeans-qs-h",
@@ -49,7 +49,7 @@ configs_update({
                                              "ssca2-tx",
                                              #"ssca2",
                                              "vacation-h",
-                                             #"yada",
+                                             "yada",
                                      ]))),
 
     random_seed: Vary(*range(10)),

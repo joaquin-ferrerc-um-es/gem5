@@ -57,6 +57,7 @@
 #include "mem/ruby/common/TypeDefines.hh"
 #include "mem/ruby/common/WriteMask.hh"
 #include "mem/ruby/protocol/RubyRequestType.hh"
+#include "mem/ruby/protocol/TransactionBit.hh"
 
 namespace gem5
 {
@@ -160,6 +161,18 @@ isHtmCmdRequest(RubyRequestType type)
             return false;
     }
 }
+inline bool
+isTransactionalRequest(TransactionBit type)
+{
+    if ((type == TransactionBit_Trans)  ||
+        (type == TransactionBit_PowerTrans)) {
+        return true;
+    } else {
+        assert(type == TransactionBit_NonTrans);
+        return false;
+    }
+}
+
 
 inline RubyRequestType
 htmCmdToRubyRequestType(const Packet *pkt)

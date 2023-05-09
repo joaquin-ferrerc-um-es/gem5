@@ -80,12 +80,6 @@ TimingSimpleCPU::TimingSimpleCPU(const TimingSimpleCPUParams &p)
       fetchEvent([this]{ fetch(); }, name())
 {
     _status = Idle;
-    if (system->getHTM()) {
-        // Sanity checks for HTM - UMU model + TimingSimpleCPU
-        assert(!system->getHTM()->params().reload_if_stale);
-        assert(!system->getHTM()->params().precise_read_set_tracking);
-    }
-
 }
 
 
@@ -278,7 +272,23 @@ TimingSimpleCPU::handleReadPacket(PacketPtr pkt)
     if (req->isHTMCmd()) {
         assert(!req->isLocalAccess());
     }
-
+    if (system->getHTM()->params().precise_read_set_tracking &&
+        t_info.inHtmTransactionalState()) {
+        // Set pending load to detect conflicts via checkSnoop
+        if (pkt->senderState) {
+            // split load
+            SplitFragmentSenderState * send_state =
+                dynamic_cast<SplitFragmentSenderState *>(pkt->senderState);
+            assert(send_state);
+            int index = send_state->index;
+            assert(index >= 0 && index <= 1);
+            pendingTransactionalLoads[index] = (req->getPaddr() & dcachePort.cacheBlockMask);
+        }
+        else { // not split access
+            pendingTransactionalLoads[0] = (req->getPaddr() & dcachePort.cacheBlockMask);
+            pendingTransactionalLoads[1] = 0;
+        }
+    }
     // We're about the issues a locked load, so tell the monitor
     // to start caring about this address
     if (pkt->isRead() && pkt->req->isLLSC()) {
@@ -826,6 +836,8 @@ void
 TimingSimpleCPU::completeIfetch(PacketPtr pkt)
 {
     SimpleExecContext& t_info = *threadInfo[curThread];
+    GEM5_VAR_USED const bool is_htm_speculative =
+        t_info.inHtmTransactionalState();
 
     DPRINTF(SimpleCPU, "Complete ICache Fetch for addr %#x\n", pkt ?
             pkt->getAddr() : 0);
@@ -845,6 +857,23 @@ TimingSimpleCPU::completeIfetch(PacketPtr pkt)
 
 
     preExecute();
+
+    if (curStaticInst && is_htm_speculative && curStaticInst->isSyscall()) {
+        warn("Syscall within transaction at PC %s\n",
+             t_info.thread->pcState());
+        DPRINTF(HtmCpu, "Syscall within transaction at PC %s"
+                " (generating GenericHtmFailureFault)\n",
+                t_info.thread->pcState());
+        Fault fault =
+            std::make_shared<GenericHtmFailureFault>(
+                          t_info.getHtmTransactionUid(),
+                          HtmFailureFaultCause::EXCEPTION);
+        advanceInst(fault);
+        if (pkt) {
+            delete pkt;
+        }
+        return;
+    }
 
     // hardware transactional memory
     if (curStaticInst && curStaticInst->isHtmStart()) {
@@ -1021,15 +1050,10 @@ TimingSimpleCPU::completeDataAccess(PacketPtr pkt)
     if (pkt->isHtmTransactional()) {
         assert (pkt->getHtmTransactionUid() ==
                 t_info->getHtmTransactionUid());
-
         // hardware transactional memory
         if (pkt->isHtmFailedCacheAccess()) { // Nacked access
             // Always abort. TODO: retry (req-stalls)
             assert(pkt->htmTransactionFailedInCache());
-            assert((pkt->getHtmTransactionFailedInCacheRC() ==
-                   HtmCacheFailure::FAIL_REMOTE) ||
-                   (pkt->getHtmTransactionFailedInCacheRC() ==
-                    HtmCacheFailure::FAIL_REMOTE_POWER));
         }
 
         if (!pkt->req->isHTMCmd() &&
@@ -1037,12 +1061,22 @@ TimingSimpleCPU::completeDataAccess(PacketPtr pkt)
             // Transactional load
             htmSendSignal(pkt->getAddr(),
                           Request::HTM_ISOLATE);
+            if (system->getHTM()->params().precise_read_set_tracking) {
+                // After we isolate the load, clear pending trans loads
+                assert(!pkt->senderState);
+                pendingTransactionalLoads[0] = 0;
+                pendingTransactionalLoads[1] = 0;
+                // Reset this, if conflict seen, this pkt was already
+                // marked via setHtmTransactionFailedInCache
+                conflictingSnoopSeen[0] = false;
+                conflictingSnoopSeen[1] = false;
+            }
         }
     }
     // can't have a packet that fails a transaction while not in a transaction
-    if (pkt->htmTransactionFailedInCache())
+    if (pkt->htmTransactionFailedInCache()) {
         assert(is_htm_speculative);
-
+    }
     // shouldn't fail through stores because this would be inconsistent w/ O3
     // which cannot fault after the store has been sent to memory
     if (pkt->htmTransactionFailedInCache() &&
@@ -1067,11 +1101,10 @@ TimingSimpleCPU::completeDataAccess(PacketPtr pkt)
         } else if (htm_rc == HtmCacheFailure::FAIL_REMOTE) {
             fault = std::make_shared<GenericHtmFailureFault>(
                 t_info->getHtmTransactionUid(),
+                abortedByConflitingSnoop ?
+                HtmFailureFaultCause::LSQ :
                 HtmFailureFaultCause::MEMORY);
-        } else if (htm_rc == HtmCacheFailure::FAIL_REMOTE_POWER) {
-            fault = std::make_shared<GenericHtmFailureFault>(
-                t_info->getHtmTransactionUid(),
-                HtmFailureFaultCause::MEMORY_POWER);
+            abortedByConflitingSnoop = false;
         } else {
             panic("HTM - unhandled rc %s", htmFailureToStr(htm_rc));
         }
@@ -1087,6 +1120,14 @@ TimingSimpleCPU::completeDataAccess(PacketPtr pkt)
         t_info->thread->htmTransactionStops++;
         DPRINTF(HtmCpu, "htmTransactionStops++=%u\n",
             t_info->thread->htmTransactionStops);
+    }
+
+    if (curStaticInst && (fault == NoFault)) {
+        // HTM checker (record/replay): send trace data through fifo
+        // before it gets deallocated
+        retireInst(curStaticInst->isMemRef(),
+                        is_htm_speculative,
+                        traceData);
     }
 
     // keep an instruction count
@@ -1116,6 +1157,9 @@ TimingSimpleCPU::updateCycleCounts()
 void
 TimingSimpleCPU::DcachePort::recvTimingSnoopReq(PacketPtr pkt)
 {
+    if (pkt->isInvalidate()) {
+        cpu->checkSnoop(pkt);
+    }
     for (ThreadID tid = 0; tid < cpu->numThreads; tid++) {
         if (cpu->getCpuAddrMonitor(tid)->doMonitor(pkt)) {
             cpu->wakeup(tid);
@@ -1163,10 +1207,63 @@ TimingSimpleCPU::DcachePort::recvTimingResp(PacketPtr pkt)
         return false;
     }
 }
+void
+TimingSimpleCPU::checkForConflictingSnoops(PacketPtr pkt)
+{
+    if (!system->getHTM()->params().precise_read_set_tracking) return;
+    Addr addr = pkt->getAddr() & dcachePort.cacheBlockMask;
+    // Transactional load completed via Sequencer::hitCallback,
+    // but in the meantime a conflicting snoop for this line
+    // address was seen: abort
+
+    // a) We obtained Data after we saw the Inv: now we
+    // retry and hit in cache
+
+    // b) We obtained data from L2 after we saw the Inv
+    // (Data_all_Nacks), no copy was kept and conflictCallback
+    // was called (req->nackedTransactionConflict was set)
+
+    // c) (tricky race shown above) We obtained data from L1/L2 and
+    // called hitCallback immediately before we saw the Inv, we
+    // invalidated the copy, now we refetch since obtained data
+    // may be stale data if writer commits (atomicity violation)
+    for(int i=0; i < 2 ; ++i) {
+        int other = (i == 0) ? 1 : 0;
+        if (conflictingSnoopSeen[i]) {
+            if (addr == pendingTransactionalLoads[i]) {
+                PacketPtr p = pkt;
+                if (pkt->senderState) {
+                    SplitFragmentSenderState * send_state =
+                        dynamic_cast<SplitFragmentSenderState *>(pkt->senderState);
+                    assert(send_state);
+                    p = send_state->bigPkt;
+                }
+                DPRINTF(HtmCpu, "Conflicting snoop seen for "
+                        "pending %stransactional load %#x,"
+                        " %s\n",
+                        pkt->senderState ? "split " :"",
+                        addr, pkt->htmTransactionFailedInCache() ?
+                        "already failed in cache" : "aborting");
+                if (!pkt->htmTransactionFailedInCache()) {
+                    p->setHtmTransactionFailedInCache(HtmCacheFailure::FAIL_REMOTE);
+                    abortedByConflitingSnoop = true; // Will set abort cause to LSQ
+                } else {
+                }
+                conflictingSnoopSeen[i] = false;
+            }
+            else { // This is a split load, conflicting snoop seen on the other half
+                assert(addr == pendingTransactionalLoads[other]);
+                DPRINTF(HtmCpu, "Conflicting snoop for other half of this split trans load %#x\n",
+                        addr);
+            }
+        }
+    }
+}
 
 void
 TimingSimpleCPU::DcachePort::DTickEvent::process()
 {
+    cpu->checkForConflictingSnoops(pkt);
     cpu->completeDataAccess(pkt);
 }
 
@@ -1211,6 +1308,38 @@ TimingSimpleCPU::DcachePort::recvReqRetry()
         cpu->_status = DcacheWaitResponse;
         // memory system takes ownership of packet
         cpu->dcache_pkt = NULL;
+    }
+}
+
+/*
+ * There's a 1-cycle gap between the call to RubyPort::hitCallback and
+ * TimingSimpleCPU::completeDataAccess, during which an invalidation
+ * may arrive (see trace below) and miss a conflict if we don't check
+ * the forwarded invalidations (snoop interface) in the timing CPU
+ * like we do for the O3CPU.
+
+  1500  12        Seq                Done       >       [0xbf486300, line 0xbf486300] 77 cycles
+  1500  12    L1Cache       Data_all_Acks     IS>S      [0xbf486300, line 0xbf486300] 
+  1500  12    L1Cache                 Inv      S>I      [0xbf486300, line 0xbf486300] 
+*/
+
+void
+TimingSimpleCPU::checkSnoop(PacketPtr pkt)
+{
+    if (system->getHTM()->params().precise_read_set_tracking &&
+        _status == DcacheWaitResponse) {
+        Addr addr = (pkt->getAddr() & dcachePort.cacheBlockMask);
+        assert(addr);
+        if (pendingTransactionalLoads[0] == addr ||
+            pendingTransactionalLoads[1] == addr) {
+            if (pendingTransactionalLoads[0] == addr)
+                conflictingSnoopSeen[0] = true;
+            else
+                conflictingSnoopSeen[1] = true;
+
+            DPRINTF(HtmCpu, "Detected conflict on pending transactional"
+                    " load line addr %lx\n", addr);
+        }
     }
 }
 

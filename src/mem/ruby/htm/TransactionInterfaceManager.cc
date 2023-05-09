@@ -319,7 +319,7 @@ TransactionInterfaceManager::commitTransaction(PacketPtr pkt)
                 assert(m_atCommit);
                 m_xactLazyVersionManager->notifyCommittedTransaction();
                 m_xactLazyCommitArbiter->commitTransaction();
-                m_atCommit = false;; // Reset
+                m_atCommit = false; // Reset
             }
         } else {
             m_xactEagerVersionManager->commitTransaction();
@@ -379,7 +379,7 @@ TransactionInterfaceManager::discardWriteSetFromL1DataCache() {
         } else {
             assert(hit);
             m_dataCache_ptr->deallocate(addr);
-            DPRINTF(RubyHTM, "HTM: %d deallocated L1DCache address %x\n",
+            DPRINTF(RubyHTM, "HTM: %d deallocated L1DCache address %#x\n",
                     m_version, addr);
         }
         _unused(hit);
@@ -599,6 +599,12 @@ TransactionInterfaceManager::getTransactionBit() {
     }
 }
 
+uint64_t
+TransactionInterfaceManager::getCurrentHtmTransactionUid() const
+{
+    return m_currentHtmUid;
+}
+
 bool
 TransactionInterfaceManager::inTransaction(){
     return (m_transactionLevel > 0 && m_escapeLevel == 0);
@@ -629,7 +635,7 @@ TransactionInterfaceManager::isolateTransactionLoad(Addr addr){
         addToReadSetPerfectFilter(physicalAddr); // default TL is 1
 
     DPRINTF(RubyHTMverbose, "isolateTransactionLoad "
-            "address=%x\n", physicalAddr);
+            "address %#x\n", physicalAddr);
 }
 
 void
@@ -639,7 +645,7 @@ TransactionInterfaceManager::addToRetiredReadSet(Addr addr){
     m_xactIsolationManager->
         addToRetiredReadSet(physicalAddr);
     DPRINTF(RubyHTMverbose, "retiredTransactionLoad "
-            "address=%x\n", physicalAddr);
+            "address %#x\n", physicalAddr);
 
     if (config_enableIsolationChecker()) {
         m_ruby_system->getXactIsolationChecker()->
@@ -677,17 +683,12 @@ TransactionInterfaceManager::isolateTransactionStore(Addr addr){
             addToWriteSet(m_version, physicalAddr);
     }
     DPRINTF(RubyHTMverbose, "HTM: isolateTransactionStore "
-            "address=%x\n", physicalAddr);
+            "address %#x\n", physicalAddr);
 }
 
 bool
 TransactionInterfaceManager::config_isReqLosesPolicy() {
     return getXactConflictManager()->isReqLosesPolicy();
-}
-
-bool
-TransactionInterfaceManager::config_isPowerTMPolicy() {
-    return getXactConflictManager()->isPowerTMPolicy();
 }
 
 bool
@@ -760,13 +761,21 @@ profileHtmFailureFaultCause(HtmFailureFaultCause cause)
                     htmFailureToStr(preciseFaultCause));
         }
         break;
-    case HTMStats::AbortCause::FallbackLock:
     case HTMStats::AbortCause::ConflictStale:
+        if (m_htm->params().precise_read_set_tracking) {
+            // Can get data stale for addr not yet in Rset
+        } else {
+            assert(checkReadSignature(m_abortAddress));
+        }
+        assert((cause == HtmFailureFaultCause::MEMORY) ||
+               (cause == HtmFailureFaultCause::LSQ));
+        preciseFaultCause = HtmFailureFaultCause::MEMORY_STALEDATA;
+        break;
+    case HTMStats::AbortCause::FallbackLock:
     case HTMStats::AbortCause::ConflictPower:
     case HTMStats::AbortCause::Conflict:
         // Conflict
         if (cause == HtmFailureFaultCause::MEMORY ||
-            cause == HtmFailureFaultCause::MEMORY_POWER ||
             // Can also get LSQ cause if block in R/W set and CPU
             // found outstanding load in lsq (see checkSnoop) and
             // HTM config says not to reload stale data
@@ -877,9 +886,8 @@ TransactionInterfaceManager::getHtmTransactionalReqResponseCode()
     case HTMStats::AbortCause::Conflict:
     case HTMStats::AbortCause::ConflictStale:
     case HTMStats::AbortCause::FallbackLock:
-        return HtmCacheFailure::FAIL_REMOTE;
     case HTMStats::AbortCause::ConflictPower:
-        return HtmCacheFailure::FAIL_REMOTE_POWER;
+        return HtmCacheFailure::FAIL_REMOTE;
     default:
         panic("Invalid htm return code\n");
         return HtmCacheFailure::FAIL_OTHER;
@@ -933,7 +941,6 @@ TransactionInterfaceManager::setAbortFlag(Addr addr,
     }
     if (!m_abortFlag) { // Only send abort signal to CPU once
         m_abortFlag = true;
-
         m_abortAddress = makeLineAddress(addr);
 
         if (m_transactionLevel > 0) {
@@ -986,7 +993,8 @@ TransactionInterfaceManager::setAbortFlag(Addr addr,
         } else if (machineIDToNodeID(abortSource) != getProcID()) {
             // Remote conflicting requestor, for now assume L1 cache
             assert(machineIDToMachineType(abortSource) == MachineType_L1Cache);
-            m_abortSourceNonTransactional = (remote_trans == TransactionBit_NonTrans);
+            m_abortSourceNonTransactional = !isTransactionalRequest(remote_trans);
+
             // Conflict-induced aborts are split into fallback-lock
             // conflicts vs rest
             assert(m_abortAddress);
@@ -1021,7 +1029,7 @@ TransactionInterfaceManager::setAbortFlag(Addr addr,
     }
     else {
         DPRINTF(RubyHTM, "HTM: setAbortFlag "
-                "for address=%x but abort flag was already set\n",
+                "for address %#x but abort flag was already set\n",
                 addr);
     }
 }
@@ -1033,6 +1041,7 @@ TransactionInterfaceManager::cancelTransaction(PacketPtr pkt)
     m_abortFlag = true;
     assert(m_abortCause == HTMStats::AbortCause::Undefined);
     m_abortCause = HTMStats::AbortCause::Explicit;
+
     XACT_PROFILER->moveTo(getProcID(), AnnotatedRegion_ABORTING);
     DPRINTF(RubyHTM, "HTM: cancelTransaction explicitly aborts transaction\n");
 }
@@ -1042,6 +1051,13 @@ TransactionInterfaceManager::isCancelledTransaction()
 {
     return (m_abortFlag &&
             m_abortCause == HTMStats::AbortCause::Explicit);
+}
+
+bool
+TransactionInterfaceManager::isTransactionAbortedByRemotePower()
+{
+    return (m_abortFlag &&
+            m_abortCause == HTMStats::AbortCause::ConflictPower);
 }
 
 void
@@ -1103,12 +1119,12 @@ TransactionInterfaceManager::xactReplacement(Addr addr, MachineID source,
         if (!XACT_LAZY_VM) { // LogTM
             // Allowed, do not abort
             DPRINTF(RubyHTMlog, "HTM: tolerated xactReplacement"
-                    " of logged write-set address=%x \n", addr);
+                    " of logged write-set address %#x \n", addr);
             return;
         }
         wset = true;
         DPRINTF(RubyHTM, "HTM: xactReplacement "
-                "for write-set address=%x \n", addr);
+                "for write-set address %#x \n", addr);
         if (capacity) {
             // Keep track of overflows for sanity checks when
             // discarding write set (expect not present)
@@ -1135,7 +1151,7 @@ TransactionInterfaceManager::xactReplacement(Addr addr, MachineID source,
     } else {
         assert(checkReadSignature(addr));
         DPRINTF(RubyHTM, "HTM: xactReplacement "
-                "for read-set address=%x \n", addr);
+                "for read-set address %#x \n", addr);
         if (!XACT_LAZY_VM) { // LogTM
             if (isUnrollingLog()) {
                 DPRINTF(RubyHTMlog, "HTM: read-set eviction"
@@ -1177,10 +1193,11 @@ TransactionInterfaceManager::shouldNackLoad(Addr addr,
                                             Cycles remote_timestamp,
                                             TransactionBit remote_trans)
 {
-    return getXactConflictManager()->shouldNackLoad(addr, requestor,
+    assert(addr == makeLineAddress(addr));
+    bool nack = getXactConflictManager()->shouldNackLoad(addr, requestor,
                                                     remote_timestamp,
                                                     remote_trans);
-
+    return nack;
 }
 
 bool

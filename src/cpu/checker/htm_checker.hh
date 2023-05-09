@@ -118,6 +118,7 @@ private:
     bool isLock(Trace::InstRecord *traceData);
     bool isUnlock(Trace::InstRecord *traceData);
     bool foundLocked(Trace::InstRecord *traceData);
+    bool foundUnlocked(Trace::InstRecord *traceData);
     void getLockValue(Trace::InstRecord *traceData,
                       uint64_t &value);
     bool isReturnToUserMode(Trace::InstRecord *traceData);

@@ -87,6 +87,7 @@ void beginTransaction_fallbackLock(long tag,
     u_int64_t flags = 0x0;
 #if defined(HANDLER_POWERTM)
     bool txExecOnPower = false;
+    int nRetriesPowerMode = 0;
 #endif
     assert(ctx == &thread_contexts[ctx->info.threadId]);
     handleHeapPrefault(ctx->info.threadId);
@@ -134,9 +135,17 @@ void beginTransaction_fallbackLock(long tag,
          */
 #if defined(HANDLER_POWERTM)
         if (txExecOnPower) {
+            ++nRetriesPowerMode;
             if (htm_may_succeed_on_retry(ret)) {
-                // Retry in power mode unless retry bit set, no backoff
-                continue;
+                // Retry in power mode unless retry bit set, without
+                // backoff. NOTE: avoid retrying indefinitely in case
+                // we have repeated conflict-induced aborts with
+                // non-transactional code
+                if (nRetriesPowerMode > env.config.htm_max_retries) {
+                    retryWithLock=1;
+                } else {
+                    continue;
+                }
             }
         }
 #endif
@@ -189,7 +198,8 @@ void beginTransaction_fallbackLock(long tag,
            ) {
             // Transaction may not succeed on retry
             retryWithLock=1;
-        } else if (nretries >= env.config.htm_max_retries) {
+        } else if ((nretries >= env.config.htm_max_retries) &&
+                   !retryWithLock) {
 #if defined(HANDLER_POWERTM)
             assert(!txExecOnPower);
             /* Go into power mode  */
@@ -219,7 +229,8 @@ void beginTransaction_fallbackLock(long tag,
     // Release power flag - Dice et. al
     if (*(locks.powerFlag) == ctx->info.threadId) {
         assert(txExecOnPower);
-        assert(!htm_may_succeed_on_retry(ret));
+        assert(!htm_may_succeed_on_retry(ret) ||
+               (nRetriesPowerMode > env.config.htm_max_retries));
          *(locks.powerFlag) = -1;
     }
 #endif
@@ -255,7 +266,11 @@ void commitTransaction_fallbackLock(long tag, _tm_thread_context_t *ctx)
         simCodeRegionEnd(AnnotatedRegion_ABORT_HANDLER_HASLOCK);
     }
     else {
-        htm_commit(tag);
+        u_int64_t commitStatus = htm_commit(tag);
+        /* TODO: Commit status not returned properly in RAX when using
+           O3CPU.
+         */
+        //assert(commitStatus == 0); // TODO: Act based on commit status
 #if defined(HANDLER_POWERTM)
         if (*(locks.powerFlag) == ctx->info.threadId) {
             *(locks.powerFlag) = -1;

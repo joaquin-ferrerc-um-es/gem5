@@ -1,0 +1,11 @@
+Listing(Source("SimulationsMixes"), [
+	IndexColumn("num_cpus",AllValues,Section),
+	IndexColumn("benchmark_name",AllValues,XColumn),
+	IndexColumn("cpu_model",AllValues,Section),
+	IndexColumn("config_max_retries",AllValues,SerieColumn)
+], [
+	ResultColumn("cycles_ticks",normalized,bars),
+	ResultColumn("htm_cycles_in_region",normalized,bars),
+	ResultColumn("htm_transaction_abort_cause",normalized,bars),
+	ResultColumn("num_files",absolute,bars)
+])

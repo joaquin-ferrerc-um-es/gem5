@@ -57,6 +57,11 @@ def template MicroXendCompleteAcc {{
         %(vardec)s;
 
         %(code_cmp)s;
+
+        ThreadContext *tc = xc->tcBase();
+        auto status = tc->getHtmCommitStatus();
+        tc->setIntReg(INTREG_EAX, status);
+
         return NoFault;
     }
 }};

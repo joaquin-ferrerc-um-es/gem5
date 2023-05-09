@@ -57,12 +57,11 @@ X86ISA::HTMCheckpoint::restore(ThreadContext *tc, HtmFailureFaultCause cause)
       case HtmFailureFaultCause::MEMORY:
         replaceBits(error_code, 2, 1);
         retry = true;
-        break;
-      case HtmFailureFaultCause::MEMORY_POWER:
-          // Power transactions: abort caused by power transaction
-          // See gem5_path/benchmarks/benchmarks-htm/libs/isa/x86/abort_status.h
-        replaceBits(error_code, 8, 1);
-        retry = true;
+        if (tc->isHtmFailureFaultCauseMemoryPower()) {
+            // Power transactions: abort caused by power transaction
+            // See gem5_path/benchmarks/benchmarks-htm/libs/isa/x86/abort_status.h
+            replaceBits(error_code, 8, 1);
+        }
         break;
       case HtmFailureFaultCause::SIZE:
         // Set if an internal buffer overflowed

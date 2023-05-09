@@ -16,6 +16,7 @@
 #include "mem/ruby/common/Address.hh"
 #include "mem/ruby/htm/htm.hh"
 #include "mem/ruby/protocol/TransactionBit.hh"
+#include "mem/ruby/slicc_interface/RubySlicc_Util.hh"
 #include "mem/ruby/structures/CacheMemory.hh"
 #include "mem/ruby/system/RubySystem.hh"
 #include "mem/ruby/system/TransactionalSequencer.hh"
@@ -74,6 +75,7 @@ public:
                     bool dataStale = false);
   void cancelTransaction(PacketPtr pkt);
   bool isCancelledTransaction();
+  bool isTransactionAbortedByRemotePower();
 
   void setAbortCause(HTMStats::AbortCause cause);
   void profileHtmFailureFaultCause(HtmFailureFaultCause cause);
@@ -93,6 +95,7 @@ public:
 
   int getTransactionLevel();
   TransactionBit getTransactionBit();
+  uint64_t getCurrentHtmTransactionUid() const;
 
   bool inTransaction();
   void isolateTransactionLoad(Addr physicalAddr);
@@ -188,8 +191,6 @@ public:
       return m_htm->params().reload_if_stale;
   }
   bool config_isReqLosesPolicy();
-
-  bool config_isPowerTMPolicy();
 
   bool isPowerMode();
 

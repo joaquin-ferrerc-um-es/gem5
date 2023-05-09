@@ -317,4 +317,14 @@ ThreadContext::getHtmUndoLogSize() {
     }
 }
 
+int
+ThreadContext::getHtmCommitStatus() {
+    return getSystemPtr()->getHTM()->getCommitStatus(cpuId());
+}
+
+bool
+ThreadContext::isHtmFailureFaultCauseMemoryPower() {
+    return getSystemPtr()->getHTM()->isHtmFailureFaultCauseMemoryPower(cpuId());
+}
+
 } // namespace gem5

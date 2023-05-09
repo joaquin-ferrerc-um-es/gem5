@@ -269,6 +269,20 @@ HTMChecker::foundLocked(Trace::InstRecord *traceData)
    }
 }
 
+bool
+HTMChecker::foundUnlocked(Trace::InstRecord *traceData)
+{
+    if (cpu->system->getArch() == Arch::X86ISA) {
+        return (traceData->getIntData() == 0);
+    } else if (cpu->system->getArch() == Arch::ArmISA) {
+        // Simply ignore value
+        return true;
+    } else {
+        panic("Lockstep: lock interception not tested in this ISA!");
+        return false;
+   }
+}
+
 void
 HTMChecker::getLockValue(Trace::InstRecord *traceData,
                          uint64_t &value)
@@ -397,7 +411,8 @@ HTMChecker::retireInst(bool isMemRef, bool isTransactional,
     if (isMemRef) {
         if (traceData->getStaticInst()->isHtmCmd()) {
             // Skip htm commands
-        } else if ((traceData->getAddr() == fallbackLockVirtAddr) ||
+        } else if (((traceData->getAddr() == fallbackLockVirtAddr) &&
+                     traceData->getStaticInst()->isStore()) ||
                    (lockStatus == ArmISALockStatus::Acquiring)) {
             getLockValue(traceData, lastFallbackLockReadValue);
             if (isUnlock(traceData)) { // Unlock
@@ -430,10 +445,54 @@ HTMChecker::retireInst(bool isMemRef, bool isTransactional,
                    value seen for lock in order to detect if this is a
                    successful "acquire" */
                 DPRINTF(HTMChecker, "Store found busy lock\n");
+            } else if (foundUnlocked(traceData)) {
+                DPRINTF(HTMChecker, "%s found free lock\n",
+                        traceData->getStaticInst()->getName());
             } else {
                 panic("Unexpected value for fallback lock");
             }
-        } else { // Not an access to the lock
+        } else if (traceData->getAddr() == fallbackLockVirtAddr) {
+            // Load access to the lock: do not record/check
+            getLockValue(traceData, lastFallbackLockReadValue);
+            if (cpu->system->getLockstepMode() == enums::record) {
+                if (isTransactional) {
+                    assert(foundUnlocked(traceData) ||
+                           // Lock subscription immediately after
+                           // xbegin found lock held
+                           values.empty());
+                } else {
+                    if (!values.empty()) { // recording with the lock
+                        assert(hasFallbackLock);
+                        assert(foundLocked(traceData));
+                    } else { // Not yet recording: maybe an access
+                             // during the abort handler
+                        assert(!hasFallbackLock);
+                    }
+                }
+            } else if (cpu->system->getLockstepMode() == enums::replay) {
+                assert(!isTransactional);
+                if (foundLocked(traceData)) {
+                    if (!values.empty()) {
+                        // Load prior to unlocking during commitTransaction
+                        assert(hasFallbackLock);
+                    } else {
+                        // Some other thread acquired the lock, this
+                        // threads spins in the abort handler
+                        assert(!hasFallbackLock);
+                    }
+                } else if (foundUnlocked(traceData)) {
+                    if (values.empty()) {
+                        // Load prior to locking before beginTransaction
+                        assert(!hasFallbackLock);
+                    } else {
+                        // Should never find lock free during value replay
+                        panic("Unexpected value for fallback lock");
+                    }
+                } else {
+                    panic("Found fallback lock neither busy nor free?");
+                }
+            }
+        } else { // Access to a regular addr
             bool isStore = traceData->getStaticInst()->isStore();
             if (cpu->system->getLockstepMode() == enums::record) {
                 if (isTransactional || hasFallbackLock) {

@@ -7,8 +7,8 @@ import templates
 
 configs_set(templates.base)
 configs_update(templates.cache_baseline) 
-configs_vary({cpu_model: "DerivO3CPU"},
-             {cpu_model: "TimingSimpleCPU"},
+configs_vary({cpu_model: "TimingSimpleCPU"},
+             {cpu_model: "DerivO3CPU"},
 )
 
 configs_vary(
@@ -18,32 +18,44 @@ configs_vary(
 )
 
 configs_vary(
-    { htm_binary_suffix: '.htm.fallbacklock', htm_conflict_resolution: "requester_wins"},
-    { htm_binary_suffix: '.htm.powertm', htm_conflict_resolution: "power_tm",  htm_max_retries: 2},
-    { htm_binary_suffix: '.htm.powertmplus', htm_conflict_resolution: "power_tm",  htm_max_retries: 2},
+    { htm_binary_suffix: '.htm.fallbacklock', htm_conflict_resolution: "requester_wins",  htm_max_retries: 4,  htm_precise_read_set_tracking: False},
+    { htm_binary_suffix: '.htm.fallbacklock', htm_conflict_resolution: "requester_loses",  htm_max_retries: 4, htm_precise_read_set_tracking: False},
+    { htm_binary_suffix: '.htm.powertm', htm_conflict_resolution: "requester_wins_power",  htm_max_retries: 2,  htm_precise_read_set_tracking: False},
+    { htm_binary_suffix: '.htm.powertm', htm_conflict_resolution: "requester_loses_power",  htm_max_retries: 2,  htm_precise_read_set_tracking: False},
+    ### Precise read set tracking
+
+    { htm_binary_suffix: '.htm.fallbacklock', htm_conflict_resolution: "requester_wins",  htm_max_retries: 4,  htm_precise_read_set_tracking: True},
+    { htm_binary_suffix: '.htm.fallbacklock', htm_conflict_resolution: "requester_loses",  htm_max_retries: 4, htm_precise_read_set_tracking: True},
+    { htm_binary_suffix: '.htm.powertm', htm_conflict_resolution: "requester_wins_power",  htm_max_retries: 2,  htm_precise_read_set_tracking: True},
+    { htm_binary_suffix: '.htm.powertm', htm_conflict_resolution: "requester_loses_power",  htm_max_retries: 2,  htm_precise_read_set_tracking: True},
+
+#    { htm_binary_suffix: '.htm.powertmplus', htm_conflict_resolution: "requester_wins_power",  htm_max_retries: 2},
 
 )
 
 configs_update({
     build_type: "opt", # Set binary_type (the dafult comes from tasks-gem5 and may include several values using Vary)
     htm_visualizer: True,
+    htm_backoff: False,
     htm_isolation_checker: True,
-    htm_precise_read_set_tracking: False,
-
-    #htm_l0_downgrade_on_l1_gets: True, # Check why it causes a slowdown in some cases (intruder-nfs)
+    #htm_precise_read_set_tracking: True,
+    htm_l0_downgrade_on_l1_gets: True, # Currently required by precise read set tracking
 
     exit_at_roi_end: True,
 
     disable_transparent_hugepages: True,
 
-    benchmark: Vary(*(get_benchmarks(suite = "stamp", size = "medium",
-                                     name = ["vacation-h",
+    benchmark: Vary(*(get_benchmarks(suite = "stamp", size = "small",
+                                     name = ["genome",
                                              "kmeans-h",
+                                             "kmeans-qs-h",
+                                             "intruder",
                                              "intruder-qs",
-                                             "intruder-nfs",
-                                             #"intruder",
-                                             "yada",
+                                             #"intruder-nfs",
+                                             #"intruder-nfs-qs",
                                              "ssca2",
+                                             "vacation-h",
+                                             #"yada",
                                      ]))),
 
     random_seed: Vary(*range(10)),

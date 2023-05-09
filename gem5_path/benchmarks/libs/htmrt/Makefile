@@ -59,7 +59,7 @@ CFLAGS += -O3 -Wall -fgnu-tm -std=c11
 CFLAGS += -g
 
 # Needed to build the dynamic library version
-#CFLAGS += -fPIC
+CFLAGS += -fPIC
 
 all: build/$(ARCH)/libhtmrt-$(HANDLER).a # build/$(ARCH)/libhtmrt-$(HANDLER).so
 

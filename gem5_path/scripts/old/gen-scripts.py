@@ -51,7 +51,7 @@ def parseOptions():
 def remove_first_if_equals(s, c):
     if (len(s) > 0 and s[0] == c):
         return s[1:]
-    else:
+    else: 
         return(s)
 
 ###############################################################################

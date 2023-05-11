@@ -272,7 +272,8 @@ TimingSimpleCPU::handleReadPacket(PacketPtr pkt)
     if (req->isHTMCmd()) {
         assert(!req->isLocalAccess());
     }
-    if (system->getHTM()->params().precise_read_set_tracking &&
+    if (system->getHTM() != nullptr &&
+        system->getHTM()->params().precise_read_set_tracking &&
         t_info.inHtmTransactionalState()) {
         // Set pending load to detect conflicts via checkSnoop
         if (pkt->senderState) {
@@ -1210,7 +1211,8 @@ TimingSimpleCPU::DcachePort::recvTimingResp(PacketPtr pkt)
 void
 TimingSimpleCPU::checkForConflictingSnoops(PacketPtr pkt)
 {
-    if (!system->getHTM()->params().precise_read_set_tracking) return;
+    if (system->getHTM() == nullptr ||
+        !system->getHTM()->params().precise_read_set_tracking) return;
     Addr addr = pkt->getAddr() & dcachePort.cacheBlockMask;
     // Transactional load completed via Sequencer::hitCallback,
     // but in the meantime a conflicting snoop for this line
@@ -1326,7 +1328,8 @@ TimingSimpleCPU::DcachePort::recvReqRetry()
 void
 TimingSimpleCPU::checkSnoop(PacketPtr pkt)
 {
-    if (system->getHTM()->params().precise_read_set_tracking &&
+    if (system->getHTM() != nullptr &&
+        system->getHTM()->params().precise_read_set_tracking &&
         _status == DcacheWaitResponse) {
         Addr addr = (pkt->getAddr() & dcachePort.cacheBlockMask);
         assert(addr);

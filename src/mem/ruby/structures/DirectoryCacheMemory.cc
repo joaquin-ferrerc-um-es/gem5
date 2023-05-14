@@ -128,7 +128,7 @@ DirectoryCacheMemory::~DirectoryCacheMemory()
 }
 
 void
-DirectoryCacheMemory::getPrecisionStats(std::vector<double> stats)
+DirectoryCacheMemory::getPrecisionStats(std::vector<double>& stats)
 {
     int numLineasOcupadas = 0;
     int numCompartidores = 0;
@@ -145,8 +145,8 @@ DirectoryCacheMemory::getPrecisionStats(std::vector<double> stats)
         }
     }
 
-    stats[0] = numCompartidores/numLineasOcupadas;
-    stats[1] = numLineasOcupadas/(m_cache_num_sets*m_cache_assoc);
+    stats[0] = (double)numCompartidores/(double)numLineasOcupadas;
+    stats[1] = (double)numLineasOcupadas/(double)(m_cache_num_sets*m_cache_assoc);
 }
 
 // convert a Address to its location in the cache

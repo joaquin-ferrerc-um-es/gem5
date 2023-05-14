@@ -30,11 +30,11 @@ DirectoryProfilerStats::DirectoryProfilerStats(statistics::Group *parent)
         .flags(statistics::nozero);
 
     jfcSharersPerLine
-        .init(8)
+        .init(256)
         .flags(statistics::pdf | statistics::dist | statistics::nonan);
 
     jfcDirectoryUsage
-        .init(8)
+        .init(256)
         .flags(statistics::pdf | statistics::dist | statistics::nonan);
 }
 
@@ -74,8 +74,8 @@ DirectoryProfiler::profilePrecision()
         nSPL += stats[0];
         nC += stats[1];
     }
-    nSPL = nSPL/numCaches;
-    nC = nC/numCaches;
+    nSPL = nSPL/(double)numCaches;
+    nC = nC/(double)numCaches;
 
     directoryProfilerStats.jfcSharersPerLine.sample(nSPL);
     directoryProfilerStats.jfcDirectoryUsage.sample(nC);

@@ -76,7 +76,7 @@ class DirectoryCacheMemory : public SimObject
 
     void init();
 
-    void getPrecisionStats(std::vector<double> stats);
+    void getPrecisionStats(std::vector<double>& stats);
 
     // Public Methods
     // perform a cache access and see if we hit or not.  Return true on a hit.

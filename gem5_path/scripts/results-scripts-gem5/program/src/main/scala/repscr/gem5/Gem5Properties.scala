@@ -131,6 +131,20 @@ object Gem5Properties {
     }
   }
 
+  // directory profiler
+  Seq(("directory_sharers_per_line", "jfcSharersPerLine"),
+    ("directory_used_entries", "jfcDirectoryUsage")).foreach { case (ourName, gem5Name) =>
+    Prop(Result, ourName, { s =>
+      (s.stats / "system" / "ruby" /+- s"${gem5Name}::(.+)".r).view
+        .filter(v => v._1 match {
+          case "samples" | "mean" | "gmean" | "stdev" | "total" => false
+          case _ => true
+        })
+        .map(v => v._1.parseLong -> v._2.splitWords.head.parseLong)
+        .toMap
+    }, mixers.mapMixer(mixers.samples), optional = true)
+  }
+
   // network
   Prop(Result, "network_msg_count", { s =>
     (s.stats / "system" / "ruby" / "network" / "msg_count" /+- "(.+)".r)

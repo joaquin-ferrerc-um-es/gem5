@@ -33,6 +33,9 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
 
   CoordFromProp("disable_transparent_hugepages")
 
+  CoordFromProp("directory_sharers_per_line", stacked = true)
+  CoordFromProp("directory_used_entries", stacked = true)
+
   CoordFromProp("network_model")
   CoordFromProp("network_topology")
   CoordFromProp("network_mesh_rows")

@@ -1,6 +1,10 @@
 package repscr.gem5
 
+import repscr.gem5.Simulation.parser.RawGEM5Simulation
 import repscr.gem5.SimulationMix.mixers
+
+import scala.collection.MapView
+import scala.math
 
 object Gem5Properties {
   sealed trait PropertyType
@@ -132,18 +136,46 @@ object Gem5Properties {
   }
 
   // directory profiler
-  Seq(("directory_sharers_per_line", "jfcSharersPerLine"),
-    ("directory_used_entries", "jfcDirectoryUsage")).foreach { case (ourName, gem5Name) =>
-    Prop(Result, ourName, { s =>
-      (s.stats / "system" / "ruby" /+- s"${gem5Name}::(.+)".r).view
-        .filter(v => v._1 match {
-          case "samples" | "mean" | "gmean" | "stdev" | "total" => false
-          case _ => true
-        })
-        .map(v => v._1.parseLong -> v._2.splitWords.head.parseLong)
-        .toMap
-    }, mixers.mapMixer(mixers.samples), optional = true)
+  def getDirectorySharersPerLine(s:RawGEM5Simulation) = {
+    val num_cpus = s.configuration("SimulationInfo", "num_cpus").parseLong
+    (s.stats / "system" / "ruby" /+- "jfcSharersPerLine::(.+)".r).view
+      .filter(_._1 match {
+        case "samples" | "mean" | "gmean" | "stdev" | "total" => false
+        case _ => true
+      })
+      .map(v => v._1.parseLong -> v._2.splitWords.head.parseLong)
+      .filter { case (ns, 0) if ns > num_cpus => false case _ => true } // ignore empty bins with count 0 for nsharers higher that the number of cpus (TODO: they should not appear in the stat file in the first place)
   }
+
+  def sumByNumCpus[T: Numeric](l: Iterable[(Long, T)], s: RawGEM5Simulation) = {
+    val num_cpus = s.configuration("SimulationInfo", "num_cpus").parseLong
+    l.groupBy(t =>
+      t._1 match {
+        case x if x < 4 => s"$x"
+        case x if x <= num_cpus / 2 => if (num_cpus / 2 > 4) s"4-${num_cpus / 2}" else "4"
+        case x if x < num_cpus => s"${num_cpus / 2 + 1}-${num_cpus - 1}"
+        case x if x == num_cpus => s"$x"
+        case x => s"$x UNEXPECTED"
+      }
+    ).view.mapValues(lt => lt.map(_._2).sum)
+  }
+
+  Prop(Result, "directory_sharers_per_line_all", { s => sumByNumCpus(getDirectorySharersPerLine(s), s) }, mixers.mapMixer(mixers.samples), optional = true)
+
+  Prop(Result, "directory_sharers_per_line", { s => sumByNumCpus(getDirectorySharersPerLine(s), s).filterKeys(_ != "0") }, mixers.mapMixer(mixers.samples), optional = true)
+
+  Prop(Result, "directory_sharers_per_line_all_average", {
+    _.stats("system", "ruby", "jfcSharersPerLine::mean").splitWords.head.parseDouble
+  }, mixers.samples, optional = true)
+
+  Prop(Result, "directory_sharers_per_line_average", { s =>
+    val l = getDirectorySharersPerLine(s).filter(_._1 != 0)
+    l.map(t => t._1 * t._2).sum.toDouble / l.map(_._2).sum
+  }, mixers.samples, optional = true)
+
+  Prop(Result, "directory_used_entries_percent_average", { s =>
+    s.stats("system", "ruby", "jfcDirectoryUsage::mean").parseDouble
+  }, mixers.samples, optional = true)
 
   // network
   Prop(Result, "network_msg_count", { s =>

@@ -33,8 +33,11 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
 
   CoordFromProp("disable_transparent_hugepages")
 
-  CoordFromProp("directory_sharers_per_line", stacked = true)
-  CoordFromProp("directory_used_entries", stacked = true)
+  CoordFromProp("directory_sharers_per_line", stacked = true, axisTitle = "Number of sharers", doc = "Frequency of number of sharers per line (excluding lines not present in L0)")
+  CoordFromProp("directory_sharers_per_line_average", axisTitle = "Number of sharers", doc = "Average number of sharers per line (excluding lines not present in L0)")
+  CoordFromProp("directory_sharers_per_line_all", stacked = true, axisTitle = "Number of sharers", doc = "Frequency of number of sharers per line")
+  CoordFromProp("directory_sharers_per_line_all_average", axisTitle = "Number of sharers", doc = "Average number of sharers per line")
+  CoordFromProp("directory_used_entries_percent_average", axisTitle = "Percentage of entries", doc = "Percentage of used entries")
 
   CoordFromProp("network_model")
   CoordFromProp("network_topology")

@@ -52,6 +52,7 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
   CoordFromProp("htm_precise_read_set_tracking")
   CoordFromProp("htm_allow_load_delaying")
   CoordFromProp("htm_trans_aware_l0_replacements")
+  CoordFromProp("htm_trans_aware_l1_replacements")
   CoordFromProp("htm_reload_if_stale")
   CoordFromProp("htm_l0_downgrade_on_l1_gets")
   //CoordFromProp("htm_value_checker")

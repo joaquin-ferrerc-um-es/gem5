@@ -100,6 +100,7 @@ object Gem5Properties {
     ("htm_precise_read_set_tracking", _.parseBoolean),
     ("htm_allow_load_delaying", _.parseBoolean),
     ("htm_trans_aware_l0_replacements", _.parseBoolean),
+    ("htm_trans_aware_l1_replacements", _.parseBoolean),
     ("htm_reload_if_stale", _.parseBoolean),
     ("htm_l0_downgrade_on_l1_gets", _.parseBoolean),
     ("htm_max_retries", _.parseLong),

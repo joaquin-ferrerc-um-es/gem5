@@ -36,14 +36,6 @@ clean_benchmarks_stamp_all() {
     fi
 }
 
-clean_benchmarks_htmbench_all() {
-    local arch="$1"
-    if [[ "${BENCHMARKS_HTMBENCH_ENABLED[$arch]}" = "yes" ]] ; then
-        check_htmbench_gem5_directory_links
-        "$(absolute_path "$BENCHMARKS_HTM_HTMBENCH_DIR/make.all")" clean
-    fi
-}
-
 update_benchmarks_image_ensure_image_exists() {
     local image_name="$1"
     if [[ ! -f "$image_name" ]] ; then

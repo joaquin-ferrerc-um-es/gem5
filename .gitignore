@@ -36,3 +36,4 @@ gem5_path/scripts/run-scripts/config.py
 gem5_path/benchmarks/benchmarks-htm/HTMBench
 gem5_path/benchmarks/benchmarks-htm/stamp
 gem5_path/benchmarks/benchmarks-htm/parsec
+gem5_path/benchmarks/Splash-3

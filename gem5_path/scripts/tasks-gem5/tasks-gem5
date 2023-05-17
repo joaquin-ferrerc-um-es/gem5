@@ -29,7 +29,8 @@ help() {
      - scons and python 3.
      - Link to the STAMP repository in '${GEM5_ROOT}/gem5_path/benchmarks/benchmarks-htm/stamp' (or disable STAMP).
      - Link to the PARSEC repository in '${GEM5_ROOT}/gem5_path/benchmarks/parsec' (or disable PARSEC).
-     - Link to the HTMBench repository in '${GEM5_ROOT}/gem5_path/benchmarks/HTMBench' (or disable HTMBench).
+     - Link to the HTMBench repository in '${GEM5_ROOT}/gem5_path/benchmarks/benchmarks-htm/HTMBench' (or disable HTMBench).
+     - Link to the Splash-3 repository in '${GEM5_ROOT}/gem5_path/benchmarks/Splash-3' (or disable Splash-3).
 "
 }
 

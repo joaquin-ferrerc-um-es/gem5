@@ -77,7 +77,7 @@ build/$(ARCH)/:
 	mkdir -p $@
 
 annotated_regions.h:
-	ln -sf $(GEM5_ROOT)/src/mem/ruby/profiler/annotated_regions.h $@
+	ln -sf $$(realpath --relative-to=. $(GEM5_ROOT)/src/mem/ruby/profiler/annotated_regions.h) $@
 
 .PHONY: clean
 clean:

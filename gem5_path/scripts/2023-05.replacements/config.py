@@ -18,7 +18,7 @@ configs_vary(
 
 configs_vary(
     update(templates.htm_cfg2_l1rsetevict, { htm_trans_aware_l0_replacements: False, htm_trans_aware_l1_replacements: False}),
-    update(templates.htm_cfg2_l1rsetevict, { htm_trans_aware_l0_replacements: False, htm_trans_aware_l1_replacements: True}),
+    update(templates.htm_cfg2_l1rsetevict, { htm_trans_aware_l0_replacements: True, htm_trans_aware_l1_replacements: False}),
     update(templates.htm_cfg2_l1rsetevict, { htm_trans_aware_l0_replacements: True,  htm_trans_aware_l1_replacements: True})    
 )
 
@@ -41,15 +41,15 @@ configs_update({
     disable_transparent_hugepages: True,
 
     benchmark: Vary(*(get_benchmarks(suite = "stamp", size = "medium",
-                                     name = [#"genome",
+                                     name = ["genome",
                                              #"kmeans-h",
-                                             #"kmeans-qs-h",
+                                             "kmeans-qs-h",
                                              #"intruder",
-                                             #"intruder-qs",
+                                             "intruder-qs",
                                              #"intruder-nfs",
                                              #"intruder-nfs-qs",
                                              #"intruder-rmw",
-                                             #"ssca2-tx",
+                                             "ssca2-tx",
                                              #"ssca2",
                                              "vacation-h",
                                              "yada",

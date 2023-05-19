@@ -125,6 +125,7 @@ update_benchmarks_image() {
     
     "$VDS" --img "$image_name" \
            "${update_libs_cmds[@]}" \
+           "${update_stamp_cmds[@]}" \
            "${update_htmbench_cmds[@]}" \
            "${update_parsec_cmds[@]}" \
            "${update_splash3_cmds[@]}"

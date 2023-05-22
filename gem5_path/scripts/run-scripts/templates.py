@@ -174,6 +174,7 @@ htm_cfg1_base = {
     htm_allow_write_set_l2_cache_evictions: False,
     htm_precise_read_set_tracking: False,
     htm_trans_aware_l0_replacements: False,
+    htm_trans_aware_l1_replacements: False,
     htm_allow_load_delaying: False,
     htm_reload_if_stale: False,
     htm_delay_interrupts: False,

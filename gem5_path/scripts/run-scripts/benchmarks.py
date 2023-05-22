@@ -171,10 +171,35 @@ for (name, size, subdir, args, input) in [
     Benchmark(
         suite = "splash2x",
         name = name,
-
         size = size,
         args_string = args,
         subdir_template = f"parsec/ext/splash2x/{subdir}/{name}",
         binary_filename_template = f"inst/${{parsec_arch}}.gcc-hooks/bin/{name}", 
         input_filename_template = input,
         environment_template = "LD_LIBRARY_PATH=${benchmarks_root_dir}/parsec/pkgs/libs/hooks/inst/${parsec_arch}.gcc-hooks/lib/\n")
+
+# Splash-3
+for (name, subdir, exe_name, args, input) in [       
+    ("barnes",         "apps/barnes",                          "BARNES",         "", "inputs/n16384-p${num_cpus}"),
+    ("cholesky",       "kernels/cholesky",                     "CHOLESKY",       "-p${num_cpus}", "inputs/tk15.O"),
+    ("fft",            "kernels/fft",                          "FFT",            "-p${num_cpus} -m16", None),
+    ("fmm",            "apps/fmm",                             "FMM",            "", "inputs/input.${num_cpus}.16384"),
+    ("lu_cb",          "kernels/lu/contiguous_blocks",         "LU",             "-p${num_cpus} -n512", None),
+    ("lu_ncb",         "kernels/lu/non_contiguous_blocks",     "LU",             "-p${num_cpus} -n512", None),
+    ("ocean_cp",       "apps/ocean/contiguous_partitions",     "OCEAN",          "-p${num_cpus} -n258", None),
+    ("ocean_ncp",      "apps/ocean/non_contiguous_partitions", "OCEAN",          "-p${num_cpus} -n258", None),
+    ("radiosity",      "apps/radiosity",                       "RADIOSITY",      "-p ${num_cpus} -ae 5000 -bf 0.1 -en 0.05 -room -batch", None),
+    ("radix",          "kernels/radix",                        "RADIX",          "-p${num_cpus} -n1048576", None),
+    ("raytrace",       "apps/raytrace",                        "RAYTRACE",       "-p${num_cpus} -m64 inputs/car.env", None),
+    ("volrend",        "apps/volrend",                         "VOLREND",        "${num_cpus} inputs/head 8", None),
+    ("water_nsquared", "apps/water-nsquared",                  "WATER-NSQUARED", "${num_cpus}", "inputs/n512-p${num_cpus}"),
+    ("water_spatial",  "apps/water-spatial",                   "WATER-SPATIAL",  "${num_cpus}", "inputs/n512-p${num_cpus}"),
+]:
+    Benchmark(
+        suite = "splash3",
+        name = name,
+        size = "recommended",
+        args_string = args,
+        subdir_template = f"Splash-3/codes/{subdir}",
+        binary_filename_template = f"build/${{arch}}/{exe_name}", 
+        input_filename_template = input)

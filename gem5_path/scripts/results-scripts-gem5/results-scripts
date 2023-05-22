@@ -12,4 +12,13 @@ JAR_FILE=results-scripts.jar
 MEM="$(printf "24576\n$(($(grep "MemTotal:" /proc/meminfo | head -n1 | tr -s " " | cut -d" " -f2) * 4 / 7 / 1024))\n" | sort -n | head -n1)"
 export JAVA_OPTS="${JAVA_OPTS:-Xmx${MEM}m}"
 
+PYLIBS="${SCRIPTS_DIR}/program/src/python-libs"
+if [[ -d "${PYLIBS}" ]] ; then
+    if [[ -z "${PYTHONPATH}" ]] ; then
+        export PYTHONPATH="${PYLIBS}"
+    else
+        export PYTHONPATH="${PYLIBS}:${PYTHONPATH}"
+    fi
+fi
+
 exec java -jar "${SCRIPTS_DIR}/program/${JAR_FILE}" "$@"

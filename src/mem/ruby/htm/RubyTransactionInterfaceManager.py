@@ -10,5 +10,6 @@ class TransactionInterfaceManager(ClockedObject):
     cxx_header = "mem/ruby/htm/TransactionInterfaceManager.hh"
 
     dcache = Param.RubyCache("")
+    l1_cache = Param.RubyCache("")
     sequencer = Param.RubyTransactionalSequencer("")
     ruby_system = Param.RubySystem(Parent.any, "")

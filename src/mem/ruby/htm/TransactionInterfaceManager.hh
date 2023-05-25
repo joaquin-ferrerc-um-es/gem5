@@ -224,6 +224,7 @@ private:
   AbstractController *m_controller;
   TransactionalSequencer *m_sequencer;
   CacheMemory* m_dataCache_ptr;
+  CacheMemory* m_l1Cache_ptr;
 
   TransactionIsolationManager     * m_xactIsolationManager;
   TransactionConflictManager      * m_xactConflictManager;

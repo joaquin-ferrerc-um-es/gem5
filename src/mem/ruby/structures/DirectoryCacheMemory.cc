@@ -128,25 +128,21 @@ DirectoryCacheMemory::~DirectoryCacheMemory()
 }
 
 void
-DirectoryCacheMemory::getPrecisionStats(std::vector<double>& stats)
+DirectoryCacheMemory::getPrecisionStats(statistics::Histogram& SPL, statistics::Histogram& PO)
 {
     int numLineasOcupadas = 0;
-    int numCompartidores = 0;
 
     for (int i = 0; i < m_cache_num_sets; i++){
         for (int j = 0; j < m_cache_assoc; j++) {
             if ((m_cache[i][j] != nullptr && m_cache[i][j]->getPermission() != AccessPermission_NotPresent)
-                 && (m_cache[i][j]->getPermission()
-                     != AccessPermission_Invalid)) {
+                 && (m_cache[i][j]->getPermission() != AccessPermission_Invalid)) {
                     numLineasOcupadas++;
-                    numCompartidores +=
-                    m_cache[i][j]->Sharers_JFC->getSharers().count();
+                    SPL.sample(m_cache[i][j]->Sharers_JFC->getSharers().count());
                  }
         }
     }
 
-    stats[0] = (double)numCompartidores/(double)numLineasOcupadas;
-    stats[1] = (double)numLineasOcupadas/(double)(m_cache_num_sets*m_cache_assoc);
+    PO.sample((double)numLineasOcupadas/(double)(m_cache_num_sets*m_cache_assoc));
 }
 
 // convert a Address to its location in the cache

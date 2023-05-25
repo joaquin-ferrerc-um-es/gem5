@@ -522,6 +522,7 @@ RubySystem::startup()
     }
 
     schedule(m_directory_profiler_event, curTick() + directoryProfilerDelay);
+    n_directory_profiler->startup();
     resetStats();
 }
 

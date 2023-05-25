@@ -30,11 +30,11 @@ DirectoryProfilerStats::DirectoryProfilerStats(statistics::Group *parent)
         .flags(statistics::nozero);
 
     jfcSharersPerLine
-        .init(256)
+        .init(MachineType_base_count(MachineType_L1Cache) ? MachineType_base_count(MachineType_L1Cache) : 256)
         .flags(statistics::pdf | statistics::dist | statistics::nonan);
 
     jfcDirectoryUsage
-        .init(256)
+        .init(10)
         .flags(statistics::pdf | statistics::dist | statistics::nonan);
 }
 
@@ -58,6 +58,9 @@ DirectoryProfiler::startup()
 {
     DPRINTF(DirectoryProfiler, "DirectoryProfiler startup called\n");
     assert(numCaches == MachineType_base_count(MachineType_L2Cache));
+    directoryProfilerStats.jfcSharersPerLine.reset();
+    directoryProfilerStats.jfcSharersPerLine.init(MachineType_base_count(MachineType_L1Cache))
+    .flags(statistics::pdf | statistics::dist | statistics::nonan);
 }
 
 void
@@ -65,20 +68,9 @@ DirectoryProfiler::profilePrecision()
 {
     DPRINTF(DirectoryProfiler, "DirectoryProfiler profilePrecision called\n");
     directoryProfilerStats.jfcNumIterations++;
-    std::vector<double> stats;
-    stats.resize(2);
-    double nSPL = 0;
-    double nC = 0;
     for (int i = 0; i < numCaches; i++) {
-        caches[i]->getPrecisionStats(stats);
-        nSPL += stats[0];
-        nC += stats[1];
+        caches[i]->getPrecisionStats(directoryProfilerStats.jfcSharersPerLine, directoryProfilerStats.jfcDirectoryUsage);
     }
-    nSPL = nSPL/(double)numCaches;
-    nC = nC/(double)numCaches;
-
-    directoryProfilerStats.jfcSharersPerLine.sample(nSPL);
-    directoryProfilerStats.jfcDirectoryUsage.sample(nC);
 }
 
 } // namespace ruby

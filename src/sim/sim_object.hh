@@ -51,6 +51,7 @@
 
 #include "base/named.hh"
 #include "base/stats/group.hh"
+#include "base/statistics.hh"
 #include "params/SimObject.hh"
 #include "sim/drain.hh"
 #include "sim/eventq.hh"
@@ -194,7 +195,7 @@ class SimObject : public EventManager, public Serializable, public Drainable,
     virtual void init();
 
     // JFC Statistics
-    virtual void getPrecisionStats(std::vector<double>& stats) { return; }
+    virtual void getPrecisionStats(statistics::Histogram& SPL, statistics::Histogram& PO) { return; }
 
     /**
      * loadState() is called on each SimObject when restoring from a

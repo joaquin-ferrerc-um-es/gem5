@@ -126,7 +126,7 @@ object Gem5Properties {
     (2, "L2cache", "l2")).foreach { case (i, gem5Name, ourName) =>
     val re_controllers = s"l${i}_cntrl([0-9]*)".r
     Seq("accesses", "hits", "misses").foreach { stat =>
-      Prop(Result, s"cache_${ourName}_${stat}", s => (s.stats / "system" / "ruby" / re_controllers / gem5Name /+ s"demand_${stat}").map(_.parseLong).sum, mixer = mixers.samples)
+      Prop(Result, s"cache_${ourName}_${stat}", s => (s.stats / "system" / "ruby" / re_controllers / gem5Name /+ s"m_demand_${stat}").map(_.parseLong).sum, mixer = mixers.samples)
     }
   }
 

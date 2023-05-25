@@ -61,17 +61,16 @@ update_benchmarks_image() {
     update_libs_cmds=(
         --src "$GEM5_ROOT/util/m5/build/$(get_m5_arch_name "$arch")/out/m5" --copy-to "/mnt/img1p1/benchmarks/" 
         --src "$GEM5_ROOT/gem5_path/benchmarks/libs/" --rsync-to "/mnt/img1p1/libs/" 
+        --src "$GEM5_ROOT/tests/test-progs/" --rsync-to "/mnt/img1p1/test-progs/" 
     )
 
     local -a update_stamp_cmds=()
     if [[ "${BENCHMARKS_STAMP_ENABLED[$arch]}" = "yes" || "${BENCHMARKS_STAMP_ENABLED[$arch]}" = "yes-native" ]] ; then
         update_stamp_cmds=(
             --command "mkdir -p /mnt/img1p1/benchmarks-htm/"
-            --src "$GEM5_ROOT/tests/test-progs/" --rsync-to "/mnt/img1p1/test-progs/" 
             --src "$GEM5_ROOT/gem5_path/benchmarks/benchmarks-htm/stamp/" --rsync-to "/mnt/img1p1/benchmarks-htm/stamp/" 
             --command "/mnt/img1p1/benchmarks-htm/stamp/prepare-inputs" 
             --src "$GEM5_ROOT/gem5_path/benchmarks/benchmarks-htm/libs/" --rsync-to "/mnt/img1p1/benchmarks-htm/libs/" 
-            --src "$GEM5_ROOT/gem5_path/benchmarks/libs/" --rsync-to "/mnt/img1p1/libs/" 
         )
     elif [[ "${BENCHMARKS_STAMP_ENABLED[$arch]}" = "yes-virtual" ]] ; then
         echo "$(color green "STAMP benchmarks will not be uploaded because they are built directly in the image for $arch.")"
@@ -125,6 +124,7 @@ update_benchmarks_image() {
     
     "$VDS" --img "$image_name" \
            "${update_libs_cmds[@]}" \
+           "${update_stamp_cmds[@]}" \
            "${update_htmbench_cmds[@]}" \
            "${update_parsec_cmds[@]}" \
            "${update_splash3_cmds[@]}"

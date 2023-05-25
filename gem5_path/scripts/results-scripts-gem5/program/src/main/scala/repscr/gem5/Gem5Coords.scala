@@ -153,6 +153,7 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
       case (".htm.fallbacklock", false, rtry,    "requester_loses",        _ ) => s"rl${rtry}"
       case (".htm.powertm",      false, rtry,    "requester_wins_power",   _ ) => s"pw${rtry}"
       case (".htm.powertm",      false, rtry,    "requester_loses_power",  _ ) => s"wp${rtry}"
+      case (".htm.sgl", _, _, _, _) => "NoHTM"
       case (MissingProperty, _, _, _, _) => "NoHTM"
     },
     isConfig = true,

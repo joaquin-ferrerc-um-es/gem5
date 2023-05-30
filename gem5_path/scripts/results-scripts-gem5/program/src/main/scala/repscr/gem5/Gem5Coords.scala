@@ -76,7 +76,7 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
     CoordFromProp(s"cache_${cache}_accesses", axisTitle = s"Accesses to ${cache}")
     CoordFromProp(s"cache_${cache}_hits", axisTitle = s"Hits to ${cache}")
     CoordFromProp(s"cache_${cache}_misses", axisTitle = s"Misses to ${cache}")
-    Coord(s"cache_${cache}_miss_rate", s => s("cache_${cache}_misses") / s(s"cache_${cache}_accesses"), axisTitle = s"Miss rate to ${cache}")
+    Coord(s"cache_${cache}_miss_rate", s => s(s"cache_${cache}_misses").toVwe / s(s"cache_${cache}_accesses"), axisTitle = s"Miss rate to ${cache}")
   }
 
   // network

@@ -120,7 +120,7 @@ BaseSimpleCPU::BaseSimpleCPU(const BaseSimpleCPUParams &p)
     pendingTransactionalLoads[1] = 0;
     conflictingSnoopSeen[0] = false;
     conflictingSnoopSeen[1] = false;
-    abortedByConflitingSnoop = false;
+    conflictingSnoopDetected = false;
 }
 
 void

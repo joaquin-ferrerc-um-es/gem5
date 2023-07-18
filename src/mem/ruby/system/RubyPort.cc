@@ -294,8 +294,6 @@ RubyPort::MemResponsePort::recvTimingReq(PacketPtr pkt)
     // Otherwise, we need to tell the port to retry at a later point
     // and return false.
     if (requestStatus == RequestStatus_Issued) {
-        DPRINTF(RubyPort, "Request %s 0x%x issued\n", pkt->cmdString(),
-                pkt->getAddr());
         return true;
     }
 

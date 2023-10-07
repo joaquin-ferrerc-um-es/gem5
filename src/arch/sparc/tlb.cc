@@ -250,7 +250,7 @@ TLB::dumpAll()
     }
 }
 
-void
+bool
 TLB::demapPage(Addr va, int partition_id, bool real, int context_id)
 {
     TlbRange tr;
@@ -279,7 +279,9 @@ TLB::demapPage(Addr va, int partition_id, bool real, int context_id)
         }
         freeList.push_front(i->second);
         lookupTable.erase(i);
+	return true;
     }
+    return false;
 }
 
 void

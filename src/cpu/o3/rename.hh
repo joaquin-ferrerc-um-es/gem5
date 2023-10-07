@@ -184,6 +184,9 @@ class Rename
     /** Has the stage drained? */
     bool isDrained() const;
 
+    /** Is back-end blocked? */
+    bool isBackendBlocked(ThreadID tid) const;
+
     /** Takes over from another CPU's thread. */
     void takeOverFrom();
 
@@ -468,6 +471,7 @@ class Rename
         IQ,
         LQ,
         SQ,
+        REG,
         NONE
     };
 
@@ -475,6 +479,9 @@ class Rename
      * the stall.
      */
     void incrFullStat(const FullSource &source);
+    void incrFullCycles(const FullSource &source, const bool &unit_is_idle, const bool &unit_is_unblocking);
+    FullSource lastsource = ROB; // Any reason to prevent error message, this should never be counted
+    void incrPartialFullCycles(const FullSource &source, const bool &unit_is_idle, const bool &unit_is_unblocking);
 
     struct RenameStats : public statistics::Group
     {
@@ -486,13 +493,21 @@ class Rename
         statistics::Scalar idleCycles;
         /** Stat for total number of cycles spent blocking. */
         statistics::Scalar blockCycles;
+        /** Stat for total number of cycles spent blocking because of IEW. */
+        Stats::Scalar renameBlockCyclesFromIEW;
         /** Stat for total number of cycles spent stalling for a serializing
          *  inst. */
         statistics::Scalar serializeStallCycles;
         /** Stat for total number of cycles spent running normally. */
         statistics::Scalar runCycles;
+        /** Stat for total number of cycles spent running normally but stalls halfway due to resource limitations. */
+        Stats::Scalar renameRunCyclesButStalls;
         /** Stat for total number of cycles spent unblocking. */
         statistics::Scalar unblockCycles;
+        /** Stat for total number of cycles spent completely stalled when unblocking. */
+        Stats::Scalar renameUnblockStallCycles;
+        /** Stat for total number of cycles spent stalled halfway when unblocking. */
+        Stats::Scalar renamePartialUnblockStallCycles;
         /** Stat for total number of renamed instructions. */
         statistics::Scalar renamedInsts;
         /** Stat for total number of squashed instructions that rename
@@ -510,6 +525,28 @@ class Rename
         /** Stat for total number of times that the SQ starts a stall in
          *  rename. */
         statistics::Scalar SQFullEvents;
+        /** Stat for total number of cycles that rename is completely stalled due to ROB */
+        Stats::Scalar renameROBCycles;
+        /** Stat for total number of cycles that rename is completely stalled due to IQ */
+        Stats::Scalar renameIQCycles;
+        /** Stat for total number of cycles that rename is completely stalled due to LQ */
+        Stats::Scalar renameLQCycles;
+        /** Stat for total number of cycles that rename is completely stalled due to SQ */
+        Stats::Scalar renameSQCycles;
+        /** Stat for total number of cycles that rename is completely stalled due to lack of free regs */
+        Stats::Scalar renameREGCycles;
+        /** Stat for total number of cycles that rename is stalled halfway due to ROB */
+        Stats::Scalar renamePartialROBCycles;
+        /** Stat for total number of cycles that rename is stalled halfway due to IQ */
+        Stats::Scalar renamePartialIQCycles;
+        /** Stat for total number of cycles that rename is stalled halfway due to LQ */
+        Stats::Scalar renamePartialLQCycles;
+        /** Stat for total number of cycles that rename is stalled halfway due to SQ */
+        Stats::Scalar renamePartialSQCycles;
+        /** Stat for total number of cycles that rename is stalled halfway due to lack of free regs */
+        Stats::Scalar renamePartialREGCycles;
+        /** Stat for total number of cycles where the Store Buffer was full and no outstanding load. */
+        Stats::Scalar renameBoundOnStores;
         /** Stat for total number of times that rename runs out of free
          *  registers to use to rename. */
         statistics::Scalar fullRegistersEvents;

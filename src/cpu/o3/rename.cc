@@ -102,12 +102,20 @@ Rename::RenameStats::RenameStats(statistics::Group *parent)
                "Number of cycles rename is idle"),
       ADD_STAT(blockCycles, statistics::units::Cycle::get(),
                "Number of cycles rename is blocking"),
+      ADD_STAT(renameBlockCyclesFromIEW, statistics::units::Cycle::get(),
+               "Number of cycles rename is blocking because of IEW"),
       ADD_STAT(serializeStallCycles, statistics::units::Cycle::get(),
                "count of cycles rename stalled for serializing inst"),
       ADD_STAT(runCycles, statistics::units::Cycle::get(),
                "Number of cycles rename is running"),
+      ADD_STAT(renameRunCyclesButStalls, statistics::units::Cycle::get(),
+               "Number of cycles rename is running but stalls halfway due to resource limits"),
       ADD_STAT(unblockCycles, statistics::units::Cycle::get(),
                "Number of cycles rename is unblocking"),
+      ADD_STAT(renameUnblockStallCycles, statistics::units::Cycle::get(),
+               "Number of cycles rename is completely stalled when unblocking"),
+      ADD_STAT(renamePartialUnblockStallCycles, statistics::units::Cycle::get(),
+               "Number of cycles rename is stalled halfway when unblocking"),
       ADD_STAT(renamedInsts, statistics::units::Count::get(),
                "Number of instructions processed by rename"),
       ADD_STAT(squashedInsts, statistics::units::Count::get(),
@@ -120,6 +128,28 @@ Rename::RenameStats::RenameStats(statistics::Group *parent)
                "Number of times rename has blocked due to LQ full" ),
       ADD_STAT(SQFullEvents, statistics::units::Count::get(),
                "Number of times rename has blocked due to SQ full"),
+      ADD_STAT(renameROBCycles, statistics::units::Count::get(),
+               "Number of cycles rename has completly blocked due to ROB full"),
+      ADD_STAT(renameIQCycles, statistics::units::Count::get(),
+               "Number of cycles rename has completly blocked due to IQ full"),
+      ADD_STAT(renameLQCycles, statistics::units::Count::get(),
+               "Number of cycles rename has completly blocked due to LQ full"),
+      ADD_STAT(renameSQCycles, statistics::units::Count::get(),
+               "Number of cycles rename has completly blocked due to SQ full"),
+      ADD_STAT(renameREGCycles, statistics::units::Count::get(),
+               "Number of cycles rename has completly blocked due to lack of free regs"),
+      ADD_STAT(renamePartialROBCycles, statistics::units::Count::get(),
+               "Number of cycles rename has blocked halfway due to ROB full"),
+      ADD_STAT(renamePartialIQCycles, statistics::units::Count::get(),
+               "Number of cycles rename has blocked halfway due to IQ full"),
+      ADD_STAT(renamePartialLQCycles, statistics::units::Count::get(),
+               "Number of cycles rename has blocked halfway due to LQ full"),
+      ADD_STAT(renamePartialSQCycles, statistics::units::Count::get(),
+               "Number of cycles rename has blocked halfway due to SQ full"),
+      ADD_STAT(renamePartialREGCycles, statistics::units::Count::get(),
+               "Number of cycles rename has blocked halfway due to lack of free regs"),
+      ADD_STAT(renameBoundOnStores, statistics::units::Count::get(),
+               "Number of cycles where the Store Buffer was full and no outstanding load"),
       ADD_STAT(fullRegistersEvents, statistics::units::Count::get(),
                "Number of times there has been no free registers"),
       ADD_STAT(renamedOperands, statistics::units::Count::get(),
@@ -150,6 +180,7 @@ Rename::RenameStats::RenameStats(statistics::Group *parent)
     blockCycles.prereq(blockCycles);
     serializeStallCycles.flags(statistics::total);
     runCycles.prereq(idleCycles);
+    renameRunCyclesButStalls.prereq(idleCycles);
     unblockCycles.prereq(unblockCycles);
 
     renamedInsts.prereq(renamedInsts);
@@ -315,6 +346,16 @@ Rename::isDrained() const
     return true;
 }
 
+bool
+Rename::isBackendBlocked(ThreadID tid) const
+{
+    // Check if rename will handle new uops, either directly or using skidbuffer
+    if (renameStatus[tid] == Running || renameStatus[tid] == Idle || renameStatus[tid] == Unblocking) {
+        return false;
+    }
+    return true;
+}
+
 void
 Rename::takeOverFrom()
 {
@@ -460,9 +501,11 @@ Rename::rename(bool &status_change, ThreadID tid)
 
     if (renameStatus[tid] == Blocked) {
         ++stats.blockCycles;
+        incrFullCycles(lastsource, false, false);
     } else if (renameStatus[tid] == Squashing) {
         ++stats.squashCycles;
     } else if (renameStatus[tid] == SerializeStall) {
+        incrFullCycles(lastsource, false, false);
         ++stats.serializeStallCycles;
         // If we are currently in SerializeStall and resumeSerialize
         // was set, then that means that we are resuming serializing
@@ -508,8 +551,16 @@ Rename::renameInsts(ThreadID tid)
 {
     // Instructions can be either in the skid buffer or the queue of
     // instructions coming from decode, depending on the status.
+    bool unit_is_idle = false;
+    bool unit_is_unblocking = false;
+
     int insts_available = renameStatus[tid] == Unblocking ?
         skidBuffer[tid].size() : insts[tid].size();
+
+    // Top-Down model
+    if ((loadsInProgress[tid] != 0) && (calcFreeSQEntries(tid) == 0)) {
+        stats.renameBoundOnStores++;
+    }
 
     // Check the decode queue to see if instructions are available.
     // If there are no available instructions to rename, then do nothing.
@@ -518,8 +569,10 @@ Rename::renameInsts(ThreadID tid)
                 tid);
         // Should I change status to idle?
         ++stats.idleCycles;
+        unit_is_idle = true;
         return;
     } else if (renameStatus[tid] == Unblocking) {
+        unit_is_blocking = true;
         ++stats.unblockCycles;
     } else if (renameStatus[tid] == Running) {
         ++stats.runCycles;
@@ -537,7 +590,7 @@ Rename::renameInsts(ThreadID tid)
         min_free_entries = free_iq_entries;
         source = IQ;
     }
-
+    lastsource = source;
     // Check if there's any space left.
     if (min_free_entries <= 0) {
         DPRINTF(Rename,
@@ -551,6 +604,8 @@ Rename::renameInsts(ThreadID tid)
         block(tid);
 
         incrFullStat(source);
+
+        incrFullCycles(source, unit_is_idle, unit_is_unblocking);
 
         return;
     } else if (min_free_entries < insts_available) {
@@ -566,6 +621,8 @@ Rename::renameInsts(ThreadID tid)
         blockThisCycle = true;
 
         incrFullStat(source);
+        incrPartialFullCycles(source, unit_is_idle, unit_is_unblocking);
+        ++stats.renameRunCyclesButStalls;
     }
 
     InstQueue &insts_to_rename = renameStatus[tid] == Unblocking ?
@@ -612,6 +669,8 @@ Rename::renameInsts(ThreadID tid)
                         tid);
                 source = LQ;
                 incrFullStat(source);
+                incrFullCycles(source,unit_is_idle,unit_is_unblocking);
+                lastsource = source;
                 break;
             }
         }
@@ -622,6 +681,8 @@ Rename::renameInsts(ThreadID tid)
                         tid);
                 source = SQ;
                 incrFullStat(source);
+                incrFullCycles(source,unit_is_idle,unit_is_unblocking);
+                lastsource = source;
                 break;
             }
         }
@@ -668,6 +729,9 @@ Rename::renameInsts(ThreadID tid)
             blockThisCycle = true;
             insts_to_rename.push_front(inst);
             ++stats.fullRegistersEvents;
+            source = REG;
+            lastsource = source;
+            incrFullCycles(source,unit_is_idle,unit_is_unblocking);
 
             break;
         }
@@ -1207,6 +1271,7 @@ Rename::checkStall(ThreadID tid)
     bool ret_val = false;
 
     if (stalls[tid].iew) {
+        ++stats.renameBlockCyclesFromIEW;
         DPRINTF(Rename,"[tid:%i] Stall from IEW stage detected.\n", tid);
         ret_val = true;
     } else if (calcFreeROBEntries(tid) <= 0) {
@@ -1395,9 +1460,72 @@ Rename::incrFullStat(const FullSource &source)
       case SQ:
         ++stats.SQFullEvents;
         break;
+      case REG:
+        ++stats.renameROBFullEvents; // This was the default old behaviour
+        break;
       default:
         panic("Rename full stall stat should be incremented for a reason!");
         break;
+    }
+}
+
+void
+Rename::incrFullCycles(const FullSource &source, const bool &unit_is_idle, const bool &unit_is_unblocking)
+{
+    if (unit_is_unblocking == true) {
+      ++stats.renameUnblockStallCycles;
+    }
+    if(unit_is_idle == false) {
+        switch (source) {
+          case ROB:
+            ++stats.renameROBCycles;
+            break;
+          case IQ:
+            ++stats.renameIQCycles;
+            break;
+          case LQ:
+            ++stats.renameLQCycles;
+            break;
+          case SQ:
+            ++stats.renameSQCycles;
+            break;
+          case REG:
+            ++stats.renameREGCycles;
+            break;
+          default:
+            panic("Rename full stall cycles stat should be incremented for a reason!");
+            break;
+        }
+    }
+}
+
+void
+Rename::incrPartialFullCycles(const FullSource &source, const bool &unit_is_idle, const bool &unit_is_unblocking)
+{
+    if (unit_is_unblocking == true) {
+      ++stats.renamePartialUnblockStallCycles;
+    }
+    if(unit_is_idle == false) {
+        switch (source) {
+          case ROB:
+            ++stats.renamePartialROBCycles;
+            break;
+          case IQ:
+            ++stats.renamePartialIQCycles;
+            break;
+          case LQ:
+            ++stats.renamePartialLQCycles;
+            break;
+          case SQ:
+            ++stats.renamePartialSQCycles;
+            break;
+          case REG:
+            ++stats.renamePartialREGCycles;
+            break;
+          default:
+            panic("Rename full stall cycles stat should be incremented for a reason!");
+            break;
+        }
     }
 }
 

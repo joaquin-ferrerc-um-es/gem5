@@ -140,7 +140,7 @@ class TLB : public BaseTLB
 
     /** Remve all entries that match a certain partition id, (contextid), and
      * va). */
-    void demapPage(Addr va, int partition_id, bool real, int context_id);
+    bool demapPage(Addr va, int partition_id, bool real, int context_id);
 
     /** Checks if the virtual address provided is a valid one. */
     bool validVirtualAddress(Addr va, bool am);
@@ -162,10 +162,11 @@ class TLB : public BaseTLB
 
     void takeOverFrom(BaseTLB *otlb) override {}
 
-    void
+    bool
     demapPage(Addr vaddr, uint64_t asn) override
     {
         panic("demapPage(Addr) is not implemented.\n");
+	return false;
     }
 
     void dumpAll();

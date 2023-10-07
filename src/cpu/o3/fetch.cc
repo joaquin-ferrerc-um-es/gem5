@@ -595,8 +595,12 @@ Fetch::fetchCacheLine(Addr vaddr, ThreadID tid, Addr pc)
     // Initiate translation of the icache block
     fetchStatus[tid] = ItlbWait;
     FetchTranslation *trans = new FetchTranslation(this);
-    cpu->mmu->translateTiming(mem_req, cpu->thread[tid]->getTC(),
+    bool hit = cpu->mmu->translateTiming(mem_req, cpu->thread[tid]->getTC(),
                               trans, BaseMMU::Execute);
+    cpu->incrementITLBAccesses();
+    if (hit == false) {
+      cpu->incrementITLBMisses();
+    }
     return true;
 }
 

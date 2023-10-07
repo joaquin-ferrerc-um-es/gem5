@@ -78,6 +78,8 @@ BPredUnit::BPredUnitStats::BPredUnitStats(statistics::Group *parent)
       ADD_STAT(lookups, statistics::units::Count::get(), "Number of BP lookups"),
       ADD_STAT(condPredicted, statistics::units::Count::get(),
                "Number of conditional branches predicted"),
+      ADD_STAT(condPredictedTaken, statistics::units::Count::get(),
+               "Number of conditional branches predicted as taken"),
       ADD_STAT(condIncorrect, statistics::units::Count::get(),
                "Number of conditional branches incorrect"),
       ADD_STAT(BTBLookups, statistics::units::Count::get(),
@@ -154,6 +156,10 @@ BPredUnit::predict(const StaticInstPtr &inst, const InstSeqNum &seqNum,
     } else {
         ++stats.condPredicted;
         pred_taken = lookup(tid, pc.instAddr(), bp_history);
+
+        if (pred_taken == true) {
+            ++stats.condPredictedTaken;
+        }
 
         DPRINTF(Branch, "[tid:%i] [sn:%llu] "
                 "Branch predictor predicted %i for PC %s\n",

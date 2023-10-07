@@ -606,7 +606,16 @@ class BaseCPU : public ClockedObject
         statistics::Scalar numCycles;
         statistics::Scalar numWorkItemsStarted;
         statistics::Scalar numWorkItemsCompleted;
+        statistics::Scalar iTLBAccesses;
+        statistics::Scalar iTLBMisses;
+        statistics::Scalar dTLBAccesses;
+        statistics::Scalar dTLBMisses;
     } baseStats;
+
+    void incrementITLBAccesses() { baseStats.iTLBAccesses++; system->getPowerModel()->incrementITLBAccesses(_cpuId); }
+    void incrementITLBMisses() { baseStats.iTLBMisses++; system->getPowerModel()->incrementITLBMisses(_cpuId);}
+    void incrementDTLBAccesses() { baseStats.dTLBAccesses++; system->getPowerModel()->incrementDTLBAccesses(_cpuId); }
+    void incrementDTLBMisses() { baseStats.dTLBMisses++; system->getPowerModel()->incrementDTLBMisses(_cpuId); }
 
   private:
     std::vector<AddressMonitor> addressMonitor;
@@ -620,6 +629,25 @@ class BaseCPU : public ClockedObject
         assert(tid < numThreads);
         return &addressMonitor[tid];
     }
+
+    bool l1_miss_pending = false;
+    bool l2_miss_pending = false;
+    bool any_miss_pending = false;
+
+    void l1MissesPending() { l1_miss_pending = true; any_miss_pending = true; };
+    void l1NoMissesPending() {
+      l1_miss_pending = false;
+      if(l2_miss_pending == false)
+	any_miss_pending = false;
+    };
+    void l2MissesPending() { l2_miss_pending = true; any_miss_pending = true; };
+    void l2NoMissesPending() { l2_miss_pending = false;
+      if(l1_miss_pending == false)
+	any_miss_pending = false;
+    };
+
+    void anyMissesPending() { any_miss_pending = true; };
+    void anyNoMissesPending() { any_miss_pending = false; };
 
     void retireInst(bool isMemRef, bool isCriticalRegion,
                     Trace::InstRecord *traceData);

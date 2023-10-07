@@ -30,7 +30,8 @@ DirectoryProfilerStats::DirectoryProfilerStats(statistics::Group *parent)
         .flags(statistics::nozero);
 
     jfcSharersPerLine
-        .init(MachineType_base_count(MachineType_L1Cache) ? MachineType_base_count(MachineType_L1Cache) : 256)
+        .init(MachineType_base_count(MachineType_L1Cache) ? MachineType_base_count(MachineType_L1Cache)+1 : 257)
+        //.init(65)
         .flags(statistics::pdf | statistics::dist | statistics::nonan);
 
     jfcDirectoryUsage
@@ -58,9 +59,6 @@ DirectoryProfiler::startup()
 {
     DPRINTF(DirectoryProfiler, "DirectoryProfiler startup called\n");
     assert(numCaches == MachineType_base_count(MachineType_L2Cache));
-    directoryProfilerStats.jfcSharersPerLine.reset();
-    directoryProfilerStats.jfcSharersPerLine.init(MachineType_base_count(MachineType_L1Cache))
-    .flags(statistics::pdf | statistics::dist | statistics::nonan);
 }
 
 void

@@ -438,6 +438,10 @@ class IEW
         statistics::Scalar squashCycles;
         /** Stat for total number of blocking cycles. */
         statistics::Scalar blockCycles;
+        /** Stat for total number of blocking cycles because of commit. */
+        statistics::Scalar iewBlockCyclesFromCommit;
+        /** Stat for total number of blocking cycles because IQ Full. */
+        statistics::Scalar iewBlockCyclesIQFull;
         /** Stat for total number of unblocking cycles. */
         statistics::Scalar unblockCycles;
         /** Stat for total number of instructions dispatched. */
@@ -463,6 +467,27 @@ class IEW
         /** Stat for total number of mispredicted branches detected at
          *  execute. */
         statistics::Formula branchMispredicts;
+
+        /** Stat for number of cycles execute is not stalled */
+        statistics::Scalar iewExecuteCycles;
+        /** Stat for number of cycles execute is not stalled and there is at least one L1 miss pending */
+        statistics::Scalar iewExecuteL1PendingCycles;
+        /** Stat for number of cycles execute is not stalled and there is at least one L2 miss pending */
+        statistics::Scalar iewExecuteL2PendingCycles;
+        /** Stat for number of cycles execute is not stalled and there is at least one Cache miss pending */
+        statistics::Scalar iewExecuteAnyPendingCycles;
+        /** Stat for number of cycles execute is stalled */
+        statistics::Scalar iewExecuteStallCycles;
+        /** Stat for number of cycles execute is stalled and there is at least one L1 miss pending */
+        statistics::Scalar iewExecuteStallL1PendingCycles;
+        /** Stat for number of cycles execute is stalled and there is at least one L2 miss pending */
+        statistics::Scalar iewExecuteStallL2PendingCycles;
+        /** Stat for number of cycles execute is stalled and there is at least one L2 miss pending */
+        statistics::Scalar iewExecuteStallAnyPendingCycles;
+        /** Stat for number of cycles execute executed at least 1 uop */
+        statistics::Scalar iewExecuteGE1;
+        /** Stat for number of cycles execute executed at least 2 uops */
+        statistics::Scalar iewExecuteGE2;
 
         struct ExecutedInstStats : public statistics::Group
         {

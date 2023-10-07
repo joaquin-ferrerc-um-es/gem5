@@ -126,6 +126,8 @@ Decode::DecodeStats::DecodeStats(CPU *cpu)
                "Number of cycles decode is idle"),
       ADD_STAT(blockedCycles, statistics::units::Cycle::get(),
                "Number of cycles decode is blocked"),
+      ADD_STAT(decodeBlockedCyclesFromRenaming, statistics::units::Cycle::get(),
+               "Number of cycles decode is blocked because of renaming"),
       ADD_STAT(runCycles, statistics::units::Cycle::get(),
                "Number of cycles decode is running"),
       ADD_STAT(unblockCycles, statistics::units::Cycle::get(),
@@ -143,9 +145,14 @@ Decode::DecodeStats::DecodeStats(CPU *cpu)
                "Number of instructions handled by decode"),
       ADD_STAT(squashedInsts, statistics::units::Count::get(),
                "Number of squashed instructions handled by decode")
+      ADD_STAT(uopsNotDeliveredRun, statistics::units::Count::get(),
+               "count of insts not delivered to rename from decode when status is running or unblocking")
+      ADD_STAT(uopsNotDeliveredBlock, statistics::units::Count::get(),
+               "count of insts not delivered to rename from decode when status is blocked")
+      ADD_STAT(uopsNotDeliveredSquash, statistics::units::Count::get(),
+               "count of insts not delivered to rename from decode when status is squashing")
 {
     idleCycles.prereq(idleCycles);
-    blockedCycles.prereq(blockedCycles);
     runCycles.prereq(runCycles);
     unblockCycles.prereq(unblockCycles);
     squashCycles.prereq(squashCycles);
@@ -510,6 +517,7 @@ Decode::checkSignalsAndUpdate(ThreadID tid)
     }
 
     if (checkStall(tid)) {
+        ++stats.decodeBlockedCyclesFromRenaming;
         return block(tid);
     }
 
@@ -587,8 +595,14 @@ Decode::decode(bool &status_change, ThreadID tid)
 
     if (decodeStatus[tid] == Blocked) {
         ++stats.blockedCycles;
+        if(cpu->isBackendBlocked(tid) == false) {
+            stats.uopsNotDeliveredBlock += std::min((unsigned int)(skidBuffer[tid].size() + insts[tid].size()),decodeWidth);
+        }
     } else if (decodeStatus[tid] == Squashing) {
         ++stats.squashCycles;
+        if(cpu->isBackendBlocked(tid) == false) {
+            stats.uopsNotDeliveredSquash += std::min((unsigned int)(insts[tid].size()),decodeWidth);
+        }
     }
 
     // Decode should try to decode as many instructions as its bandwidth
@@ -739,6 +753,9 @@ Decode::decodeInsts(ThreadID tid)
     // and put all those instructions into the skid buffer.
     if (!insts_to_decode.empty()) {
         block(tid);
+        if(cpu->isBackendBlocked(tid) == false) {
+            stats.uopsNotDeliveredRun += std::min((unsigned int)std::abs(insts_available),decodeWidth);
+        }
     }
 
     // Record that decode has written to the time buffer for activity

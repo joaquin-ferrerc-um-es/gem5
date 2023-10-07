@@ -161,7 +161,7 @@ TLB::flushNonGlobal()
     }
 }
 
-void
+bool
 TLB::demapPage(Addr va, uint64_t asn)
 {
     TlbEntry *entry = trie.lookup(va);
@@ -169,7 +169,9 @@ TLB::demapPage(Addr va, uint64_t asn)
         trie.remove(entry->trieHandle);
         entry->trieHandle = NULL;
         freeList.push_back(entry);
+	return true;
     }
+    return false;
 }
 
 namespace
@@ -309,13 +311,14 @@ TLB::finalizePhysical(const RequestPtr &req,
 Fault
 TLB::translate(const RequestPtr &req,
         ThreadContext *tc, BaseMMU::Translation *translation,
-        BaseMMU::Mode mode, bool &delayedResponse, bool timing)
+        BaseMMU::Mode mode, bool &delayedResponse, bool timing, bool &hit)
 {
     Request::Flags flags = req->getFlags();
     int seg = flags & SegmentFlagMask;
     bool storeCheck = flags & (StoreCheck << FlagShift);
 
     delayedResponse = false;
+    hit = false;
 
     // If this is true, we're dealing with a request to a non-memory address
     // space.
@@ -371,6 +374,7 @@ TLB::translate(const RequestPtr &req,
                 (flags & (AddrSizeFlagBit << FlagShift)))
             vaddr &= mask(32);
         // If paging is enabled, do the translation.
+    	hit = false;
         if (m5Reg.paging) {
             DPRINTF(TLB, "Paging enabled.\n");
             // The vaddr already has the segment base applied.
@@ -416,7 +420,9 @@ TLB::translate(const RequestPtr &req,
                     }
                     DPRINTF(TLB, "Miss was serviced.\n");
                 }
-            }
+            } else {
+	      hit = true;
+	    }
 
             DPRINTF(TLB, "Entry found with paddr %#x, "
                     "doing protection checks.\n", entry->paddr);
@@ -466,7 +472,8 @@ TLB::translateAtomic(const RequestPtr &req, ThreadContext *tc,
     BaseMMU::Mode mode)
 {
     bool delayedResponse;
-    return TLB::translate(req, tc, NULL, mode, delayedResponse, false);
+    bool hit;
+    return TLB::translate(req, tc, NULL, mode, delayedResponse, false, hit);
 }
 
 Fault
@@ -504,18 +511,20 @@ TLB::translateFunctional(const RequestPtr &req, ThreadContext *tc,
     return NoFault;
 }
 
-void
+bool
 TLB::translateTiming(const RequestPtr &req, ThreadContext *tc,
     BaseMMU::Translation *translation, BaseMMU::Mode mode)
 {
     bool delayedResponse;
+    bool hit;
     assert(translation);
     Fault fault =
-        TLB::translate(req, tc, translation, mode, delayedResponse, true);
+        TLB::translate(req, tc, translation, mode, delayedResponse, true, hit);
     if (!delayedResponse)
         translation->finish(fault, req, tc, mode);
     else
         translation->markDelayed();
+    return hit;
 }
 
 Walker *

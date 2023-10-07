@@ -151,6 +151,10 @@ IEW::IEWStats::IEWStats(CPU *cpu)
              "Number of cycles IEW is squashing"),
     ADD_STAT(blockCycles, statistics::units::Cycle::get(),
              "Number of cycles IEW is blocking"),
+    ADD_STAT(iewBlockCyclesFromCommit, statistics::units::Cycle::get(),
+             "Number of cycles IEW is blocking because of commit"),
+    ADD_STAT(iewBlockCyclesIQFull, statistics::units::Cycle::get(),
+             "Number of cycles IEW is blocking because of IQ FUll"),
     ADD_STAT(unblockCycles, statistics::units::Cycle::get(),
              "Number of cycles IEW is unblocking"),
     ADD_STAT(dispatchedInsts, statistics::units::Count::get(),
@@ -177,6 +181,26 @@ IEW::IEWStats::IEWStats(CPU *cpu)
              "Number of branch mispredicts detected at execute",
              predictedTakenIncorrect + predictedNotTakenIncorrect),
     executedInstStats(cpu),
+    ADD_STAT(iewExecuteCycles, statistics::units::Count::get(),
+             "Number of cycles execute is not stalled"),
+    ADD_STAT(iewExecuteL1PendingCycles, statistics::units::Count::get(),
+             "Number of cycles execute is not stalled and there is at least one L1 miss pending"),
+    ADD_STAT(iewExecuteL2PendingCycles, statistics::units::Count::get(),
+             "Number of cycles execute is not stalled and there is at least one L2 miss pending"),
+    ADD_STAT(iewExecuteAnyPendingCycles, statistics::units::Count::get(),
+             "Number of cycles execute is not stalled and there is at least one Cache miss pending"),
+    ADD_STAT(iewExecuteStallCycles, statistics::units::Count::get(),
+             "Number of cycles execute is stalled"),
+    ADD_STAT(iewExecuteStallL1PendingCycles, statistics::units::Count::get(),
+             "Number of cycles execute is stalled and there is at least one L1 miss pending"),
+    ADD_STAT(iewExecuteStallL2PendingCycles, statistics::units::Count::get(),
+             "Number of cycles execute is stalled and there is at least one L2 miss pending"),
+    ADD_STAT(iewExecuteStallAnyPendingCycles, statistics::units::Count::get(),
+             "Number of cycles execute is stalled and there is at least one Cache miss pending"),
+    ADD_STAT(iewExecuteGE1, statistics::units::Count::get(),
+             "Number of cycles execute executed at least 1 uops"),
+    ADD_STAT(iewExecuteGE2, statistics::units::Count::get(),
+             "Number of cycles execute executed at least 2 uops"),
     ADD_STAT(instsToCommit, statistics::units::Count::get(),
              "Cumulative count of insts sent to commit"),
     ADD_STAT(writebackCount, statistics::units::Count::get(),
@@ -695,9 +719,11 @@ IEW::checkStall(ThreadID tid)
     bool ret_val(false);
 
     if (fromCommit->commitInfo[tid].robSquashing) {
+        ++iewStats.iewBlockCyclesFromCommit;
         DPRINTF(IEW,"[tid:%i] Stall from Commit stage detected.\n",tid);
         ret_val = true;
     } else if (instQueue.isFull(tid)) {
+        ++iewStats.iewBlockCyclesIQFull;
         DPRINTF(IEW,"[tid:%i] Stall: IQ  is full.\n",tid);
         ret_val = true;
     }
@@ -1380,6 +1406,16 @@ IEW::executeInsts()
 
     // Update and record activity if we processed any instructions.
     if (inst_num) {
+        iewStats.iewExecuteCycles++;
+        if (cpu->l1_miss_pending == true) {
+       	    iewStats.iewExecuteL1PendingCycles++;
+        }
+        if (cpu->l2_miss_pending == true) {
+	    iewStats.iewExecuteL2PendingCycles++;
+        }
+        if (cpu->any_miss_pending == true) {
+	    iewStats.iewExecuteAnyPendingCycles++;
+        }
         if (exeStatus == Idle) {
             exeStatus = Running;
         }
@@ -1387,6 +1423,26 @@ IEW::executeInsts()
         updatedQueues = true;
 
         cpu->activityThisCycle();
+
+        if (inst_num > 1)
+	    iewStats.iewExecuteGE1++; // TODO: This is supposed to be per thread (SMT)
+        if (inst_num > 2)
+	    iewStats.iewExecuteGE2++; // TODO: This is supposed to be per thread (SMT)
+    } else {
+        iewStats.iewExecuteStallCycles++;
+
+        DPRINTF(IEW, "Execute Stalled (0 instructions executed from %u\n",insts_to_execute);
+
+        if (cpu->l1_miss_pending == true) {
+	    iewStats.iewExecuteStallL1PendingCycles++;
+        }
+
+        if (cpu->l2_miss_pending == true) {
+	    iewStats.iewExecuteStallL2PendingCycles++;
+        }
+        if (cpu->any_miss_pending == true) {
+	    iewStats.iewExecuteStallAnyPendingCycles++;
+        }
     }
 
     // Need to reset this in case a writeback event needs to write into the

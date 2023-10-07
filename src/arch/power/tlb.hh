@@ -134,10 +134,11 @@ class TLB : public BaseTLB
     void insertAt(PowerISA::PTE &pte, unsigned Index, int _smallPages);
     void flushAll() override;
 
-    void
+    bool
     demapPage(Addr vaddr, uint64_t asn) override
     {
         panic("demapPage unimplemented.\n");
+	return false;
     }
 
     // static helper functions... really

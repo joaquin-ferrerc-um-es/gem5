@@ -292,6 +292,8 @@ class BPredUnit : public SimObject
         statistics::Scalar lookups;
         /** Stat for number of conditional branches predicted. */
         statistics::Scalar condPredicted;
+        /** Stat for number of conditional branches predicted as taken. */
+        statistics::Scalar condPredictedTaken;
         /** Stat for number of conditional branches predicted incorrectly. */
         statistics::Scalar condIncorrect;
         /** Stat for number of BTB lookups. */

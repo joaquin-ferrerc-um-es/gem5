@@ -264,7 +264,8 @@ Option("benchmarks_image_mountpoint", str,
 
 # Other
 Option("network_model", str,
-       gem5_option = "network")
+       gem5_option = "network",
+       descr_dir = "network_{value}"),
 Option("network_topology", str,
        gem5_option = "topology",
        descr_dir = "{value}")

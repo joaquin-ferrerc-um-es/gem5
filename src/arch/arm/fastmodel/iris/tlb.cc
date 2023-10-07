@@ -61,12 +61,13 @@ Iris::TLB::translateAtomic(
     return translateFunctional(req, tc, mode);
 }
 
-void
+bool
 Iris::TLB::translateTiming(const RequestPtr &req, gem5::ThreadContext *tc,
         BaseMMU::Translation *translation, BaseMMU::Mode mode)
 {
     assert(translation);
     translation->finish(translateAtomic(req, tc, mode), req, tc, mode);
+    return false;
 }
 
 } // namespace gem5

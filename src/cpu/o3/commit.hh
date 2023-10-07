@@ -522,6 +522,12 @@ class Commit
 
         /** Number of cycles where the commit bandwidth limit is reached. */
         statistics::Scalar commitEligibleSamples;
+
+        /** Number of cycles commit is running */
+        Stats::Scalar iewCommitRuncycles;
+        /** Number of cycles no instructions are committed */
+        Stats::Scalar iewCommitCyclesNoInstructionCommitted;
+
     } stats;
 };
 

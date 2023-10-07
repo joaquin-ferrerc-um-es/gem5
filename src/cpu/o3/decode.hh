@@ -302,6 +302,8 @@ class Decode
         statistics::Scalar idleCycles;
         /** Stat for total number of blocked cycles. */
         statistics::Scalar blockedCycles;
+        /** Stat for total number of blocked cycles because of renaming. */
+        statistics::Scalar decodeBlockedCyclesFromRenaming;
         /** Stat for total number of normal running cycles. */
         statistics::Scalar runCycles;
         /** Stat for total number of unblocking cycles. */
@@ -320,6 +322,12 @@ class Decode
         statistics::Scalar decodedInsts;
         /** Stat for total number of squashed instructions. */
         statistics::Scalar squashedInsts;
+        /** Stat for uops not delivered to rename from decode when status is running/unblocking (top-down model). */
+        statistics::Scalar uopsNotDeliveredRun;
+        /** Stat for uops not delivered to rename from decode when status is blocked (top-down model). */
+        statistics::Scalar uopsNotDeliveredBlock;
+        /** Stat for uops not delivered to rename from decode when status is squashing (top-down model). */
+        statistics::Scalar uopsNotDeliveredSquash;
     } stats;
 };
 

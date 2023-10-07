@@ -90,7 +90,7 @@ namespace X86ISA
 
         void flushNonGlobal();
 
-        void demapPage(Addr va, uint64_t asn) override;
+        bool demapPage(Addr va, uint64_t asn) override;
 
       protected:
         uint32_t size;
@@ -118,9 +118,12 @@ namespace X86ISA
 
         Fault translate(const RequestPtr &req, ThreadContext *tc,
                 BaseMMU::Translation *translation, BaseMMU::Mode mode,
-                bool &delayedResponse, bool timing);
+                bool &delayedResponse, bool timing, bool &hit);
 
       public:
+
+        BaseCPU *m_cpu;
+        void setCPU(BaseCPU *cpu) { m_cpu = cpu; };
 
         void evictLRU();
 
@@ -136,7 +139,7 @@ namespace X86ISA
         Fault translateFunctional(
             const RequestPtr &req, ThreadContext *tc,
             BaseMMU::Mode mode) override;
-        void translateTiming(
+        bool translateTiming(
             const RequestPtr &req, ThreadContext *tc,
             BaseMMU::Translation *translation, BaseMMU::Mode mode) override;
 

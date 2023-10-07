@@ -385,6 +385,14 @@ BaseCPUStats::BaseCPUStats(statistics::Group *parent)
                "Number of work items this cpu started"),
       ADD_STAT(numWorkItemsCompleted, statistics::units::Count::get(),
                "Number of work items this cpu completed")
+      ADD_STAT(iTLBAccesses, statistics::units::Count::get(),
+               "Instruction TLB Accesses")
+      ADD_STAT(iTLBMisses, statistics::units::Count::get(),
+               "Instruction TLB Misses")
+      ADD_STAT(dTLBAccesses, statistics::units::Count::get(),
+               "Data TLB Accesses")
+      ADD_STAT(dTLBMisses, statistics::units::Count::get(),
+               "Data TLB Misses")
 {
 }
 
@@ -400,7 +408,27 @@ BaseCPU::regStats()
     }
 
     using namespace statistics;
+/*
+    iTLBAccesses
+        .name(name() + ".iTLBAccesses")
+        .desc("Instruction TLB Accesses")
+        ;
 
+    iTLBMisses
+        .name(name() + ".iTLBMisses")
+        .desc("Instruction TLB Misses")
+        ;
+
+    dTLBAccesses
+        .name(name() + ".dTLBAccesses")
+        .desc("Data TLB Accesses")
+        ;
+
+    dTLBMisses
+        .name(name() + ".dTLBMisses")
+        .desc("Data TLB Misses")
+        ;
+*/
     int size = threadContexts.size();
     if (size > 1) {
         for (int i = 0; i < size; ++i) {

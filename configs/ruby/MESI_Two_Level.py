@@ -104,6 +104,11 @@ def create_system(options, full_system, system, dma_ports, bootmem,
         cpu_sequencers.append(cpu_seq)
         l1_cntrl_nodes.append(l1_cntrl)
 
+        # Top-Down model stats container
+        l1_cntrl.cpu = CPUContainer()
+        l1_cntrl.cpu.cpu = system.cpu[i]
+        l1_cntrl.cpu.hasl3 = False
+
         # Connect the L1 controllers and the network
         l1_cntrl.mandatoryQueue = MessageBuffer()
         l1_cntrl.requestFromL1Cache = MessageBuffer()
@@ -138,6 +143,11 @@ def create_system(options, full_system, system, dma_ports, bootmem,
 
         exec("ruby_system.l2_cntrl%d = l2_cntrl" % i)
         l2_cntrl_nodes.append(l2_cntrl)
+
+        # Top-Down model stats container
+        l2_cntrl.cpu = CPUContainer()
+        l2_cntrl.cpu.cpu = system.cpu[i]
+        l2_cntrl.cpu.hasl3 = False
 
         # Connect the L2 controllers and the network
         l2_cntrl.DirRequestFromL2Cache = MessageBuffer()

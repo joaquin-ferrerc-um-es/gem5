@@ -57,8 +57,16 @@ BaseMMU::flushAll()
 void
 BaseMMU::demapPage(Addr vaddr, uint64_t asn)
 {
-    itb->demapPage(vaddr, asn);
-    dtb->demapPage(vaddr, asn);
+    bool hit_i = itb->demapPage(vaddr, asn);
+    getCpuPtr()->incrementITLBAccesses();
+    if(hit_i == false) {
+        getCpuPtr()->incrementITLBMisses();
+    }
+    bool hit_d = dtb->demapPage(vaddr, asn);
+    getCpuPtr()->incrementDTLBAccesses();
+    if(hit_d == false) {
+        getCpuPtr()->incrementDTLBMisses();
+    }
 }
 
 Fault

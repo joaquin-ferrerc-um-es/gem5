@@ -642,8 +642,13 @@ Walker::WalkerState::recvPacket(PacketPtr pkt)
              * well.
              */
             bool delayedResponse;
+	    bool hit;
             Fault fault = walker->tlb->translate(req, tc, NULL, mode,
-                                                 delayedResponse, true);
+                                                 delayedResponse, true, hit);
+	    walker->tlb->m_cpu->incrementDTLBAccesses();
+	    if(hit == false) {
+	      walker->tlb->m_cpu->incrementDTLBMisses();
+	    }
             assert(!delayedResponse);
             // Let the CPU continue.
             translation->finish(fault, req, tc, mode);

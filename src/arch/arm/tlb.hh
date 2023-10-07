@@ -308,10 +308,11 @@ class TLB : public BaseTLB
 
     void printTlb() const;
 
-    void demapPage(Addr vaddr, uint64_t asn) override
+    bool demapPage(Addr vaddr, uint64_t asn) override
     {
         // needed for x86 only
         panic("demapPage() is not implemented.\n");
+        return false;
     }
 
     /**

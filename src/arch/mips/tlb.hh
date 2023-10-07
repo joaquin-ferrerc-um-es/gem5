@@ -80,9 +80,10 @@ class TLB : public BaseTLB
     void insert(Addr vaddr, MipsISA::PTE &pte);
     void insertAt(MipsISA::PTE &pte, unsigned Index, int _smallPages);
     void flushAll() override;
-    void demapPage(Addr vaddr, uint64_t asn) override
+    bool demapPage(Addr vaddr, uint64_t asn) override
     {
         panic("demapPage unimplemented.\n");
+	return false;
     }
 
     // static helper functions... really

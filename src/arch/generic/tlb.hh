@@ -50,6 +50,7 @@ namespace gem5
 {
 
 class ThreadContext;
+class BaseCPU;
 
 class BaseTLB : public SimObject
 {
@@ -57,11 +58,14 @@ class BaseTLB : public SimObject
     BaseTLB(const Params &p) : SimObject(p) {}
 
   public:
-    virtual void demapPage(Addr vaddr, uint64_t asn) = 0;
+
+    virtual void setCPU(BaseCPU *cpu) = 0;
+
+    virtual bool demapPage(Addr vaddr, uint64_t asn) = 0;
 
     virtual Fault translateAtomic(
             const RequestPtr &req, ThreadContext *tc, BaseMMU::Mode mode) = 0;
-    virtual void translateTiming(
+    virtual bool translateTiming(
             const RequestPtr &req, ThreadContext *tc,
             BaseMMU::Translation *translation, BaseMMU::Mode mode) = 0;
     virtual Fault

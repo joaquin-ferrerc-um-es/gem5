@@ -585,6 +585,9 @@ class CPU : public BaseCPU
     ThreadID getFreeTid();
 
   public:
+    /** Is backend blocked? */
+    bool isBackendBlocked(ThreadID tid) {return rename.isBackendBloqued(tid); };
+
     /** Returns a pointer to a thread context. */
     gem5::ThreadContext *
     tcBase(ThreadID tid)

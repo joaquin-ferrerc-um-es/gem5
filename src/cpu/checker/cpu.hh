@@ -463,7 +463,16 @@ class CheckerCPU : public BaseCPU, public ExecContext
     void
     demapPage(Addr vaddr, uint64_t asn) override
     {
-        mmu->demapPage(vaddr, asn);
+        bool hit_i = mmu->demapInstPage(vaddr, asn);
+        this->incrementITLBAccesses();
+        if (hit_i == false) {
+            this->incrementITLBMisses();
+        }
+        bool hit_d = mmu->demapDataPage(vaddr, asn);
+        this->incrementDTLBAccesses();
+        if (hit_d == false) {
+            this->incrementDTLBMisses();
+        }
     }
 
     // monitor/mwait funtions

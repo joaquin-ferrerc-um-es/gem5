@@ -144,11 +144,11 @@ Decode::DecodeStats::DecodeStats(CPU *cpu)
       ADD_STAT(decodedInsts, statistics::units::Count::get(),
                "Number of instructions handled by decode"),
       ADD_STAT(squashedInsts, statistics::units::Count::get(),
-               "Number of squashed instructions handled by decode")
+               "Number of squashed instructions handled by decode"),
       ADD_STAT(uopsNotDeliveredRun, statistics::units::Count::get(),
-               "count of insts not delivered to rename from decode when status is running or unblocking")
+               "count of insts not delivered to rename from decode when status is running or unblocking"),
       ADD_STAT(uopsNotDeliveredBlock, statistics::units::Count::get(),
-               "count of insts not delivered to rename from decode when status is blocked")
+               "count of insts not delivered to rename from decode when status is blocked"),
       ADD_STAT(uopsNotDeliveredSquash, statistics::units::Count::get(),
                "count of insts not delivered to rename from decode when status is squashing")
 {

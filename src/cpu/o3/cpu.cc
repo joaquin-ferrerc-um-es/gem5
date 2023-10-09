@@ -128,8 +128,8 @@ CPU::CPU(const O3CPUParams &params)
             "More workload items (%d) than threads (%d) on CPU %s.",
             params.workload.size(), params.numThreads, name());
 
-    itb->setCPU(this);
-    dtb->setCPU(this);
+    //itb->setCPU(this);
+    //dtb->setCPU(this);
 
     if (!params.switched_out) {
         _status = Running;

@@ -57,16 +57,20 @@ BaseMMU::flushAll()
 void
 BaseMMU::demapPage(Addr vaddr, uint64_t asn)
 {
-    bool hit_i = itb->demapPage(vaddr, asn);
-    getCpuPtr()->incrementITLBAccesses();
-    if(hit_i == false) {
-        getCpuPtr()->incrementITLBMisses();
-    }
-    bool hit_d = dtb->demapPage(vaddr, asn);
-    getCpuPtr()->incrementDTLBAccesses();
-    if(hit_d == false) {
-        getCpuPtr()->incrementDTLBMisses();
-    }
+    itb->demapPage(vaddr, asn);
+    dtb->demapPage(vaddr, asn);
+}
+
+bool
+BaseMMU::demapInstPage(Addr vaddr, uint64_t asn)
+{
+    return itb->demapPage(vaddr, asn);
+}
+
+bool
+BaseMMU::demapDataPage(Addr vaddr, uint64_t asn)
+{
+    return dtb->demapPage(vaddr, asn);
 }
 
 Fault
@@ -76,7 +80,7 @@ BaseMMU::translateAtomic(const RequestPtr &req, ThreadContext *tc,
     return getTlb(mode)->translateAtomic(req, tc, mode);
 }
 
-void
+bool
 BaseMMU::translateTiming(const RequestPtr &req, ThreadContext *tc,
                          BaseMMU::Translation *translation, BaseMMU::Mode mode)
 {

@@ -58,6 +58,7 @@
 #include "mem/ruby/common/WriteMask.hh"
 #include "mem/ruby/protocol/RubyRequestType.hh"
 #include "mem/ruby/protocol/TransactionBit.hh"
+#include "sim/cpu_container.hh"
 
 namespace gem5
 {

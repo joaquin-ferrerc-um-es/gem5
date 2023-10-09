@@ -359,7 +359,16 @@ class ExecContext : public gem5::ExecContext
     void
     demapPage(Addr vaddr, uint64_t asn) override
     {
-        thread.getMMUPtr()->demapPage(vaddr, asn);
+        bool hit_i = thread.getMMUPtr()->demapInstPage(vaddr, asn);
+        getCpuPtr()->incrementITLBAccesses();
+        if (hit_i == false) {
+            getCpuPtr()->incrementITLBMisses();
+        }
+        bool hit_d = thread.getMMUPtr()->demapDataPage(vaddr, asn);
+        getCpuPtr()->incrementDTLBAccesses();
+        if (hit_d == false) {
+            getCpuPtr()->incrementDTLBMisses();
+        }
     }
 
     RegVal

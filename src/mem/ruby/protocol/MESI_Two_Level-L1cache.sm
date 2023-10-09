@@ -49,6 +49,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
    Cycles to_l2_latency := 1;
    bool send_evictions;
    bool enable_prefetch := "False";
+   CPUContainer *cpu;
 
    // Message Queues
    // From this node's L1 cache TO the network
@@ -163,6 +164,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     void allocate(Addr);
     void deallocate(Addr);
     bool isPresent(Addr);
+    bool isEmpty();
   }
 
   TBETable TBEs, template="<L1Cache_TBE>", constructor="m_number_of_TBEs";
@@ -881,6 +883,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     tbe.isPrefetch := false;
     tbe.Dirty := cache_entry.Dirty;
     tbe.DataBlk := cache_entry.DataBlk;
+    cpu.l1MissesPending();
   }
 
   action(k_popMandatoryQueue, "k", desc="Pop mandatory queue.") {
@@ -902,6 +905,9 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   action(s_deallocateTBE, "s", desc="Deallocate TBE") {
     TBEs.deallocate(address);
     unset_tbe();
+    if(TBEs.isEmpty()) {
+      cpu.l1NoMissesPending();
+    }
   }
 
   action(u_writeDataToL1Cache, "u", desc="Write data to cache") {
@@ -957,18 +963,68 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
 
   action(uu_profileInstMiss, "\uim", desc="Profile the demand miss") {
     L1Icache.profileDemandMiss();
+    L1Icache.profileReadMisses();
+  }
+
+  action(uu_profileInstLoadMiss, "\uim2", desc="Profile the load miss") {
+    L1Icache.profileLoadMisses();
   }
 
   action(uu_profileInstHit, "\uih", desc="Profile the demand hit") {
     L1Icache.profileDemandHit();
+    L1Icache.profileReadHits();
+  }
+
+  action(uu_profileInstLoadHit, "\uim1", desc="Profile the load hit") {
+    L1Icache.profileLoadHits();
   }
 
   action(uu_profileDataMiss, "\udm", desc="Profile the demand miss") {
     L1Dcache.profileDemandMiss();
   }
 
+  action(uu_profileDataReadMiss, "\udm2", desc="Profile the read miss") {
+    L1Dcache.profileReadMisses();
+  }
+
+  action(uu_profileDataWriteMiss, "\udm3", desc="Profile the write miss") {
+    L1Dcache.profileWriteMisses();
+  }
+
+  action(uu_profileDataLoadMiss, "\udm4", desc="Profile the load miss") {
+    L1Dcache.profileLoadMisses();
+  }
+
+  action(uu_profileDataStoreMiss, "\udm5", desc="Profile the store miss") {
+    L1Dcache.profileStoreMisses();
+  }
+
   action(uu_profileDataHit, "\udh", desc="Profile the demand hit") {
     L1Dcache.profileDemandHit();
+  }
+
+  action(uu_profileDataReadHit, "\udm7", desc="Profile the read hit") {
+    L1Dcache.profileReadHits();
+  }
+
+  action(uu_profileDataWriteHit, "\udm8", desc="Profile the write hit") {
+    L1Dcache.profileWriteHits();
+  }
+
+  action(uu_profileDataLoadHit, "\udm9", desc="Profile the load hit") {
+    L1Dcache.profileLoadHits();
+  }
+
+  action(uu_profileDataStoreHit, "\udm0", desc="Profile the store hit") {
+    L1Dcache.profileStoreHits();
+  }
+
+  action(uu_profileConflict, "\udmi100", desc="Profile the conflict") {
+      if (L1Dcache.isTagPresent(address)) {
+          L1Dcache.profileConflicts();
+      } else {
+          L1Icache.profileConflicts();
+      }
   }
 
   action(po_observeHit, "\ph", desc="Inform the prefetcher about the hit") {
@@ -1029,6 +1085,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   // Transitions from Idle
   transition({NP,I}, {L1_Replacement, PF_L1_Replacement}) {
     ff_deallocateL1CacheBlock;
+    uu_profileConflict;
   }
 
   transition({S,E,M,IS,IM,SM,IS_I,PF_IS_I,M_I,SINK_WB_ACK,PF_IS,PF_IM},
@@ -1040,6 +1097,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     oo_allocateL1DCacheBlock;
     i_allocateTBE;
     a_issueGETS;
+    uu_profileDataReadMiss;
+    uu_profileDataLoadMiss;
     uu_profileDataMiss;
     po_observeMiss;
     k_popMandatoryQueue;
@@ -1054,17 +1113,22 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
 
   transition(PF_IS, Load, IS) {
     uu_profileDataMiss;
+    uu_profileDataReadMiss;
+    uu_profileDataLoadMiss;
     ppm_observePfMiss;
     k_popMandatoryQueue;
   }
 
   transition(PF_IS_I, Load, IS_I) {
     uu_profileDataMiss;
+    uu_profileDataReadMiss;
+    uu_profileDataLoadMiss;
     ppm_observePfMiss;
     k_popMandatoryQueue;
   }
 
   transition(PF_IS_I, Ifetch, IS_I) {
+    uu_profileInstLoadMiss;
     uu_profileInstMiss;
     ppm_observePfMiss;
     k_popMandatoryQueue;
@@ -1074,6 +1138,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     pp_allocateL1ICacheBlock;
     i_allocateTBE;
     ai_issueGETINSTR;
+    uu_profileInstLoadMiss;
     uu_profileInstMiss;
     po_observeMiss;
     k_popMandatoryQueue;
@@ -1083,13 +1148,15 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     pp_allocateL1ICacheBlock;
     i_allocateTBE;
     pai_issuePfGETINSTR;
+    uu_profileInstMiss;
     pq_popPrefetchQueue;
   }
 
   // We proactively assume that the prefetch is in to
   // the instruction cache
   transition(PF_IS, Ifetch, IS) {
-    uu_profileDataMiss;
+    uu_profileInstMiss;
+    uu_profileInstLoadMiss;
     ppm_observePfMiss;
     k_popMandatoryQueue;
   }
@@ -1099,6 +1166,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     i_allocateTBE;
     b_issueGETX;
     uu_profileDataMiss;
+    uu_profileDataWriteMiss;
+    uu_profileDataStoreMiss;
     po_observeMiss;
     k_popMandatoryQueue;
   }
@@ -1107,29 +1176,39 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     oo_allocateL1DCacheBlock;
     i_allocateTBE;
     pb_issuePfGETX;
+    uu_profileDataMiss;
+    uu_profileDataWriteMiss;
     pq_popPrefetchQueue;
   }
 
   transition(PF_IM, Store, IM) {
     uu_profileDataMiss;
+    uu_profileDataWriteMiss;
+    uu_profileDataStoreMiss;
     ppm_observePfMiss;
     k_popMandatoryQueue;
   }
 
   transition(PF_SM, Store, SM) {
     uu_profileDataMiss;
+    uu_profileDataWriteMiss;
+    uu_profileDataStoreMiss;
     ppm_observePfMiss;
     k_popMandatoryQueue;
   }
 
   transition({NP, I}, Inv) {
     fi_sendInvAck;
+    uu_profileDataMiss;
+    uu_profileDataWriteMiss;
     l_popRequestQueue;
   }
 
   // Transitions from Shared
   transition({S,E,M}, Load) {
     h_load_hit;
+    uu_profileDataReadHit;
+    uu_profileDataLoadHit;
     uu_profileDataHit;
     po_observeHit;
     k_popMandatoryQueue;
@@ -1139,6 +1218,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     h_ifetch_hit;
     uu_profileInstHit;
     po_observeHit;
+    uu_profileInstLoadHit;
     k_popMandatoryQueue;
   }
 
@@ -1146,17 +1226,22 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     i_allocateTBE;
     c_issueUPGRADE;
     uu_profileDataMiss;
+    uu_profileDataWriteMiss;
+    uu_profileDataStoreMiss;
     k_popMandatoryQueue;
   }
 
   transition(S, {L1_Replacement, PF_L1_Replacement}, I) {
     forward_eviction_to_cpu;
+    uu_profileConflict;
     ff_deallocateL1CacheBlock;
   }
 
   transition(S, Inv, I) {
     forward_eviction_to_cpu;
     fi_sendInvAck;
+    uu_profileDataHit;
+    uu_profileDataWriteHit;
     l_popRequestQueue;
   }
 
@@ -1166,6 +1251,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     hh_store_hit;
     uu_profileDataHit;
     po_observeHit;
+    uu_profileDataWriteHit;
+    uu_profileDataStoreHit;
     k_popMandatoryQueue;
   }
 
@@ -1174,6 +1261,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     forward_eviction_to_cpu;
     i_allocateTBE;
     g_issuePUTX;   // send data, but hold in case forwarded request
+    uu_profileConflict;
     ff_deallocateL1CacheBlock;
   }
 
@@ -1181,18 +1269,24 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     // don't send data
     forward_eviction_to_cpu;
     fi_sendInvAck;
+    uu_profileDataHit;
+    uu_profileDataWriteHit;
     l_popRequestQueue;
   }
 
   transition(E, Fwd_GETX, I) {
     forward_eviction_to_cpu;
     d_sendDataToRequestor;
+    uu_profileDataHit;
+    uu_profileDataReadHit;
     l_popRequestQueue;
   }
 
   transition(E, {Fwd_GETS, Fwd_GET_INSTR}, S) {
     d_sendDataToRequestor;
     d2_sendDataToL2;
+    uu_profileDataHit;
+    uu_profileDataReadHit;
     l_popRequestQueue;
   }
 
@@ -1202,63 +1296,84 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     forward_eviction_to_cpu;
     i_allocateTBE;
     g_issuePUTX;   // send data, but hold in case forwarded request
+    uu_profileConflict;
     ff_deallocateL1CacheBlock;
   }
 
   transition(M_I, WB_Ack, I) {
     s_deallocateTBE;
+    uu_profileDataHit;
+    uu_profileDataReadHit;
     o_popIncomingResponseQueue;
     kd_wakeUpDependents;
   }
 
   transition(M, Inv, I) {
     forward_eviction_to_cpu;
+    uu_profileDataHit;
+    uu_profileDataReadHit;
     f_sendDataToL2;
     l_popRequestQueue;
   }
 
   transition(M_I, Inv, SINK_WB_ACK) {
     ft_sendDataToL2_fromTBE;
+    uu_profileDataMiss;
+    uu_profileDataReadMiss;
     l_popRequestQueue;
   }
 
   transition(M, Fwd_GETX, I) {
     forward_eviction_to_cpu;
+    uu_profileDataHit;
+    uu_profileDataReadHit;
     d_sendDataToRequestor;
     l_popRequestQueue;
   }
 
   transition(M, {Fwd_GETS, Fwd_GET_INSTR}, S) {
     d_sendDataToRequestor;
+    uu_profileDataHit;
+    uu_profileDataReadHit;
     d2_sendDataToL2;
     l_popRequestQueue;
   }
 
   transition(M_I, Fwd_GETX, SINK_WB_ACK) {
     dt_sendDataToRequestor_fromTBE;
+    uu_profileDataHit;
+    uu_profileDataReadHit;
     l_popRequestQueue;
   }
 
   transition(M_I, {Fwd_GETS, Fwd_GET_INSTR}, SINK_WB_ACK) {
     dt_sendDataToRequestor_fromTBE;
     d2t_sendDataToL2_fromTBE;
+    uu_profileDataMiss;
+    uu_profileDataReadMiss;
     l_popRequestQueue;
   }
 
   // Transitions from IS
   transition({IS, IS_I}, Inv, IS_I) {
     fi_sendInvAck;
+    uu_profileDataHit;
+    uu_profileDataWriteHit;
     l_popRequestQueue;
   }
 
   transition({PF_IS, PF_IS_I}, Inv, PF_IS_I) {
     fi_sendInvAck;
+    uu_profileDataHit;
+    uu_profileDataWriteHit;
     l_popRequestQueue;
   }
 
   transition(IS, Data_all_Acks, S) {
     u_writeDataToL1Cache;
     hx_load_hit;
+    uu_profileDataHit;
+    uu_profileDataWriteHit;
     s_deallocateTBE;
     o_popIncomingResponseQueue;
     kd_wakeUpDependents;
@@ -1267,6 +1382,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   transition(PF_IS, Data_all_Acks, S) {
     u_writeDataToL1Cache;
     s_deallocateTBE;
+    uu_profileDataHit;
+    uu_profileDataWriteHit;
     mp_markPrefetched;
     o_popIncomingResponseQueue;
     kd_wakeUpDependents;
@@ -1277,12 +1394,16 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     hx_load_hit;
     s_deallocateTBE;
     o_popIncomingResponseQueue;
+    uu_profileDataHit;
+    uu_profileDataWriteHit;
     kd_wakeUpDependents;
   }
 
   transition(PF_IS_I, Data_all_Acks, I) {
     s_deallocateTBE;
     o_popIncomingResponseQueue;
+    uu_profileDataHit;
+    uu_profileDataWriteHit;
     kd_wakeUpDependents;
   }
 
@@ -1292,6 +1413,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     hx_load_hit;
     s_deallocateTBE;
     o_popIncomingResponseQueue;
+    uu_profileDataHit;
+    uu_profileDataWriteHit;
     kd_wakeUpDependents;
   }
 
@@ -1300,6 +1423,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     j_sendUnblock;
     s_deallocateTBE;
     o_popIncomingResponseQueue;
+    uu_profileDataHit;
+    uu_profileDataWriteHit;
     kd_wakeUpDependents;
   }
 
@@ -1309,6 +1434,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     hx_load_hit;
     s_deallocateTBE;
     o_popIncomingResponseQueue;
+    uu_profileDataHit;
+    uu_profileDataWriteHit;
     kd_wakeUpDependents;
   }
 
@@ -1316,6 +1443,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     j_sendUnblock;
     s_deallocateTBE;
     o_popIncomingResponseQueue;
+    uu_profileDataHit;
+    uu_profileDataWriteHit;
     kd_wakeUpDependents;
   }
 
@@ -1326,6 +1455,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     jj_sendExclusiveUnblock;
     s_deallocateTBE;
     o_popIncomingResponseQueue;
+    uu_profileDataHit;
+    uu_profileDataWriteHit;
     kd_wakeUpDependents;
   }
 
@@ -1335,6 +1466,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     jj_sendExclusiveUnblock;
     s_deallocateTBE;
     o_popIncomingResponseQueue;
+    uu_profileDataHit;
+    uu_profileDataWriteHit;
     kd_wakeUpDependents;
   }
 
@@ -1344,6 +1477,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     jj_sendExclusiveUnblock;
     s_deallocateTBE;
     o_popIncomingResponseQueue;
+    uu_profileDataHit;
+    uu_profileDataWriteHit;
     kd_wakeUpDependents;
   }
 
@@ -1353,17 +1488,23 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     s_deallocateTBE;
     mp_markPrefetched;
     o_popIncomingResponseQueue;
+    uu_profileDataHit;
+    uu_profileDataWriteHit;
     kd_wakeUpDependents;
   }
 
   // Transitions from IM
   transition(IM, Inv, IM) {
     fi_sendInvAck;
+    uu_profileDataHit;
+    uu_profileDataWriteHit;
     l_popRequestQueue;
   }
 
   transition({PF_IM, PF_SM}, Inv, PF_IM) {
     fi_sendInvAck;
+    uu_profileDataHit;
+    uu_profileDataWriteHit;
     l_popRequestQueue;
   }
 
@@ -1371,12 +1512,16 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     u_writeDataToL1Cache;
     q_updateAckCount;
     o_popIncomingResponseQueue;
+    uu_profileDataHit;
+    uu_profileDataWriteHit;
   }
 
   transition(PF_IM, Data, PF_SM) {
     u_writeDataToL1Cache;
     q_updateAckCount;
     o_popIncomingResponseQueue;
+    uu_profileDataHit;
+    uu_profileDataWriteHit;
   }
 
   transition(IM, Data_all_Acks, M) {
@@ -1385,6 +1530,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     jj_sendExclusiveUnblock;
     s_deallocateTBE;
     o_popIncomingResponseQueue;
+    uu_profileDataHit;
+    uu_profileDataWriteHit;
     kd_wakeUpDependents;
   }
 
@@ -1394,6 +1541,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     s_deallocateTBE;
     mp_markPrefetched;
     o_popIncomingResponseQueue;
+    uu_profileDataHit;
+    uu_profileDataWriteHit;
     kd_wakeUpDependents;
   }
 
@@ -1401,6 +1550,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   transition(SM, Inv, IM) {
     forward_eviction_to_cpu;
     fi_sendInvAck;
+    uu_profileDataHit;
+    uu_profileDataReadHit;
     l_popRequestQueue;
   }
 

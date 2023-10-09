@@ -572,7 +572,7 @@ Rename::renameInsts(ThreadID tid)
         unit_is_idle = true;
         return;
     } else if (renameStatus[tid] == Unblocking) {
-        unit_is_blocking = true;
+        unit_is_unblocking = true;
         ++stats.unblockCycles;
     } else if (renameStatus[tid] == Running) {
         ++stats.runCycles;
@@ -1461,7 +1461,7 @@ Rename::incrFullStat(const FullSource &source)
         ++stats.SQFullEvents;
         break;
       case REG:
-        ++stats.renameROBFullEvents; // This was the default old behaviour
+        ++stats.ROBFullEvents; // This was the default old behaviour
         break;
       default:
         panic("Rename full stall stat should be incremented for a reason!");

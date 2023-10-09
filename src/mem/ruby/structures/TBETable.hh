@@ -70,6 +70,12 @@ class TBETable
         return (m_number_of_TBEs - m_map.size()) >= n;
     }
 
+    bool
+    isEmpty() const
+    {
+        return (m_map.size() == 0);
+    }
+
     ENTRY *getNullEntry();
     ENTRY *lookup(Addr address);
 

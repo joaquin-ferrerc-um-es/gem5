@@ -43,6 +43,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
    CacheMemory * Icache;
    CacheMemory * Dcache;
    bool send_evictions;
+   CPUContainer *cpu;
 
    RubyPrefetcher * prefetcher;
    bool enable_prefetch := "False";
@@ -165,6 +166,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     void allocate(Addr);
     void deallocate(Addr);
     bool isPresent(Addr);
+    bool isEmpty();
     TBE getNullEntry();
   }
 
@@ -701,6 +703,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     set_tbe(TBEs[address]);
     tbe.Dirty := cache_entry.Dirty;
     tbe.DataBlk := cache_entry.DataBlk;
+    cpu.l1MissesPending();
   }
 
   action(k_popMandatoryQueue, "k", desc="Pop mandatory queue") {
@@ -722,6 +725,9 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
   action(s_deallocateTBE, "s", desc="Deallocate TBE") {
     TBEs.deallocate(address);
     unset_tbe();
+    if(TBEs.isEmpty()) {
+      cpu.l1NoMissesPending();
+    }
   }
 
   action(u_writeDataToCache, "u", desc="Write data to cache") {
@@ -770,18 +776,68 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
 
   action(uu_profileInstMiss, "\ui", desc="Profile the demand miss") {
     Icache.profileDemandMiss();
+    Icache.profileReadMisses();
+  }
+
+  action(uu_profileInstLoadMiss, "\uim2", desc="Profile the load miss") {
+    Icache.profileLoadMisses();
   }
 
   action(uu_profileInstHit, "\uih", desc="Profile the demand hit") {
     Icache.profileDemandHit();
+    Icache.profileReadHits();
+  }
+
+  action(uu_profileInstLoadHit, "\uim1", desc="Profile the load hit") {
+    Icache.profileLoadHits();
   }
 
   action(uu_profileDataMiss, "\ud", desc="Profile the demand miss") {
     Dcache.profileDemandMiss();
   }
 
+  action(uu_profileDataReadMiss, "\udm2", desc="Profile the read miss") {
+    Dcache.profileReadMisses();
+  }
+
+  action(uu_profileDataWriteMiss, "\udm3", desc="Profile the write miss") {
+    Dcache.profileWriteMisses();
+  }
+
+  action(uu_profileDataLoadMiss, "\udm4", desc="Profile the load miss") {
+    Dcache.profileLoadMisses();
+  }
+
+  action(uu_profileDataStoreMiss, "\udm5", desc="Profile the store miss") {
+    Dcache.profileStoreMisses();
+  }
+
   action(uu_profileDataHit, "\udh", desc="Profile the demand hit") {
     Dcache.profileDemandHit();
+  }
+
+  action(uu_profileDataReadHit, "\udm7", desc="Profile the read hit") {
+    Dcache.profileReadHits();
+  }
+
+  action(uu_profileDataWriteHit, "\udm8", desc="Profile the write hit") {
+    Dcache.profileWriteHits();
+  }
+
+  action(uu_profileDataLoadHit, "\udm9", desc="Profile the load hit") {
+    Dcache.profileLoadHits();
+  }
+
+  action(uu_profileDataStoreHit, "\udm0", desc="Profile the store hit") {
+    Dcache.profileStoreHits();
+  }
+
+  action(uu_profileConflict, "\udmi100", desc="Profile the conflict") {
+    if (Dcache.isTagPresent(address)) {
+        Dcache.profileConflicts();
+    } else {
+        Icache.profileConflicts();
+    }
   }
 
   // store conditionals
@@ -879,6 +935,8 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     oo_allocateDCacheBlock;
     i_allocateTBE;
     a_issueGETS;
+    uu_profileDataReadMiss;
+    uu_profileDataLoadMiss;
     uu_profileDataMiss;
     po_observeMiss;
     k_popMandatoryQueue;
@@ -888,6 +946,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     pp_allocateICacheBlock;
     i_allocateTBE;
     a_issueGETS;
+    uu_profileInstLoadMiss;
     uu_profileInstMiss;
     po_observeMiss;
     k_popMandatoryQueue;
@@ -918,6 +977,8 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
   transition({S,E,M}, Load) {
     h_load_hit;
     uu_profileDataHit;
+    uu_profileDataReadHit;
+    uu_profileDataLoadHit;
     pph_observePfHit;
     k_popMandatoryQueue;
   }
@@ -925,6 +986,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
   transition({S,E,M}, Ifetch) {
     h_ifetch_hit;
     uu_profileInstHit;
+    uu_profileInstLoadHit;
     pph_observePfHit;
     k_popMandatoryQueue;
   }
@@ -933,11 +995,14 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     i_allocateTBE;
     c_issueUPGRADE;
     uu_profileDataMiss;
+    uu_profileDataWriteMiss;
+    uu_profileDataStoreMiss;
     k_popMandatoryQueue;
   }
 
   transition(S, {L0_Replacement,PF_L0_Replacement}, I) {
     forward_eviction_to_cpu;
+    uu_profileConflict;
     ff_deallocateCacheBlock;
   }
 
@@ -952,12 +1017,15 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
   transition({E,M}, Store, M) {
     hh_store_hit;
     uu_profileDataHit;
+    uu_profileDataWriteHit;
+    uu_profileDataStoreHit;
     pph_observePfHit;
     k_popMandatoryQueue;
   }
 
   transition(E, {L0_Replacement,PF_L0_Replacement}, I) {
     forward_eviction_to_cpu;
+    uu_profileConflict;
     g_issuePUTX;
     ff_deallocateCacheBlock;
   }
@@ -978,6 +1046,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
   // Transitions from Modified
   transition(M, {L0_Replacement,PF_L0_Replacement}, I) {
     forward_eviction_to_cpu;
+    uu_profileConflict;
     g_issuePUTX;
     ff_deallocateCacheBlock;
   }
@@ -1064,14 +1133,17 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
   // prefetcher
 
   transition({Inst_IS, IS, IM, SM, PF_Inst_IS, PF_IS, PF_IE}, PF_L0_Replacement) {
+     uu_profileConflict;
      z_stallAndWaitOptionalQueue;
   }
 
   transition({PF_Inst_IS, PF_IS}, {Store, L0_Replacement}) {
+    uu_profileConflict;
     z_stallAndWaitMandatoryQueue;
   }
 
   transition({PF_IE}, {Load, Ifetch, L0_Replacement}) {
+    uu_profileConflict;
     z_stallAndWaitMandatoryQueue;
   }
 
@@ -1089,6 +1161,8 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
 
   transition(PF_IS, Load, IS) {
     uu_profileDataMiss;
+    uu_profileDataReadMiss;
+    uu_profileDataLoadMiss;
     ppm_observePfMiss;
     k_popMandatoryQueue;
   }
@@ -1115,6 +1189,8 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
 
   transition(PF_IE, Store, IM) {
     uu_profileDataMiss;
+    uu_profileDataWriteHit;
+    uu_profileDataStoreHit;
     ppm_observePfMiss;
     k_popMandatoryQueue;
   }

@@ -186,9 +186,9 @@ Commit::CommitStats::CommitStats(CPU *cpu, Commit *commit)
       ADD_STAT(committedInstType, statistics::units::Count::get(),
                "Class of committed instruction"),
       ADD_STAT(commitEligibleSamples, statistics::units::Cycle::get(),
-               "number cycles where commit BW limit reached")
+               "number cycles where commit BW limit reached"),
       ADD_STAT(iewCommitRuncycles, statistics::units::Cycle::get(),
-               "number of cycles commit is running")
+               "number of cycles commit is running"),
       ADD_STAT(iewCommitCyclesNoInstructionCommitted, statistics::units::Cycle::get(),
                "number of cycles no instructions are committed")
 {

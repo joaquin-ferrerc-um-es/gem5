@@ -171,7 +171,16 @@ class SimpleThread : public ThreadState, public ThreadContext
     void
     demapPage(Addr vaddr, uint64_t asn)
     {
-        mmu->demapPage(vaddr, asn);
+        bool hit_i = mmu->demapInstPage(vaddr, asn);
+        this->getCpuPtr()->incrementITLBAccesses();
+        if (hit_i == false) {
+            this->getCpuPtr()->incrementITLBMisses();
+        }
+        bool hit_d = mmu->demapDataPage(vaddr, asn);
+        this->getCpuPtr()->incrementDTLBAccesses();
+        if (hit_d == false) {
+            this->getCpuPtr()->incrementDTLBMisses();
+        }
     }
 
     /*******************************************

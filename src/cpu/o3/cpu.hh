@@ -179,7 +179,16 @@ class CPU : public BaseCPU
     void
     demapPage(Addr vaddr, uint64_t asn)
     {
-        mmu->demapPage(vaddr, asn);
+        bool hit_i = mmu->demapInstPage(vaddr, asn);
+        this->incrementITLBAccesses();
+        if (hit_i == false) {
+          this->incrementITLBMisses();
+        }
+        bool hit_d = mmu->demapDataPage(vaddr, asn);
+        this->incrementDTLBAccesses();
+        if (hit_d == false) {
+          this->incrementDTLBMisses();
+        }
     }
 
     /** Ticks CPU, calling tick() on each stage, and checking the overall
@@ -586,7 +595,7 @@ class CPU : public BaseCPU
 
   public:
     /** Is backend blocked? */
-    bool isBackendBlocked(ThreadID tid) {return rename.isBackendBloqued(tid); };
+    bool isBackendBlocked(ThreadID tid) {return rename.isBackendBlocked(tid); };
 
     /** Returns a pointer to a thread context. */
     gem5::ThreadContext *

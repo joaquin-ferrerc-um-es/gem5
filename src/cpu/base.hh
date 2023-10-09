@@ -612,10 +612,10 @@ class BaseCPU : public ClockedObject
         statistics::Scalar dTLBMisses;
     } baseStats;
 
-    void incrementITLBAccesses() { baseStats.iTLBAccesses++; system->getPowerModel()->incrementITLBAccesses(_cpuId); }
-    void incrementITLBMisses() { baseStats.iTLBMisses++; system->getPowerModel()->incrementITLBMisses(_cpuId);}
-    void incrementDTLBAccesses() { baseStats.dTLBAccesses++; system->getPowerModel()->incrementDTLBAccesses(_cpuId); }
-    void incrementDTLBMisses() { baseStats.dTLBMisses++; system->getPowerModel()->incrementDTLBMisses(_cpuId); }
+    void incrementITLBAccesses() { baseStats.iTLBAccesses++; };
+    void incrementITLBMisses() { baseStats.iTLBMisses++; };
+    void incrementDTLBAccesses() { baseStats.dTLBAccesses++; };
+    void incrementDTLBMisses() { baseStats.dTLBMisses++; };
 
   private:
     std::vector<AddressMonitor> addressMonitor;

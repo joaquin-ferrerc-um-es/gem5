@@ -44,6 +44,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
 
    Cycles to_l2_latency := 1;
 
+   CPUContainer *cpu;
+
    // Message Buffers between the L1 and the L0 Cache
    // From the L1 cache to the L0 cache
    MessageBuffer * bufferToL0, network="To";
@@ -162,6 +164,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     void allocate(Addr);
     void deallocate(Addr);
     bool isPresent(Addr);
+    bool isEmpty();
   }
 
   TBETable TBEs, template="<L1Cache_TBE>", constructor="m_number_of_TBEs";
@@ -685,6 +688,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     set_tbe(TBEs[address]);
     tbe.Dirty := cache_entry.Dirty;
     tbe.DataBlk := cache_entry.DataBlk;
+    cpu.l2MissesPending();
   }
 
   action(k_popL0RequestQueue, "k", desc="Pop mandatory queue.") {
@@ -706,6 +710,9 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   action(s_deallocateTBE, "s", desc="Deallocate TBE") {
     TBEs.deallocate(address);
     unset_tbe();
+    if(TBEs.isEmpty()) {
+      cpu.l2NoMissesPending();
+    }
   }
 
   action(u_writeDataFromL0Request, "ureql0", desc="Write data to cache") {
@@ -780,6 +787,38 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     cache.profileDemandHit();
   }
 
+  action(uu_profileDataReadMiss, "\udm2", desc="Profile the read miss") {
+    cache.profileReadMisses();
+  }
+
+  action(uu_profileDataWriteMiss, "\udm3", desc="Profile the write miss") {
+    cache.profileWriteMisses();
+  }
+
+  action(uu_profileDataLoadMiss, "\udm4", desc="Profile the load miss") {
+    cache.profileLoadMisses();
+  }
+
+  action(uu_profileDataStoreMiss, "\udm5", desc="Profile the store miss") {
+    cache.profileStoreMisses();
+  }
+
+  action(uu_profileDataReadHit, "\udm7", desc="Profile the read hit") {
+    cache.profileReadHits();
+  }
+
+  action(uu_profileDataWriteHit, "\udm8", desc="Profile the write hit") {
+    cache.profileWriteHits();
+  }
+
+  action(uu_profileDataLoadHit, "\udm9", desc="Profile the load hit") {
+    cache.profileLoadHits();
+  }
+
+  action(uu_profileDataStoreHit, "\udm0", desc="Profile the store hit") {
+    cache.profileStoreHits();
+  }
+
 
   //*****************************************************
   // TRANSITIONS
@@ -796,6 +835,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     i_allocateTBE;
     a_issueGETS;
     uu_profileMiss;
+    uu_profileDataReadMiss;
+    uu_profileDataLoadMiss;
     k_popL0RequestQueue;
   }
 
@@ -804,6 +845,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     i_allocateTBE;
     b_issueGETX;
     uu_profileMiss;
+    uu_profileDataWriteMiss;
+    uu_profileDataStoreMiss;
     k_popL0RequestQueue;
   }
 
@@ -816,6 +859,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   transition({S,SS}, Load, S) {
     h_data_to_l0;
     uu_profileHit;
+    uu_profileDataReadHit;
+    uu_profileDataLoadHit;
     k_popL0RequestQueue;
   }
 
@@ -823,6 +868,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     i_allocateTBE;
     c_issueUPGRADE;
     uu_profileMiss;
+    uu_profileDataWriteMiss;
+    uu_profileDataStoreMiss;
     k_popL0RequestQueue;
   }
 
@@ -849,6 +896,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   transition({EE,MM}, Store, M) {
     hh_xdata_to_l0;
     uu_profileHit;
+    uu_profileDataWriteHit;
+    uu_profileDataStoreHit;
     k_popL0RequestQueue;
   }
 
@@ -1100,6 +1149,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   transition({EE,E}, Load, E) {
     hh_xdata_to_l0;
     uu_profileHit;
+    uu_profileDataReadHit;
+    uu_profileDataLoadHit;
     k_popL0RequestQueue;
   }
 
@@ -1108,6 +1159,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   transition({MM,M}, Load, M) {
     hh_xdata_to_l0;
     uu_profileHit;
+    uu_profileDataReadHit;
+    uu_profileDataLoadHit;
     k_popL0RequestQueue;
   }
 
@@ -1116,6 +1169,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   transition({E,M}, Store, M) {
     hh_xdata_to_l0;
     uu_profileHit;
+    uu_profileDataWriteHit;
+    uu_profileDataStoreHit;
     k_popL0RequestQueue;
   }
 

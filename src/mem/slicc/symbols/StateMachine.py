@@ -67,6 +67,7 @@ python_class_map = {
                     "RubyPrefetcher":"RubyPrefetcher",
                     "TransactionInterfaceManager": "TransactionInterfaceManager",
                     "Cycles":"Cycles",
+                    "CPUContainer":"CPUContainer",
                    }
 
 class StateMachine(Symbol):
@@ -290,6 +291,7 @@ class $py_ident(RubyController):
 #include "mem/ruby/protocol/Types.hh"
 #include "mem/ruby/slicc_interface/AbstractController.hh"
 #include "params/$c_ident.hh"
+#include "sim/cpu_container.hh"
 
 ''')
 

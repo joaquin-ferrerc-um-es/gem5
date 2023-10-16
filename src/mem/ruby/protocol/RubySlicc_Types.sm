@@ -325,6 +325,15 @@ structure (DirectoryCacheMemory, external = "yes") {
 
   void profileDemandHit();
   void profileDemandMiss();
+  void profileReadHits();
+  void profileReadMisses();
+  void profileWriteHits();
+  void profileWriteMisses();
+  void profileLoadHits();
+  void profileLoadMisses();
+  void profileStoreHits();
+  void profileStoreMisses();
+  void profileConflicts();
   void profilePrefetchHit();
   void profilePrefetchMiss();
 }

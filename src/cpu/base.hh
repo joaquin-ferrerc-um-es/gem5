@@ -634,16 +634,26 @@ class BaseCPU : public ClockedObject
     bool l2_miss_pending = false;
     bool any_miss_pending = false;
 
-    void l1MissesPending() { l1_miss_pending = true; any_miss_pending = true; };
-    void l1NoMissesPending() {
-      l1_miss_pending = false;
-      if(l2_miss_pending == false)
-	any_miss_pending = false;
+    void l1MissesPending()
+    {
+        l1_miss_pending = true;
+        any_miss_pending = true;
     };
-    void l2MissesPending() { l2_miss_pending = true; any_miss_pending = true; };
-    void l2NoMissesPending() { l2_miss_pending = false;
-      if(l1_miss_pending == false)
-	any_miss_pending = false;
+    void l1NoMissesPending() {
+        l1_miss_pending = false;
+        if (l2_miss_pending == false)
+	          any_miss_pending = false;
+    };
+
+    void l2MissesPending() {
+        l2_miss_pending = true; 
+        any_miss_pending = true;
+    };
+    void l2NoMissesPending()
+    {
+        l2_miss_pending = false;
+        if (l1_miss_pending == false)
+	          any_miss_pending = false;
     };
 
     void anyMissesPending() { any_miss_pending = true; };

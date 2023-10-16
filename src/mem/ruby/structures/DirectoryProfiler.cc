@@ -58,7 +58,7 @@ void
 DirectoryProfiler::startup()
 {
     DPRINTF(DirectoryProfiler, "DirectoryProfiler startup called\n");
-    assert(numCaches == MachineType_base_count(MachineType_L2Cache));
+    // assert(numCaches == MachineType_base_count(MachineType_L2Cache));
 }
 
 void

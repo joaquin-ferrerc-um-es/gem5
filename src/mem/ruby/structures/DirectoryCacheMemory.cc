@@ -589,6 +589,29 @@ DirectoryCacheMemoryStats::DirectoryCacheMemoryStats(statistics::Group *parent)
       ADD_STAT(m_demand_misses, "Number of cache demand misses"),
       ADD_STAT(m_demand_accesses, "Number of cache demand accesses",
                m_demand_hits + m_demand_misses),
+      ADD_STAT(m_read_hits, "Number of cache read hits"),
+      ADD_STAT(m_read_misses, "Number of cache read misses"),
+      ADD_STAT(m_read_accesses, "Number of cache read accesses",
+               m_read_hits + m_read_misses),
+      ADD_STAT(m_write_hits, "Number of cache write hits"),
+      ADD_STAT(m_write_misses, "Number of cache write misses"),
+      ADD_STAT(m_write_accesses, "Number of cache write accesses",
+               m_write_hits + m_write_misses),
+      ADD_STAT(m_load_hits, "Number of cache load hits"),
+      ADD_STAT(m_load_misses, "Number of cache load misses"),
+      ADD_STAT(m_load_accesses, "Number of cache load accesses",
+               m_load_hits + m_load_misses),
+      ADD_STAT(m_store_hits, "Number of cache store hits"),
+      ADD_STAT(m_store_misses, "Number of cache store misses"),
+      ADD_STAT(m_store_accesses, "Number of cache store accesses",
+               m_store_hits + m_store_misses),
+      ADD_STAT(m_load_hit_ratio, "Hit ratio of loads, IFETCHes, L1_GETS and L1_GET_INSTR accesses",
+               m_load_hits / m_load_accesses),
+      ADD_STAT(m_store_hit_ratio, "Hit ratio of stores and L1_GETX accesses",
+               m_store_hits / m_store_accesses),
+      ADD_STAT(m_mem_access_hit_ratio, "Hit ratio of loads, stores, IFETCHes, L1_GETS, L1_GETX and L1_GET_INSTR accesses",
+               (m_load_hits + m_store_hits) / (m_load_accesses + m_store_accesses)),
+      ADD_STAT(m_conflicts, "Number of conflicts"),
       ADD_STAT(m_prefetch_hits, "Number of cache prefetch hits"),
       ADD_STAT(m_prefetch_misses, "Number of cache prefetch misses"),
       ADD_STAT(m_prefetch_accesses, "Number of cache prefetch accesses",
@@ -848,6 +871,60 @@ void
 DirectoryCacheMemory::profileDemandMiss()
 {
     directoryCacheMemoryStats.m_demand_misses++;
+}
+
+void
+DirectoryCacheMemory::profileReadHits()
+{
+    directoryCacheMemoryStats.m_read_hits++;
+}
+
+void
+DirectoryCacheMemory::profileReadMisses()
+{
+    directoryCacheMemoryStats.m_read_misses++;
+}
+
+void
+DirectoryCacheMemory::profileWriteHits()
+{
+    directoryCacheMemoryStats.m_write_hits++;
+}
+
+void
+DirectoryCacheMemory::profileWriteMisses()
+{
+    directoryCacheMemoryStats.m_write_misses++;
+}
+
+void
+DirectoryCacheMemory::profileLoadHits()
+{
+    directoryCacheMemoryStats.m_load_hits++;
+}
+
+void
+DirectoryCacheMemory::profileLoadMisses()
+{
+    directoryCacheMemoryStats.m_load_misses++;
+}
+
+void
+DirectoryCacheMemory::profileStoreHits()
+{
+    directoryCacheMemoryStats.m_store_hits++;
+}
+
+void
+DirectoryCacheMemory::profileStoreMisses()
+{
+    directoryCacheMemoryStats.m_store_misses++;
+}
+
+void
+DirectoryCacheMemory::profileConflicts()
+{
+    directoryCacheMemoryStats.m_conflicts++;
 }
 
 void

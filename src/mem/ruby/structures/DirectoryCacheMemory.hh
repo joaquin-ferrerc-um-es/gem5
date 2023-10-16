@@ -252,6 +252,28 @@ class DirectoryCacheMemory : public SimObject
           statistics::Scalar m_demand_misses;
           statistics::Formula m_demand_accesses;
 
+          statistics::Scalar m_read_hits;
+          statistics::Scalar m_read_misses;
+          statistics::Formula m_read_accesses;
+
+          statistics::Scalar m_write_hits;
+          statistics::Scalar m_write_misses;
+          statistics::Formula m_write_accesses;
+
+          statistics::Scalar m_load_hits;
+          statistics::Scalar m_load_misses;
+          statistics::Formula m_load_accesses;
+
+          statistics::Scalar m_store_hits;
+          statistics::Scalar m_store_misses;
+          statistics::Formula m_store_accesses;
+
+          statistics::Formula m_load_hit_ratio;
+          statistics::Formula m_store_hit_ratio;
+          statistics::Formula m_mem_access_hit_ratio;
+
+          statistics::Scalar m_conflicts;
+
           statistics::Scalar m_prefetch_hits;
           statistics::Scalar m_prefetch_misses;
           statistics::Formula m_prefetch_accesses;
@@ -264,6 +286,15 @@ class DirectoryCacheMemory : public SimObject
       // each time they are called
       void profileDemandHit();
       void profileDemandMiss();
+      void profileReadHits();
+      void profileReadMisses();
+      void profileWriteHits();
+      void profileWriteMisses();
+      void profileLoadHits();
+      void profileLoadMisses();
+      void profileStoreHits();
+      void profileStoreMisses();
+      void profileConflicts();
       void profilePrefetchHit();
       void profilePrefetchMiss();
 };

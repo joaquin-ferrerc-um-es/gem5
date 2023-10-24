@@ -41,6 +41,7 @@
 #include "params/BaseMMU.hh"
 #include "mem/request.hh"
 #include "sim/sim_object.hh"
+#include "cpu/base.hh"
 
 namespace gem5
 {
@@ -101,6 +102,8 @@ class BaseMMU : public SimObject
     virtual void flushAll();
 
     void demapPage(Addr vaddr, uint64_t asn);
+
+    void setCPU(BaseCPU *cpu);
 
     bool demapInstPage(Addr vaddr, uint64_t asn);
 

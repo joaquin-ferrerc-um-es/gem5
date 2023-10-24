@@ -61,6 +61,13 @@ BaseMMU::demapPage(Addr vaddr, uint64_t asn)
     dtb->demapPage(vaddr, asn);
 }
 
+void
+BaseMMU::setCPU(BaseCPU *cpu)
+{
+    itb->setCPU(cpu);
+    dtb->setCPU(cpu);
+}
+
 bool
 BaseMMU::demapInstPage(Addr vaddr, uint64_t asn)
 {

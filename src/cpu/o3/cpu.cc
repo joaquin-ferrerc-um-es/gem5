@@ -130,6 +130,7 @@ CPU::CPU(const O3CPUParams &params)
 
     //itb->setCPU(this);
     //dtb->setCPU(this);
+    mmu->setCPU(this);
 
     if (!params.switched_out) {
         _status = Running;

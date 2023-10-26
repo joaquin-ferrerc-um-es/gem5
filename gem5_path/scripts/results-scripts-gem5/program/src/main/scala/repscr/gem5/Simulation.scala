@@ -4,6 +4,7 @@ import repscr._
 import properties._
 import util.misc._
 import points._
+import repscr.gem5.Simulation.parser.RawGEM5Simulation
 
 import scala.collection.parallel.CollectionConverters._
 import scala.util.parsing.combinator.RegexParsers
@@ -62,6 +63,7 @@ object Simulation {
     //val f = new java.io.FileReader(file)
     val f = new FileCharSequence(file) // workaround for bug in scala library for big files
     val report_missing_properties = false
+
     def parseRawGEM5Simulation(rawprops: parser.RawGEM5Simulation): Simulation = {
       val s = new Simulation(file.getPath, PropertyMap((Gem5Properties.knownProperties.map { case (name, pinfo) => name -> (
         try pinfo.getter(rawprops)
@@ -77,6 +79,7 @@ object Simulation {
       progressReport foreach (_.progress(0, 1))
       s
     }
+
     val onlyOneSimPerFile = true
     val sims =
       try
@@ -97,6 +100,22 @@ object Simulation {
     sims
   }
 
+  def fromFileRaw(file: File): Seq[RawGEM5Simulation] = {
+    if (file.length == 0) sys.error("Empty stats file")
+    val f = new FileCharSequence(file) // workaround for bug in scala library for big files
+    val onlyOneSimPerFile = true
+      try
+        if (onlyOneSimPerFile)
+          parser.parse(parser.GEM5RawStatsFile, f) match {
+            case parser.Success(sim, _) => Seq(sim)
+            case x => Console.err.println(s"Loading $file:\n$x"); Seq()
+          }
+        else
+          ??? // TODO when needed
+      catch {
+        case e: Exception => sys.error(s"Loading $file: $e [${e.getStackTrace.take(6).mkString(", ")}]")
+      } finally f.close()
+  }
 
   object parser extends RegexParsers {
     case class RawGEM5Simulation(configuration: RMap, stats: RMap)
@@ -110,6 +129,10 @@ object Simulation {
 
     def GEM5StatsFile(parseRawGEM5Simulation: RawParser): Parser[Simulation] = blines ~> configs ~ (blines ~> stats <~ blines) ^^ { case confsRMap ~ statsRMap =>
       parseRawGEM5Simulation(RawGEM5Simulation(confsRMap, statsRMap))
+    }
+
+    def GEM5RawStatsFile: Parser[RawGEM5Simulation] = blines ~> configs ~ (blines ~> stats <~ blines) ^^ { case confsRMap ~ statsRMap =>
+      RawGEM5Simulation(confsRMap, statsRMap)
     }
 
     val (configs_begin_text, configs_end_text) = ("---------- Begin Configuration   ----------", "---------- End Configuration   ----------")

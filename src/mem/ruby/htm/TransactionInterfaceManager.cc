@@ -44,7 +44,9 @@ TransactionInterfaceManager::TransactionInterfaceManager(const Params &p)
     assert(m_htm);
     m_version = m_sequencer->getId();
     m_dataCache_ptr = p.dcache;
+    m_l1Cache_ptr   = p.l1_cache;
     m_dataCache_ptr->setTransactionManager(this);
+    m_l1Cache_ptr->setTransactionManager(this);
 
     m_sequencer->setTransactionManager(this);
     m_ruby_system->registerTransactionInterfaceManager(this);

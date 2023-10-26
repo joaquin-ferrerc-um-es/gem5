@@ -777,6 +777,14 @@ TimingSimpleCPU::advanceInst(const Fault &fault)
 
     if (fault != NoFault) {
         // hardware transactional memory
+        if (t_info.inHtmTransactionalState() &&
+            std::dynamic_pointer_cast<HtmFailedCacheAccess>(fault)) {
+            // Nacked load and transaction is not aborting
+            DPRINTF(HtmCpu, "retrying failed transactional load\n");
+            assert(_status == BaseSimpleCPU::Running);
+            reschedule(fetchEvent, clockEdge(), true);
+            return;
+        }
         // If a fault occurred within a transaction
         // ensure that the transaction aborts
         if (t_info.inHtmTransactionalState() &&
@@ -1043,7 +1051,7 @@ TimingSimpleCPU::completeDataAccess(PacketPtr pkt)
 
     _status = BaseSimpleCPU::Running;
 
-    Fault fault;
+    Fault fault = NoFault;
 
     // hardware transactional memory
     // sanity checks
@@ -1053,12 +1061,33 @@ TimingSimpleCPU::completeDataAccess(PacketPtr pkt)
                 t_info->getHtmTransactionUid());
         // hardware transactional memory
         if (pkt->isHtmFailedCacheAccess()) { // Nacked access
-            // Always abort. TODO: retry (req-stalls)
-            assert(pkt->htmTransactionFailedInCache());
+            DPRINTF(HtmCpu,
+                    "Access failed (nacked) in cache\n");
+            if (pkt->isWrite()) {
+                // Stores that fail to complete in cache are retried
+                // without CPU intervention. We should only see a failed
+                // store in the CPU if the transaction is already aborting
+                assert(pkt->htmTransactionFailedInCache());
+            } else {
+                if (conflictingSnoopDetected) {
+                    DPRINTF(HtmCpu,
+                            "Conflicting snoop seen and load was nacked!\n");
+                    conflictingSnoopDetected = false;
+                }
+                // Only loads that fail to perform in cache are handled by
+                // the CPU in order to retry:
+                fault = std::make_shared<HtmFailedCacheAccess>();
+            }
         }
-
-        if (!pkt->req->isHTMCmd() &&
-            !pkt->isWrite()) {
+        else if (conflictingSnoopDetected) {
+            conflictingSnoopDetected = false;
+            // Re-execute this load
+            assert(!pkt->isWrite());
+            assert(system->getHTM()->params().reload_if_stale);
+            fault = std::make_shared<HtmFailedCacheAccess>();
+        }
+        else if (!pkt->req->isHTMCmd() &&
+                 !pkt->isWrite()) {
             // Transactional load
             htmSendSignal(pkt->getAddr(),
                           Request::HTM_ISOLATE);
@@ -1102,17 +1131,18 @@ TimingSimpleCPU::completeDataAccess(PacketPtr pkt)
         } else if (htm_rc == HtmCacheFailure::FAIL_REMOTE) {
             fault = std::make_shared<GenericHtmFailureFault>(
                 t_info->getHtmTransactionUid(),
-                abortedByConflitingSnoop ?
+                conflictingSnoopDetected ?
                 HtmFailureFaultCause::LSQ :
                 HtmFailureFaultCause::MEMORY);
-            abortedByConflitingSnoop = false;
+            conflictingSnoopDetected = false;
         } else {
             panic("HTM - unhandled rc %s", htmFailureToStr(htm_rc));
         }
-    } else {
+    } else if (fault == NoFault) {
         fault = curStaticInst->completeAcc(pkt, t_info,
                                      traceData);
     }
+    assert(!conflictingSnoopDetected);
 
     // hardware transactional memory
     // Track HtmStop instructions,
@@ -1240,17 +1270,23 @@ TimingSimpleCPU::checkForConflictingSnoops(PacketPtr pkt)
                     assert(send_state);
                     p = send_state->bigPkt;
                 }
+                if (!pkt->htmTransactionFailedInCache()) {
+                    // The following flag will be observed by
+                    // completedDataAccess and either trigger abort
+                    // (cause LSQ) or re-execute load
+                    conflictingSnoopDetected = true;
+                    if (!system->getHTM()->params().reload_if_stale) {
+                        p->setHtmTransactionFailedInCache(HtmCacheFailure::FAIL_REMOTE);
+                    }
+                } else {
+                }
                 DPRINTF(HtmCpu, "Conflicting snoop seen for "
                         "pending %stransactional load %#x,"
                         " %s\n",
                         pkt->senderState ? "split " :"",
                         addr, pkt->htmTransactionFailedInCache() ?
-                        "already failed in cache" : "aborting");
-                if (!pkt->htmTransactionFailedInCache()) {
-                    p->setHtmTransactionFailedInCache(HtmCacheFailure::FAIL_REMOTE);
-                    abortedByConflitingSnoop = true; // Will set abort cause to LSQ
-                } else {
-                }
+                        "already failed in cache" :
+                        (!p->htmTransactionFailedInCache() ? "retrying" : "aborting"));
                 conflictingSnoopSeen[i] = false;
             }
             else { // This is a split load, conflicting snoop seen on the other half

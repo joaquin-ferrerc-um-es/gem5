@@ -350,6 +350,8 @@ Option("htm_allow_load_delaying", bool,
        descr_abbrev = "LDelay")
 Option("htm_trans_aware_l0_replacements", bool,
        descr_abbrev = "L0Repl")
+Option("htm_trans_aware_l1_replacements", bool,
+       descr_abbrev = "L1Repl")
 Option("htm_reload_if_stale", bool,
        descr_abbrev = "RldStale")
 Option("htm_delay_interrupts", bool,

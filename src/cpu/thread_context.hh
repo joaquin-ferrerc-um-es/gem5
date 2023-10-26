@@ -326,6 +326,8 @@ class ThreadContext : public PCEventScope
     bool forceHtmDisabled();
     bool forceHtmRetryStatusBit();
     int getHtmUndoLogSize();
+    int getHtmCommitStatus();
+    bool isHtmFailureFaultCauseMemoryPower();
 };
 
 /** @{ */

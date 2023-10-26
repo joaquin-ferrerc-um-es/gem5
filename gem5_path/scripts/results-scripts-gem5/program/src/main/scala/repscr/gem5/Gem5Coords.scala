@@ -55,6 +55,7 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
   CoordFromProp("htm_precise_read_set_tracking")
   CoordFromProp("htm_allow_load_delaying")
   CoordFromProp("htm_trans_aware_l0_replacements")
+  CoordFromProp("htm_trans_aware_l1_replacements")
   CoordFromProp("htm_reload_if_stale")
   CoordFromProp("htm_l0_downgrade_on_l1_gets")
   //CoordFromProp("htm_value_checker")
@@ -78,7 +79,7 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
     CoordFromProp(s"cache_${cache}_accesses", axisTitle = s"Accesses to ${cache}")
     CoordFromProp(s"cache_${cache}_hits", axisTitle = s"Hits to ${cache}")
     CoordFromProp(s"cache_${cache}_misses", axisTitle = s"Misses to ${cache}")
-    Coord(s"cache_${cache}_miss_rate", s => s("cache_${cache}_misses") / s(s"cache_${cache}_accesses"), axisTitle = s"Miss rate to ${cache}")
+    Coord(s"cache_${cache}_miss_rate", s => s(s"cache_${cache}_misses").toVwe / s(s"cache_${cache}_accesses"), axisTitle = s"Miss rate to ${cache}")
   }
 
   // network
@@ -120,45 +121,49 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
   }
 
   /* Project specific coordinates. They are present here temporarily while they may be useful when using the web UI. TODO: move to a specific file once a project is closed */
+  /*
   Coord("config_cost_effective",
     s => (s("htm_binary_suffix"), s("htm_heap_prefault"),
-      s("htm_allow_read_set_l0_cache_evictions"), s("htm_allow_read_set_l1_cache_evictions"), s("htm_allow_read_set_l2_cache_evictions"),
-      s("htm_trans_aware_l0_replacements"),
-      s("htm_lazy_vm"),
+      s("htm_allow_read_set_l0_cache_evictions"), s("htm_allow_read_set_l1_cache_evictions"),
+      s("htm_precise_read_set_tracking"),
       s("htm_conflict_resolution"),
-      s("htm_reload_if_stale"),
-      s("htm_eager_cd"),
-      s("htm_lazy_arbitration")) match {
-      case (".htm.sgl", _, _, _, _, _, _, _, _, _, _) => "locks"
-      case (".htm.fallbacklock", false, _, _, _, _, true, "requester_wins", _, true, _) => "base_nopf"
-      case (".htm.fallbacklock", true, false, _, _, _, true, "requester_wins", _, true, _) => "base"
-      case (".htm.powertm",      true, true,  _, _, _, true, "power_tm",       _, true, _) => "power"
-      case (".htm.powertmplus",  true, true,  _, _, _, true, "power_tm",       _, true, _) => "powerplus"
-
-      case (".htm.fallbacklock", true, true, false, _, _, true, "requester_wins", _, true, _) => "l2rs"
-      case (".htm.fallbacklock", true, true, true, false, false, true, "requester_wins", _, true, _) => "l3rs"
-      case (".htm.fallbacklock", true, true, true, true, _, true, "requester_wins", _, true, _) => "lxrs"
-
-      case (".htm.fallbacklock", true, true, true, false, true, true, "requester_wins", _, true, _) => "l3rs_l1rpl"
-
-      case (".htm.fallbacklock", true, true, true, false, true, true, "requester_stalls_cda_base", false, true, _) => "l3rs_l1rpl_reqstallb"
-      case (".htm.fallbacklock", true, true, true, false, true, true, "requester_stalls_cda_hybrid", false, true, _) => "l3rs_l1rpl_reqstallh"
-
-      case (".htm.fallbacklock", true, true, true, false, true, true, "requester_stalls_cda_hybrid", true, true, _) => "l3rs_l1rpl_reqstallh_precrs"
-      case (".htm.fallbacklock", true, true, true, false, true, true, "committer_wins", false, false, "magic") => "l3rs_l1rpl_lazycd_magic"
-      case (".htm.fallbacklock", true, true, true, false, true, true, "committer_wins", false, false, "token") => "l3rs_l1rpl_lazycd"
-
-      case (".htm.fallbacklock", true, true, true, true, true, false, "requester_stalls_cda_hybrid", true, true, _) => "lxrs_l1rpl_reqstallh_precrs_log"
-      case (MissingProperty, _, _, _, _, _, _, _, _, _, _) => "NoHTM"
+      s("htm_reload_if_stale")) match {
+         // SUFFIX               PFLT  RSL0E  RSL1Ev RSPREC  CONF-RES            RLDSTL
+      case (".htm.fallbacklock", true,  true,  true,  false, "requester_wins",         _ ) => "rw"
+      case (".htm.fallbacklock", true,  true,  true,  false, "requester_loses",        _ ) => "rl"
+      case (".htm.powertm",      true,  true,  true,  false, "requester_wins_power",   _ ) => "power"
+      case (".htm.powertm",      true,  true,  true,  false, "requester_loses_power",  _ ) => "woper"
+      case (".htm.fallbacklock", true,  true,  true,  true,  "requester_wins",         _ ) => "rw_RSp"
+      case (".htm.fallbacklock", true,  true,  true,  true,  "requester_loses",        _ ) => "rl_RSp"
+      case (".htm.powertm",      true,  true,  true,  true,  "requester_wins_power",   _ ) => "power_RSp"
+      case (".htm.powertm",      true,  true,  true,  true,  "requester_loses_power",  _ ) => "woper_RSp"
+      case (".htm.powertmplus",  true,  true,  true,  _,     "requester_wins_power",   _ ) => "powerplus"
+      case (MissingProperty, _, _, _, _, _, _) => "NoHTM"
     },
     isConfig = true,
-    ordering = dynamicOrdering("locks", "base_nopf",
-      "base", "l2rs", "l3rs", "lxrs",
-      "power", "powerplus",
-      "l3rs_l1rpl", "l3rs_l1rpl_reqstallb", "l3rs_l1rpl_reqstallh",
-      "l3rs_l1rpl_reqstallh_precrs", "l3rs_l1rpl_lazycd"
+    ordering = dynamicOrdering("rw", "rl", "power", "woper", "rw_RSp", "rl_RSp", "power_RSp", "woper_RSp")
+    )
+    */
+  /* Project specific coordinates. They are present here temporarily while they may be useful when using the web UI. TODO: move to a specific file once a project is closed */
+  Coord("config_max_retries",
+    s => (s("htm_binary_suffix"),
+      s("htm_precise_read_set_tracking"),
+      s("htm_max_retries"),
+      s("htm_conflict_resolution"),
+      s("htm_reload_if_stale")) match {
+         // SUFFIX                RSPREC  RETRIES  CONF-RES                  RLDSTL
+      case (".htm.fallbacklock", false, rtry,    "requester_wins",         _ ) => s"rw${rtry}"
+      case (".htm.fallbacklock", false, rtry,    "requester_loses",        _ ) => s"rl${rtry}"
+      case (".htm.powertm",      false, rtry,    "requester_wins_power",   _ ) => s"pw${rtry}"
+      case (".htm.powertm",      false, rtry,    "requester_loses_power",  _ ) => s"wp${rtry}"
+      case (".htm.sgl", _, _, _, _) => "NoHTM"
+      case (MissingProperty, _, _, _, _) => "NoHTM"
+    },
+    isConfig = true,
+    ordering = dynamicOrdering("rw2", "rw4", "rw8", "rw16",
+                               "rl2", "rl4", "rl8", "rl16",
+                               "power", "woper", "rw_RSp", "rl_RSp", "power_RSp", "woper_RSp")
 
-    ))
-
+    )
 
 }

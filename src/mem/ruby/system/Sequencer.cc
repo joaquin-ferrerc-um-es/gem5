@@ -394,9 +394,12 @@ Sequencer::recordMissLatency(SequencerRequest* srequest, bool llscSuccess,
         total_lat = Cycles(0);
     }
 
+    if (/*config_supressIfetchProtocolTrace*/true &&
+        type != RubyRequestType_IFETCH) {
     DPRINTFR(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s %s %d cycles\n",
              curTick(), m_version, "Seq", llscSuccess ? "Done" : "SC_Failed",
              "", "", printAddress(srequest->pkt->getAddr()), total_lat);
+    }
 
     m_latencyHist.sample(total_lat);
     m_typeLatencyHist[type]->sample(total_lat);
@@ -828,13 +831,11 @@ Sequencer::makeRequest(PacketPtr pkt)
 
     RequestStatus status = insertRequest(pkt, primary_type, secondary_type);
 
-    // It is OK to receive RequestStatus_Aliased, it can be considered Issued
-    if (status != RequestStatus_Ready && status != RequestStatus_Aliased)
-        return status;
-    if (status == RequestStatus_Aliased) {
+    if (status != RequestStatus_Ready) { // Will not be issued, so trace here
         DPRINTFR(ProtocolTrace,
                  "%15s %3s %10s%20s %6s>%-6s %#x %s %s %s %s %#x\n",
-                 curTick(), m_version, "Seq", "Aliased",
+                 curTick(), m_version, "Seq", status == RequestStatus_Aliased ?
+                 "Aliased" : "AliasedNotIssued",
                  pkt->isAtLSQHead() ? "Head" : "", "",
                  printAddress(pkt->getAddr()),
                  RubyRequestType_to_string(secondary_type),
@@ -843,12 +844,16 @@ Sequencer::makeRequest(PacketPtr pkt)
                  pkt->req->isPriv() ? "Priv" : "",
                  pkt->req->hasVaddr() ? "Vaddr" : "PhysAddr",
                  pkt->req->hasVaddr() ? pkt->req->getVaddr() : Addr(0));
-    }
-    // non-aliased with any existing request in the request table, just issue
-    // to the cache
-    if (status != RequestStatus_Aliased)
+        if (status == RequestStatus_AliasedNotIssued) {
+            return status; // Do not return "issued": must retry
+        } else {
+            assert(status == RequestStatus_Aliased);
+            // It is OK to receive RequestStatus_Aliased, it can be considered Issued
+        }
+    } else { // Ready: non-aliased with any existing request in the
+             // request table, just issue to the cache
         issueRequest(pkt, secondary_type);
-
+    }
     // TODO: issue hardware prefetches here
     return RequestStatus_Issued;
 }
@@ -883,6 +888,9 @@ Sequencer::issueRequest(PacketPtr pkt, RubyRequestType secondary_type)
 
     setFlagsPreIssueRequest(pkt, msg);
 
+    if (/*config_supressIfetchProtocolTrace*/true &&
+        secondary_type != RubyRequestType_IFETCH) {
+
     DPRINTFR(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s %#x %s %s %s %s %#x\n",
              curTick(), m_version, "Seq", "Begin", "", "",
              printAddress(msg->getPhysicalAddress()),
@@ -892,6 +900,7 @@ Sequencer::issueRequest(PacketPtr pkt, RubyRequestType secondary_type)
              pkt->req->isPriv() ? "Priv" : "",
              pkt->req->hasVaddr() ? "Vaddr" : "PhysAddr",
              vaddr);
+    }
 
     Tick latency = cyclesToTicks(
                         m_controller->mandatoryQueueLatency(secondary_type));
@@ -931,10 +940,10 @@ operator<<(std::ostream &out, const std::unordered_map<KEY, VALUE> &map)
 void
 Sequencer::print(std::ostream& out) const
 {
-    out << "[Sequencer: " << m_version
+    out << curTick() << "[Sequencer: " << m_version
         << ", outstanding requests: " << m_outstanding_count
-        << ", request table: " << m_RequestTable
-        << "]";
+        << ", request table: " << std::hex << m_RequestTable << std::dec
+        << "]" << std::endl;
 }
 
 void

@@ -171,7 +171,6 @@ enum class HtmCacheFailure
     NO_FAIL,     // no failure in cache
     FAIL_SELF,   // failed due local cache's replacement policy
     FAIL_REMOTE, // failed due remote invalidation
-    FAIL_REMOTE_POWER, // failed due remote power transaction
     FAIL_OTHER,  // failed due other circumstances
 };
 
@@ -190,6 +189,7 @@ public:
   static const std::string requester_wins;
   static const std::string requester_loses;
   static const std::string power_tm;
+  static const std::string woper_tm;
   static const std::string committer_wins;
   static const std::string requester_stalls;
   static const std::string magic;
@@ -229,12 +229,25 @@ class HTM : public ClockedObject
     virtual int getLogNumEntries(int cpuId) {
         panic("Not implemented");
     };
+    virtual int getCommitStatus(int cpuId) {
+        panic("Not implemented");
+    };
+    virtual bool isHtmFailureFaultCauseMemoryPower(int cpuId) {
+        panic("Not implemented");
+    };
     void requestCommitToken(int cpuId);
     void releaseCommitToken(int cpuId);
     void removeCommitTokenRequest(int cpuId);
     bool existCommitTokenRequest(int cpuId);
     int getTokenOwner();
     int getNumTokenRequests();
+  enum ResolutionPolicy {
+      RequesterWins,
+      RequesterLoses,
+      RequesterStalls,
+      Undefined
+  };
+  ResolutionPolicy getResolutionPolicy();
 
 private:
     std::vector<int>  m_commitTokenRequestList;

@@ -40,7 +40,7 @@ object RMap {
         case None                  => None
       }
     }
-    def apply(path: Key*) = get(path: _*) match {
+    def apply(path: Key*): Value = get(path: _*) match {
       case Some(v) => v
       case None    => throw new NoSuchElementException(s"path not found ${path.mkString(".")}")
     }
@@ -62,6 +62,8 @@ object RMap {
       }
       iter(Seq(), this)
     }
+
+    override def toString = flatten.map {case (l,v) =>  s"${l.mkString(".")} → $v"}.mkString("\n")
   }
 
   case class NodeValue(v: Value) extends Node {

@@ -11,10 +11,12 @@ BENCHMARKS_STAMP_SELECTED=(
     "intruder"
     "intruder-no-fsharing"
     "intruder-queuesync"
+    "intruder-rmwonly"
     "kmeans"
     "kmeans-queuesync"
     "labyrinth"
     "ssca2"
+    "ssca2-txphase"
     "vacation"
     "yada"
 )
@@ -23,6 +25,25 @@ BENCHMARKS_HTMBENCH_SELECTED=(
     "avl_tree"
     "berkely-db"
     "bplus-tree"
+    "parsec-2.1/pkgs/kernels/dedup"
+    "parsec-2.1/pkgs/kernels/dedup-cp"
+)
+
+BENCHMARKS_SPLASH3_SELECTED=(
+    "apps/barnes"
+    "apps/fmm"
+    "apps/ocean/contiguous_partitions"
+    "apps/ocean/non_contiguous_partitions"
+    "apps/radiosity"
+    "apps/raytrace"
+    "apps/volrend"
+    "apps/water-nsquared"
+    "apps/water-spatial"
+    "kernels/cholesky"
+    "kernels/fft"
+    "kernels/lu/contiguous_blocks"
+    "kernels/lu/non_contiguous_blocks"
+    "kernels/radix"
 )
 
 task_build-benchmarks() {
@@ -73,6 +94,16 @@ build_benchmarks() {
         echo "$(color green "HTMBENCH benchmarks disabled for $arch.")"
     else
         error_and_exit "Invalid value for BENCHMARKS_HTMBENCH_ENABLED[$arch] (${BENCHMARKS_HTMBENCH_ENABLED[$arch]})"
+    fi
+
+    if [[ "${BENCHMARKS_SPLASH3_ENABLED[$arch]}" = "yes-native" ]] ; then
+        build_benchmarks_splash3 "$arch"
+    elif [[ "${BENCHMARKS_SPLASH3_ENABLED[$arch]}" = "yes-virtual" ]] ; then
+        echo "$(color green "SPLASH3 benchmarks will not be built because they are built directly in the image for $arch.")"
+    elif [[ "${BENCHMARKS_SPLASH3_ENABLED[$arch]}" = "no" ]] ; then
+        echo "$(color green "SPLASH3 benchmarks disabled for $arch.")"
+    else
+        error_and_exit "Invalid value for BENCHMARKS_SPLASH3_ENABLED[$arch] (${BENCHMARKS_SPLASH3_ENABLED[$arch]})"
     fi
 
     if [[ "${BENCHMARKS_PARSEC_ENABLED[$arch]}" = "yes-native" ]] ; then
@@ -134,7 +165,7 @@ build_benchmarks_stamp() {
 
 check_stamp_gem5_directory_links() {
     if [[ ! -d "$(absolute_path "$BENCHMARKS_HTM_STAMP_DIR")" || ! -L "${GEM5_ROOT}/${BENCHMARKS_HTM_STAMP_DIR}" ]] ; then
-        error_and_exit "Stamp directory symlink '$(absolute_path "$BENCHMARKS_HTM_STAMP_DIR")' not found. Clone the repository in a directory out of ${GEM5_ROOT} and create a symbolic link to it in '$(dirname "$(absolute_path "$BENCHMARKS_HTM_STAMP_DIR")")'."
+        error_and_exit "Stamp directory symlink '$(absolute_path "$BENCHMARKS_HTM_STAMP_DIR")' not found. Clone the repository in a directory out of ${GEM5_ROOT} and create a symbolic link to it in '$(dirname "$(absolute_path "$BENCHMARKS_HTM_STAMP_DIR")")', or disable these benchmarks (BENCHMARKS_STAMP_ENABLED[*]=no)."
     fi
 
     if [[ ! -d "$(absolute_path "$BENCHMARKS_HTM_STAMP_DIR")/gem5" ]] ; then
@@ -170,12 +201,47 @@ build_benchmarks_htmbench() {
 
 check_htmbench_gem5_directory_links() {
     if [[ ! -d "$(absolute_path "$BENCHMARKS_HTM_HTMBENCH_DIR")" || ! -L "${GEM5_ROOT}/${BENCHMARKS_HTM_HTMBENCH_DIR}" ]] ; then
-        error_and_exit "HTMBench directory symlink '$(absolute_path "$BENCHMARKS_HTM_HTMBENCH_DIR")' not found. Clone the repository in a directory out of ${GEM5_ROOT} and create a symbolic link to it in '$(dirname "$(absolute_path "$BENCHMARKS_HTM_HTMBENCH_DIR")")'."
+        error_and_exit "HTMBench directory symlink '$(absolute_path "$BENCHMARKS_HTM_HTMBENCH_DIR")' not found. Clone the repository in a directory out of ${GEM5_ROOT} and create a symbolic link to it in '$(dirname "$(absolute_path "$BENCHMARKS_HTM_HTMBENCH_DIR")")', or disable these benchmarks (BENCHMARKS_HTMBENCH_ENABLED[*]=no)."
     fi
 
     if [[ ! -d "$(absolute_path "$BENCHMARKS_HTM_HTMBENCH_DIR")/gem5-libs" ]] ; then
         local GEM5_LIBS_DIR="${GEM5_ROOT}/gem5_path/benchmarks/libs/"
         ln -s "$(realpath --relative-to="$(absolute_path "${BENCHMARKS_HTM_HTMBENCH_DIR}")" "$GEM5_LIBS_DIR")" "$(absolute_path "${BENCHMARKS_HTM_HTMBENCH_DIR}")/gem5-libs"
+    fi
+}
+
+build_benchmarks_splash3() {
+    local arch="$1"
+
+    echo "$(color green "Building Splash3 benchmarks for $arch")"
+
+    if [[ "$arch" = "x86_64" ]] ; then
+        export X86_CROSS_GCC_PREFIX="${BENCHMARKS_ARCH_COMPILER_PREFIX[$arch]}"
+    elif [[ "$arch" = "aarch64" ]] ; then
+        export AARCH64_CROSS_GCC_PREFIX="${BENCHMARKS_ARCH_COMPILER_PREFIX[$arch]}"
+    else
+        error_and_exit "Architecture $arch not supported for splash3"
+    fi
+
+    check_splash3_gem5_directory_links
+
+    for b in "${BENCHMARKS_SPLASH3_SELECTED[@]}" ; do
+        (
+            echo "$(color green "Build $b ARCH=$a")"
+            cd "$(absolute_path "$BENCHMARKS_SPLASH3_DIR/codes/$b")"
+            make -j $(get_num_threads_for_building) "ARCH=$arch"
+        )
+    done
+}
+
+check_splash3_gem5_directory_links() {
+    if [[ ! -d "$(absolute_path "$BENCHMARKS_SPLASH3_DIR")" || ! -L "${GEM5_ROOT}/${BENCHMARKS_SPLASH3_DIR}" ]] ; then
+        error_and_exit "Splash3 directory symlink '$(absolute_path "$BENCHMARKS_SPLASH3_DIR")' not found. Clone the repository in a directory out of ${GEM5_ROOT} and create a symbolic link to it in '$(dirname "$(absolute_path "$BENCHMARKS_SPLASH3_DIR")")', or disable these benchmarks (BENCHMARKS_SPLASH3_ENABLED[*]=no)."
+    fi
+
+    if [[ ! -d "$(absolute_path "$BENCHMARKS_SPLASH3_DIR")/codes/gem5-libs" ]] ; then
+        local GEM5_LIBS_DIR="${GEM5_ROOT}/gem5_path/benchmarks/libs/"
+        ln -s "$(realpath --relative-to="$(absolute_path "${BENCHMARKS_SPLASH3_DIR}/codes")" "$GEM5_LIBS_DIR")" "$(absolute_path "${BENCHMARKS_SPLASH3_DIR}")/codes/gem5-libs"
     fi
 }
 
@@ -207,7 +273,7 @@ build_benchmarks_parsec() {
 
 check_parsec_gem5_directory_links() {
     if [[ ! -d "$(absolute_path "$BENCHMARKS_PARSEC_DIR")" || ! -L "${GEM5_ROOT}/${BENCHMARKS_PARSEC_DIR}" ]] ; then
-        error_and_exit "Parsec directory symlink '$(absolute_path "$BENCHMARKS_PARSEC_DIR")' not found. Clone the repository in a directory out of ${GEM5_ROOT} and create a symbolic link to it in '$(dirname "$(absolute_path "$BENCHMARKS_PARSEC_DIR")")'."
+        error_and_exit "Parsec directory symlink '$(absolute_path "$BENCHMARKS_PARSEC_DIR")' not found. Clone the repository in a directory out of ${GEM5_ROOT} and create a symbolic link to it in '$(dirname "$(absolute_path "$BENCHMARKS_PARSEC_DIR")")', or disable these benchmarks (BENCHMARKS_PARSEC_ENABLED[*]=no)."
     fi
 
     if [[ ! -d "$(absolute_path "$BENCHMARKS_PARSEC_DIR")/gem5-libs" ]] ; then

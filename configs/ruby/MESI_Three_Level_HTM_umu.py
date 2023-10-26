@@ -151,11 +151,6 @@ def create_system(options, full_system, system, dma_ports, bootmem,
                                        dcache = l0d_cache,
                                        ruby_system = ruby_system)
 
-            l0_cntrl.sequencer = cpu_seq
-            xact_manager.sequencer = cpu_seq
-            xact_manager.dcache = l0d_cache
-            xact_manager.ruby_system = ruby_system
-
             l1_cache = L1Cache(size = options.l1d_size,
                                assoc = options.l1d_assoc,
                                htm_aware_replacements = \
@@ -163,7 +158,10 @@ def create_system(options, full_system, system, dma_ports, bootmem,
                                htm_allowed_read_set_evictions = \
                                options.htm_allow_read_set_l1_cache_evictions,
                                start_index_bit = block_size_bits,
+                               replacement_policy = LRURP(),
                                is_icache = False)
+
+            l0_cntrl.sequencer = cpu_seq
 
             l1_cntrl = L1Cache_Controller(
                     version = i * num_cpus_per_cluster + j,
@@ -177,6 +175,13 @@ def create_system(options, full_system, system, dma_ports, bootmem,
                  % ( i * num_cpus_per_cluster + j))
             exec("ruby_system.l1_cntrl%d = l1_cntrl"
                  % ( i * num_cpus_per_cluster + j))
+
+            # CAREFUL: Pass here pointers to xact_mgr to avoid
+            # reorganizing hierarchy of stats names
+            xact_manager.sequencer = cpu_seq
+            xact_manager.dcache = l0d_cache
+            xact_manager.ruby_system = ruby_system
+            xact_manager.l1_cache = l1_cache
 
             #
             # Add controllers and sequencers to the appropriate lists

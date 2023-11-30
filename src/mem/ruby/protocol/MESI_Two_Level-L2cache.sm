@@ -157,6 +157,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
     void allocate(Addr);
     void deallocate(Addr);
     bool isPresent(Addr);
+    bool isEmpty();
   }
 
   TBETable TBEs, template="<L2Cache_TBE>", constructor="m_number_of_TBEs";
@@ -615,12 +616,16 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
     tbe.L1_GetS_IDs.clear();
     tbe.DataBlk := cache_entry.DataBlk;
     tbe.Dirty := cache_entry.Dirty;
+    cpu.l3MissesPending();
     tbe.pendingAcks := cache_entry.Sharers.count();
   }
 
   action(s_deallocateTBE, "s", desc="Deallocate external TBE") {
     TBEs.deallocate(address);
     unset_tbe();
+    if(TBEs.isEmpty()) {
+      cpu.l3NoMissesPending();
+    }
   }
 
   action(jj_popL1RequestQueue, "\j", desc="Pop incoming L1 request queue") {

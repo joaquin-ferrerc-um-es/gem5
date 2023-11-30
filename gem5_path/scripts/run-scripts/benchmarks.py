@@ -194,6 +194,8 @@ for (name, subdir, exe_name, args, input) in [
     ("volrend",        "apps/volrend",                         "VOLREND",        "${num_cpus} inputs/head 8", None),
     ("water_nsquared", "apps/water-nsquared",                  "WATER-NSQUARED", "${num_cpus}", "inputs/n512-p${num_cpus}"),
     ("water_spatial",  "apps/water-spatial",                   "WATER-SPATIAL",  "${num_cpus}", "inputs/n512-p${num_cpus}"),
+    ("cache_latency",  "kernels/cache-latency",                "CACHE-LATENCY",  "", ""),
+    ("MemLat",         "kernels/memlat",                       "MEMLAT",         "512 p6", ""),
 ]:
     Benchmark(
         suite = "splash3",

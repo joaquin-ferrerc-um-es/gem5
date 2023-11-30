@@ -632,6 +632,7 @@ class BaseCPU : public ClockedObject
 
     bool l1_miss_pending = false;
     bool l2_miss_pending = false;
+    bool l3_miss_pending = false;
     bool any_miss_pending = false;
 
     void l1MissesPending()
@@ -641,7 +642,7 @@ class BaseCPU : public ClockedObject
     };
     void l1NoMissesPending() {
         l1_miss_pending = false;
-        if (l2_miss_pending == false)
+        if ((l2_miss_pending == false) && (l3_miss_pending == false))
 	          any_miss_pending = false;
     };
 
@@ -652,7 +653,18 @@ class BaseCPU : public ClockedObject
     void l2NoMissesPending()
     {
         l2_miss_pending = false;
-        if (l1_miss_pending == false)
+        if ((l1_miss_pending == false) && (l3_miss_pending == false))
+	          any_miss_pending = false;
+    };
+
+    void l3MissesPending() {
+        l3_miss_pending = true; 
+        any_miss_pending = true;
+    };
+    void l3NoMissesPending()
+    {
+        l3_miss_pending = false;
+        if ((l1_miss_pending == false) && (l2_miss_pending == false))
 	          any_miss_pending = false;
     };
 

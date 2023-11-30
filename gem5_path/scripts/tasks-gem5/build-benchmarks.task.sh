@@ -39,10 +39,12 @@ BENCHMARKS_SPLASH3_SELECTED=(
     "apps/volrend"
     "apps/water-nsquared"
     "apps/water-spatial"
+    "kernels/cache-latency"
     "kernels/cholesky"
     "kernels/fft"
     "kernels/lu/contiguous_blocks"
     "kernels/lu/non_contiguous_blocks"
+    "kernels/memlat"
     "kernels/radix"
 )
 

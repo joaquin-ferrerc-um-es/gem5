@@ -956,6 +956,8 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     oo_allocateDCacheBlock;
     i_allocateTBE;
     b_issueGETX;
+    uu_profileDataWriteMiss;
+    uu_profileDataStoreMiss;
     uu_profileDataMiss;
     po_observeMiss;
     k_popMandatoryQueue;
@@ -1176,6 +1178,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
 
   transition(PF_Inst_IS, Ifetch, Inst_IS) {
     uu_profileInstMiss;
+    uu_profileInstLoadMiss;
     ppm_observePfMiss;
     k_popMandatoryQueue;
   }

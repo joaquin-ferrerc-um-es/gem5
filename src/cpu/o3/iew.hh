@@ -474,15 +474,21 @@ class IEW
         statistics::Scalar iewExecuteL1PendingCycles;
         /** Stat for number of cycles execute is not stalled and there is at least one L2 miss pending */
         statistics::Scalar iewExecuteL2PendingCycles;
+        /** Stat for number of cycles execute is not stalled and there is at least one L3 miss pending */
+        statistics::Scalar iewExecuteL3PendingCycles;
         /** Stat for number of cycles execute is not stalled and there is at least one Cache miss pending */
         statistics::Scalar iewExecuteAnyPendingCycles;
         /** Stat for number of cycles execute is stalled */
         statistics::Scalar iewExecuteStallCycles;
+        /** Number of cycles execute is stalled and there is at least one in-flight load */
+        statistics::Scalar iewExecuteStallLoadPendingCycles;
         /** Stat for number of cycles execute is stalled and there is at least one L1 miss pending */
         statistics::Scalar iewExecuteStallL1PendingCycles;
         /** Stat for number of cycles execute is stalled and there is at least one L2 miss pending */
         statistics::Scalar iewExecuteStallL2PendingCycles;
-        /** Stat for number of cycles execute is stalled and there is at least one L2 miss pending */
+        /** Stat for number of cycles execute is stalled and there is at least one L3 miss pending */
+        statistics::Scalar iewExecuteStallL3PendingCycles;
+        /** Stat for number of cycles execute is stalled and there is at least one Cache miss pending */
         statistics::Scalar iewExecuteStallAnyPendingCycles;
         /** Stat for number of cycles execute executed at least 1 uop */
         statistics::Scalar iewExecuteGE1;

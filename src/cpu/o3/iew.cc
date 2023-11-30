@@ -187,14 +187,20 @@ IEW::IEWStats::IEWStats(CPU *cpu)
              "Number of cycles execute is not stalled and there is at least one L1 miss pending"),
     ADD_STAT(iewExecuteL2PendingCycles, statistics::units::Count::get(),
              "Number of cycles execute is not stalled and there is at least one L2 miss pending"),
+    ADD_STAT(iewExecuteL3PendingCycles, statistics::units::Count::get(),
+             "Number of cycles execute is not stalled and there is at least one L3 miss pending"),
     ADD_STAT(iewExecuteAnyPendingCycles, statistics::units::Count::get(),
              "Number of cycles execute is not stalled and there is at least one Cache miss pending"),
     ADD_STAT(iewExecuteStallCycles, statistics::units::Count::get(),
              "Number of cycles execute is stalled"),
+    ADD_STAT(iewExecuteStallLoadPendingCycles, statistics::units::Count::get(),
+             "Number of cycles execute is stalled and there is at least one in-flight load"),
     ADD_STAT(iewExecuteStallL1PendingCycles, statistics::units::Count::get(),
              "Number of cycles execute is stalled and there is at least one L1 miss pending"),
     ADD_STAT(iewExecuteStallL2PendingCycles, statistics::units::Count::get(),
              "Number of cycles execute is stalled and there is at least one L2 miss pending"),
+    ADD_STAT(iewExecuteStallL3PendingCycles, statistics::units::Count::get(),
+             "Number of cycles execute is stalled and there is at least one L3 miss pending"),
     ADD_STAT(iewExecuteStallAnyPendingCycles, statistics::units::Count::get(),
              "Number of cycles execute is stalled and there is at least one Cache miss pending"),
     ADD_STAT(iewExecuteGE1, statistics::units::Count::get(),
@@ -1411,10 +1417,13 @@ IEW::executeInsts()
        	    iewStats.iewExecuteL1PendingCycles++;
         }
         if (cpu->l2_miss_pending == true) {
-	    iewStats.iewExecuteL2PendingCycles++;
+	        iewStats.iewExecuteL2PendingCycles++;
+        }
+        if (cpu->l3_miss_pending == true) {
+            iewStats.iewExecuteL3PendingCycles++;
         }
         if (cpu->any_miss_pending == true) {
-	    iewStats.iewExecuteAnyPendingCycles++;
+	        iewStats.iewExecuteAnyPendingCycles++;
         }
         if (exeStatus == Idle) {
             exeStatus = Running;
@@ -1433,15 +1442,24 @@ IEW::executeInsts()
 
         DPRINTF(IEW, "Execute Stalled (0 instructions executed from %u\n",insts_to_execute);
 
+        if (ldstQueue.numLoads() != 0) {
+	        iewStats.iewExecuteStallLoadPendingCycles++;
+        }
+        
         if (cpu->l1_miss_pending == true) {
-	    iewStats.iewExecuteStallL1PendingCycles++;
+	        iewStats.iewExecuteStallL1PendingCycles++;
         }
 
         if (cpu->l2_miss_pending == true) {
-	    iewStats.iewExecuteStallL2PendingCycles++;
+	        iewStats.iewExecuteStallL2PendingCycles++;
         }
+
+        if (cpu->l3_miss_pending == true) {
+	        iewStats.iewExecuteStallL3PendingCycles++;
+        }
+
         if (cpu->any_miss_pending == true) {
-	    iewStats.iewExecuteStallAnyPendingCycles++;
+	        iewStats.iewExecuteStallAnyPendingCycles++;
         }
     }
 

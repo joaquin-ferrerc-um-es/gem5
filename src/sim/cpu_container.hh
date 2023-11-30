@@ -31,6 +31,8 @@ public :
   inline void l1NoMissesPending() { m_cpu->l1NoMissesPending(); };
   inline void l2MissesPending() { m_cpu->l2MissesPending(); };
   inline void l2NoMissesPending() { m_cpu->l2NoMissesPending(); };
+  inline void l3MissesPending() { m_cpu->l3MissesPending(); };
+  inline void l3NoMissesPending() { m_cpu->l3NoMissesPending(); };
   inline void anyMissesPending() { m_cpu->anyMissesPending(); };
   inline void anyNoMissesPending() { m_cpu->anyNoMissesPending(); };
   inline bool hasL3() { return has_l3; }

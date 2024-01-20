@@ -147,6 +147,10 @@ def setup_memory_controllers(system, ruby, dir_cntrls, options):
             if options.access_backing_store:
                 dram_intf.kvm_map=False
 
+            if options.mem_type == "SimpleMemory":
+                print(" **** SimpleMemory **** ", options.mem_latency)
+                mem_ctrl.latency = options.mem_latency
+
             mem_ctrls.append(mem_ctrl)
             dir_ranges.append(dram_intf.range)
 

@@ -370,6 +370,10 @@ structure (CPUContainer, external = "yes") {
     void l2NoMissesPending();
     void l3MissesPending();
     void l3NoMissesPending();
+    void l3GetSMissesPending();
+    void l3NoGetSMissesPending();
+    void l3GetXMissesPending();
+    void l3NoGetXMissesPending();
     void anyMissesPending();
     void anyNoMissesPending();
     bool hasL3();

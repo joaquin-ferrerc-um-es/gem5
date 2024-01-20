@@ -33,6 +33,10 @@ public :
   inline void l2NoMissesPending() { m_cpu->l2NoMissesPending(); };
   inline void l3MissesPending() { m_cpu->l3MissesPending(); };
   inline void l3NoMissesPending() { m_cpu->l3NoMissesPending(); };
+  inline void l3GetSMissesPending() { m_cpu->l3GetSMissesPending(); };
+  inline void l3NoGetSMissesPending() { m_cpu->l3NoGetSMissesPending(); };
+  inline void l3GetXMissesPending() { m_cpu->l3GetXMissesPending(); };
+  inline void l3NoGetXMissesPending() { m_cpu->l3NoGetXMissesPending(); };
   inline void anyMissesPending() { m_cpu->anyMissesPending(); };
   inline void anyNoMissesPending() { m_cpu->anyNoMissesPending(); };
   inline bool hasL3() { return has_l3; }

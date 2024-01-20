@@ -1310,7 +1310,7 @@ Fetch::fetch(bool &status_change)
                 curMacroop = NULL;
             }
 
-            if (instruction->isQuiesce()) {
+            if (instruction->isQuiesce() && !cpu->m_isHaltDisabled) {
                 DPRINTF(Fetch,
                         "Quiesce instruction encountered, halting fetch!\n");
                 fetchStatus[tid] = QuiescePending;

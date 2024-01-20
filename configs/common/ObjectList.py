@@ -61,10 +61,17 @@ class ObjectList(object):
         try:
             sub_cls = self._sub_classes[real_name]
             return sub_cls
-        except KeyError:
-            print("{} is not a valid sub-class of {}.".format(name, \
-                self.base_cls))
-            raise
+        except Exception as exception:
+            try:
+                #sub_cls = self._sub_classes[real_name]
+                print('from cores.x86.' + real_name + ' import ' + real_name + '_CPU')
+                exec('from cores.x86.' + real_name + ' import ' + real_name + '_CPU')
+                return eval(real_name + '_CPU')
+            except Exception as exception:
+                print("{} is not a valid sub-class of {}.".format(name, \
+                      self.base_cls))
+                print(exception)
+                raise
 
     def print(self):
         """Print a list of available sub-classes and aliases."""

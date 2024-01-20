@@ -277,6 +277,11 @@ Option("memory_type", str,
 Option("memory_size", str,
        gem5_option = "mem-size",
        gem5_option_use = "general")
+Option("mem_latency", str,
+       gem5_option = "mem-latency")
+Option("disable_halt", bool,
+       gem5_option = "disable-halt",
+       descr_dir = "no_halt_{value}")
 
 # Cache options
 Option("cache_name", str,

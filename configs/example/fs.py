@@ -144,6 +144,10 @@ def build_test_system(np):
     # For now, assign all the CPUs to the same clock domain
     test_sys.cpu = [TestCPUClass(clk_domain=test_sys.cpu_clk_domain, cpu_id=i)
                     for i in range(np)]
+    
+    if args.disable_halt:
+        for (i, cpu) in enumerate(test_sys.cpu):
+            cpu.disableHalt = args.disable_halt
 
     if args.ruby:
         bootmem = getattr(test_sys, '_bootmem', None)

@@ -18,6 +18,8 @@ cache_l2_caches = CacheOption("num-l2caches", False)
 cache_l2_size = CacheOption("l2_size", True) #  Total L2 size is divided into 'num-l2caches' slices)
 cache_l2_assoc = CacheOption("l2_assoc", False)
 
+cache_cpu = CacheOption("cpu", False) # Non empty, means it has to mah and specific CPU
+
 cache_config_options = []
 cache_config_options.append(cache_name)
 cache_config_options.append(cache_l0i_size)
@@ -34,6 +36,7 @@ cache_config_options.append(cache_l2_assoc)
 
 cache_baseline = collections.OrderedDict()
 cache_baseline[cache_name] = "DefaultCache"
+cache_baseline[cache_cpu] = None
 cache_baseline[cache_l0i_size] = 32768
 cache_baseline[cache_l0d_size] = 32768
 cache_baseline[cache_l0i_assoc] = 8
@@ -68,3 +71,32 @@ cache_baseline_2level[cache_l0d_size] = 0
 cache_baseline_2level[cache_l1i_size] = 32768
 cache_baseline_2level[cache_l1d_size] = 32768
 cache_baseline_2level[cache_l2_size] = 8388608 # 8MB
+
+cache_skylake = collections.OrderedDict(cache_baseline)
+cache_skylake[cache_cpu] = "Skylake"
+cache_skylake[cache_l2_size] = 134217728
+
+cache_icelake = collections.OrderedDict(cache_baseline)
+cache_icelake[cache_cpu] = "Icelake"
+cache_icelake[cache_l0d_size] = 49152
+cache_icelake[cache_l0i_assoc] = 12
+cache_icelake[cache_l1i_size] = 524288
+cache_icelake[cache_l1d_size] = 524288
+cache_icelake[cache_l2_size] = 134217728
+
+cache_m1 = collections.OrderedDict(cache_baseline)
+cache_m1[cache_cpu] = "M1"
+cache_m1[cache_l0i_size] = 196608
+cache_m1[cache_l0d_size] = 131064
+cache_m1[cache_l0d_assoc] = 12
+cache_m1[cache_l1i_size] = 196608
+cache_m1[cache_l1d_size] = 131064
+cache_m1[cache_l1d_assoc] = 12
+cache_m1[cache_l2_size] = 100663296
+cache_m1[cache_l2_assoc] = 8
+
+cache_p550 = collections.OrderedDict(cache_baseline)
+cache_p550[cache_cpu] = "P550"
+cache_p550[cache_l0d_size] = 32760
+cache_p550[cache_l0d_assoc] = 12
+cache_p550[cache_l2_size] = 67108864

@@ -40,7 +40,7 @@ from common import FileSystemConfig
 #
 class L0Cache(RubyCache): pass
 class L1Cache(RubyCache): pass
-class L2Cache(RubyDirectoryCache): pass
+class L2Cache(RubyCache): pass
 
 def define_options(parser):
     parser.add_argument(
@@ -57,15 +57,13 @@ def define_options(parser):
     parser.add_argument(
         "--enable-prefetch", action="store_true", default=False,
         help="Enable Ruby hardware prefetcher")
-    parser.add_argument("--l2_lp", type=int, default=2)
-    parser.add_argument("--jfc_representation", type=str, default="lp")
     return
 
 def create_system(options, full_system, system, dma_ports, bootmem,
                   ruby_system, cpus):
 
-    if buildEnv['PROTOCOL'] != 'MESI_Three_Level_JFC':
-        fatal("This script requires the MESI_Three_Level_JFC protocol to be\
+    if buildEnv['PROTOCOL'] != 'MESI_Three_Level_Sparse':
+        fatal("This script requires the MESI_Three_Level_Sparse protocol to be\
                built.")
 
     cpu_sequencers = []

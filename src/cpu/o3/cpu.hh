@@ -625,6 +625,9 @@ class CPU : public BaseCPU
     /** The cycle that the CPU was last running, used for statistics. */
     Cycles lastRunningCycle;
 
+    /** Is Halt disabled*/
+    bool m_isHaltDisabled = false;
+
     /** The cycle that the CPU was last activated by a new thread*/
     Tick lastActivatedCycle;
 

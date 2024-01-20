@@ -92,6 +92,12 @@ ThreadContext::activate()
 void
 ThreadContext::suspend()
 {
+
+    if (cpu->m_isHaltDisabled) {
+        DPRINTF(O3CPU, "Suspend interrupted because cpu has halt disabled.");
+        return;
+    }
+
     DPRINTF(O3CPU, "Calling suspend on Thread Context %d\n",
             threadId());
 

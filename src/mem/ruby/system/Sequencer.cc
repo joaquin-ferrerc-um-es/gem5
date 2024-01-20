@@ -737,6 +737,8 @@ Sequencer::makeRequest(PacketPtr pkt)
         return RequestStatus_BufferFull;
     }
 
+    pkt->req->handledByRuby = true;
+
     RubyRequestType primary_type = RubyRequestType_NULL;
     RubyRequestType secondary_type = RubyRequestType_NULL;
 

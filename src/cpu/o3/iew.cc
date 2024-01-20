@@ -189,6 +189,12 @@ IEW::IEWStats::IEWStats(CPU *cpu)
              "Number of cycles execute is not stalled and there is at least one L2 miss pending"),
     ADD_STAT(iewExecuteL3PendingCycles, statistics::units::Count::get(),
              "Number of cycles execute is not stalled and there is at least one L3 miss pending"),
+    ADD_STAT(iewExecuteL3GetSPendingCycles, statistics::units::Count::get(),
+             "Number of cycles execute is not stalled and there is at least one L3 miss (GetS) pending"),
+    ADD_STAT(iewExecuteL3GetXPendingCycles, statistics::units::Count::get(),
+             "Number of cycles execute is not stalled and there is at least one L3 miss (GetX) pending"),
+    ADD_STAT(iewExecuteL3OtherPendingCycles, statistics::units::Count::get(),
+             "Number of cycles execute is not stalled and there is at least one L3 miss (other) pending"),
     ADD_STAT(iewExecuteAnyPendingCycles, statistics::units::Count::get(),
              "Number of cycles execute is not stalled and there is at least one Cache miss pending"),
     ADD_STAT(iewExecuteStallCycles, statistics::units::Count::get(),
@@ -201,6 +207,12 @@ IEW::IEWStats::IEWStats(CPU *cpu)
              "Number of cycles execute is stalled and there is at least one L2 miss pending"),
     ADD_STAT(iewExecuteStallL3PendingCycles, statistics::units::Count::get(),
              "Number of cycles execute is stalled and there is at least one L3 miss pending"),
+    ADD_STAT(iewExecuteStallL3GetSPendingCycles, statistics::units::Count::get(),
+             "Number of cycles execute is stalled and there is at least one L3 miss (GetS) pending"),
+    ADD_STAT(iewExecuteStallL3GetXPendingCycles, statistics::units::Count::get(),
+             "Number of cycles execute is stalled and there is at least one L3 miss (GetX) pending"),
+    ADD_STAT(iewExecuteStallL3OtherPendingCycles, statistics::units::Count::get(),
+             "Number of cycles execute is stalled and there is at least one L3 miss (other) pending"),
     ADD_STAT(iewExecuteStallAnyPendingCycles, statistics::units::Count::get(),
              "Number of cycles execute is stalled and there is at least one Cache miss pending"),
     ADD_STAT(iewExecuteGE1, statistics::units::Count::get(),
@@ -1421,6 +1433,15 @@ IEW::executeInsts()
         }
         if (cpu->l3_miss_pending == true) {
             iewStats.iewExecuteL3PendingCycles++;
+            if (cpu->l3_get_s == true) {
+                iewStats.iewExecuteL3GetSPendingCycles++;
+            }
+            else if (cpu->l3_get_x == true) {
+                iewStats.iewExecuteL3GetXPendingCycles++;
+            }
+            else {
+                iewStats.iewExecuteL3OtherPendingCycles++;
+            }
         }
         if (cpu->any_miss_pending == true) {
 	        iewStats.iewExecuteAnyPendingCycles++;
@@ -1456,6 +1477,15 @@ IEW::executeInsts()
 
         if (cpu->l3_miss_pending == true) {
 	        iewStats.iewExecuteStallL3PendingCycles++;
+            if (cpu->l3_get_s == true) {
+                iewStats.iewExecuteStallL3GetSPendingCycles++;
+            }
+            else if (cpu->l3_get_x == true) {
+                iewStats.iewExecuteStallL3GetXPendingCycles++;
+            }
+            else {
+                iewStats.iewExecuteStallL3OtherPendingCycles++;
+            }
         }
 
         if (cpu->any_miss_pending == true) {

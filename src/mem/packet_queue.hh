@@ -195,6 +195,12 @@ class PacketQueue : public Drainable
      *
      * @param when time to schedule an event
      */
+    void schedSendEvent(Tick when, PacketPtr pkt);
+
+    /**
+     * Wrapper for old schedSendEvent
+     * @param when time to schedule an event
+     */
     void schedSendEvent(Tick when);
 
     /**

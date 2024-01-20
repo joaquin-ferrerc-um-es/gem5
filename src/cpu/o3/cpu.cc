@@ -119,6 +119,7 @@ CPU::CPU(const O3CPUParams &params)
       globalSeqNum(1),
       system(params.system),
       lastRunningCycle(curCycle()),
+      m_isHaltDisabled(params.disableHalt),
       cpuStats(this)
 {
     fatal_if(FullSystem && params.numThreads > 1,
@@ -151,6 +152,8 @@ CPU::CPU(const O3CPUParams &params)
         thread.resize(numThreads);
         tids.resize(numThreads);
     }
+
+    warn_if(m_isHaltDisabled, "Halt is disabled on CPU %s.", name());
 
     // The stages also need their CPU pointer setup.  However this
     // must be done at the upper level CPU because they have pointers

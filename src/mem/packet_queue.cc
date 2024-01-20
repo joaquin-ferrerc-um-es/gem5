@@ -148,11 +148,17 @@ PacketQueue::schedSendTiming(PacketPtr pkt, Tick when)
     // either the packet list is empty or this has to be inserted
     // before every other packet
     transmitList.emplace_front(when, pkt);
-    schedSendEvent(when);
+    schedSendEvent(when, pkt);
 }
 
 void
 PacketQueue::schedSendEvent(Tick when)
+{
+    schedSendEvent(when, NULL);
+}
+
+void
+PacketQueue::schedSendEvent(Tick when, PacketPtr pkt)
 {
     // if we are waiting on a retry just hold off
     if (waitingOnRetry) {
@@ -162,10 +168,20 @@ PacketQueue::schedSendEvent(Tick when)
     }
 
     if (when != MaxTick) {
+        // The classic memory model clears L1 hits instantaneously and
+        // sets the 'when' to curTick + hit_latency. Ruby models however
+        // advance the curTick instead. Therefore the legacy '+1' adds an
+        // additional cycle to ruby L1 cache hits.
         // we cannot go back in time, and to be consistent we stick to
         // one tick in the future
-        when = std::max(when, curTick() + 1);
+        Tick initWhen = when;
+        when = std::max(initWhen, curTick() + 1);
         // @todo Revisit the +1
+        if (pkt != NULL) {
+          if (pkt->req->wasHandledByRuby()) {
+            when = std::max(initWhen, curTick());
+          }
+        }
 
         if (!sendEvent.scheduled()) {
             em.schedule(&sendEvent, when);

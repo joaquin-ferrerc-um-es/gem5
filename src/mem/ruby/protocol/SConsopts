@@ -38,6 +38,7 @@ main.Append(ALL_PROTOCOLS=[
     'MOESI_AMD_Base',
     'MESI_Two_Level',
     'MESI_Three_Level',
+    'MESI_Three_Level_Sparse',
     'MESI_Three_Level_LP',
     'MESI_Three_Level_JFC',
     'MESI_Three_Level_HTM',

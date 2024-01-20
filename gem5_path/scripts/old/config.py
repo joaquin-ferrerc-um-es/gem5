@@ -3,6 +3,7 @@ import string, os, sys, time, datetime, pdb, collections
 import benchmarks, htm, caches
 
 gem5root  = os.path.abspath(os.path.dirname(os.path.realpath(__file__)) + '/../..')
+runtimeroot  = os.path.abspath(os.path.dirname(os.path.realpath(__file__)) + '/../../../runtime')
 
 gem5path_dirname = 'gem5_path'
 gem5path = os.path.join(gem5root, gem5path_dirname)
@@ -62,6 +63,10 @@ system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg8_base, caches.cache_base
 system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg8_el, caches.cache_baseline])
 system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg8_ll, caches.cache_baseline])
 system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg8_ee, caches.cache_baseline])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg8_base, caches.cache_skylake])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg8_base, caches.cache_icelake])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg8_base, caches.cache_m1])
+system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg8_base, caches.cache_p550])
 
 
 '''
@@ -89,20 +94,21 @@ system_list.append(["MESI_Three_Level_HTM_umu", htm.cfg1_l2rwsetevict_pf_dwng_pr
 '''
 processor_list = []
 
-#processor_list.append(64)
-#processor_list.append(32)
-processor_list.append(16)
-'''
-processor_list.append(16)
-processor_list.append(8)
-processor_list.append(4)
-processor_list.append(2)
 processor_list.append(1)
-'''
+processor_list.append(2)
+processor_list.append(4)
+processor_list.append(8)
+processor_list.append(16)
+processor_list.append(32)
+processor_list.append(64)
 
 detailed_simulation_cpu_model_list = []
 #detailed_simulation_cpu_model_list.append('TimingSimpleCPU')
 detailed_simulation_cpu_model_list.append('DerivO3CPU')
+detailed_simulation_cpu_model_list.append('Skylake')
+detailed_simulation_cpu_model_list.append('Icelake')
+detailed_simulation_cpu_model_list.append('M1')
+detailed_simulation_cpu_model_list.append('P550')
 
 ####################################################################
 ##  Benchmark Selection
@@ -114,6 +120,7 @@ benchmark_groups = []
 #benchmark_groups.append('test-progs-caps-small')
 benchmark_groups.append('stamp-small')
 #benchmark_groups.append('stamp-medium')
+benchmark_groups.append('splash3-small')
 
 benchmark_list = benchmarks.getBenchmarks(benchmark_groups)
 

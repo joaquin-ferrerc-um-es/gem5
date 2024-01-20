@@ -109,7 +109,7 @@ def addNoISAOptions(parser):
                         help="""Top-level voltage for blocks running at system
                       power supply""")
     parser.add_argument("--sys-clock", action="store", type=str,
-                        default='1GHz',
+                        default='2GHz',
                         help="""Top-level clock for blocks running at system
                       speed""")
 
@@ -131,6 +131,12 @@ def addNoISAOptions(parser):
                         help="Enable low-power states in DRAMInterface")
     parser.add_argument("--mem-channels-intlv", type=int, default=0,
                         help="Memory channels interleave")
+    parser.add_argument("--mem-latency", action="store", type=str,
+                        default="30ns",
+                        help="Specify the memory latency (SimpleMemory only)")
+    
+    parser.add_argument("--disable-halt", action="store_true", default=False,
+                        help="Disable halt calls to remove quiescent cycles")
 
     parser.add_argument("--memchecker", action="store_true")
 
@@ -191,7 +197,6 @@ def addCommonOptions(parser):
                         action=ListCpu, nargs=0,
                         help="List available CPU types")
     parser.add_argument("--cpu-type", default="AtomicSimpleCPU",
-                        choices=ObjectList.cpu_list.get_names(),
                         help="type of cpu to run with")
     parser.add_argument("--list-bp-types",
                         action=ListBp, nargs=0,
@@ -366,7 +371,6 @@ def addCommonOptions(parser):
         help="checkpoint and exit when active cpu count is reached")
     parser.add_argument("--restore-with-cpu", action="store",
                         default="AtomicSimpleCPU",
-                        choices=ObjectList.cpu_list.get_names(),
                         help="cpu type for restoring from a checkpoint")
 
     # CPU Switching - default switch model goes from a checkpoint

@@ -93,15 +93,6 @@ def enqueue(c):
         print(f"WARNING: htm_visualizer enabled while enqueueing.")
     cmd = [os.path.join(options.output_directory(c), "enqueue")]
     job_id = subprocess.check_output(cmd, encoding = "UTF-8").strip()
-    od = options.output_directory(c)
-    stderr = os.path.join(od, "stderr")
-    stdout = os.path.join(od, "stdout")
-    runscript_filename = os.path.join(od, options.runscript_filename(c))
-    cmd = ["sbatch", "--parsable", "-J", options.config_description(c), "-e", stderr, "-o", stdout, "--exclude=tetd00", runscript_filename]
-    sbatch_output = subprocess.check_output(cmd, encoding = "UTF-8")
-    job_id = sbatch_output.strip().split(";")[0]
-    with open(os.path.join(od, "job_id"), "w") as job_id_file:
-        job_id_file.write(f"{job_id}\n")
     return job_id
 
 def parse_args(argsp = argparse.ArgumentParser()):

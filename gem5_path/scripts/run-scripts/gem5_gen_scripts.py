@@ -132,6 +132,9 @@ if args.list_mixed:
     print_config(mix_configs(configs))
     print(f"{len(configs)} configurations.")
 
+if not args.no_simplify_directories:
+    config_describe_set_ignored_options(constant_options(configs))
+
 if not (args.list or args.list_mixed):
     check_duplicate_outputs(configs)
 
@@ -141,9 +144,6 @@ if not (args.list or args.list_mixed):
     for path in set([options.checkpoint_init_reuse_root_dir(c) for c in configs if options.checkpoint_init_reuse(c)]):
         if not os.path.exists(path):
             print("Warning: checkpoint_init_reuse is enabled but checkpoint_init_reuse_root_dir does not exist (%s)" % path)
-
-    if not args.no_simplify_directories:
-        config_describe_set_ignored_options(constant_options(configs))
 
     for c in configs:
         gen_scripts(c)

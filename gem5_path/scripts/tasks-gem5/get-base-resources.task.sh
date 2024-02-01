@@ -5,7 +5,7 @@ DEFAULT_URL_PREFIX="https://ditec.um.es/~rfernandez/gem5-resources"
 RESOURCES_LIST=$( echo "
 # arch   type        name                           path_in_echo                                                         url
 x86_64   base_image  ubuntu-18-04.img               ${PATH_IN_ECHO_PREFIX}/x86_64/disks/ubuntu-18-04.img                 ${DEFAULT_URL_PREFIX}/x86_64/disks/ubuntu-18-04.2021-11-25.img.xz
-aarch64  base_image  ubuntu-18.04-arm64-docker.img  ${PATH_IN_ECHO_PREFIX}/aarch64/disks/ubuntu-18.04-arm64-docker.img  ${DEFAULT_URL_PREFIX}/aarch64/disks/ubuntu-18.04-arm64-docker.2022-05-12.img.xz
+aarch64  base_image  ubuntu-18.04-arm64-docker.img  ${PATH_IN_ECHO_PREFIX}/aarch64/disks/ubuntu-18.04-arm64-docker.img   ${DEFAULT_URL_PREFIX}/aarch64/disks/ubuntu-18.04-arm64-docker.2022-05-12.img.xz
 x86_64   kernel      vmlinux-5.4.49                 ${PATH_IN_ECHO_PREFIX}/x86_64/binaries/vmlinux-5.4.49                ${DEFAULT_URL_PREFIX}/x86_64/binaries/vmlinux-5.4.49.2021-11-25.xz
 aarch64  kernel      vmlinux.arm64                  ${PATH_IN_ECHO_PREFIX}/aarch64/binaries/vmlinux.arm64                ${DEFAULT_URL_PREFIX}/aarch64/binaries/vmlinux.arm64.2021-11-25.xz
 aarch64  bootloader  boot_v2.arm64                  ${PATH_IN_ECHO_PREFIX}/aarch64/binaries/boot_v2.arm64                ${DEFAULT_URL_PREFIX}/aarch64/binaries/boot_v2.arm64.2021-11-25.xz

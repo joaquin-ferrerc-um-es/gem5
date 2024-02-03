@@ -102,13 +102,16 @@ def create_system(options, full_system, system, dma_ports, bootmem,
                 assoc = options.l0i_assoc,
                 is_icache = True,
                 start_index_bit = block_size_bits,
-                replacement_policy = LRURP())
+                #replacement_policy = getattr(m5.objects, options.l0i_replacement_policy))()
+                replacement_policy = getattr(m5.objects, options.l0i_replacement_policy)())
+
 
             l0d_cache = L0Cache(size = options.l0d_size,
                 assoc = options.l0d_assoc,
                 is_icache = False,
                 start_index_bit = block_size_bits,
-                replacement_policy = LRURP())
+                #replacement_policy = options.l0d_replacement_policy
+                replacement_policy = getattr(m5.objects, options.l0d_replacement_policy)())
 
             clk_domain = cpus[i].clk_domain
 
@@ -147,7 +150,9 @@ def create_system(options, full_system, system, dma_ports, bootmem,
             l1_cache = L1Cache(size = options.l1d_size,
                                assoc = options.l1d_assoc,
                                start_index_bit = block_size_bits,
-                               is_icache = False)
+                               is_icache = False,
+                               #replacement_policy = options.l1_replacement_policy
+                               replacement_policy = getattr(m5.objects, options.l1_replacement_policy)())
 
             l1_cntrl = L1Cache_Controller(
                     version = i * num_cpus_per_cluster + j,
@@ -198,7 +203,9 @@ def create_system(options, full_system, system, dma_ports, bootmem,
         for j in range(num_l2caches_per_cluster):
             l2_cache = L2Cache(size = options.l2_size,
                                assoc = options.l2_assoc,
-                               start_index_bit = l2_index_start)
+                               start_index_bit = l2_index_start,
+                               #replacement_policy = options.l2_replacement_policy
+                               replacement_policy = getattr(m5.objects, options.l2_replacement_policy)())
 
             l2_cntrl = L2Cache_Controller(
                         version = i * num_l2caches_per_cluster + j,

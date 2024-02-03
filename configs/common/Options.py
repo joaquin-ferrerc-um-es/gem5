@@ -160,6 +160,12 @@ def addNoISAOptions(parser):
     parser.add_argument("--l3_assoc", type=int, default=16)
     parser.add_argument("--cacheline_size", type=int, default=64)
 
+    # Cache replacement policies
+    parser.add_argument("--l0d_replacement_policy", choices=ObjectList.rp_list.get_names(), default="LRURP")
+    parser.add_argument("--l0i_replacement_policy", choices=ObjectList.rp_list.get_names(), default="LRURP")
+    parser.add_argument("--l1_replacement_policy", choices=ObjectList.rp_list.get_names(), default="TreePLRURP")
+    parser.add_argument("--l2_replacement_policy", choices=ObjectList.rp_list.get_names(), default="TreePLRURP")
+
     # Enable Ruby
     parser.add_argument("--ruby", action="store_true")
 

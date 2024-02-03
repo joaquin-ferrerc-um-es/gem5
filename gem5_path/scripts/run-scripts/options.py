@@ -318,6 +318,16 @@ Option("jfc_representation", str,
        gem5_option = "jfc_representation",
        descr_dir = "{value}")
 
+# Cache replacement policies options
+Option("l0d_rp", str,
+       gem5_option="l0d_replacement_policy")
+Option("l0i_rp", str,
+       gem5_option="l0i_replacement_policy")
+Option("l1_rp", str,
+       gem5_option="l1_replacement_policy")
+Option("l2_rp", str,
+       gem5_option="l2_replacement_policy")
+
 # HTM Options
 Option("htm_disable_speculation", bool,
        descr_abbrev = "NoSpec")

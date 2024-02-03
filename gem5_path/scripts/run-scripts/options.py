@@ -122,7 +122,8 @@ Option("build_type", str, # 'opt', 'fast', 'debug'
        siminfo_exclude = True)
 Option("exit_at_roi_end", bool,
        gem5_option_use = "no",
-       siminfo_exclude = True)
+       siminfo_exclude = True,
+       descr_dir = "{name}")
 Option("extra_detailed_args", str,
        gem5_option_use = "no")
 Option("proc_maps_file", str,
@@ -265,7 +266,7 @@ Option("benchmarks_image_mountpoint", str,
 # Other
 Option("network_model", str,
        gem5_option = "network",
-       descr_dir = "network_{value}"),
+       descr_dir = "{value}-network")
 Option("network_topology", str,
        gem5_option = "topology",
        descr_dir = "{value}")

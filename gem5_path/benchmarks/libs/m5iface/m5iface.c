@@ -219,7 +219,10 @@ void catProcMaps(const char* out_filename) {
     snprintf(filename, sizeof(filename), "/proc/%d/maps", getpid());
 
     int fd = open(filename, 0);
-    assert(fd >= 0);
+    if (fd < 1) {
+      fprintf(stderr, MSG_PREFIX "Could not open %s, proc_maps not written.\n", filename);
+      return;
+    }
 
     char buf[BUFF_SIZE];
     size_t bytesRead = 0;

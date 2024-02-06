@@ -143,6 +143,10 @@ void simEndRegionOfInterest(void) {
     m5_dump_stats(0,0);
 }
 
+void simDumpResetStats(void) {
+    m5_dump_reset_stats(0,0);
+}
+
 void simWorkBegin(void) {
     m5_work_begin(0,0);
 }

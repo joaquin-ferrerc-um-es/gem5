@@ -13,6 +13,7 @@ void simInit(void);
 bool simInSimulator(void);
 void simBeginRegionOfInterest(void);
 void simEndRegionOfInterest(void);
+void simDumpResetStats(void);
 bool simSetLogBase(void *ptr);
 void simWorkBegin(void);
 void simWorkEnd(void);

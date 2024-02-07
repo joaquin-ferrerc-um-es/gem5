@@ -4,6 +4,9 @@
 void simInit(void) {}
 void simBeginRegionOfInterest(void) {}
 void simEndRegionOfInterest(void) {}
+void simResetStats(void) {}
+void simDumpResetStats(void) {}
+void simDumpStats(void) {}
 void simSetLogBase(void *ptr) {}
 void simWorkBegin(void) {}
 void simWorkEnd(void) {}
@@ -143,8 +146,16 @@ void simEndRegionOfInterest(void) {
     m5_dump_stats(0,0);
 }
 
+void simResetStats(void) {
+    m5_reset_stats(0,0);
+}
+
 void simDumpResetStats(void) {
     m5_dump_reset_stats(0,0);
+}
+
+void simDumpStats(void) {
+    m5_dump_stats(0,0);
 }
 
 void simWorkBegin(void) {

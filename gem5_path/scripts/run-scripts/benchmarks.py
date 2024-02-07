@@ -205,7 +205,7 @@ for (name, subdir, exe_name, args, input) in [
         input_filename_template = input)
 
 # Other
-for size_k in [2**i for i in range(1,18)]:
+for size_k in [2**i for i in range(0,18)]:
     if size_k > 512:
         args = f"{int(size_k / 1024)} M"
     else:

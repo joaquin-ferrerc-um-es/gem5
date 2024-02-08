@@ -113,7 +113,7 @@ SyscallDescTable<EmuLinux::SyscallABI64> EmuLinux::syscallDescs64 = {
     {  71, "msgctl" },
     {  72, "fcntl", fcntlFunc },
     {  73, "flock" },
-    {  74, "fsync" },
+    {  74, "fsync", ignoreFunc }, // Used by m5iface.c. Handled like fdatasync (ignore).
     {  75, "fdatasync", ignoreFunc },
     {  76, "truncate", truncateFunc },
     {  77, "ftruncate", ftruncateFunc },

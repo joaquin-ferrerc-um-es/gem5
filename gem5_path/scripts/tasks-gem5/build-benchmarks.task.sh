@@ -48,6 +48,10 @@ BENCHMARKS_SPLASH3_SELECTED=(
     "kernels/radix"
 )
 
+BENCHMARKS_OTHER_SELECTED=(
+    "kernels/cache-latency"
+)
+
 task_build-benchmarks() {
     local -a archs=("${ENABLED_ARCHITECTURES[@]}")
     options="$(simpler_getopt "architecture:" "$@")"
@@ -116,6 +120,16 @@ build_benchmarks() {
         echo "$(color green "PARSEC benchmarks disabled for $arch.")"
     else
         error_and_exit "Invalid value for BENCHMARKS_PARSEC_ENABLED[$arch] (${BENCHMARKS_PARSEC_ENABLED[$arch]})"
+    fi
+
+    if [[ "${BENCHMARKS_OTHER_ENABLED[$arch]}" = "yes-native" ]] ; then
+        build_benchmarks_other "$arch"
+    elif [[ "${BENCHMARKS_OTHER_ENABLED[$arch]}" = "yes-virtual" ]] ; then
+        echo "$(color green "OTHER benchmarks will not be built because they are built directly in the image for $arch.")"
+    elif [[ "${BENCHMARKS_OTHER_ENABLED[$arch]}" = "no" ]] ; then
+        echo "$(color green "OTHER benchmarks disabled for $arch.")"
+    else
+        error_and_exit "Invalid value for BENCHMARKS_OTHER_ENABLED[$arch] (${BENCHMARKS_OTHER_ENABLED[$arch]})"
     fi
 }
 
@@ -244,6 +258,41 @@ check_splash3_gem5_directory_links() {
     if [[ ! -d "$(absolute_path "$BENCHMARKS_SPLASH3_DIR")/codes/gem5-libs" ]] ; then
         local GEM5_LIBS_DIR="${GEM5_ROOT}/gem5_path/benchmarks/libs/"
         ln -s "$(realpath --relative-to="$(absolute_path "${BENCHMARKS_SPLASH3_DIR}/codes")" "$GEM5_LIBS_DIR")" "$(absolute_path "${BENCHMARKS_SPLASH3_DIR}")/codes/gem5-libs"
+    fi
+}
+
+build_benchmarks_other() {
+    local arch="$1"
+
+    echo "$(color green "Building Other benchmarks for $arch")"
+
+    if [[ "$arch" = "x86_64" ]] ; then
+        export X86_CROSS_GCC_PREFIX="${BENCHMARKS_ARCH_COMPILER_PREFIX[$arch]}"
+    elif [[ "$arch" = "aarch64" ]] ; then
+        export AARCH64_CROSS_GCC_PREFIX="${BENCHMARKS_ARCH_COMPILER_PREFIX[$arch]}"
+    else
+        error_and_exit "Architecture $arch not supported for other"
+    fi
+
+    check_other_gem5_directory_links
+
+    for b in "${BENCHMARKS_OTHER_SELECTED[@]}" ; do
+        (
+            echo "$(color green "Build $b ARCH=$a")"
+            cd "$(absolute_path "$BENCHMARKS_OTHER_DIR/$b")"
+            make -j $(get_num_threads_for_building) "ARCH=$arch"
+        )
+    done
+}
+
+check_other_gem5_directory_links() {
+    if [[ ! -d "$(absolute_path "$BENCHMARKS_OTHER_DIR")" || ! -L "${GEM5_ROOT}/${BENCHMARKS_OTHER_DIR}" ]] ; then
+        error_and_exit "Other directory symlink '$(absolute_path "$BENCHMARKS_OTHER_DIR")' not found. Clone the repository in a directory out of ${GEM5_ROOT} and create a symbolic link to it in '$(dirname "$(absolute_path "$BENCHMARKS_OTHER_DIR")")', or disable these benchmarks (BENCHMARKS_OTHER_ENABLED[*]=no)."
+    fi
+
+    if [[ ! -d "$(absolute_path "$BENCHMARKS_OTHER_DIR")/gem5-libs" ]] ; then
+        local GEM5_LIBS_DIR="${GEM5_ROOT}/gem5_path/benchmarks/libs/"
+        ln -s "$(realpath --relative-to="$(absolute_path "${BENCHMARKS_OTHER_DIR}/")" "$GEM5_LIBS_DIR")" "$(absolute_path "${BENCHMARKS_OTHER_DIR}")/gem5-libs"
     fi
 }
 

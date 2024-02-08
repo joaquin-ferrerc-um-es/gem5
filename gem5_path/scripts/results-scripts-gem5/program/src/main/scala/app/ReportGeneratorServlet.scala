@@ -40,7 +40,7 @@ trait ViewMethods {
     import repscr.Vwe
 
     c.noCoordValue match {
-      case c: Double => c.formatted("%4g")
+      case c: Double => f"$c%4g"
       case c: Vwe => show(c.value) + "±" + show(c.error)
       case (a, b) => s"(${show(a)},${show(b)})"
       case c: Iterable[Any] => c.map(show).mkString("[", ",", "]")

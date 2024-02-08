@@ -200,7 +200,7 @@ class SimulationMix(val simulations: Iterable[Gem5DataPoint]) extends Gem5DataPo
         def absoluteError(s: Gem5DataPoint) = (fn(current).value - fn(s).value).abs
         val score: Gem5DataPoint => Double = if (remove_highest_values) fn(_).value else absoluteError
         val sorted = current.simulations.toSeq.sortBy(score)
-        if (log) println(f"Outliers in ${benchmarkName} ${num_cpus}p size: ${current.simulations.size} avg: ${fn(current)} re: ${re}%4.3f values: ${sorted.map(fn(_).value.formatted("%6.2g")).mkString(" ")}")
+        if (log) println(f"Outliers in ${benchmarkName} ${num_cpus}p size: ${current.simulations.size} avg: ${fn(current)} re: ${re}%4.3f values: ${sorted.map(x => f"${fn(x).value}%6.2g").mkString(" ")}")
         val outlier = sorted.last
         val reduced = new SimulationMix(sorted.dropRight(1))
         val newre = fn(reduced).toVwe.relativeError

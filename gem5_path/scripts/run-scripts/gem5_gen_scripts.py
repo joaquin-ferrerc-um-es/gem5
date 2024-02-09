@@ -40,12 +40,15 @@ def gen_scripts(c):
 
     output_directory = options.output_directory(c)
     create_directory(output_directory)
-    
-    with open(options.launchscript_template_filename(c), "r") as launchscript_template_file:
-        with open(os.path.join(output_directory, options.launchscript_filename(c)), "w") as launchscript_file:
-            template_text = launchscript_template_file.read()
-            variables_text = "".join([o.launchscript_text_value(c) for o in config_list_options(c)])
-            launchscript_file.write(template_text.replace("{{{variables}}}", variables_text))
+
+    if options.simulation_mode(c) == "full-system":
+        with open(options.launchscript_template_filename(c), "r") as launchscript_template_file:
+            with open(os.path.join(output_directory, options.launchscript_filename(c)), "w") as launchscript_file:
+                template_text = launchscript_template_file.read()
+                variables_text = "".join([o.launchscript_text_value(c) for o in config_list_options(c)])
+                launchscript_file.write(template_text.replace("{{{variables}}}", variables_text))
+    else:
+        assert(options.simulation_mode(c) == "syscall-emulation")
        
     with open(os.path.join(output_directory, options.siminfo_filename(c)), "w") as siminfo_file:
         siminfo_file.write("[SimulationInfo]\n")

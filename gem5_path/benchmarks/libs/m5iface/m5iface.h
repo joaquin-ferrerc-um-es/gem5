@@ -22,6 +22,7 @@ void simBackoffBegin(void);
 void simBackoffEnd(void);
 void simCodeRegionBegin(unsigned long int codeRegionId);
 void simCodeRegionEnd(unsigned long int codeRegionId);
+void simResetStats(void);
 void simDumpValueToHostFileSystem(long value, const char *out_filename);
 
 // Instead of adding a new gem5op, we let the CPU know that the log

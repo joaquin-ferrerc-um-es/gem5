@@ -39,6 +39,6 @@ echo Running: "./${benchmark_binary}" ${benchmark_options} \< "${benchmark_input
 "./${benchmark_binary}" ${benchmark_options} < "${benchmark_input_filename:-/dev/null}"
 echo 'Launch script done ($?='"$?"'). Exiting simulation... (m5 exit)'
 
-sync # TODO: why?
-sleep 2 # TODO: why?
+#sync # TODO: why?
+#sleep 2 # TODO: why?
 /sbin/m5 exit

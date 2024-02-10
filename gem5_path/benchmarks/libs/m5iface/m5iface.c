@@ -8,11 +8,12 @@ void simSetLogBase(void *ptr) {}
 void simWorkBegin(void) {}
 void simWorkEnd(void) {}
 void simBarrierBegin(void) {}
-void simBarrierEnd(void {}
+void simBarrierEnd(void) {}
 void simBackoffBegin(void) {}
 void simBackoffEnd(void) {}
 void simCodeRegionBegin(unsigned long int codeRegionId) {}
 void simCodeRegionEnd(unsigned long int codeRegionId) {}
+void simResetStats(void) {}
 
 #ifdef ANNOTATE_PROC_MAPS
 #error "ANNOTATE_PROC_MAPS requires ENABLE_M5OPS"
@@ -136,6 +137,11 @@ void simBeginRegionOfInterest(void) {
         while (m5_sum(M5_SUM_HACK_ARGS, M5_SUM_HACK_TYPE_KVM_CKPT_SYNC, 0) == 0);
     }
     m5_reset_stats(0,0);
+}
+
+void simResetStats(void) {
+    m5_reset_stats(0,0);
+    printf(MSG_PREFIX " Reset stats.\n");
 }
 
 void simEndRegionOfInterest(void) {

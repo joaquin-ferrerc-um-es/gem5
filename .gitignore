@@ -41,6 +41,7 @@ m5out
 /gem5_path/benchmarks/benchmarks-htm/parsec
 /gem5_path/benchmarks/parsec
 /gem5_path/benchmarks/Splash-3
+/gem5_path/benchmarks/other-benchmarks
 /gem5_path/other/
 /gem5_path/tmp-bin/
 /gem5_path/x86_64/binaries/

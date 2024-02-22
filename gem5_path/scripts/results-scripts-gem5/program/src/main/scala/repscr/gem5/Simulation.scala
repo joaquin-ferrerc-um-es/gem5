@@ -190,34 +190,41 @@ class SimulationMix(val simulations: Iterable[Gem5DataPoint]) extends Gem5DataPo
   def removeOutliers(
     max_relative_error: Double = .15,
     fn: Gem5DataPoint => Any = _.sim_ticks,
-    remove_highest_values: Boolean = true, // if true remove higet values, which makes sense only if we assume that outliers are due to long running page faults. If false, choose the point with highest deviation from average
+    remove_highest_values: Boolean = true, // if true remove higest values, which makes sense only if we assume that outliers are due to long running page faults. If false, choose the point with highest deviation from average
     strict_removal: Boolean = true, // never remove a point if it would increase the relative error (it is most likely not really an outlier iin that case). Can happen if remove_highes_values is true
     log: Boolean = true): SimulationMix = {
-    @tailrec
-    def iterate(current: SimulationMix): SimulationMix = {
-      val re = fn(current).toVwe.relativeError
-      if (re > max_relative_error) {
-        def absoluteError(s: Gem5DataPoint) = (fn(current).value - fn(s).value).abs
-        val score: Gem5DataPoint => Double = if (remove_highest_values) fn(_).value else absoluteError
-        val sorted = current.simulations.toSeq.sortBy(score)
-        if (log) println(f"Outliers in ${benchmarkName} ${num_cpus}p size: ${current.simulations.size} avg: ${fn(current)} re: ${re}%4.3f values: ${sorted.map(x => f"${fn(x).value}%6.2g").mkString(" ")}")
-        val outlier = sorted.last
-        val reduced = new SimulationMix(sorted.dropRight(1))
-        val newre = fn(reduced).toVwe.relativeError
-        if (fn(current).toVwe.relativeError > fn(reduced).toVwe.relativeError || !strict_removal) {
-          if (log) println(f"  Outlier removed (new re: ${newre}%4.3f) ${outlier.files.mkString}")
-          iterate(reduced)
-        } else {
-          if (log) println(f"  Outlier NOT removed (new re would be: ${newre}%4.3f) ${outlier.files.mkString}")
-          current
-        }
-      } else current
-    }
-    val ret = iterate(this)
-    if (log && simulations.size != ret.simulations.size) {
-        println(s"Removed ${simulations.size - ret.simulations.size} outliers out of ${simulations.size} simulations in ${benchmarkName} ${num_cpus}p size: ${ret.simulations.size} avg: ${fn(ret)}.")
-    }
-    ret
+
+    def relativeError(sm:SimulationMix) = fn(sm).toVwe.relativeError
+    def acceptable(sm:SimulationMix) = relativeError(sm) < max_relative_error
+
+    if (!acceptable(this)) {
+      if (log) println(f"Excessive variability in ${benchmarkName} ${num_cpus}p ${protocol} size: ${simulations.size} avg: ${fn(this)} re: ${relativeError(this)}%4.3f")
+
+      @tailrec
+      def iterate(current: SimulationMix): SimulationMix = {
+        if (!acceptable(current)) {
+          def absoluteError(s: Gem5DataPoint) = (fn(current).value - fn(s).value).abs
+          def score(s: Gem5DataPoint): Double = if (remove_highest_values) fn(s).value else absoluteError(s)
+          val sorted = current.simulations.toSeq.sortBy(score)
+          if (log) println(f"  size: ${current.simulations.size} avg: ${fn(current)} re: ${relativeError(current)}%4.3f values: ${sorted.map(x => f"${fn(x).value}%7.3g").mkString(" ")}")
+          val outlier = sorted.last
+          val reduced = new SimulationMix(sorted.dropRight(1))
+          val newre = fn(reduced).toVwe.relativeError
+          if (fn(current).toVwe.relativeError > fn(reduced).toVwe.relativeError || !strict_removal) {
+            if (log) println(f"  Outlier removed (new re: ${newre}%4.3f) ${outlier.files.mkString}")
+            iterate(reduced)
+          } else {
+            if (log) println(f"  Outlier NOT removed (new re would be: ${newre}%4.3f) ${outlier.files.mkString}")
+            current
+          }
+        } else current
+      }
+      val ret = iterate(this)
+      if (log) {
+        println(s"Removed ${simulations.size - ret.simulations.size} outliers out of ${simulations.size} simulations in ${benchmarkName} ${num_cpus}p size: ${ret.simulations.size} avg: ${fn(ret)}.\n")
+      }
+      ret
+    } else this
   }
 }
 

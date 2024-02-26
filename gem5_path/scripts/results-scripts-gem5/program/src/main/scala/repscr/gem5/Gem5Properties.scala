@@ -88,6 +88,8 @@ object Gem5Properties {
     ("network_topology", _.parseString),
     ("network_mesh_rows", _.parseLong),
 
+    ("disable_halt", _.parseBoolean),
+
     ("memory_type", _.parseString),
     ("memory_size", _.parseString),
 

@@ -43,6 +43,8 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
   CoordFromProp("network_topology")
   CoordFromProp("network_mesh_rows")
 
+  CoordFromProp("disable_halt")
+
   CoordFromProp("memory_type")
   CoordFromProp("memory_size")
 

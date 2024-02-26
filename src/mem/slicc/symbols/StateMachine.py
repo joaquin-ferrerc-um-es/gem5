@@ -109,6 +109,7 @@ class StateMachine(Symbol):
         self.objects = []
         self.TBEType   = None
         self.EntryType = None
+        # TODO add self.DirectoryType = None
         self.debug_flags = set()
         self.debug_flags.add('RubyGenerated')
         self.debug_flags.add('RubySlicc')
@@ -176,9 +177,9 @@ class StateMachine(Symbol):
             if "main" in type and "false" == type["main"].lower():
                 pass # this isn't the EntryType
             else:
-                '''if self.EntryType != None:
+                if self.EntryType != None:
                     self.error("Multiple AbstractCacheEntry types in a " \
-                               "single machine.");'''
+                               "single machine.");
                 if self.EntryType is None:
                     self.EntryType = type
 

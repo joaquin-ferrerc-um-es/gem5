@@ -200,9 +200,14 @@ def create_system(options, full_system, system, dma_ports, bootmem,
                                assoc = options.l2_assoc,
                                start_index_bit = l2_index_start)
 
+            l2_directory = L2Cache(size = options.l2_size,
+                               assoc = options.l2_assoc,
+                               start_index_bit = l2_index_start)
+
             l2_cntrl = L2Cache_Controller(
                         version = i * num_l2caches_per_cluster + j,
-                        L2cache = l2_cache, cluster_id = i,
+                        L2cache = l2_cache, Directory = l2_directory,
+                        cluster_id = i,
                         transitions_per_cycle =\
                          options.l2_transitions_per_cycle,
                         ruby_system = ruby_system)

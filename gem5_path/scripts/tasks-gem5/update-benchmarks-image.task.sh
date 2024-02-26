@@ -121,12 +121,26 @@ update_benchmarks_image() {
     else
         error_and_exit "Invalid value for BENCHMARKS_SPLASH3_ENABLED[$arch] (${BENCHMARKS_SPLASH3_ENABLED[$arch]})"
     fi
-    
+
+    local -a update_other_cmds=()
+    if [[ "${BENCHMARKS_OTHER_ENABLED[$arch]}" = "yes-native" ]] ; then
+        update_other_cmds=(
+            --src "$GEM5_ROOT/gem5_path/benchmarks/other-benchmarks/" --rsync-to "/mnt/img1p1/other-benchmarks/" 
+        )
+    elif [[ "${BENCHMARKS_OTHER_ENABLED[$arch]}" = "yes-virtual" ]] ; then
+        echo "$(color green "Splash-3 benchmarks will not be uploaded because they are built directly in the image for $arch.")"
+    elif [[ "${BENCHMARKS_OTHER_ENABLED[$arch]}" = "no" ]] ; then
+        echo "$(color green "Splash-3 benchmarks disabled for $arch.")"
+    else
+        error_and_exit "Invalid value for BENCHMARKS_OTHER_ENABLED[$arch] (${BENCHMARKS_OTHER_ENABLED[$arch]})"
+    fi
+
     "$VDS" --img "$image_name" \
            "${update_libs_cmds[@]}" \
            "${update_stamp_cmds[@]}" \
            "${update_htmbench_cmds[@]}" \
            "${update_parsec_cmds[@]}" \
-           "${update_splash3_cmds[@]}"
+           "${update_splash3_cmds[@]}" \
+           "${update_other_cmds[@]}"
 }
 

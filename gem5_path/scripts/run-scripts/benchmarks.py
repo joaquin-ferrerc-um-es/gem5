@@ -203,3 +203,18 @@ for (name, subdir, exe_name, args, input) in [
         subdir_template = f"Splash-3/codes/{subdir}",
         binary_filename_template = f"build/${{arch}}/{exe_name}", 
         input_filename_template = input)
+
+# Other
+for size_k in [2**i for i in range(0,18)]:
+    if size_k > 512:
+        args = f"{int(size_k / 1024)} M"
+    else:
+        args = f"{size_k} K"
+    Benchmark(
+        suite = "other",
+        name = "cache-latency",
+        size = f"sim{size_k:06d}",
+        args_string = args,
+        subdir_template = f"other-benchmarks/kernels/cache-latency",
+        binary_filename_template = f"build/${{arch}}/CACHE-LATENCY", 
+        input_filename_template = None)

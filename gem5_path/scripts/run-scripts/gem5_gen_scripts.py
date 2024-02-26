@@ -40,12 +40,15 @@ def gen_scripts(c):
 
     output_directory = options.output_directory(c)
     create_directory(output_directory)
-    
-    with open(options.launchscript_template_filename(c), "r") as launchscript_template_file:
-        with open(os.path.join(output_directory, options.launchscript_filename(c)), "w") as launchscript_file:
-            template_text = launchscript_template_file.read()
-            variables_text = "".join([o.launchscript_text_value(c) for o in config_list_options(c)])
-            launchscript_file.write(template_text.replace("{{{variables}}}", variables_text))
+
+    if options.simulation_mode(c) == "full-system":
+        with open(options.launchscript_template_filename(c), "r") as launchscript_template_file:
+            with open(os.path.join(output_directory, options.launchscript_filename(c)), "w") as launchscript_file:
+                template_text = launchscript_template_file.read()
+                variables_text = "".join([o.launchscript_text_value(c) for o in config_list_options(c)])
+                launchscript_file.write(template_text.replace("{{{variables}}}", variables_text))
+    else:
+        assert(options.simulation_mode(c) == "syscall-emulation")
        
     with open(os.path.join(output_directory, options.siminfo_filename(c)), "w") as siminfo_file:
         siminfo_file.write("[SimulationInfo]\n")
@@ -144,6 +147,9 @@ if args.list_mixed:
     print_config(mix_configs(configs))
     print(f"{len(configs)} configurations.")
 
+if not args.no_simplify_directories:
+    config_describe_set_ignored_options(constant_options(configs))
+
 if not (args.list or args.list_mixed):
     check_duplicate_outputs(configs)
 
@@ -153,9 +159,6 @@ if not (args.list or args.list_mixed):
     for path in set([options.checkpoint_init_reuse_root_dir(c) for c in configs if options.checkpoint_init_reuse(c)]):
         if not os.path.exists(path):
             print("Warning: checkpoint_init_reuse is enabled but checkpoint_init_reuse_root_dir does not exist (%s)" % path)
-
-    if not args.no_simplify_directories:
-        config_describe_set_ignored_options(constant_options(configs))
 
     for c in configs:
         gen_scripts(c)

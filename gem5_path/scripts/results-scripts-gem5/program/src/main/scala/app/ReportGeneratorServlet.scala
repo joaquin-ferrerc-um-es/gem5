@@ -40,7 +40,7 @@ trait ViewMethods {
     import repscr.Vwe
 
     c.noCoordValue match {
-      case c: Double => c.formatted("%4g")
+      case c: Double => f"$c%4g"
       case c: Vwe => show(c.value) + "±" + show(c.error)
       case (a, b) => s"(${show(a)},${show(b)})"
       case c: Iterable[Any] => c.map(show).mkString("[", ",", "]")
@@ -76,7 +76,7 @@ class ReportGeneratorServlet extends ScalatraServlet with FormSupport with I18nS
         case (false, _) | (_, None) =>
           val id = request.cookies.getOrElse("reportGenerator_gem5_insDir", "./ins")
           val ld = request.cookies.getOrElse("reportGenerator_gem5_listingsDir", "./listings/default")
-          val ro = request.cookies.getOrElse("reportGenerator_gem5_removeOutliers", "false").toCheckboxBool
+          val ro = request.cookies.getOrElse("reportGenerator_gem5_removeOutliers", "false").toBoolean
           new SessionInfo(new Report(ld, Seq(id), ro))
       }
       session.setAttribute("sessionInfo", si)

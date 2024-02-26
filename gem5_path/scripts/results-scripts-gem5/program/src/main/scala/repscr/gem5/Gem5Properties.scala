@@ -60,6 +60,7 @@ object Gem5Properties {
     ("num_cpus", _.toInt), // TODO: ensure that this matches with the number of cpus in the stats?
     ("protocol", _.parseString),
     ("cpu_model", _.parseString),
+    ("simulation_mode", _.parseString),
     ("benchmark_name", _.parseString),
     ("benchmark_full_name", _.parseString),
     ("benchmark_size", _.parseString),

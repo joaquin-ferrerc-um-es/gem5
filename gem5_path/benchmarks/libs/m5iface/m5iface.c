@@ -142,11 +142,6 @@ void simBeginRegionOfInterest(void) {
     m5_reset_stats(0,0);
 }
 
-void simResetStats(void) {
-    m5_reset_stats(0,0);
-    printf(MSG_PREFIX " Reset stats.\n");
-}
-
 void simEndRegionOfInterest(void) {
     m5_work_end(0,0);
     m5_dump_stats(0,0);

@@ -1431,7 +1431,7 @@ IEW::executeInsts()
         if (cpu->l2_miss_pending == true) {
 	        iewStats.iewExecuteL2PendingCycles++;
             if (cpu->L3MissPending(cpu->cpuId()) == false) {
-                if (cpu->l2_get_x > 0) { 
+                if (cpu->l2_get_x > 0) {
                     iewStats.iewExecuteL2GetXPendingCycles++;
                 }
                 else if (cpu->l2_get_s > 0) {

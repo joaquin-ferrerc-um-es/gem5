@@ -75,7 +75,10 @@ structure(InPort, external = "yes", primitive="yes") {
 }
 
 external_type(NodeID, default="0", primitive="yes");
-external_type(MachineID);
+//external_type(MachineID);
+structure (MachineID, external = "yes", non_obj="yes") {
+  NodeID getNum();
+}
 
 structure (Set, external = "yes", non_obj="yes") {
   void setSize(int);
@@ -368,12 +371,12 @@ structure (CPUContainer, external = "yes") {
     void l1NoMissesPending();
     void l2MissesPending();
     void l2NoMissesPending();
-    void l3MissesPending();
-    void l3NoMissesPending();
-    void l3GetSMissesPending();
-    void l3NoGetSMissesPending();
-    void l3GetXMissesPending();
-    void l3NoGetXMissesPending();
+    void l2GetSMissesPending();
+    void l2NoGetSMissesPending();
+    void l2GetXMissesPending();
+    void l2NoGetXMissesPending();
+    void l3MissesPending(NodeID);
+    void l3NoMissesPending(NodeID);
     void anyMissesPending();
     void anyNoMissesPending();
     bool hasL3();

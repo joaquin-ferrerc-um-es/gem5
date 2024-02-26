@@ -632,10 +632,20 @@ class BaseCPU : public ClockedObject
 
     bool l1_miss_pending = false;
     bool l2_miss_pending = false;
-    bool l3_miss_pending = false;
-    bool l3_get_s = false;
-    bool l3_get_x = false;
+    int l2_get_s = 0;
+    int l2_get_x = 0;
+    std::vector<int> l3_miss_pending;
     bool any_miss_pending = false;
+
+    bool L3MissPending(int cpuId)
+    {
+        for (int i = 0; i < cpuList.size(); i++) {
+            if (cpuList[i]->l3_miss_pending[cpuId] > 0) {
+              return true;
+            }
+        }
+        return false;
+    }
 
     void l1MissesPending()
     {
@@ -644,7 +654,7 @@ class BaseCPU : public ClockedObject
     };
     void l1NoMissesPending() {
         l1_miss_pending = false;
-        if ((l2_miss_pending == false) && (l3_miss_pending == false))
+        if ((l2_miss_pending == false) && (L3MissPending(cpuId()) == false))
 	          any_miss_pending = false;
     };
 
@@ -655,34 +665,34 @@ class BaseCPU : public ClockedObject
     void l2NoMissesPending()
     {
         l2_miss_pending = false;
-        if ((l1_miss_pending == false) && (l3_miss_pending == false))
+        if ((l1_miss_pending == false) && (L3MissPending(cpuId()) == false))
 	          any_miss_pending = false;
     };
 
-    void l3MissesPending() {
-        l3_miss_pending = true; 
+    void l2GetSMissesPending() {
+        l2_get_s++;
+    };
+    void l2NoGetSMissesPending() {
+        l2_get_s--;
+    };
+
+    void l2GetXMissesPending() {
+        l2_get_x++;
+    };
+    void l2NoGetXMissesPending() {
+        l2_get_x--;
+    };
+
+    void l3MissesPending(int cpu) {
+        l3_miss_pending[cpu]++; 
         any_miss_pending = true;
     };
-    void l3NoMissesPending()
+    void l3NoMissesPending(int cpu)
     {
-        l3_miss_pending = false;
-        if ((l1_miss_pending == false) && (l2_miss_pending == false))
+        l3_miss_pending[cpu]--;
+        if ((l1_miss_pending == false) && (l2_miss_pending == false) && (L3MissPending(cpuId()) == false))
 	          any_miss_pending = false;
     };
-
-    void l3GetSMissesPending() {
-        l3_get_s = true;
-    }
-    void l3NoGetSMissesPending() {
-        l3_get_s = false;
-    }
-
-    void l3GetXMissesPending() {
-        l3_get_x = true;
-    }
-    void l3NoGetXMissesPending() {
-        l3_get_x = false;
-    }
 
     void anyMissesPending() { any_miss_pending = true; };
     void anyNoMissesPending() { any_miss_pending = false; };

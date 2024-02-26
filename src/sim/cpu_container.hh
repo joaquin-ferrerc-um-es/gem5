@@ -31,12 +31,12 @@ public :
   inline void l1NoMissesPending() { m_cpu->l1NoMissesPending(); };
   inline void l2MissesPending() { m_cpu->l2MissesPending(); };
   inline void l2NoMissesPending() { m_cpu->l2NoMissesPending(); };
-  inline void l3MissesPending() { m_cpu->l3MissesPending(); };
-  inline void l3NoMissesPending() { m_cpu->l3NoMissesPending(); };
-  inline void l3GetSMissesPending() { m_cpu->l3GetSMissesPending(); };
-  inline void l3NoGetSMissesPending() { m_cpu->l3NoGetSMissesPending(); };
-  inline void l3GetXMissesPending() { m_cpu->l3GetXMissesPending(); };
-  inline void l3NoGetXMissesPending() { m_cpu->l3NoGetXMissesPending(); };
+  inline void l2GetSMissesPending() { m_cpu->l2GetSMissesPending(); };
+  inline void l2NoGetSMissesPending() { m_cpu->l2NoGetSMissesPending(); };
+  inline void l2GetXMissesPending() { m_cpu->l2GetXMissesPending(); };
+  inline void l2NoGetXMissesPending() { m_cpu->l2NoGetXMissesPending(); };
+  inline void l3MissesPending(int cpu) { m_cpu->l3MissesPending(cpu); };
+  inline void l3NoMissesPending(int cpu) { m_cpu->l3NoMissesPending(cpu); };
   inline void anyMissesPending() { m_cpu->anyMissesPending(); };
   inline void anyNoMissesPending() { m_cpu->anyNoMissesPending(); };
   inline bool hasL3() { return has_l3; }

@@ -139,7 +139,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
   }
 
   // DirectoryEntry
-  structure(DirectoryEntry, desc="...", interface="AbstractCacheEntry") {
+  structure(DirectoryEntry, desc="...", interface="AbstractCacheEntry", main="false") {
     State CacheState,          desc="cache state";
     NetDest Sharers,               desc="tracks the L1 shares on-chip";
     MachineID Exclusive,          desc="Exclusive holder of block";
@@ -152,6 +152,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
     DataBlock DataBlk,          desc="Buffer for the data block";
     bool Dirty, default="false", desc="Data is Dirty";
 
+    MachineID Requestor,             desc="ID of the L1 cache that made the request for this cache block";
     NetDest L1_GetS_IDs,            desc="Set of the internal processors that want the block in shared state";
     MachineID L1_GetX_ID,          desc="ID of the L1 cache to forward the block to once we get a response";
     int pendingAcks,            desc="number of pending acks for invalidates during writeback";
@@ -649,24 +650,28 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
 
   // OTHER ACTIONS
   action(i_allocateTBE, "i", desc="Allocate TBE for request") {
-    check_allocate(TBEs);
-    assert(is_valid(cache_entry));
-    DirectoryEntry directory_entry := getDirectoryEntry(address);
-    assert(is_valid(directory_entry));
-    TBEs.allocate(address);
-    set_tbe(TBEs[address]);
-    tbe.L1_GetS_IDs.clear();
-    tbe.DataBlk := cache_entry.DataBlk;
-    tbe.Dirty := cache_entry.Dirty;
-    cpu.l3MissesPending();
-    tbe.pendingAcks := directory_entry.Sharers.count();
+    peek(L1RequestL2Network_in, RequestMsg) {
+      check_allocate(TBEs);
+      assert(is_valid(cache_entry));
+      DirectoryEntry directory_entry := getDirectoryEntry(address);
+      assert(is_valid(directory_entry));
+      TBEs.allocate(address);
+      set_tbe(TBEs[address]);
+      tbe.L1_GetS_IDs.clear();
+      tbe.DataBlk := cache_entry.DataBlk;
+      tbe.Dirty := cache_entry.Dirty;
+      tbe.Requestor := in_msg.Requestor;
+      cpu.l3MissesPending(tbe.Requestor.getNum());
+      tbe.pendingAcks := directory_entry.Sharers.count();
+    }
   }
 
   action(s_deallocateTBE, "s", desc="Deallocate external TBE") {
+    MachineID node := TBEs.lookup(address).Requestor;
     TBEs.deallocate(address);
     unset_tbe();
     if(TBEs.isEmpty()) {
-      cpu.l3NoMissesPending();
+      cpu.l3NoMissesPending(node.getNum());
     }
   }
 
@@ -744,11 +749,13 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
   action(qq_allocateL2CacheBlock, "\q", desc="Set L2 cache tag equal to tag of block B.") {
     if (is_invalid(cache_entry)) {
       set_cache_entry(L2cache.allocate(address, new Entry));
+      Directory.allocate(address, new DirectoryEntry);
     }
   }
 
   action(rr_deallocateL2CacheBlock, "\r", desc="Deallocate L2 cache block.  Sets the cache to not present, allowing a replacement in parallel with a fetch.") {
     L2cache.deallocate(address);
+    Directory.deallocate(address);
     unset_cache_entry();
   }
 

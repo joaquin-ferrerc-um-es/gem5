@@ -218,3 +218,20 @@ for size_k in [2**i for i in range(0,18)]:
         subdir_template = f"other-benchmarks/kernels/cache-latency",
         binary_filename_template = f"build/${{arch}}/CACHE-LATENCY", 
         input_filename_template = None)
+    Benchmark(
+        suite = "other",
+        name = "MemoryLatency",
+        size = f"sim{size_k:06d}",
+        args_string = f"-sizekb {size_k}",
+        subdir_template = f"other-benchmarks/kernels/MemoryLatency",
+        binary_filename_template = f"build/${{arch}}/MemoryLatency",
+        input_filename_template = None)
+
+Benchmark(
+    suite = "other",
+    name = "CoherencyLatency",
+    size = f"default",
+    args_string = "",
+    subdir_template = f"other-benchmarks/kernels/CoherencyLatency",
+    binary_filename_template = f"build/${{arch}}/CoherencyLatency",
+    input_filename_template = None)

@@ -76,7 +76,7 @@ class ReportGeneratorServlet extends ScalatraServlet with FormSupport with I18nS
         case (false, _) | (_, None) =>
           val id = request.cookies.getOrElse("reportGenerator_gem5_insDir", "./ins")
           val ld = request.cookies.getOrElse("reportGenerator_gem5_listingsDir", "./listings/default")
-          val ro = request.cookies.getOrElse("reportGenerator_gem5_removeOutliers", "false").toCheckboxBool
+          val ro = request.cookies.getOrElse("reportGenerator_gem5_removeOutliers", "false").toBoolean
           new SessionInfo(new Report(ld, Seq(id), ro))
       }
       session.setAttribute("sessionInfo", si)

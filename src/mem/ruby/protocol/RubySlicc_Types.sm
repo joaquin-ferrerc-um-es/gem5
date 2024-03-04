@@ -377,6 +377,7 @@ structure (CPUContainer, external = "yes") {
     void l2NoGetXMissesPending();
     void l3MissesPending(NodeID);
     void l3NoMissesPending(NodeID);
+    void l3NoMissesPending(NetDest);
     void anyMissesPending();
     void anyNoMissesPending();
     bool hasL3();

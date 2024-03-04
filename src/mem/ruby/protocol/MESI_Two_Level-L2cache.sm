@@ -626,9 +626,12 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
 
   action(s_deallocateTBE, "s", desc="Deallocate external TBE") {
     MachineID node := TBEs.lookup(address).Requestor;
+    NetDest nodes := TBEs.lookup(address).L1_GetS_IDs;
     TBEs.deallocate(address);
     unset_tbe();
-    if(TBEs.isEmpty()) {
+    if(nodes.count() > 1) {
+      cpu.l3NoMissesPending(nodes);
+    } else {
       cpu.l3NoMissesPending(node.getNum());
     }
   }
@@ -690,6 +693,9 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
     peek(L1RequestL2Network_in, RequestMsg) {
       assert(is_valid(tbe));
       tbe.L1_GetS_IDs.add(in_msg.Requestor);
+      if(tbe.Requestor != in_msg.Requestor) {
+        cpu.l3MissesPending(in_msg.Requestor.getNum());
+      }
     }
   }
 

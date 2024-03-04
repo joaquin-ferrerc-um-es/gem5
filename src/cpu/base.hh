@@ -639,9 +639,10 @@ class BaseCPU : public ClockedObject
 
     bool L3MissPending(int cpuId)
     {
-        for (int i = 0; i < cpuList.size(); i++) {
+        assert(cpuId < numSimulatedCPUs());
+        for (int i = 0; i < numSimulatedCPUs(); i++) {
             if (cpuList[i]->l3_miss_pending[cpuId] > 0) {
-              return true;
+                return true;
             }
         }
         return false;
@@ -684,11 +685,13 @@ class BaseCPU : public ClockedObject
     };
 
     void l3MissesPending(int cpu) {
+        assert(cpu < numSimulatedCPUs());
         l3_miss_pending[cpu]++; 
         any_miss_pending = true;
     };
     void l3NoMissesPending(int cpu)
     {
+        assert(cpu < numSimulatedCPUs());
         l3_miss_pending[cpu]--;
         if ((l1_miss_pending == false) && (l2_miss_pending == false) && (L3MissPending(cpuId()) == false))
 	          any_miss_pending = false;

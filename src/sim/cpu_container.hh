@@ -12,6 +12,7 @@
 #include "params/SimObject.hh"
 #include "params/CPUContainer.hh"
 #include "cpu/base.hh"
+#include "mem/ruby/common/NetDest.hh"
 
 namespace gem5
 {
@@ -37,6 +38,7 @@ public :
   inline void l2NoGetXMissesPending() { m_cpu->l2NoGetXMissesPending(); };
   inline void l3MissesPending(int cpu) { m_cpu->l3MissesPending(cpu); };
   inline void l3NoMissesPending(int cpu) { m_cpu->l3NoMissesPending(cpu); };
+  inline void l3NoMissesPending(ruby::NetDest cpus) { std::vector<ruby::NodeID> dests = cpus.getAllDest(); for (int i = 0; i < dests.size(); i++) m_cpu->l3NoMissesPending(dests[i]); };
   inline void anyMissesPending() { m_cpu->anyMissesPending(); };
   inline void anyNoMissesPending() { m_cpu->anyNoMissesPending(); };
   inline bool hasL3() { return has_l3; }

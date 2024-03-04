@@ -95,6 +95,8 @@ class InPortDeclAST(DeclAST):
             param_types.append(machine.EntryType)
         if machine.TBEType != None:
             param_types.append(machine.TBEType)
+        if machine.DirectoryEntryType != None:
+            param_types.append(machine.DirectoryEntryType)
 
         # Add the trigger method - FIXME, this is a bit dirty
         pairs = { "external" : "yes" }

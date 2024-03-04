@@ -109,7 +109,7 @@ class StateMachine(Symbol):
         self.objects = []
         self.TBEType   = None
         self.EntryType = None
-        # TODO add self.DirectoryType = None
+        self.DirectoryEntryType = None
         self.debug_flags = set()
         self.debug_flags.add('RubyGenerated')
         self.debug_flags.add('RubySlicc')
@@ -175,7 +175,13 @@ class StateMachine(Symbol):
 
         elif "interface" in type and "AbstractCacheEntry" == type["interface"]:
             if "main" in type and "false" == type["main"].lower():
-                pass # this isn't the EntryType
+                if self.DirectoryEntryType is None and self.EntryType != None:
+                    self.DirectoryEntryType = type
+                elif self.DirectoryEntryType != None and self.EntryType != None:
+                    self.error("Multiple AbstractCacheEntry types in a " \
+                               "single machine.");
+                else:
+                    pass # this isn't the EntryType
             else:
                 if self.EntryType != None:
                     self.error("Multiple AbstractCacheEntry types in a " \
@@ -370,6 +376,10 @@ TransitionResult doTransition(${ident}_Event event,
             code('''
                               ${{self.TBEType.c_ident}}* m_tbe_ptr,
 ''')
+        if self.DirectoryEntryType != None:
+            code('''
+                              ${{self.DirectoryEntryType.c_ident}}* m_directory_entry_ptr,
+''')
 
         code('''
                               Addr addr);
@@ -386,6 +396,10 @@ TransitionResult doTransitionWorker(${ident}_Event event,
         if self.EntryType != None:
             code('''
                                     ${{self.EntryType.c_ident}}*& m_cache_entry_ptr,
+''')
+        if self.DirectoryEntryType != None:
+            code('''
+                                    ${{self.DirectoryEntryType.c_ident}}*& m_directory_entry_ptr,
 ''')
 
         code('''
@@ -420,6 +434,14 @@ static int m_num_controllers;
 void set_cache_entry(${{self.EntryType.c_ident}}*& m_cache_entry_ptr, AbstractCacheEntry* m_new_cache_entry);
 void unset_cache_entry(${{self.EntryType.c_ident}}*& m_cache_entry_ptr);
 ''')
+            
+        if self.DirectoryEntryType != None:
+            code('''
+
+// Set and Reset for cache_entry variable
+void set_directory_entry(${{self.DirectoryEntryType.c_ident}}*& m_directory_entry_ptr, AbstractCacheEntry* m_new_directory_entry);
+void unset_directory_entry(${{self.DirectoryEntryType.c_ident}}*& m_directory_entry_ptr);
+''')
 
         if self.TBEType != None:
             code('''
@@ -434,22 +456,46 @@ void unset_tbe(${{self.TBEType.c_ident}}*& m_tbe_ptr);
 
 // Actions
 ''')
-        if self.TBEType != None and self.EntryType != None:
+        if self.TBEType != None and self.EntryType != None and self.DirectoryEntryType != None:
+            for action in self.actions.values():
+                code('/** \\brief ${{action.desc}} */')
+                code('void ${{action.ident}}(${{self.TBEType.c_ident}}*& '
+                     'm_tbe_ptr, ${{self.EntryType.c_ident}}*& '
+                     'm_cache_entry_ptr, ${{self.DirectoryEntryType.c_ident}}*& '
+                     'm_directory_entry_ptr, Addr addr);')
+        elif self.TBEType != None and self.EntryType != None:
             for action in self.actions.values():
                 code('/** \\brief ${{action.desc}} */')
                 code('void ${{action.ident}}(${{self.TBEType.c_ident}}*& '
                      'm_tbe_ptr, ${{self.EntryType.c_ident}}*& '
                      'm_cache_entry_ptr, Addr addr);')
+        elif self.TBEType != None and self.DirectoryEntryType != None:
+            for action in self.actions.values():
+                code('/** \\brief ${{action.desc}} */')
+                code('void ${{action.ident}}(${{self.TBEType.c_ident}}*& '
+                     'm_tbe_ptr, ${{self.DirectoryEntryType.c_ident}}*& '
+                     'm_directory_entry_ptr, Addr addr);')
         elif self.TBEType != None:
             for action in self.actions.values():
                 code('/** \\brief ${{action.desc}} */')
                 code('void ${{action.ident}}(${{self.TBEType.c_ident}}*& '
                      'm_tbe_ptr, Addr addr);')
+        elif self.EntryType != None and self.DirectoryEntryType != None:
+            for action in self.actions.values():
+                code('/** \\brief ${{action.desc}} */')
+                code('void ${{action.ident}}(${{self.EntryType.c_ident}}*& '
+                     'm_cache_entry_ptr, ${{self.DirectoryEntryType.c_ident}}*& '
+                     'm_directory_entry_ptr, Addr addr);')
         elif self.EntryType != None:
             for action in self.actions.values():
                 code('/** \\brief ${{action.desc}} */')
                 code('void ${{action.ident}}(${{self.EntryType.c_ident}}*& '
                      'm_cache_entry_ptr, Addr addr);')
+        elif self.DirectoryEntryType != None:
+            for action in self.actions.values():
+                code('/** \\brief ${{action.desc}} */')
+                code('void ${{action.ident}}(${{self.DirectoryEntryType.c_ident}}*& '
+                     'm_directory_entry_ptr, Addr addr);')
         else:
             for action in self.actions.values():
                 code('/** \\brief ${{action.desc}} */')
@@ -1051,6 +1097,23 @@ $c_ident::unset_cache_entry(${{self.EntryType.c_ident}}*& m_cache_entry_ptr)
 }
 ''')
 
+        if self.DirectoryEntryType != None:
+            code('''
+
+// Set and Reset for directory_entry variable
+void
+$c_ident::set_directory_entry(${{self.DirectoryEntryType.c_ident}}*& m_directory_entry_ptr, AbstractCacheEntry* m_new_directory_entry)
+{
+  m_directory_entry_ptr = (${{self.DirectoryEntryType.c_ident}}*)m_new_directory_entry;
+}
+
+void
+$c_ident::unset_directory_entry(${{self.DirectoryEntryType.c_ident}}*& m_directory_entry_ptr)
+{
+  m_directory_entry_ptr = 0;
+}
+''')
+
         if self.TBEType != None:
             code('''
 
@@ -1089,7 +1152,28 @@ $c_ident::recordCacheTrace(int cntrl, CacheRecorder* tr)
 
 // Actions
 ''')
-        if self.TBEType != None and self.EntryType != None:
+        if self.TBEType != None and self.EntryType != None and self.DirectoryEntryType != None:
+            for action in self.actions.values():
+                if "c_code" not in action:
+                 continue
+
+                code('''
+/** \\brief ${{action.desc}} */
+void
+$c_ident::${{action.ident}}(${{self.TBEType.c_ident}}*& m_tbe_ptr, ${{self.EntryType.c_ident}}*& m_cache_entry_ptr, ${{self.DirectoryEntryType.c_ident}}*& m_directory_entry_ptr, Addr addr)
+{
+    DPRINTF(RubyGenerated, "executing ${{action.ident}}\\n");
+    try {
+       ${{action["c_code"]}}
+    } catch (const RejectException & e) {
+       fatal("Error in action ${{ident}}:${{action.ident}}: "
+             "executed a peek statement with the wrong message "
+             "type specified. ");
+    }
+}
+
+''')
+        elif self.TBEType != None and self.EntryType != None:
             for action in self.actions.values():
                 if "c_code" not in action:
                  continue
@@ -1098,6 +1182,27 @@ $c_ident::recordCacheTrace(int cntrl, CacheRecorder* tr)
 /** \\brief ${{action.desc}} */
 void
 $c_ident::${{action.ident}}(${{self.TBEType.c_ident}}*& m_tbe_ptr, ${{self.EntryType.c_ident}}*& m_cache_entry_ptr, Addr addr)
+{
+    DPRINTF(RubyGenerated, "executing ${{action.ident}}\\n");
+    try {
+       ${{action["c_code"]}}
+    } catch (const RejectException & e) {
+       fatal("Error in action ${{ident}}:${{action.ident}}: "
+             "executed a peek statement with the wrong message "
+             "type specified. ");
+    }
+}
+
+''')
+        elif self.TBEType != None and self.DirectoryEntryType != None:
+            for action in self.actions.values():
+                if "c_code" not in action:
+                 continue
+
+                code('''
+/** \\brief ${{action.desc}} */
+void
+$c_ident::${{action.ident}}(${{self.TBEType.c_ident}}*& m_tbe_ptr, ${{self.DirectoryEntryType.c_ident}}*& m_directory_entry_ptr, Addr addr)
 {
     DPRINTF(RubyGenerated, "executing ${{action.ident}}\\n");
     try {
@@ -1125,6 +1230,21 @@ $c_ident::${{action.ident}}(${{self.TBEType.c_ident}}*& m_tbe_ptr, Addr addr)
 }
 
 ''')
+        elif self.EntryType != None and self.DirectoryEntryType != None:
+            for action in self.actions.values():
+                if "c_code" not in action:
+                 continue
+
+                code('''
+/** \\brief ${{action.desc}} */
+void
+$c_ident::${{action.ident}}(${{self.EntryType.c_ident}}*& m_cache_entry_ptr, ${{self.DirectoryEntryType.c_ident}}*& m_directory_entry_ptr, Addr addr)
+{
+    DPRINTF(RubyGenerated, "executing ${{action.ident}}\\n");
+    ${{action["c_code"]}}
+}
+
+''')
         elif self.EntryType != None:
             for action in self.actions.values():
                 if "c_code" not in action:
@@ -1134,6 +1254,21 @@ $c_ident::${{action.ident}}(${{self.TBEType.c_ident}}*& m_tbe_ptr, Addr addr)
 /** \\brief ${{action.desc}} */
 void
 $c_ident::${{action.ident}}(${{self.EntryType.c_ident}}*& m_cache_entry_ptr, Addr addr)
+{
+    DPRINTF(RubyGenerated, "executing ${{action.ident}}\\n");
+    ${{action["c_code"]}}
+}
+
+''')
+        elif self.DirectoryEntryType != None:
+            for action in self.actions.values():
+                if "c_code" not in action:
+                 continue
+
+                code('''
+/** \\brief ${{action.desc}} */
+void
+$c_ident::${{action.ident}}(${{self.DirectoryEntryType.c_ident}}*& m_directory_entry_ptr, Addr addr)
 {
     DPRINTF(RubyGenerated, "executing ${{action.ident}}\\n");
     ${{action["c_code"]}}
@@ -1408,18 +1543,30 @@ ${ident}_Controller::doTransition(${ident}_Event event,
             code('''
                                   ${{self.TBEType.c_ident}}* m_tbe_ptr,
 ''')
+        if self.DirectoryEntryType != None:
+            code('''
+                                  ${{self.DirectoryEntryType.c_ident}}* m_directory_entry_ptr,
+''')
         code('''
                                   Addr addr)
 {
 ''')
         code.indent()
 
-        if self.TBEType != None and self.EntryType != None:
+        if self.TBEType != None and self.EntryType != None and self.DirectoryEntryType != None:
+            code('${ident}_State state = getState(m_tbe_ptr, m_cache_entry_ptr, m_directory_entry_ptr, addr);')
+        elif self.TBEType != None and self.EntryType != None:
             code('${ident}_State state = getState(m_tbe_ptr, m_cache_entry_ptr, addr);')
+        elif self.TBEType != None and self.DirectoryEntryType != None:
+            code('${ident}_State state = getState(m_tbe_ptr, m_directory_entry_ptr, addr);')
         elif self.TBEType != None:
             code('${ident}_State state = getState(m_tbe_ptr, addr);')
+        elif self.EntryType != None and self.DirectoryEntryType != None:
+            code('${ident}_State state = getState(m_cache_entry_ptr, m_directory_entry_ptr, addr);')
         elif self.EntryType != None:
             code('${ident}_State state = getState(m_cache_entry_ptr, addr);')
+        elif self.DirectoryEntryType != None:
+            code('${ident}_State state = getState(m_directory_entry_ptr, addr);')
         else:
             code('${ident}_State state = getState(addr);')
 
@@ -1432,12 +1579,20 @@ DPRINTF(RubyGenerated, "%s, Time: %lld, state: %s, event: %s, addr: %#x\\n",
 
 TransitionResult result =
 ''')
-        if self.TBEType != None and self.EntryType != None:
+        if self.TBEType != None and self.EntryType != None and self.DirectoryEntryType != None:
+            code('doTransitionWorker(event, state, next_state, m_tbe_ptr, m_cache_entry_ptr, m_directory_entry_ptr, addr);')
+        elif self.TBEType != None and self.EntryType != None:
             code('doTransitionWorker(event, state, next_state, m_tbe_ptr, m_cache_entry_ptr, addr);')
+        elif self.TBEType != None and self.DirectoryEntryType != None:
+            code('doTransitionWorker(event, state, next_state, m_tbe_ptr, m_directory_entry_ptr, addr);')
         elif self.TBEType != None:
             code('doTransitionWorker(event, state, next_state, m_tbe_ptr, addr);')
+        elif self.EntryType != None and self.DirectoryEntryType != None:
+            code('doTransitionWorker(event, state, next_state, m_cache_entry_ptr, m_directory_entry_ptr, addr);')
         elif self.EntryType != None:
             code('doTransitionWorker(event, state, next_state, m_cache_entry_ptr, addr);')
+        elif self.DirectoryEntryType != None:
+            code('doTransitionWorker(event, state, next_state, m_directory_entry_ptr, addr);')
         else:
             code('doTransitionWorker(event, state, next_state, addr);')
 
@@ -1459,15 +1614,27 @@ if (result == TransitionResult_Valid) {
 
     CLEAR_TRANSITION_COMMENT();
 ''')
-        if self.TBEType != None and self.EntryType != None:
+        if self.TBEType != None and self.EntryType != None and self.DirectoryEntryType:
+            code('setState(m_tbe_ptr, m_cache_entry_ptr, m_directory_entry_ptr, addr, next_state);')
+            code('setAccessPermission(m_cache_entry_ptr, m_directory_entry_ptr, addr, next_state);')
+        elif self.TBEType != None and self.EntryType != None:
             code('setState(m_tbe_ptr, m_cache_entry_ptr, addr, next_state);')
             code('setAccessPermission(m_cache_entry_ptr, addr, next_state);')
+        elif self.TBEType != None and self.DirectoryEntryType != None:
+            code('setState(m_tbe_ptr, m_directory_entry_ptr, addr, next_state);')
+            code('setAccessPermission(m_directory_entry_ptr, addr, next_state);')
         elif self.TBEType != None:
             code('setState(m_tbe_ptr, addr, next_state);')
             code('setAccessPermission(addr, next_state);')
+        elif self.EntryType != None and self.DirectoryEntryType != None:
+            code('setState(m_cache_entry_ptr, m_directory_entry_ptr, addr, next_state);')
+            code('setAccessPermission(m_cache_entry_ptr, m_directory_entry_ptr, addr, next_state);')
         elif self.EntryType != None:
             code('setState(m_cache_entry_ptr, addr, next_state);')
             code('setAccessPermission(m_cache_entry_ptr, addr, next_state);')
+        elif self.DirectoryEntryType != None:
+            code('setState(m_directory_entry_ptr, addr, next_state);')
+            code('setAccessPermission(m_directory_entry_ptr, addr, next_state);')
         else:
             code('setState(addr, next_state);')
             code('setAccessPermission(addr, next_state);')
@@ -1509,6 +1676,10 @@ ${ident}_Controller::doTransitionWorker(${ident}_Event event,
         if self.EntryType != None:
                   code('''
                                         ${{self.EntryType.c_ident}}*& m_cache_entry_ptr,
+''')
+        if self.DirectoryEntryType != None:
+                  code('''
+                                        ${{self.DirectoryEntryType.c_ident}}*& m_directory_entry_ptr,
 ''')
         code('''
                                         Addr addr)
@@ -1584,15 +1755,27 @@ if (!checkResourceAvailable(%s_RequestType_%s, addr)) {
             if stall:
                 case('return TransitionResult_ProtocolStall;')
             else:
-                if self.TBEType != None and self.EntryType != None:
+                if self.TBEType != None and self.EntryType != None and self.DirectoryEntryType != None:
+                    for action in actions:
+                        case('${{action.ident}}(m_tbe_ptr, m_cache_entry_ptr, m_directory_entry_ptr, addr);')
+                elif self.TBEType != None and self.EntryType != None:
                     for action in actions:
                         case('${{action.ident}}(m_tbe_ptr, m_cache_entry_ptr, addr);')
+                elif self.TBEType != None and self.DirectoryEntryType != None:
+                    for action in actions:
+                        case('${{action.ident}}(m_tbe_ptr, m_directory_entry_ptr, addr);')
                 elif self.TBEType != None:
                     for action in actions:
                         case('${{action.ident}}(m_tbe_ptr, addr);')
+                elif self.EntryType != None and self.DirectoryEntryType != None:
+                    for action in actions:
+                        case('${{action.ident}}(m_cache_entry_ptr, m_directory_entry_ptr, addr);')
                 elif self.EntryType != None:
                     for action in actions:
                         case('${{action.ident}}(m_cache_entry_ptr, addr);')
+                elif self.DirectoryEntryType != None:
+                    for action in actions:
+                        case('${{action.ident}}(m_directory_entry_ptr, addr);')
                 else:
                     for action in actions:
                         case('${{action.ident}}(addr);')

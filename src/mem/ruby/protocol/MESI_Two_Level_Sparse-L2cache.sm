@@ -174,6 +174,8 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
 
   void set_cache_entry(AbstractCacheEntry a);
   void unset_cache_entry();
+  void set_directory_entry(AbstractCacheEntry a);
+  void unset_directory_entry();
   void set_tbe(TBE a);
   void unset_tbe();
   void wakeUpBuffers(Addr a);
@@ -204,25 +206,16 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
     directory_entry.Sharers.add(requestor);
   }
 
-  State getState(TBE tbe, Entry cache_entry, Addr addr) {
+  State getState(TBE tbe, Entry cache_entry, DirectoryEntry directory_entry, Addr addr) {
     if(is_valid(tbe)) {
       return tbe.TBEState;
-    } else if(is_valid(cache_entry)) {
-      return getDirectoryEntry(addr).CacheState;
-    }
-    return State:NP;
-  }
-
-  State getState(TBE tbe, DirectoryEntry directory_entry, Addr addr) {
-    if(is_valid(tbe)) {
-      return tbe.TBEState;
-    } else if (is_valid(directory_entry)) {
+    } else if(is_valid(directory_entry)) {
       return directory_entry.CacheState;
     }
     return State:NP;
   }
 
-  void setState(TBE tbe, DirectoryEntry directory_entry, Addr addr, State state) {
+  void setState(TBE tbe, Entry cache_entry, DirectoryEntry directory_entry, Addr addr, State state) {
     // MUST CHANGE
     if (is_valid(tbe)) {
       tbe.TBEState := state;
@@ -230,17 +223,6 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
 
     if (is_valid(directory_entry)) {
       directory_entry.CacheState := state;
-    }
-  }
-
-  void setState(TBE tbe, Entry cache_entry, Addr addr, State state) {
-    // MUST CHANGE
-    if (is_valid(tbe)) {
-      tbe.TBEState := state;
-    }
-
-    if (is_valid(cache_entry)) {
-      getDirectoryEntry(addr).CacheState := state;
     }
   }
 
@@ -285,7 +267,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
     return num_functional_writes;
   }
 
-  void setAccessPermission(Entry cache_entry, Addr addr, State state) {
+  void setAccessPermission(Entry cache_entry, DirectoryEntry directory_entry, Addr addr, State state) {
     if (is_valid(cache_entry)) {
       cache_entry.changePermission(L2Cache_State_to_permission(state));
     }
@@ -340,14 +322,14 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
         DirectoryEntry directory_entry := getDirectoryEntry(in_msg.addr);
         TBE tbe := TBEs[in_msg.addr];
         DPRINTF(RubySlicc, "Addr: %#x State: %s Sender: %s Type: %s Dest: %s\n",
-                in_msg.addr, getState(tbe, directory_entry, in_msg.addr),
+                in_msg.addr, getState(tbe, cache_entry, directory_entry, in_msg.addr),
                 in_msg.Sender, in_msg.Type, in_msg.Destination);
 
         assert(in_msg.Destination.isElement(machineID));
         if (in_msg.Type == CoherenceResponseType:EXCLUSIVE_UNBLOCK) {
-          trigger(Event:Exclusive_Unblock, in_msg.addr, cache_entry, tbe);
+          trigger(Event:Exclusive_Unblock, in_msg.addr, cache_entry, tbe, directory_entry);
         } else if (in_msg.Type == CoherenceResponseType:UNBLOCK) {
-          trigger(Event:Unblock, in_msg.addr, cache_entry, tbe);
+          trigger(Event:Unblock, in_msg.addr, cache_entry, tbe, directory_entry);
         } else {
           error("unknown unblock message");
         }
@@ -368,15 +350,15 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
         if(machineIDToMachineType(in_msg.Sender) == MachineType:L1Cache) {
           if(in_msg.Type == CoherenceResponseType:DATA) {
             if (in_msg.Dirty) {
-              trigger(Event:WB_Data, in_msg.addr, cache_entry, tbe);
+              trigger(Event:WB_Data, in_msg.addr, cache_entry, tbe, directory_entry);
             } else {
-              trigger(Event:WB_Data_clean, in_msg.addr, cache_entry, tbe);
+              trigger(Event:WB_Data_clean, in_msg.addr, cache_entry, tbe, directory_entry);
             }
           } else if (in_msg.Type == CoherenceResponseType:ACK) {
             if ((getPendingAcks(tbe) - in_msg.AckCount) == 0) {
-              trigger(Event:Ack_all, in_msg.addr, cache_entry, tbe);
+              trigger(Event:Ack_all, in_msg.addr, cache_entry, tbe, directory_entry);
             } else {
-              trigger(Event:Ack, in_msg.addr, cache_entry, tbe);
+              trigger(Event:Ack, in_msg.addr, cache_entry, tbe, directory_entry);
             }
           } else {
             error("unknown message type");
@@ -384,11 +366,11 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
 
         } else { // external message
           if(in_msg.Type == CoherenceResponseType:MEMORY_DATA) {
-              trigger(Event:Mem_Data, in_msg.addr, cache_entry, tbe);
+              trigger(Event:Mem_Data, in_msg.addr, cache_entry, tbe, directory_entry);
           } else if(in_msg.Type == CoherenceResponseType:MEMORY_ACK) {
-              trigger(Event:Mem_Ack, in_msg.addr, cache_entry, tbe);
+              trigger(Event:Mem_Ack, in_msg.addr, cache_entry, tbe, directory_entry);
           } else if(in_msg.Type == CoherenceResponseType:INV) {
-              trigger(Event:MEM_Inv, in_msg.addr, cache_entry, tbe);
+              trigger(Event:MEM_Inv, in_msg.addr, cache_entry, tbe, directory_entry);
           } else {
             error("unknown message type");
           }
@@ -406,7 +388,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
         TBE tbe := TBEs[in_msg.addr];
 
         DPRINTF(RubySlicc, "Addr: %#x State: %s Req: %s Type: %s Dest: %s\n",
-                in_msg.addr, getState(tbe, directory_entry, in_msg.addr),
+                in_msg.addr, getState(tbe, cache_entry, directory_entry, in_msg.addr),
                 in_msg.Requestor, in_msg.Type, in_msg.Destination);
 
         assert(machineIDToMachineType(in_msg.Requestor) == MachineType:L1Cache);
@@ -416,22 +398,23 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
           // The L2 contains the block, so proceeded with handling the request
           trigger(L1Cache_request_type_to_event(in_msg.Type, in_msg.addr,
                                                 in_msg.Requestor, directory_entry),
-                  in_msg.addr, cache_entry, tbe);
+                  in_msg.addr, cache_entry, tbe, directory_entry);
         } else {
           if (L2cache.cacheAvail(in_msg.addr)) {
             // L2 does't have the line, but we have space for it in the L2
             trigger(L1Cache_request_type_to_event(in_msg.Type, in_msg.addr,
                                                   in_msg.Requestor, directory_entry),
-                    in_msg.addr, cache_entry, tbe);
+                    in_msg.addr, cache_entry, tbe, directory_entry);
           } else {
             // No room in the L2, so we need to make room before handling the request
             Addr victim := L2cache.cacheProbe(in_msg.addr);
             Entry L2cache_entry := getCacheEntry(victim);
+            DirectoryEntry L2directory_entry := getDirectoryEntry(victim);
             if (isDirty(L2cache_entry)) {
-              trigger(Event:L2_Replacement, victim, L2cache_entry, TBEs[victim]);
+              trigger(Event:L2_Replacement, victim, L2cache_entry, TBEs[victim], L2directory_entry);
             } else {
               trigger(Event:L2_Replacement_clean,
-                      victim, L2cache_entry, TBEs[victim]);
+                      victim, L2cache_entry, TBEs[victim], L2directory_entry);
             }
           }
         }
@@ -510,7 +493,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
     peek(L1RequestL2Network_in, RequestMsg) {
       enqueue(responseL2Network_out, ResponseMsg, l2_response_latency) {
         assert(is_valid(cache_entry));
-        DirectoryEntry directory_entry := getDirectoryEntry(in_msg.addr);
+        // DirectoryEntry directory_entry := getDirectoryEntry(in_msg.addr);
         assert(is_valid(directory_entry));
         out_msg.addr := address;
         out_msg.Type := CoherenceResponseType:DATA;
@@ -531,7 +514,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
     peek(L1RequestL2Network_in, RequestMsg) {
       enqueue(responseL2Network_out, ResponseMsg, l2_response_latency) {
         assert(is_valid(cache_entry));
-        DirectoryEntry directory_entry := getDirectoryEntry(in_msg.addr);
+        // DirectoryEntry directory_entry := getDirectoryEntry(in_msg.addr);
         assert(is_valid(directory_entry));
         out_msg.addr := address;
         out_msg.Type := CoherenceResponseType:DATA_EXCLUSIVE;
@@ -609,7 +592,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
 
   action(f_sendInvToSharers, "f", desc="invalidate sharers for L2 replacement") {
     enqueue(L1RequestL2Network_out, RequestMsg, to_l1_latency) {
-      DirectoryEntry directory_entry := getDirectoryEntry(address);
+      // DirectoryEntry directory_entry := getDirectoryEntry(address);
       assert(is_valid(directory_entry));
       out_msg.addr := address;
       out_msg.Type := CoherenceRequestType:INV;
@@ -622,7 +605,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
   action(fw_sendFwdInvToSharers, "fw", desc="invalidate sharers for request") {
     peek(L1RequestL2Network_in, RequestMsg) {
       enqueue(L1RequestL2Network_out, RequestMsg, to_l1_latency) {
-        DirectoryEntry directory_entry := getDirectoryEntry(in_msg.addr);
+        // DirectoryEntry directory_entry := getDirectoryEntry(in_msg.addr);
         assert(is_valid(directory_entry));
         out_msg.addr := address;
         out_msg.Type := CoherenceRequestType:INV;
@@ -636,7 +619,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
   action(fwm_sendFwdInvToSharersMinusRequestor, "fwm", desc="invalidate sharers for request, requestor is sharer") {
     peek(L1RequestL2Network_in, RequestMsg) {
       enqueue(L1RequestL2Network_out, RequestMsg, to_l1_latency) {
-        DirectoryEntry directory_entry := getDirectoryEntry(in_msg.addr);
+        // DirectoryEntry directory_entry := getDirectoryEntry(in_msg.addr);
         assert(is_valid(directory_entry));
         out_msg.addr := address;
         out_msg.Type := CoherenceRequestType:INV;
@@ -653,7 +636,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
     peek(L1RequestL2Network_in, RequestMsg) {
       check_allocate(TBEs);
       assert(is_valid(cache_entry));
-      DirectoryEntry directory_entry := getDirectoryEntry(address);
+      // DirectoryEntry directory_entry := getDirectoryEntry(address);
       assert(is_valid(directory_entry));
       TBEs.allocate(address);
       set_tbe(TBEs[address]);
@@ -668,9 +651,12 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
 
   action(s_deallocateTBE, "s", desc="Deallocate external TBE") {
     MachineID node := TBEs.lookup(address).Requestor;
+    NetDest nodes := TBEs.lookup(address).L1_GetS_IDs;
     TBEs.deallocate(address);
     unset_tbe();
-    if(TBEs.isEmpty()) {
+    if(nodes.count() > 1) {
+      cpu.l3NoMissesPending(nodes);
+    } else {
       cpu.l3NoMissesPending(node.getNum());
     }
   }
@@ -732,6 +718,9 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
     peek(L1RequestL2Network_in, RequestMsg) {
       assert(is_valid(tbe));
       tbe.L1_GetS_IDs.add(in_msg.Requestor);
+      if(tbe.Requestor != in_msg.Requestor) {
+        cpu.l3MissesPending(in_msg.Requestor.getNum());
+      }
     }
   }
 
@@ -749,7 +738,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
   action(qq_allocateL2CacheBlock, "\q", desc="Set L2 cache tag equal to tag of block B.") {
     if (is_invalid(cache_entry)) {
       set_cache_entry(L2cache.allocate(address, new Entry));
-      Directory.allocate(address, new DirectoryEntry);
+      set_directory_entry(Directory.allocate(address, new DirectoryEntry));
     }
   }
 
@@ -757,6 +746,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
     L2cache.deallocate(address);
     Directory.deallocate(address);
     unset_cache_entry();
+    unset_directory_entry();
   }
 
   action(t_sendWBAck, "t", desc="Send writeback ACK") {

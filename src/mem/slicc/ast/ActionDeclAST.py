@@ -67,6 +67,11 @@ class ActionDeclAST(DeclAST):
                           machine.EntryType, "m_cache_entry_ptr", self.pairs)
                 self.symtab.newSymbol(var)
 
+            if machine.DirectoryEntryType != None:
+                var = Var(self.symtab, "directory_entry", self.location,
+                          machine.DirectoryEntryType, "m_directory_entry_ptr", self.pairs)
+                self.symtab.newSymbol(var)
+
             # Do not allows returns in actions
             code = self.slicc.codeFormatter()
             self.statement_list.generate(code, None)

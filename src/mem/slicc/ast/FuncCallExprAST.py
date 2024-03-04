@@ -145,7 +145,15 @@ class FuncCallExprAST(ExprAST):
             code('''
 {
 ''')
-            if machine.TBEType != None and machine.EntryType != None:
+            if machine.TBEType != None and machine.EntryType != None and machine.DirectoryEntryType != None:
+                code('''
+    TransitionResult result = doTransition(${{cvec[0]}}, ${{cvec[2]}}, ${{cvec[3]}}, ${{cvec[4]}}, ${{cvec[1]}});
+''')
+            elif machine.TBEType != None and machine.EntryType != None:
+                code('''
+    TransitionResult result = doTransition(${{cvec[0]}}, ${{cvec[2]}}, ${{cvec[3]}}, ${{cvec[1]}});
+''')
+            elif machine.TBEType != None and machine.DirectoryEntryType != None:
                 code('''
     TransitionResult result = doTransition(${{cvec[0]}}, ${{cvec[2]}}, ${{cvec[3]}}, ${{cvec[1]}});
 ''')
@@ -153,7 +161,15 @@ class FuncCallExprAST(ExprAST):
                 code('''
     TransitionResult result = doTransition(${{cvec[0]}}, ${{cvec[2]}}, ${{cvec[1]}});
 ''')
+            elif machine.EntryType != None and machine.DirectoryEntryType != None:
+                code('''
+    TransitionResult result = doTransition(${{cvec[0]}}, ${{cvec[2]}}, ${{cvec[3]}}, ${{cvec[1]}});
+''')
             elif machine.EntryType != None:
+                code('''
+    TransitionResult result = doTransition(${{cvec[0]}}, ${{cvec[2]}}, ${{cvec[1]}});
+''')
+            elif machine.DirectoryEntryType != None:
                 code('''
     TransitionResult result = doTransition(${{cvec[0]}}, ${{cvec[2]}}, ${{cvec[1]}});
 ''')
@@ -227,6 +243,10 @@ if (!(${{cvec[0]}})) {
             code("set_cache_entry(m_cache_entry_ptr, %s);" %(cvec[0]));
         elif self.proc_name == "unset_cache_entry":
             code("unset_cache_entry(m_cache_entry_ptr);");
+        elif self.proc_name == "set_directory_entry":
+            code("set_directory_entry(m_directory_entry_ptr, %s);" %(cvec[0]));
+        elif self.proc_name == "unset_directory_entry":
+            code("unset_directory_entry(m_directory_entry_ptr);");
         elif self.proc_name == "set_tbe":
             code("set_tbe(m_tbe_ptr, %s);" %(cvec[0]));
         elif self.proc_name == "unset_tbe":

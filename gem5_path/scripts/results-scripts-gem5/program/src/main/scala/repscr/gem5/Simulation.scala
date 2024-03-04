@@ -188,10 +188,10 @@ class SimulationMix(val simulations: Iterable[Gem5DataPoint]) extends Gem5DataPo
   override def files = simulations flatMap (_.files)
 
   def removeOutliers(
-    max_relative_error: Double = .15,
+    max_relative_error: Double = .05,
     fn: Gem5DataPoint => Any = _.sim_ticks,
     remove_highest_values: Boolean = true, // if true remove higest values, which makes sense only if we assume that outliers are due to long running page faults. If false, choose the point with highest deviation from average
-    strict_removal: Boolean = true, // never remove a point if it would increase the relative error (it is most likely not really an outlier iin that case). Can happen if remove_highes_values is true
+    strict_removal: Boolean = false, // never remove a point if it would increase the relative error (it is most likely not really an outlier iin that case). Can happen if remove_highes_values is true
     min_points: Int = 4,
     log: Boolean = true): SimulationMix = {
 

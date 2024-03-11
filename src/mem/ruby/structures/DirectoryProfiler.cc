@@ -20,21 +20,21 @@ DirectoryProfiler::DirectoryProfiler(RubySystem* rs)
 DirectoryProfiler::
 DirectoryProfilerStats::DirectoryProfilerStats(statistics::Group *parent)
   : statistics::Group(parent), Named("DirectoryProfilerStats"),
-      ADD_STAT(jfcSharersPerLine, "Number of sharers per cache line"),
-      ADD_STAT(jfcDirectoryUsage, "Percentage of directory usage"),
-      ADD_STAT(jfcNumIterations, "Number of iterations if JFC stats")
+      ADD_STAT(impreciseSharersPerLine, "Number of sharers per cache line"),
+      ADD_STAT(impreciseDirectoryUsage, "Percentage of directory usage"),
+      ADD_STAT(impreciseNumIterations, "Number of iterations if Imprecise stats")
 {
     DPRINTF(DirectoryProfiler, "DirectoryProfilerStats created\n");
 
-    jfcNumIterations
+    impreciseNumIterations
         .flags(statistics::nozero);
 
-    jfcSharersPerLine
+    impreciseSharersPerLine
         .init(MachineType_base_count(MachineType_L1Cache) ? MachineType_base_count(MachineType_L1Cache)+1 : 257)
         //.init(65)
         .flags(statistics::pdf | statistics::dist | statistics::nonan);
 
-    jfcDirectoryUsage
+    impreciseDirectoryUsage
         .init(10)
         .flags(statistics::pdf | statistics::dist | statistics::nonan);
 }
@@ -65,9 +65,9 @@ void
 DirectoryProfiler::profilePrecision()
 {
     DPRINTF(DirectoryProfiler, "DirectoryProfiler profilePrecision called\n");
-    directoryProfilerStats.jfcNumIterations++;
+    directoryProfilerStats.impreciseNumIterations++;
     for (int i = 0; i < numCaches; i++) {
-        caches[i]->getPrecisionStats(directoryProfilerStats.jfcSharersPerLine, directoryProfilerStats.jfcDirectoryUsage);
+        caches[i]->getPrecisionStats(directoryProfilerStats.impreciseSharersPerLine, directoryProfilerStats.impreciseDirectoryUsage);
     }
 }
 

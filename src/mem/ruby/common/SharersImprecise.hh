@@ -1,5 +1,5 @@
-#ifndef __MEM_RUBY_COMMON_SHARERSJFC_HH__
-#define __MEM_RUBY_COMMON_SHARERSJFC_HH__
+#ifndef __MEM_RUBY_COMMON_SHARERSIMPRECISE_HH__
+#define __MEM_RUBY_COMMON_SHARERSIMPRECISE_HH__
 
 #include "mem/ruby/common/NetDest.hh"
 
@@ -12,7 +12,7 @@ namespace ruby
 
 #define MACHINETYPE MachineType_L1Cache
 #define NUMNODES MachineType_base_count(MACHINETYPE)
-#define JFCREPRESENTATION RubySystem::getJFCRepresentation()
+#define IMPRECISEREPRESENTATION RubySystem::getImpreciseRepresentation()
 
 // Sharers Set
 #define MAXPOINTERS RubySystem::getLP()
@@ -31,7 +31,7 @@ enum Direction
   UP, DOWN, LEFT, RIGHT
 };
 
-enum JFCRepresentation
+enum ImpreciseRepresentation
 {
   LP, CBV, DASC
 };
@@ -48,11 +48,11 @@ enum TypeRepresentationCBV
     Representation_CoarseBitVector
 };
 
-class SharersJFC
+class SharersImprecise
 {
   public:
-    SharersJFC();
-    ~SharersJFC() {};
+    SharersImprecise();
+    ~SharersImprecise() {};
     void add(MachineID newSharer);
     void remove(MachineID oldSharer);
     void clear();
@@ -61,7 +61,7 @@ class SharersJFC
     void resize();
     void print(std::ostream& out) const;
   private:
-    JFCRepresentation JFCRep;
+    ImpreciseRepresentation ImpreciseRep;
 
     // Sharers Set
     Set sharers;
@@ -84,7 +84,7 @@ class SharersJFC
 };
 
 inline std::ostream&
-operator<<(std::ostream& out, const SharersJFC& obj)
+operator<<(std::ostream& out, const SharersImprecise& obj)
 {
     obj.print(out);
     out << std::flush;
@@ -95,4 +95,4 @@ operator<<(std::ostream& out, const SharersJFC& obj)
 } // namespace gem5
 
 
-#endif // __MEM_RUBY_COMMON_SHARERSJFC_HH__
+#endif // __MEM_RUBY_COMMON_SHARERSIMPRECISE_HH__

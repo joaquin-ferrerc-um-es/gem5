@@ -211,12 +211,11 @@ def create_system(options, full_system, system, piobus = None, dma_ports = [],
 
     # LP: pass limited pointers to RubySystem
     ruby.limited_pointers = -1
-    if buildEnv['PROTOCOL'] == 'MESI_Three_Level_LP' or \
-       buildEnv['PROTOCOL'] == 'MESI_Three_Level_JFC':
+    if buildEnv['PROTOCOL'] == 'MESI_Three_Level_Imprecise':
         ruby.limited_pointers = options.l2_lp
 
-    if buildEnv['PROTOCOL'] == 'MESI_Three_Level_JFC':
-        ruby.jfc_representation = options.jfc_representation
+    if buildEnv['PROTOCOL'] == 'MESI_Three_Level_Imprecise':
+        ruby.imprecise_representation = options.imprecise_representation
 
     protocol = buildEnv['PROTOCOL']
     exec("from . import %s" % protocol)

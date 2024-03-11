@@ -22,7 +22,6 @@ Option("parsec_arch", str, # derived from arch, but a different notation
        siminfo_exclude = True)
 Option("protocol", str,
        gem5_option_use = "no",
-       launchscript_option = "yes",
        descr_dir = "{value}")
 Option("cpu_model", str,
        gem5_option_use = "no",
@@ -315,8 +314,8 @@ Option("cache_l2_assoc", int,
 Option("cache_l2_lp", int,
        gem5_option = "l2_lp",
        descr_dir = "{value}lp")
-Option("jfc_representation", str,
-       gem5_option = "jfc_representation",
+Option("imprecise_representation", str,
+       gem5_option = "imprecise_representation",
        descr_dir = "{value}")
 
 # Cache replacement policies options

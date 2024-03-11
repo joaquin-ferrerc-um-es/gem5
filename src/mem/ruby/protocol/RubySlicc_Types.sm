@@ -149,7 +149,7 @@ structure (SharersDash, external = "yes", non_obj="yes") {
   NetDest getSharers();
 }*/
 
-structure (SharersJFC, external = "yes", non_obj="yes") {
+structure (SharersImprecise, external = "yes", non_obj="yes") {
   void add(MachineID);
   void remove(MachineID);
   void clear();
@@ -244,10 +244,10 @@ structure(RubyRequest, desc="...", interface="Message", external="yes") {
 
 structure(AbstractCacheEntry, primitive="yes", external = "yes") {
   void changePermission(AccessPermission);
-  void addSharerJFC(MachineID);
-  void removeSharerJFC(MachineID);
-  void clearSharersJFC();
-  NetDest getSharersJFC();
+  void addSharerImprecise(MachineID);
+  void removeSharerImprecise(MachineID);
+  void clearSharersImprecise();
+  NetDest getSharersImprecise();
 }
 
 structure (DirectoryMemory, external = "yes") {
@@ -371,10 +371,10 @@ structure (CPUContainer, external = "yes") {
     void l1NoMissesPending();
     void l2MissesPending();
     void l2NoMissesPending();
-    void l2GetSMissesPending();
-    void l2NoGetSMissesPending();
-    void l2GetXMissesPending();
-    void l2NoGetXMissesPending();
+    void l2FwdGetSMissesPending(NodeID);
+    void l2NoFwdGetSMissesPending();
+    void l2FwdGetXMissesPending(NodeID);
+    void l2NoFwdGetXMissesPending();
     void l3MissesPending(NodeID);
     void l3NoMissesPending(NodeID);
     void l3NoMissesPending(NetDest);

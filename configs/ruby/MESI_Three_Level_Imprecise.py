@@ -40,7 +40,7 @@ from common import FileSystemConfig
 #
 class L0Cache(RubyCache): pass
 class L1Cache(RubyCache): pass
-class L2Cache(RubyCache): pass
+class L2Cache(RubyDirectoryCache): pass
 
 def define_options(parser):
     parser.add_argument(
@@ -58,13 +58,14 @@ def define_options(parser):
         "--enable-prefetch", action="store_true", default=False,
         help="Enable Ruby hardware prefetcher")
     parser.add_argument("--l2_lp", type=int, default=2)
+    parser.add_argument("--imprecise_representation", type=str, default="lp")
     return
 
 def create_system(options, full_system, system, dma_ports, bootmem,
                   ruby_system, cpus):
 
-    if buildEnv['PROTOCOL'] != 'MESI_Three_Level_LP':
-        fatal("This script requires the MESI_Three_Level_LP protocol to be\
+    if buildEnv['PROTOCOL'] != 'MESI_Three_Level_Imprecise':
+        fatal("This script requires the MESI_Three_Level_Imprecise protocol to be\
                built.")
 
     cpu_sequencers = []
@@ -140,6 +141,11 @@ def create_system(options, full_system, system, dma_ports, bootmem,
 
             l0_cntrl.sequencer = cpu_seq
 
+            # Top-Down model stats container
+            l0_cntrl.cpu = CPUContainer()
+            l0_cntrl.cpu.cpu = system.cpu[j]
+            l0_cntrl.cpu.hasl3 = True
+
             l1_cache = L1Cache(size = options.l1d_size,
                                assoc = options.l1d_assoc,
                                start_index_bit = block_size_bits,
@@ -163,6 +169,11 @@ def create_system(options, full_system, system, dma_ports, bootmem,
             cpu_sequencers.append(cpu_seq)
             l0_cntrl_nodes.append(l0_cntrl)
             l1_cntrl_nodes.append(l1_cntrl)
+
+            # Top-Down model stats container
+            l1_cntrl.cpu = CPUContainer()
+            l1_cntrl.cpu.cpu = system.cpu[j]
+            l1_cntrl.cpu.hasl3 = True
 
             # Connect the L0 and L1 controllers
             l0_cntrl.prefetchQueue = MessageBuffer()
@@ -201,6 +212,11 @@ def create_system(options, full_system, system, dma_ports, bootmem,
             exec("ruby_system.l2_cntrl%d = l2_cntrl"
                  % (i * num_l2caches_per_cluster + j))
             l2_cntrl_nodes.append(l2_cntrl)
+
+            # Top-Down model stats container
+            l2_cntrl.cpu = CPUContainer()
+            l2_cntrl.cpu.cpu = system.cpu[j]
+            l2_cntrl.cpu.hasl3 = True
 
             # Connect the L2 controllers and the network
             l2_cntrl.DirRequestFromL2Cache = MessageBuffer()

@@ -194,7 +194,7 @@ class SimObject : public EventManager, public Serializable, public Drainable,
      */
     virtual void init();
 
-    // JFC Statistics
+    // Imprecise Statistics
     virtual void getPrecisionStats(statistics::Histogram& SPL, statistics::Histogram& PO) { return; }
 
     /**

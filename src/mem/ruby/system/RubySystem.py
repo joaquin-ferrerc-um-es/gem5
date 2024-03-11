@@ -58,4 +58,4 @@ class RubySystem(ClockedObject):
 
     limited_pointers = Param.Int("")
     network_mesh_rows = Param.Int("")
-    jfc_representation = Param.String("lp", "JFC representation used");
+    imprecise_representation = Param.String("lp", "Imprecise representation used");

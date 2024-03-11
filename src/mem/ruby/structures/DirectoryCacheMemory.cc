@@ -137,7 +137,7 @@ DirectoryCacheMemory::getPrecisionStats(statistics::Histogram& SPL, statistics::
             if ((m_cache[i][j] != nullptr && m_cache[i][j]->getPermission() != AccessPermission_NotPresent)
                  && (m_cache[i][j]->getPermission() != AccessPermission_Invalid)) {
                     numLineasOcupadas++;
-                    SPL.sample(m_cache[i][j]->Sharers_JFC->getSharers().count());
+                    SPL.sample(m_cache[i][j]->Sharers_Imprecise->getSharers().count());
                  }
         }
     }

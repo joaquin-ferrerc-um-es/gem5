@@ -1,4 +1,4 @@
-#include "mem/ruby/common/SharersJFC.hh"
+#include "mem/ruby/common/SharersImprecise.hh"
 
 #include "mem/ruby/system/RubySystem.hh"
 
@@ -8,22 +8,22 @@ namespace gem5
 namespace ruby
 {
 
-SharersJFC::SharersJFC()
+SharersImprecise::SharersImprecise()
 {
-  if (JFCREPRESENTATION == "lp") {
-    JFCRep = LP;
+  if (IMPRECISEREPRESENTATION == "lp") {
+    ImpreciseRep = LP;
   }
-  else if (JFCREPRESENTATION == "coarse_bit_vector") {
-    JFCRep = CBV;
+  else if (IMPRECISEREPRESENTATION == "coarse_bit_vector") {
+    ImpreciseRep = CBV;
   }
-  else if (JFCREPRESENTATION == "dasc") {
-    JFCRep = DASC;
+  else if (IMPRECISEREPRESENTATION == "dasc") {
+    ImpreciseRep = DASC;
   }
   else {
     assert(false);
   }
 
-  switch (JFCRep)
+  switch (ImpreciseRep)
   {
   case LP:
   {
@@ -52,7 +52,7 @@ SharersJFC::SharersJFC()
 }
 
 int
-SharersJFC::getDistanceToHome(MachineID newSharer)
+SharersImprecise::getDistanceToHome(MachineID newSharer)
 {
   int distance = abs((home.num / NUMROWS) - (newSharer.num / NUMROWS));
   distance += abs((home.num % NUMROWS) - (newSharer.num % NUMROWS));
@@ -61,7 +61,7 @@ SharersJFC::getDistanceToHome(MachineID newSharer)
 }
 
 void
-SharersJFC::addToCBV(NodeID newSharer) {
+SharersImprecise::addToCBV(NodeID newSharer) {
   int group = newSharer / NODESPERGROUP;
   int i = 0;
   while ((group >= BITSPERPOINTER) && (i < MAXPOINTERS)) {
@@ -74,7 +74,7 @@ SharersJFC::addToCBV(NodeID newSharer) {
 }
 
 void
-SharersJFC::representationToCBV() {
+SharersImprecise::representationToCBV() {
   typeCBV = Representation_CoarseBitVector;
   for (int i = 0; i < sharers.getSize(); i++) {
     if (sharers.elementAt(i)) {
@@ -85,10 +85,10 @@ SharersJFC::representationToCBV() {
 }
 
 void
-SharersJFC::add(MachineID newSharer)
+SharersImprecise::add(MachineID newSharer)
 {
   NetDest old = getSharers();
-  switch (JFCRep)
+  switch (ImpreciseRep)
   {
   case LP:
   {
@@ -138,9 +138,9 @@ SharersJFC::add(MachineID newSharer)
 }
 
 void
-SharersJFC::remove(MachineID oldSharer)
+SharersImprecise::remove(MachineID oldSharer)
 {
-  switch (JFCRep)
+  switch (ImpreciseRep)
   {
   case LP:
   {
@@ -174,9 +174,9 @@ SharersJFC::remove(MachineID oldSharer)
 }
 
 void
-SharersJFC::clear()
+SharersImprecise::clear()
 {
-  switch (JFCRep)
+  switch (ImpreciseRep)
   {
   case LP:
   {
@@ -208,7 +208,7 @@ SharersJFC::clear()
 }
 
 Set
-SharersJFC::getSetSharersCBV()
+SharersImprecise::getSetSharersCBV()
 {
   if (typeCBV == Representation_CoarseBitVector) {
     Set sh;
@@ -230,7 +230,7 @@ SharersJFC::getSetSharersCBV()
 }
 
 void
-SharersJFC::addSharers(int nodeAct, int distance,
+SharersImprecise::addSharers(int nodeAct, int distance,
                         Direction direction, Set* sh)
 {
   if (distance > 0) {
@@ -265,7 +265,7 @@ SharersJFC::addSharers(int nodeAct, int distance,
 }
 
 Set
-SharersJFC::getSetSharersDasc()
+SharersImprecise::getSetSharersDasc()
 {
   Set sh;
   sh.setSize(NUMNODES);
@@ -305,9 +305,9 @@ SharersJFC::getSetSharersDasc()
 }
 
 bool
-SharersJFC::isBroadcast()
+SharersImprecise::isBroadcast()
 {
-  switch (JFCRep)
+  switch (ImpreciseRep)
   {
   case LP:
   {
@@ -342,10 +342,10 @@ SharersJFC::isBroadcast()
 }
 
 NetDest
-SharersJFC::getSharers()
+SharersImprecise::getSharers()
 {
   NetDest netSharers;
-  switch (JFCRep)
+  switch (ImpreciseRep)
   {
   case LP:
   {
@@ -373,9 +373,9 @@ SharersJFC::getSharers()
 }
 
 void
-SharersJFC::resize()
+SharersImprecise::resize()
 {
-  switch (JFCRep)
+  switch (ImpreciseRep)
   {
   case LP:
   {
@@ -405,9 +405,9 @@ SharersJFC::resize()
 }
 
 void
-SharersJFC::print(std::ostream& out) const
+SharersImprecise::print(std::ostream& out) const
 {
-    switch (JFCRep)
+    switch (ImpreciseRep)
     {
     case LP:
     {

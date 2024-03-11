@@ -31,9 +31,9 @@ class DirectoryProfiler : Named
       {
         DirectoryProfilerStats(statistics::Group *parent);
 
-        statistics::Histogram jfcSharersPerLine;
-        statistics::Histogram jfcDirectoryUsage;
-        statistics::Scalar jfcNumIterations;
+        statistics::Histogram impreciseSharersPerLine;
+        statistics::Histogram impreciseDirectoryUsage;
+        statistics::Scalar impreciseNumIterations;
       } directoryProfilerStats;
 
 };

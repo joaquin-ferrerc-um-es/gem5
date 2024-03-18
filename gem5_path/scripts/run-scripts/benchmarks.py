@@ -222,7 +222,7 @@ for size_k in [2**i for i in range(0,18)]:
         suite = "other",
         name = "MemoryLatency",
         size = f"sim{size_k:06d}",
-        args_string = f"-sizekb {size_k}",
+        args_string = f"-test asm -sizekb {size_k}",
         subdir_template = f"other-benchmarks/kernels/MemoryLatency",
         binary_filename_template = f"build/${{arch}}/MemoryLatency",
         input_filename_template = None)

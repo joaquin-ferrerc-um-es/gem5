@@ -450,6 +450,11 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
         out_msg.Destination.add(directory_entry.Exclusive);
         out_msg.MessageSize := MessageSizeType:Request_Control;
       }
+      if (in_msg.Type == CoherenceRequestType:GETX || in_msg.Type == CoherenceRequestType:UPGRADE) {
+        cpu.l2FwdGetXMissesPending(in_msg.Requestor.getNum());
+      } else if (in_msg.Type == CoherenceRequestType:GETS) {
+        cpu.l2FwdGetSMissesPending(in_msg.Requestor.getNum());
+      }
     }
   }
 
@@ -632,11 +637,10 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
   }
 
   // OTHER ACTIONS
-  action(i_allocateTBE, "i", desc="Allocate TBE for request") {
+  action(i_allocateTBEMiss, "i", desc="Allocate TBE for request miss") {
     peek(L1RequestL2Network_in, RequestMsg) {
       check_allocate(TBEs);
       assert(is_valid(cache_entry));
-      // DirectoryEntry directory_entry := getDirectoryEntry(address);
       assert(is_valid(directory_entry));
       TBEs.allocate(address);
       set_tbe(TBEs[address]);
@@ -649,6 +653,19 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
     }
   }
 
+  action(i_allocateTBE, "i_inv", desc="Allocate TBE for request") {
+    check_allocate(TBEs);
+    assert(is_valid(cache_entry));
+    assert(is_valid(directory_entry));
+    TBEs.allocate(address);
+    set_tbe(TBEs[address]);
+    tbe.L1_GetS_IDs.clear();
+    tbe.DataBlk := cache_entry.DataBlk;
+    tbe.Dirty := cache_entry.Dirty;
+    tbe.Requestor := machineID;
+    tbe.pendingAcks := directory_entry.Sharers.count();
+  }
+
   action(s_deallocateTBE, "s", desc="Deallocate external TBE") {
     MachineID node := TBEs.lookup(address).Requestor;
     NetDest nodes := TBEs.lookup(address).L1_GetS_IDs;
@@ -656,7 +673,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
     unset_tbe();
     if(nodes.count() > 1) {
       cpu.l3NoMissesPending(nodes);
-    } else {
+    } else if(machineIDToMachineType(node) == MachineType:L1Cache) {
       cpu.l3NoMissesPending(node.getNum());
     }
   }
@@ -933,7 +950,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
     qq_allocateL2CacheBlock;
     ll_clearSharers;
     nn_addSharer;
-    i_allocateTBE;
+    i_allocateTBEMiss;
     ss_recordGetSL1ID;
     a_issueFetchToMemory;
     uu_profileMiss;
@@ -946,7 +963,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
     qq_allocateL2CacheBlock;
     ll_clearSharers;
     nn_addSharer;
-    i_allocateTBE;
+    i_allocateTBEMiss;
     ss_recordGetSL1ID;
     a_issueFetchToMemory;
     uu_profileMiss;
@@ -959,7 +976,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
     qq_allocateL2CacheBlock;
     ll_clearSharers;
     // nn_addSharer;
-    i_allocateTBE;
+    i_allocateTBEMiss;
     xx_recordGetXL1ID;
     a_issueFetchToMemory;
     uu_profileMiss;

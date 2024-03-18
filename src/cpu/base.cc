@@ -315,9 +315,6 @@ BaseCPU::init()
 
         verifyMemoryMode();
     }
-
-    l3_miss_pending.resize(numSimulatedCPUs());
-    std::fill(l3_miss_pending.begin(), l3_miss_pending.end(), 0);
 }
 
 void

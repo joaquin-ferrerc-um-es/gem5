@@ -41,6 +41,7 @@ from common import FileSystemConfig
 class L0Cache(RubyCache): pass
 class L1Cache(RubyCache): pass
 class L2Cache(RubyCache): pass
+class DirectoryCache(RubyCache): pass
 
 def define_options(parser):
     parser.add_argument(
@@ -200,7 +201,7 @@ def create_system(options, full_system, system, dma_ports, bootmem,
                                assoc = options.l2_assoc,
                                start_index_bit = l2_index_start)
 
-            l2_directory = L2Cache(size = options.l2_size,
+            l2_directory = DirectoryCache(size = options.l2_size,
                                assoc = options.l2_assoc,
                                start_index_bit = l2_index_start)
 

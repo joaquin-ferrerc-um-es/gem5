@@ -12,7 +12,6 @@
 #include "params/SimObject.hh"
 #include "params/CPUContainer.hh"
 #include "cpu/base.hh"
-#include "mem/ruby/common/NetDest.hh"
 
 namespace gem5
 {
@@ -32,13 +31,13 @@ public :
   inline void l1NoMissesPending() { m_cpu->l1NoMissesPending(); };
   inline void l2MissesPending() { m_cpu->l2MissesPending(); };
   inline void l2NoMissesPending() { m_cpu->l2NoMissesPending(); };
-  inline void l2GetSMissesPending() { m_cpu->l2GetSMissesPending(); };
-  inline void l2NoGetSMissesPending() { m_cpu->l2NoGetSMissesPending(); };
-  inline void l2GetXMissesPending() { m_cpu->l2GetXMissesPending(); };
-  inline void l2NoGetXMissesPending() { m_cpu->l2NoGetXMissesPending(); };
+  inline void l2FwdGetSMissesPending(int cpu) { m_cpu->l2FwdGetSMissesPending(cpu); };
+  inline void l2NoFwdGetSMissesPending() { m_cpu->l2NoFwdGetSMissesPending(); };
+  inline void l2FwdGetXMissesPending(int cpu) { m_cpu->l2FwdGetXMissesPending(cpu); };
+  inline void l2NoFwdGetXMissesPending() { m_cpu->l2NoFwdGetXMissesPending(); };
   inline void l3MissesPending(int cpu) { m_cpu->l3MissesPending(cpu); };
   inline void l3NoMissesPending(int cpu) { m_cpu->l3NoMissesPending(cpu); };
-  inline void l3NoMissesPending(ruby::NetDest cpus) { std::vector<ruby::NodeID> dests = cpus.getAllDest(); for (int i = 0; i < dests.size(); i++) m_cpu->l3NoMissesPending(dests[i]); };
+  inline void l3NoMissesPending(ruby::NetDest cpus) { m_cpu->l3NoMissesPendingCPUs(cpus); };
   inline void anyMissesPending() { m_cpu->anyMissesPending(); };
   inline void anyNoMissesPending() { m_cpu->anyNoMissesPending(); };
   inline bool hasL3() { return has_l3; }

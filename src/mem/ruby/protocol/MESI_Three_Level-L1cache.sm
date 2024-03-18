@@ -823,20 +823,12 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     cache.profileStoreHits();
   }
 
-  action(td_incrementGetS, "\tds", desc="Increment the number of pending Fwd_GetS") {
-    cpu.l2GetSMissesPending();
+  action(td_decrementFwdGetS, "\tdns", desc="Decrement the number of pending Fwd_GetS") {
+    cpu.l2NoFwdGetSMissesPending();
   }
 
-  action(td_decrementGetS, "\tdns", desc="Decrement the number of pending Fwd_GetS") {
-    cpu.l2NoGetSMissesPending();
-  }
-
-  action(td_incrementGetX, "\tdx", desc="Increment the number of pending Fwd_GetX") {
-    cpu.l2GetXMissesPending();
-  }
-
-  action(td_decrementGetX, "\tdnx", desc="Decrement the number of pending Fwd_GetX") {
-    cpu.l2NoGetXMissesPending();
+  action(td_decrementFwdGetX, "\tdnx", desc="Decrement the number of pending Fwd_GetX") {
+    cpu.l2NoFwdGetXMissesPending();
   }
 
 
@@ -936,14 +928,12 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   }
 
   transition(EE, Fwd_GETX, I) {
-    td_incrementGetX;
     d_sendDataToRequestor;
     ff_deallocateCacheBlock;
     l_popL2RequestQueue;
   }
 
   transition(EE, Fwd_GETS, SS) {
-    td_incrementGetS;
     d_sendDataToRequestor;
     d2_sendDataToL2;
     l_popL2RequestQueue;
@@ -988,14 +978,12 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   }
 
   transition(MM, Fwd_GETX, I) {
-    td_incrementGetX;
     d_sendDataToRequestor;
     ff_deallocateCacheBlock;
     l_popL2RequestQueue;
   }
 
   transition(MM, Fwd_GETS, SS) {
-    td_incrementGetS;
     d_sendDataToRequestor;
     d2_sendDataToL2;
     l_popL2RequestQueue;
@@ -1010,13 +998,11 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   }
 
   transition(M_I, Fwd_GETX, SINK_WB_ACK) {
-    td_incrementGetX;
     dt_sendDataToRequestor_fromTBE;
     l_popL2RequestQueue;
   }
 
   transition(M_I, Fwd_GETS, SINK_WB_ACK) {
-    td_incrementGetS;
     dt_sendDataToRequestor_fromTBE;
     d2t_sendDataToL2_fromTBE;
     l_popL2RequestQueue;
@@ -1040,7 +1026,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     u_writeDataFromL2Response;
     h_data_to_l0;
     s_deallocateTBE;
-    td_decrementGetX;
+    td_decrementFwdGetX;
     o_popL2ResponseQueue;
     kd_wakeUpDependents;
   }
@@ -1058,7 +1044,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     u_writeDataFromL2Response;
     h_stale_data_to_l0;
     s_deallocateTBE;
-    td_decrementGetX;
+    td_decrementFwdGetX;
     ff_deallocateCacheBlock;
     o_popL2ResponseQueue;
     kd_wakeUpDependents;
@@ -1069,7 +1055,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     j_sendUnblock;
     h_data_to_l0;
     s_deallocateTBE;
-    td_decrementGetS;
+    td_decrementFwdGetS;
     o_popL2ResponseQueue;
     kd_wakeUpDependents;
   }
@@ -1079,7 +1065,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     j_sendUnblock;
     h_stale_data_to_l0;
     s_deallocateTBE;
-    td_decrementGetS;
+    td_decrementFwdGetS;
     ff_deallocateCacheBlock;
     o_popL2ResponseQueue;
     kd_wakeUpDependents;
@@ -1121,7 +1107,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     hh_xdata_to_l0;
     jj_sendExclusiveUnblock;
     s_deallocateTBE;
-    td_decrementGetX;
+    td_decrementFwdGetX;
     o_popL2ResponseQueue;
     kd_wakeUpDependents;
   }

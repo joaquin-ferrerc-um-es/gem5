@@ -53,6 +53,7 @@
 #include "arch/generic/interrupts.hh"
 #include "base/statistics.hh"
 #include "mem/port_proxy.hh"
+#include "mem/ruby/common/NetDest.hh"
 #include "sim/clocked_object.hh"
 #include "sim/eventq.hh"
 #include "sim/full_system.hh"
@@ -632,21 +633,10 @@ class BaseCPU : public ClockedObject
 
     bool l1_miss_pending = false;
     bool l2_miss_pending = false;
-    int l2_get_s = 0;
-    int l2_get_x = 0;
-    std::vector<int> l3_miss_pending;
+    int l2_fwd_get_s = 0;
+    int l2_fwd_get_x = 0;
+    int l3_miss_pending = 0;
     bool any_miss_pending = false;
-
-    bool L3MissPending(int cpuId)
-    {
-        assert(cpuId < numSimulatedCPUs());
-        for (int i = 0; i < numSimulatedCPUs(); i++) {
-            if (cpuList[i]->l3_miss_pending[cpuId] > 0) {
-                return true;
-            }
-        }
-        return false;
-    }
 
     void l1MissesPending()
     {
@@ -655,7 +645,7 @@ class BaseCPU : public ClockedObject
     };
     void l1NoMissesPending() {
         l1_miss_pending = false;
-        if ((l2_miss_pending == false) && (L3MissPending(cpuId()) == false))
+        if ((l2_miss_pending == false) && (l3_miss_pending == 0))
 	          any_miss_pending = false;
     };
 
@@ -666,35 +656,56 @@ class BaseCPU : public ClockedObject
     void l2NoMissesPending()
     {
         l2_miss_pending = false;
-        if ((l1_miss_pending == false) && (L3MissPending(cpuId()) == false))
+        if ((l1_miss_pending == false) && (l3_miss_pending == 0))
 	          any_miss_pending = false;
     };
 
-    void l2GetSMissesPending() {
-        l2_get_s++;
+    void l2FwdGetSMissesPending(int cpu) {
+        assert(cpu >= 0);
+        assert(cpu < numSimulatedCPUs());
+        cpuList[cpu]->l2_fwd_get_s++;
+        assert(cpuList[cpu]->l2_fwd_get_s < 500);
     };
-    void l2NoGetSMissesPending() {
-        l2_get_s--;
+    void l2NoFwdGetSMissesPending() {
+        l2_fwd_get_s--;
+        assert(l2_fwd_get_s >= 0);
     };
 
-    void l2GetXMissesPending() {
-        l2_get_x++;
+    void l2FwdGetXMissesPending(int cpu) {
+        assert(cpu >= 0);
+        assert(cpu < numSimulatedCPUs());
+        cpuList[cpu]->l2_fwd_get_x++;
+        assert(cpuList[cpu]->l2_fwd_get_x < 500);
     };
-    void l2NoGetXMissesPending() {
-        l2_get_x--;
+    void l2NoFwdGetXMissesPending() {
+        l2_fwd_get_x--;
+        assert(l2_fwd_get_x >= 0);
     };
 
     void l3MissesPending(int cpu) {
+        assert(cpu >= 0);
         assert(cpu < numSimulatedCPUs());
-        l3_miss_pending[cpu]++; 
-        any_miss_pending = true;
+        cpuList[cpu]->l3_miss_pending++;
+        assert(cpuList[cpu]->l3_miss_pending < 500);
+        cpuList[cpu]->any_miss_pending = true;
     };
     void l3NoMissesPending(int cpu)
     {
+        assert(cpu >= 0);
         assert(cpu < numSimulatedCPUs());
-        l3_miss_pending[cpu]--;
-        if ((l1_miss_pending == false) && (l2_miss_pending == false) && (L3MissPending(cpuId()) == false))
-	          any_miss_pending = false;
+        cpuList[cpu]->l3_miss_pending--;
+        assert(cpuList[cpu]->l3_miss_pending >= 0);
+        if ((cpuList[cpu]->l1_miss_pending == false) && (cpuList[cpu]->l2_miss_pending == false) && (cpuList[cpu]->l3_miss_pending == 0))
+        {
+	          cpuList[cpu]->any_miss_pending = false;
+        }
+    };
+    void l3NoMissesPendingCPUs(ruby::NetDest cpus) {
+        for (int i = 0; i < numSimulatedCPUs(); i++) {
+            if (cpus.isElement(ruby::getL1CacheMachineID(i))) {
+                l3NoMissesPending(i);
+            }
+        }
     };
 
     void anyMissesPending() { any_miss_pending = true; };

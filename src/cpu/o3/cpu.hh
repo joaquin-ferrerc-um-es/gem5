@@ -115,6 +115,9 @@ class CPU : public BaseCPU
     /** Overall CPU status. */
     Status _status;
 
+    /** Vector with all pending prefetch requests **/
+    std::vector<LSQRequest*> pendingPrefetches;
+
   private:
 
     /** The tick event used for scheduling CPU ticks. */

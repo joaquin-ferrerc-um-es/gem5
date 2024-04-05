@@ -92,7 +92,8 @@ LSQ::LSQ(CPU *cpu_ptr, IEW *iew_ptr, const O3CPUParams &params)
       maxSQEntries(maxLSQAllocation(lsqPolicy, SQEntries, params.numThreads,
                   params.smtLSQThreshold)),
       dcachePort(this, cpu_ptr),
-      numThreads(params.numThreads)
+      numThreads(params.numThreads),
+      lsqStats(cpu_ptr)
 {
     assert(numThreads > 0 && numThreads <= MaxThreads);
 
@@ -133,6 +134,19 @@ std::string
 LSQ::name() const
 {
     return iewStage->name() + ".lsq";
+}
+
+LSQ::LSQStats::LSQStats(CPU *cpu_ptr)
+    : statistics::Group(cpu_ptr),
+    ADD_STAT(pendingPrefetchWritePortBlock, statistics::units::Count::get(),
+    "Prefetch instructions pending but no WRITE ports available to send requests"),
+    ADD_STAT(pendingPrefetchReadPortBlock, statistics::units::Count::get(),
+    "Prefetch instructions pending but no READ ports available to send requests"),
+    ADD_STAT(prefetchPacketsSentReadPort, statistics::units::Count::get(),
+    "Prefetch packets sent via read port"),
+    ADD_STAT(prefetchPacketsSentWritePort, statistics::units::Count::get(),
+    "Prefetch packets sent via write port")
+{
 }
 
 void
@@ -292,6 +306,39 @@ void
 LSQ::squash(const InstSeqNum &squashed_num, ThreadID tid)
 {
     thread.at(tid).squash(squashed_num);
+}
+
+void
+LSQ::sendPendingPrefetches()
+{
+    if (cpu->pendingPrefetches.size() > 0) {
+        DPRINTF(Writeback,"Sending pending prefetches. %i prefetches "
+        "available in the queue.\n", cpu->pendingPrefetches.size());
+    }
+
+    for (auto it = cpu->pendingPrefetches.begin(); it != cpu->pendingPrefetches.end();) {
+        if (cacheBlocked())
+            break;
+        // First we try to send prefetch requests via load ports
+        if(cachePortAvailable(true)) {
+            (*it)->buildPrefetchPackets();
+            (*it)->sendPFPacketToCache(true);
+            lsqStats.prefetchPacketsSentReadPort++;
+            it = cpu->pendingPrefetches.erase(it);
+        } else {
+            lsqStats.pendingPrefetchReadPortBlock++;
+            // Second we try to send prefetch requests via store ports
+            if(cachePortAvailable(false)) {
+                (*it)->buildPrefetchPackets();
+                (*it)->sendPFPacketToCache(false);
+                lsqStats.prefetchPacketsSentWritePort++;
+                it = cpu->pendingPrefetches.erase(it);
+            } else {
+                lsqStats.pendingPrefetchWritePortBlock++;
+            break;
+            }
+        }
+    }
 }
 
 bool
@@ -1141,6 +1188,9 @@ LSQ::LSQRequest::~LSQRequest()
 
     for (auto r: _packets)
         delete r;
+
+    for (auto r: _pf_packets)
+        delete r;
 };
 
 void
@@ -1349,6 +1399,48 @@ LSQ::SplitDataRequest::buildPackets()
 }
 
 void
+LSQ::SingleDataRequest::buildPrefetchPackets()
+{
+    /* Retries do not create new pf packets. */
+    if (_pf_packets.size() == 0) {
+        _pf_packets.push_back(
+	    isLoad()
+	    ?  Packet::createReadPF(request())
+	    :  Packet::createWritePF(request()));
+        _pf_packets.back()->dataStatic(_inst->memData);
+        _pf_packets.back()->senderState = _senderState;
+    }
+    assert(_pf_packets.size() == 1);
+}
+
+void
+LSQ::SplitDataRequest::buildPrefetchPackets()
+{
+    ptrdiff_t offset = 0;
+    if (_pf_packets.size() == 0) {
+        if (isLoad()) {
+            _mainPacket = Packet::createReadPF(mainReq);
+            _mainPacket->dataStatic(_inst->memData);
+        }
+        for (auto& r: _requests) {
+            PacketPtr pkt = isLoad() ? Packet::createReadPF(r)
+		: Packet::createWritePF(r);
+            if (isLoad()) {
+                pkt->dataStatic(_inst->memData + offset);
+            } else {
+                uint8_t* req_data = new uint8_t[r->getSize()];
+//		std::memcpy(req_data,_inst->memData + offset,r->getSize());
+                pkt->dataDynamic(req_data);
+            }
+            offset += r->getSize();
+            pkt->senderState = _senderState;
+            _pf_packets.push_back(pkt);
+        }
+    }
+    assert(_pf_packets.size() == _requests.size());
+}
+
+void
 LSQ::SingleDataRequest::sendPacketToCache()
 {
     assert(_numOutstandingPackets == 0);
@@ -1365,6 +1457,20 @@ LSQ::SplitDataRequest::sendPacketToCache()
                 _packets.at(numReceivedPackets + _numOutstandingPackets))) {
         _numOutstandingPackets++;
     }
+}
+
+void
+LSQ::SingleDataRequest::sendPFPacketToCache(bool is_load)
+{
+  lsqUnit()->trySendPrefetch(is_load, _pf_packets.at(0));
+}
+
+void
+LSQ::SplitDataRequest::sendPFPacketToCache(bool is_load)
+{
+  for (int i = 0; i < _pf_packets.size(); i++) {
+    lsqUnit()->trySendPrefetch(is_load,_pf_packets.at(i));
+  }
 }
 
 Cycles

@@ -189,7 +189,7 @@ VIPERCoalescer::issueRequest(CoalescedRequest* crequest)
 
     assert(m_mandatory_q_ptr);
     Tick latency = cyclesToTicks(
-        m_controller->mandatoryQueueLatency(crequest->getRubyType()));
+        m_controller->mandatoryQueueLatency(crequest->getRubyType(), line_addr));
     m_mandatory_q_ptr->enqueue(msg, clockEdge(), latency);
 }
 
@@ -297,7 +297,7 @@ VIPERCoalescer::invTCP()
         DPRINTF(GPUCoalescer, "Evicting addr 0x%x\n", addr);
         assert(m_mandatory_q_ptr != NULL);
         Tick latency = cyclesToTicks(
-            m_controller->mandatoryQueueLatency(request_type));
+            m_controller->mandatoryQueueLatency(request_type, addr));
         m_mandatory_q_ptr->enqueue(msg, clockEdge(), latency);
         m_num_pending_invs++;
     }

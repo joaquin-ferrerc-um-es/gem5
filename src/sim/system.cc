@@ -210,6 +210,8 @@ System::System(const Params &p)
                       p.shadow_rom_ranges.end()),
       memoryMode(p.mem_mode),
       _cacheLineSize(p.cache_line_size),
+      _pipeline_stores(p.pipeline_stores),
+      _enable_commit_prefetch(p.enable_commit_prefetch),
       numWorkIds(p.num_work_ids),
       commitOrderManager(nullptr),
       lockstepManager(nullptr),

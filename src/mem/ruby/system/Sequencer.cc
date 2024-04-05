@@ -905,7 +905,7 @@ Sequencer::issueRequest(PacketPtr pkt, RubyRequestType secondary_type)
     }
 
     Tick latency = cyclesToTicks(
-                        m_controller->mandatoryQueueLatency(secondary_type));
+                        m_controller->mandatoryQueueLatency(secondary_type, makeLineAddress(pkt->getAddr())));
     assert(latency > 0);
 
     assert(m_mandatory_q_ptr != NULL);

@@ -282,6 +282,12 @@ Option("mem_latency", str,
 Option("disable_halt", bool,
        gem5_option = "disable-halt",
        descr_dir = "no_halt_{value}")
+Option("pipeline_stores", bool,
+       gem5_option = "pipeline-stores",
+       descr_dir = "pipeline_stores")
+Option("enable_commit_prefetch", bool,
+       gem5_option = "enable-commit-prefetch",
+       descr_dir = "enable_commit_prefetch")
 
 # Cache options
 Option("cache_name", str,

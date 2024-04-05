@@ -138,6 +138,12 @@ def addNoISAOptions(parser):
     parser.add_argument("--disable-halt", action="store_true", default=False,
                         help="Disable halt calls to remove quiescent cycles")
 
+    parser.add_argument("--pipeline-stores", action="store_true", default=False,\
+                        help="Enable Pipelined Stores")
+
+    parser.add_argument("--enable-commit-prefetch", action="store_true", default=False,
+                        help="Enable Store prefetch when stores commit")
+
     parser.add_argument("--memchecker", action="store_true")
 
     # Cache Options

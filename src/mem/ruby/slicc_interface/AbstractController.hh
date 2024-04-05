@@ -116,7 +116,7 @@ class AbstractController : public ClockedObject, public Consumer
     // Different latencies may be used depending on the request type.
     // This is the hit latency unless the top-level cache controller
     // introduces additional cycles in the response path.
-    virtual Cycles mandatoryQueueLatency(const RubyRequestType& param_type)
+    virtual Cycles mandatoryQueueLatency(const RubyRequestType& param_type, const Addr& address)
     { return m_mandatory_queue_latency; }
 
     //! These functions are used by ruby system to read/write the data blocks

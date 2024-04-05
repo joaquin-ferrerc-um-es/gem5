@@ -52,6 +52,7 @@
 #include "arch/generic/mmu.hh"
 #include "arch/generic/tlb.hh"
 #include "base/flags.hh"
+#include "base/statistics.hh"
 #include "base/types.hh"
 #include "cpu/inst_seq.hh"
 #include "cpu/o3/dyn_inst_ptr.hh"
@@ -291,6 +292,7 @@ class LSQ
         uint32_t _taskId;
         PacketDataPtr _data;
         std::vector<PacketPtr> _packets;
+        std::vector<PacketPtr> _pf_packets;
         std::vector<RequestPtr> _requests;
         std::vector<Fault> _fault;
         uint64_t* _res;
@@ -489,6 +491,9 @@ class LSQ
         virtual void sendPacketToCache() = 0;
         virtual void buildPackets() = 0;
 
+        virtual void buildPrefetchPackets() = 0;
+        virtual void sendPFPacketToCache(bool is_load) = 0;
+
         /**
          * Memory mapped IPR accesses
          */
@@ -665,6 +670,7 @@ class LSQ
         using LSQRequest::_requests;
         using LSQRequest::_inst;
         using LSQRequest::_packets;
+        using LSQRequest::_pf_packets;
         using LSQRequest::_port;
         using LSQRequest::_res;
         using LSQRequest::_taskId;
@@ -698,6 +704,10 @@ class LSQ
         virtual void buildPackets();
         virtual Cycles handleLocalAccess(
                 gem5::ThreadContext *thread, PacketPtr pkt);
+
+        virtual void sendPFPacketToCache(bool is_load);
+        virtual void buildPrefetchPackets();
+
         virtual bool isCacheBlockHit(Addr blockAddr, Addr cacheBlockMask);
         virtual std::string name() const { return "SingleDataRequest"; }
     };
@@ -743,6 +753,7 @@ class LSQ
         using LSQRequest::_flags;
         using LSQRequest::_inst;
         using LSQRequest::_packets;
+        using LSQRequest::_pf_packets;
         using LSQRequest::_port;
         using LSQRequest::_requests;
         using LSQRequest::_res;
@@ -800,6 +811,10 @@ class LSQ
 
         virtual Cycles handleLocalAccess(
                 gem5::ThreadContext *thread, PacketPtr pkt);
+
+        virtual void sendPFPacketToCache(bool is_load);
+        virtual void buildPrefetchPackets();
+
         virtual bool isCacheBlockHit(Addr blockAddr, Addr cacheBlockMask);
 
         virtual RequestPtr mainRequest();
@@ -812,6 +827,16 @@ class LSQ
 
     /** Returns the name of the LSQ. */
     std::string name() const;
+
+    struct LSQStats : public statistics::Group
+    {
+        LSQStats(CPU *cpu_ptr);
+
+        statistics::Scalar pendingPrefetchWritePortBlock;
+        statistics::Scalar pendingPrefetchReadPortBlock;
+        statistics::Scalar prefetchPacketsSentReadPort;
+        statistics::Scalar prefetchPacketsSentWritePort;
+    } lsqStats;
 
     /** Sets the pointer to the list of active threads. */
     void setActiveThreads(std::list<ThreadID> *at_ptr);
@@ -857,6 +882,12 @@ class LSQ
     void writebackStores();
     /** Same as above, but only for one thread. */
     void writebackStores(ThreadID tid);
+
+    /**
+     * Attempts to send pending prefetches until all cache ports are used or the
+     * interface becomes blocked.
+     */
+    void sendPendingPrefetches();
 
     /**
      * Squash instructions from a thread until the specified sequence number.

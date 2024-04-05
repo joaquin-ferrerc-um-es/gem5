@@ -298,7 +298,13 @@ LSQUnit::LSQUnitStats::LSQUnitStats(statistics::Group *parent)
                "Number of times an access to memory failed due to the cache "
                "being blocked"),
       ADD_STAT(loadToUse, "Distribution of cycle latency between the "
-                "first time a load is issued and its completion")
+                "first time a load is issued and its completion"),
+      ADD_STAT(lsqPrefetchReqGenerated, statistics::units::Count::get(),
+              "Number of prefetch requests generated"),
+      ADD_STAT(lsqPrefetchReqDeletedSquash, statistics::units::Count::get(),
+              "Number of prefetch requests deleted because instruction squashed before cache could recive prefetch packet"),
+      ADD_STAT(lsqPrefetchReqDeletedWB, statistics::units::Count::get(),
+              "Number of prefetch requests deleted because instruction wrote back before cache could recive prefetch packet")
 {
     loadToUse
         .init(0, 299, 10)
@@ -879,6 +885,20 @@ LSQUnit::commitStores(InstSeqNum &youngest_inst)
 
             x.canWB() = true;
 
+            // TODO: Packet retry
+            if(cpu->system->enableCommitPrefetch()) {
+                x.request()->buildPrefetchPackets();
+
+                auto store_inst = x.instruction();
+                if (store_inst->hasRequest()) {
+                    assert(store_inst->savedReq);
+                    DPRINTF(LSQUnit,"Prefetch request generated for Store PC %s, [sn:%lli]. Req pointer is %lli\n",
+                            store_inst->pcState(), store_inst->seqNum,store_inst->savedReq);
+                    cpu->pendingPrefetches.push_back(store_inst->savedReq);
+                    stats.lsqPrefetchReqGenerated++;
+                }
+            }
+
             ++storesToWB;
         }
     }
@@ -1124,6 +1144,15 @@ LSQUnit::squash(const InstSeqNum &squashed_num)
 
     while (stores != 0 &&
            storeQueue.back().instruction()->seqNum > squashed_num) {
+        
+        for (auto it = cpu->pendingPrefetches.begin(); it != cpu->pendingPrefetches.end();) {
+            if((*it) == storeQueue.back().instruction()->savedReq) {
+                stats.lsqPrefetchReqDeletedSquash++;
+                it = cpu->pendingPrefetches.erase(it);
+            } else {
+                ++it;
+            }
+        }
         // Instructions marked as can WB are already committed.
         if (storeQueue.back().canWB()) {
             break;
@@ -1276,6 +1305,16 @@ LSQUnit::completeStore(typename StoreQueue::iterator store_idx)
     /* We 'need' a copy here because we may clear the entry from the
      * store queue. */
     DynInstPtr store_inst = store_idx->instruction();
+
+    for (auto it = cpu->pendingPrefetches.begin(); it != cpu->pendingPrefetches.end();) {
+        if((*it) == store_inst->savedReq) {
+            stats.lsqPrefetchReqDeletedWB++;
+            it = cpu->pendingPrefetches.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
     if (store_idx == storeQueue.begin()) {
         do {
             storeQueue.front().clear();
@@ -1323,6 +1362,21 @@ LSQUnit::completeStore(typename StoreQueue::iterator store_idx)
     if (cpu->checker &&  !store_inst->isStoreConditional()) {
         cpu->checker->verify(store_inst);
     }
+}
+
+bool
+LSQUnit::trySendPrefetch(bool isLoad, PacketPtr data_pkt)
+{
+    bool ret = true;
+    if (!lsq->cacheBlocked() &&
+        lsq->cachePortAvailable(isLoad)) {
+        if (!dcachePort->sendTimingReq(data_pkt)) {
+            ret = false;
+        }
+    } else {
+        ret = false;
+    }
+    return ret;
 }
 
 bool

@@ -400,6 +400,8 @@ class LSQUnit
      */
     bool trySendPacket(bool isLoad, PacketPtr data_pkt);
 
+    bool trySendPrefetch(bool isLoad, PacketPtr data_pkt);
+
 
     /** Debugging function to dump instructions in the LSQ. */
     void dumpInsts() const;
@@ -596,6 +598,10 @@ class LSQUnit
         /** Distribution of cycle latency between the first time a load
          * is issued and its completion */
         statistics::Distribution loadToUse;
+
+        statistics::Scalar lsqPrefetchReqGenerated;
+        statistics::Scalar lsqPrefetchReqDeletedWB;
+        statistics::Scalar lsqPrefetchReqDeletedSquash;
     } stats;
 
   public:

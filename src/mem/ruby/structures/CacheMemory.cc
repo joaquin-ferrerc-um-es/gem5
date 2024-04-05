@@ -596,7 +596,14 @@ CacheMemoryStats::CacheMemoryStats(statistics::Group *parent)
       ADD_STAT(m_prefetch_misses, "Number of cache prefetch misses"),
       ADD_STAT(m_prefetch_accesses, "Number of cache prefetch accesses",
                m_prefetch_hits + m_prefetch_misses),
-      ADD_STAT(m_accessModeType, "")
+      ADD_STAT(m_accessModeType, ""),
+      ADD_STAT(m_write_prefetches_succeed, "Number of prefetches that alloed a store hit"),
+      ADD_STAT(m_write_prefetches_not_in_time, "Number of prefetches that didn't arive in time"),
+      ADD_STAT(m_write_prefetches_evicted_before_used, "Number of prefetches performed that evicted before being used"),
+      ADD_STAT(m_write_prefetches_duplicated_request, "Number of duplicated prefetch requests to the same cache line"),
+      ADD_STAT(m_read_prefetches_requests, "Total prefetch read requests to L1D"),
+      ADD_STAT(m_write_prefetches_requests, "Total prefetch write requests to L1D"),
+      ADD_STAT(m_write_prefetches_registered, "Total prefetch write requests registered in L1D")
 {
     numDataArrayReads
         .flags(statistics::nozero);
@@ -916,6 +923,18 @@ void
 CacheMemory::profilePrefetchMiss()
 {
     cacheMemoryStats.m_prefetch_misses++;
+}
+
+void
+CacheMemory::profileWritePrefetchesRequests()
+{
+    cacheMemoryStats.m_write_prefetches_requests++;
+}
+
+void
+CacheMemory::profileReadPrefetchesRequests()
+{
+    cacheMemoryStats.m_read_prefetches_requests++;
 }
 
 } // namespace ruby

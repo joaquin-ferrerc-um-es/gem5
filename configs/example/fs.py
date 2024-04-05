@@ -221,6 +221,11 @@ def build_test_system(np):
 
         MemConfig.config_mem(args, test_sys)
 
+    if args.pipeline_stores:
+        test_sys.pipeline_stores = args.pipeline_stores
+    if args.enable_commit_prefetch:
+        test_sys.enable_commit_prefetch = args.enable_commit_prefetch
+
     if ObjectList.is_kvm_cpu(TestCPUClass) or \
         ObjectList.is_kvm_cpu(FutureClass):
         # Assign KVM CPUs to their own event queues / threads. This

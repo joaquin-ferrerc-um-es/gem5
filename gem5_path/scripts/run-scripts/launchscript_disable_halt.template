@@ -39,8 +39,6 @@ echo Running: "./${benchmark_binary}" ${benchmark_options} \< "${benchmark_input
 "./${benchmark_binary}" ${benchmark_options} < "${benchmark_input_filename:-/dev/null}"
 echo 'Launch script done ($?='"$?"'). Exiting simulation... (m5 exit)'
 
-sync # TODO: why?
-sleep 2 # TODO: why?
-# IMPORTANT!! Uncomented to see CacheLatency final message, seems like this was avoiding it to work.
-# Be careful if we disable halt again, simulations won't end with this sleep!!
+# sync # TODO: why?
+# sleep 2 # TODO: why?
 /sbin/m5 exit

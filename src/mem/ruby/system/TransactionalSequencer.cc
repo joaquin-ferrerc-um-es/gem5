@@ -710,7 +710,7 @@ TransactionalSequencer::makeRequest(PacketPtr pkt)
                     // For now assume that write buffer has same latency
                     // of Dcache
                     Cycles wb_latency = m_controller->
-                        mandatoryQueueLatency(RubyRequestType_ST);
+                        mandatoryQueueLatency(RubyRequestType_ST, pkt->getAddr());
                     schedule(writeBufferHitEvent,
                              clockEdge(wb_latency));
                     return RequestStatus_Issued;

@@ -262,6 +262,21 @@ RubyPort::MemResponsePort::recvTimingReq(PacketPtr pkt)
         schedTimingResp(pkt, curTick());
         return true;
     }
+
+    if((pkt->cmd == MemCmd::WritePFReq) || (pkt->cmd == MemCmd::ReadPFReq)) {
+        if (isPhysMemAddress(pkt)) {
+            DPRINTF(RubyPort, "Request prefetch address %#x \n", pkt->getAddr());
+            if(pkt->cmd == MemCmd::WritePFReq) {
+                ruby_port->m_controller->enqueuePrefetch(makeLineAddress(pkt->getAddr()), RubyRequestType_ST);
+            } else {
+                ruby_port->m_controller->enqueuePrefetch(makeLineAddress(pkt->getAddr()), RubyRequestType_LD);
+            }
+            return true;
+        } else {
+            return true;
+        }
+    }
+
     // Check for pio requests and directly send them to the dedicated
     // pio port.
     if (pkt->cmd != MemCmd::MemSyncReq) {

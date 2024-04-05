@@ -355,6 +355,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
             }
         } else if (in_msg.Type == CoherenceRequestType:GETX ||
                    in_msg.Type == CoherenceRequestType:UPGRADE) {
+            // assert(in_msg.Type != CoherenceRequestType:UPGRADE);
             if (is_valid(cache_entry) && inL0Cache(cache_entry.CacheState)) {
                 trigger(Event:L0_Invalidate_Else, in_msg.addr,
                         cache_entry, tbe);

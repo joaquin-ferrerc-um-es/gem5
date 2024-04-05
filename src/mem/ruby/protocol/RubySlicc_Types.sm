@@ -277,6 +277,12 @@ structure (CacheMemory, external = "yes") {
   void recordRequestType(CacheRequestType, Addr);
   bool checkResourceAvailable(CacheResourceType, Addr);
 
+  void registerPrefetchRequest(Addr);
+  void setPrefetchHit(Addr);
+  void setStoreHit(Addr);
+  void registerStoreRequest(Addr);
+  void deletePrefetchRequest(Addr);
+
   // hardware transactional memory
   void htmCommitTransaction();
   void htmAbortTransaction();
@@ -298,6 +304,8 @@ structure (CacheMemory, external = "yes") {
   void profileConflicts();
   void profilePrefetchHit();
   void profilePrefetchMiss();
+  void profileWritePrefetchesRequests();
+  void profileReadPrefetchesRequests();
 }
 
 structure (DirectoryCacheMemory, external = "yes") {
@@ -381,4 +389,10 @@ structure (CPUContainer, external = "yes") {
     void anyMissesPending();
     void anyNoMissesPending();
     bool hasL3();
+
+    Cycles getStoreHitLatency();
+    Cycles getStoreMissLatency();
+    Cycles getLoadAccessLatency();
+    Cycles getIcacheAccessLatency();
+    bool pipelineStores();
 }

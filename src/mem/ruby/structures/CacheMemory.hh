@@ -66,6 +66,20 @@ namespace gem5
 namespace ruby
 {
 
+struct pfLogStruct
+{
+  bool prefetch_hit;
+  bool store_hit;
+  Tick prefetch_tick;
+  Tick store_tick;
+  pfLogStruct() {
+    prefetch_hit = false;
+    store_hit = false;
+    prefetch_tick = curTick();
+    store_tick = curTick();
+  }
+};
+
 class CacheMemory : public SimObject
 {
   public:
@@ -155,6 +169,56 @@ class CacheMemory : public SimObject
     bool checkResourceAvailable(CacheResourceType res, Addr addr);
     void recordRequestType(CacheRequestType requestType, Addr addr);
 
+    uint32_t ticksToCycles(Tick in) { return (uint32_t)in/500; };
+
+    void registerPrefetchRequest(Addr addr) {
+      pfLogStruct temp;
+      auto res = prefetch_logger.insert(std::pair<Addr, pfLogStruct>(addr, temp));
+      if ( ! res.second ) {
+        cacheMemoryStats.m_write_prefetches_duplicated_request++;
+      } else {
+        cacheMemoryStats.m_write_prefetches_registered++;
+      }
+    }
+
+    void setPrefetchHit(Addr addr) {
+      if (prefetch_logger.find(addr) != prefetch_logger.end()) {
+        prefetch_logger[addr].prefetch_hit = true;
+      }
+    }
+
+    void setStoreHit(Addr addr) {
+      if ( prefetch_logger.find(addr) != prefetch_logger.end() ) {
+        prefetch_logger[addr].store_hit = true;
+      }
+    }
+
+    void registerStoreRequest(Addr addr) {
+      if ( prefetch_logger.find(addr) != prefetch_logger.end() ) {
+        prefetch_logger[addr].store_tick = curTick();
+        if(prefetch_logger[addr].prefetch_hit) {
+          // Prefetch already hit, so store will hit
+          cacheMemoryStats.m_write_prefetches_succeed++;
+        } else {
+          // Prefetched data didn't arrive in time
+          cacheMemoryStats.m_write_prefetches_not_in_time++;
+        }
+      }
+    }
+
+
+    void deletePrefetchRequest(Addr addr) {
+      if ( prefetch_logger.find(addr) != prefetch_logger.end() ) {
+        if(prefetch_logger[addr].prefetch_hit) {
+          if(prefetch_logger[addr].store_tick == prefetch_logger[addr].prefetch_tick) {
+            // Prefetch was evicted before being used
+            cacheMemoryStats.m_write_prefetches_evicted_before_used++;
+          }
+        }
+        prefetch_logger.erase(addr);
+      }
+    }
+
     // hardware transactional memory
     void htmAbortTransaction();
     void htmCommitTransaction();
@@ -165,6 +229,8 @@ class CacheMemory : public SimObject
 
 
   public:
+    std::map<Addr, pfLogStruct> prefetch_logger;
+
     int getCacheSize() const { return m_cache_size; }
     int getCacheAssoc() const { return m_cache_assoc; }
     int getNumBlocks() const { return m_cache_num_sets * m_cache_assoc; }
@@ -277,6 +343,14 @@ class CacheMemory : public SimObject
           statistics::Formula m_prefetch_accesses;
 
           statistics::Vector m_accessModeType;
+
+          statistics::Scalar m_read_prefetches_requests;
+          statistics::Scalar m_write_prefetches_requests;
+          statistics::Scalar m_write_prefetches_succeed;
+          statistics::Scalar m_write_prefetches_not_in_time;
+          statistics::Scalar m_write_prefetches_evicted_before_used;
+          statistics::Scalar m_write_prefetches_duplicated_request;
+          statistics::Scalar m_write_prefetches_registered;
       } cacheMemoryStats;
 
     public:
@@ -295,6 +369,8 @@ class CacheMemory : public SimObject
       void profileConflicts();
       void profilePrefetchHit();
       void profilePrefetchMiss();
+      void profileWritePrefetchesRequests();
+      void profileReadPrefetchesRequests();
 };
 
 std::ostream& operator<<(std::ostream& out, const CacheMemory& obj);

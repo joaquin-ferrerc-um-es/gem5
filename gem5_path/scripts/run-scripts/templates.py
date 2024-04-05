@@ -156,6 +156,55 @@ cache_baseline_2level = update(cache_baseline, {
     cache_l2_size_per_cache: Derived(lambda c: 8 * 1024 * 1024 // num_cpus(c)),
 })
 
+cache_skylake = update(cache_baseline, {
+    cpu_model: "Skylake_TBP",
+    cache_l1d_size: 1 * 1024 * 1024,
+    cache_l1i_size: 1 * 1024 * 1024,
+    cache_l1d_assoc: 16,
+    cache_l1i_assoc: 16,
+    cache_l2_size_per_cache: Derived(lambda c: 16 * 1024 * 1024 // num_cpus(c)),
+    cache_l2_assoc: 11,
+})
+
+cache_icelake = update(cache_baseline, {
+    cpu_model: "Icelake",
+    cache_l0d_size: 48 * 1024,
+    cache_l0d_assoc : 12,
+    cache_l1i_size : 512 * 1024,
+    cache_l1d_size : 512 * 1024,
+    cache_l2_size_per_cache: 2 * 1024 * 1024,
+})
+
+cache_alderlake = update(cache_baseline, {
+    cpu_model: "Alderlake",
+    cache_l0d_size: 48 * 1024,
+    cache_l0d_assoc: 12,
+    cache_l0i_size: 48 * 1024,
+    cache_l0i_assoc: 12,
+    cache_l1i_size: 1 * 1024 * 1024,
+    cache_l1i_assoc: 16,
+    cache_l1d_size : 1 * 1024 * 1024,
+    cache_l1d_assoc: 16,
+    cache_l2_size_per_cache: 4 * 1024 * 1024,
+})
+
+cache_m1 = update(cache_baseline_2level, {
+    cpu_model: "M1",
+    cache_l1i_size : 192 * 1024,
+    cache_l1d_size : 128 * 1024,
+    cache_l1d_assoc : 12,
+    cache_l2_size_per_cache: Derived(lambda c: 1.5 * 1024 * 1024 // num_cpus(c)),
+    cache_l2_assoc : 8,
+})
+
+cache_p550 = update(cache_baseline, {
+    cpu_model: "P550",
+    cache_l0d_assoc : 12,
+    cache_l1d_size: 256 * 1024,
+    cache_l1i_size: 256 * 1024,
+    cache_l2_size_per_cache: 1 * 1024 * 1024,
+})
+
 # HTM templates
 
 htm_cfg1_base = {

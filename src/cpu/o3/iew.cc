@@ -1443,7 +1443,7 @@ IEW::executeInsts()
                 }
             }
         }
-        if (cpu->l3_miss_pending == 0) {
+        if (cpu->l3_miss_pending > 0) {
             iewStats.iewExecuteL3PendingCycles++;
         }
         if (cpu->any_miss_pending == true) {
@@ -1489,7 +1489,7 @@ IEW::executeInsts()
             }
         }
 
-        if (cpu->l3_miss_pending == 0) {
+        if (cpu->l3_miss_pending > 0) {
 	        iewStats.iewExecuteStallL3PendingCycles++;
         }
 

@@ -1,0 +1,8 @@
+Listing(Source("SimulationsMixes"), [
+	IndexColumn("benchmark_name",AllValues,XColumn),
+	IndexColumn("cache_l2_lp",AllValues,SerieColumn),
+	IndexColumn("imprecise_representation",AllValues,SerieColumn)
+], [
+	ResultColumn("cycles_ticks",normalized,bars),
+	ResultColumn("network_msg_count",normalized,bars)
+])

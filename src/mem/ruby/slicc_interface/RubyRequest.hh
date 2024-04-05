@@ -154,7 +154,7 @@ class RubyRequest : public Message
         m_LineAddress = makeLineAddress(m_PhysicalAddress);
     }
 
-    RubyRequest(Tick curTime) : Message(curTime) {}
+    RubyRequest(Tick curTime) : Message(curTime) {  m_Prefetch = PrefetchBit_No; }
     MsgPtr clone() const
     { return std::shared_ptr<Message>(new RubyRequest(*this)); }
 

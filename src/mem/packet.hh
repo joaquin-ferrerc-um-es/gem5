@@ -95,6 +95,8 @@ class MemCmd
         CleanEvict,
         SoftPFReq,
         SoftPFExReq,
+        ReadPFReq,
+        WritePFReq,
         HardPFReq,
         SoftPFResp,
         HardPFResp,
@@ -1033,6 +1035,22 @@ class Packet : public Printable
             return MemCmd::CleanSharedReq;
         } else
             return MemCmd::WriteReq;
+    }
+
+    /**
+     * Constructor-like methods that return Packets based on Request objects.
+     * Fine-tune the MemCmd type if it's not a vanilla read or write.
+     */
+    static PacketPtr
+    createReadPF(const RequestPtr &req)
+    {
+        return new Packet(req, MemCmd::ReadPFReq);
+    }
+
+    static PacketPtr
+    createWritePF(const RequestPtr &req)
+    {
+        return new Packet(req, MemCmd::WritePFReq);
     }
 
     /**

@@ -18,7 +18,7 @@ cache_l2_caches = CacheOption("num-l2caches", False)
 cache_l2_size = CacheOption("l2_size", True) #  Total L2 size is divided into 'num-l2caches' slices)
 cache_l2_assoc = CacheOption("l2_assoc", False)
 
-cache_cpu = CacheOption("cpu", False) # Non empty, means it has to mah and specific CPU
+cache_cpu = CacheOption("cpu", False) # Non empty, means it has to mach and specific CPU
 
 cache_config_options = []
 cache_config_options.append(cache_name)

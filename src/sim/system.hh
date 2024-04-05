@@ -301,6 +301,8 @@ class System : public SimObject, public PCEventScope
      */
     enums::MemoryMode getMemoryMode() const { return memoryMode; }
 
+    bool pipelineStores() const { return _pipeline_stores; }
+
     /**
      * Change the memory mode of the system.
      *
@@ -315,6 +317,8 @@ class System : public SimObject, public PCEventScope
      * Get the cache line size of the system.
      */
     unsigned int cacheLineSize() const { return _cacheLineSize; }
+
+    bool enableCommitPrefetch() const { return _enable_commit_prefetch; }
 
     Threads threads;
 
@@ -434,6 +438,9 @@ class System : public SimObject, public PCEventScope
     enums::MemoryMode memoryMode;
 
     const unsigned int _cacheLineSize;
+
+    const bool _pipeline_stores;
+    const bool _enable_commit_prefetch;
 
     uint64_t workItemsBegin = 0;
     uint64_t workItemsEnd = 0;

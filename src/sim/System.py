@@ -167,3 +167,9 @@ class System(SimObject):
 
     if buildEnv['USE_KVM']:
         kvm_vm = Param.KvmVM(NULL, 'KVM VM (i.e., shared memory domain)')
+
+    # Pipeline stores
+    pipeline_stores = Param.Bool(False, "Enable Pipelined Stores")
+
+    # Store Buffer Research params
+    enable_commit_prefetch = Param.Bool(False, "Enable Store prefetch when stores commit")

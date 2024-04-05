@@ -44,6 +44,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
    CacheMemory * Dcache;
    bool send_evictions;
    CPUContainer *cpu;
+   bool last_store_missed := "False";
 
    RubyPrefetcher * prefetcher;
    bool enable_prefetch := "False";
@@ -213,6 +214,36 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
       return cache_entry.CacheState;
     }
     return State:I;
+  }
+
+  // L0 hit latency
+  Cycles mandatoryQueueLatency(RubyRequestType type, Addr address) {
+    Cycles final_latency;
+
+    final_latency := cpu.getLoadAccessLatency();
+    if (type == RubyRequestType:IFETCH) {
+      final_latency := cpu.getIcacheAccessLatency();
+    }
+    if (type == RubyRequestType:ST || (type == RubyRequestType:ATOMIC) || (type == RubyRequestType:Store_Conditional)) {
+      if (cpu.pipelineStores()) {
+        final_latency := cpu.getStoreHitLatency();
+        if (last_store_missed) {
+          final_latency := final_latency + cpu.getStoreMissLatency();
+        }
+        // Check to see if it is in L0
+        Entry Dcache_entry := getDCacheEntry(address);
+        if (is_valid(Dcache_entry)) {
+          if ((Dcache_entry.CacheState == State:M) || (Dcache_entry.CacheState == State:E)) {
+            last_store_missed := false;
+          } else {
+            last_store_missed := true;
+          }
+        } else {
+          last_store_missed := true;
+        }
+      }
+    }
+    return final_latency;
   }
 
   void setState(TBE tbe, Entry cache_entry, Addr addr, State state) {
@@ -921,6 +952,34 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     stall_and_wait(optionalQueue_in, address);
   }
 
+  action(uu_registerPrefetchRequest, "\udm11", desc="Register a prefetch request") {
+      Dcache.registerPrefetchRequest(address);
+  }
+
+  action(uu_setPrefetchHit, "\udm12", desc="Update prefetch request with prefetch hit information") {
+      Dcache.setPrefetchHit(address);
+  }
+
+  action(uu_setStoreHit, "\udm13", desc="Update prefetch request with store hit information") {
+      Dcache.setStoreHit(address);
+  }
+
+  action(uu_registerStoreRequest, "\udm14", desc="Register a store request") {
+      Dcache.registerStoreRequest(address);
+  }
+
+  action(uu_deletePrefetchRequest, "\udm15", desc="Delete a prefetch request") {
+      Dcache.deletePrefetchRequest(address);
+  }
+
+  action(uu_countWritePrefetchRequests, "\udm16", desc="Increment read prefetch request stat") {
+      Dcache.profileWritePrefetchesRequests();
+  }
+
+  action(uu_countReadPrefetchRequests, "\udm17", desc="Increment read prefetch request stat") {
+      Dcache.profileReadPrefetchesRequests();
+  }
+
   //*****************************************************
   // TRANSITIONS
   //*****************************************************
@@ -959,6 +1018,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     uu_profileDataMiss;
     uu_profileDataWriteMiss;
     uu_profileDataStoreMiss;
+    uu_registerStoreRequest;
     po_observeMiss;
     k_popMandatoryQueue;
   }
@@ -999,12 +1059,14 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     uu_profileDataMiss;
     uu_profileDataWriteMiss;
     uu_profileDataStoreMiss;
+    uu_registerStoreRequest;
     k_popMandatoryQueue;
   }
 
   transition(S, {L0_Replacement,PF_L0_Replacement}, I) {
     forward_eviction_to_cpu;
     uu_profileConflict;
+    uu_deletePrefetchRequest;
     ff_deallocateCacheBlock;
   }
 
@@ -1021,6 +1083,8 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     uu_profileDataHit;
     uu_profileDataWriteHit;
     uu_profileDataStoreHit;
+    uu_registerStoreRequest;
+    uu_setStoreHit;
     pph_observePfHit;
     k_popMandatoryQueue;
   }
@@ -1028,6 +1092,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
   transition(E, {L0_Replacement,PF_L0_Replacement}, I) {
     forward_eviction_to_cpu;
     uu_profileConflict;
+    uu_deletePrefetchRequest;
     g_issuePUTX;
     ff_deallocateCacheBlock;
   }
@@ -1049,6 +1114,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
   transition(M, {L0_Replacement,PF_L0_Replacement}, I) {
     forward_eviction_to_cpu;
     uu_profileConflict;
+    uu_deletePrefetchRequest;
     g_issuePUTX;
     ff_deallocateCacheBlock;
   }
@@ -1150,8 +1216,18 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
   }
 
   transition({S,E,M,Inst_IS,IS,IM,SM,PF_Inst_IS,PF_IS,PF_IE},
-             {PF_Load, PF_Store, PF_Ifetch}) {
+             {PF_Ifetch}) {
       pq_popPrefetchQueue;
+  }
+
+  transition({S,E,M,Inst_IS,IS,IM,SM,PF_Inst_IS,PF_IS,PF_IE}, {PF_Load}) {
+    uu_countReadPrefetchRequests;
+    pq_popPrefetchQueue;
+  }
+
+  transition({S,E,M,Inst_IS,IS,IM,SM,PF_Inst_IS,PF_IS,PF_IE}, {PF_Store}) {
+    uu_countWritePrefetchRequests;
+    pq_popPrefetchQueue;
   }
 
   transition(I, PF_Load, PF_IS) {
@@ -1160,6 +1236,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     pa_issuePfGETS;
     uu_profileDataReadMiss;
     uu_profileDataMiss;
+    uu_countReadPrefetchRequests;
     pq_popPrefetchQueue;
   }
 
@@ -1189,18 +1266,22 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     i_allocateTBE;
     uu_profileDataMiss;
     uu_profileDataWriteMiss;
+    uu_countWritePrefetchRequests;
+    uu_registerPrefetchRequest;
     pb_issuePfGETX;
     pq_popPrefetchQueue;
   }
 
   transition(PF_IE, Store, IM) {
     uu_profileDataStoreHit;
+    uu_registerStoreRequest;
     ppm_observePfMiss;
     k_popMandatoryQueue;
   }
 
   transition({PF_Inst_IS, PF_IS, PF_IE}, {InvOwn, InvElse}) {
     fi_sendInvAck;
+    uu_deletePrefetchRequest;
     l_popRequestQueue;
   }
 
@@ -1210,6 +1291,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     mp_markPrefetched;
     uu_profileDataHit;
     uu_profileDataWriteHit;
+    uu_setPrefetchHit;
     o_popIncomingResponseQueue;
     kd_wakeUpDependents;
   }
@@ -1220,6 +1302,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     mp_markPrefetched;
     uu_profileDataHit;
     uu_profileDataWriteHit;
+    uu_setPrefetchHit;
     o_popIncomingResponseQueue;
     kd_wakeUpDependents;
   }
@@ -1230,6 +1313,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     mp_markPrefetched;
     uu_profileDataHit;
     uu_profileDataWriteHit;
+    uu_setPrefetchHit;
     ff_deallocateCacheBlock;
     o_popIncomingResponseQueue;
     kd_wakeUpDependents;
@@ -1257,6 +1341,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
     mp_markPrefetched;
     uu_profileDataHit;
     uu_profileDataWriteHit;
+    uu_setPrefetchHit;
     o_popIncomingResponseQueue;
     kd_wakeUpDependents;
   }

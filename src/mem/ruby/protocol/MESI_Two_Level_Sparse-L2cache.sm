@@ -140,6 +140,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
     L1_UPGRADE,                 desc="a L1D GETX request for a block maped to us";
 
     L1_PUTX,                 desc="L1 replacing data";
+    L1_PUTX_clean,           desc="L1 replacing clean data";
     L1_PUTX_old,             desc="L1 replacing data, but no longer sharer";
 
     // events initiated by this L2
@@ -241,6 +242,11 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
 
   State getState(TBE tbe, Entry cache_entry, DirectoryEntry directory_entry, Addr addr) {
     if(is_valid(tbe)) {
+      if ((tbe.TBEState == State:NP_NC) || (tbe.TBEState == State:NP_S) || (tbe.TBEState == State:NP_P) || (tbe.TBEState == State:S_NC) ||
+        (tbe.TBEState == State:S_S) || (tbe.TBEState == State:S_P) || (tbe.TBEState == State:M_NC) || (tbe.TBEState == State:M_S) ||
+        (tbe.TBEState == State:M_P)) {
+        assert(false);
+      }
       return tbe.TBEState;
     } else if(is_valid(cache_entry)) {
       if (cache_entry.CacheState == State:S) {
@@ -282,37 +288,62 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
   }
 
   void setState(TBE tbe, Entry cache_entry, DirectoryEntry directory_entry, Addr addr, State state) {
-    // MUST CHANGE
-    if (is_valid(tbe)) {
+    if ((state == State:NP_NC) || (state == State:NP_S) || (state == State:NP_P) || (state == State:S_NC) ||
+        (state == State:S_S) || (state == State:S_P) || (state == State:M_NC) || (state == State:M_S) ||
+        (state == State:M_P)) {
+      assert(is_invalid(tbe));
+      if (state == State:NP_NC) {
+        assert(is_invalid(cache_entry));
+        assert(is_invalid(directory_entry));
+      }
+      else if (state == State:NP_S) {
+        assert(is_invalid(cache_entry));
+        assert(is_valid(directory_entry));
+        directory_entry.DirectoryState := State:DS;
+      }
+      if (state == State:NP_P) {
+        assert(is_invalid(cache_entry));
+        assert(is_valid(directory_entry));
+        directory_entry.DirectoryState := State:P;
+      }
+      if (state == State:S_NC) {
+        assert(is_valid(cache_entry));
+        assert(is_invalid(directory_entry));
+        cache_entry.CacheState := State:S;
+      }
+      if (state == State:S_S) {
+        assert(is_valid(cache_entry));
+        assert(is_valid(directory_entry));
+        cache_entry.CacheState := State:S;
+        directory_entry.DirectoryState := State:DS;
+      }
+      if (state == State:S_P) {
+        assert(is_valid(cache_entry));
+        assert(is_valid(directory_entry));
+        cache_entry.CacheState := State:S;
+        directory_entry.DirectoryState := State:P;
+      }
+      if (state == State:M_NC) {
+        assert(is_valid(cache_entry));
+        assert(is_invalid(directory_entry));
+        cache_entry.CacheState := State:M;
+      }
+      if (state == State:M_S) {
+        assert(is_valid(cache_entry));
+        assert(is_valid(directory_entry));
+        cache_entry.CacheState := State:M;
+        directory_entry.DirectoryState := State:DS;
+      }
+      if (state == State:M_P) {
+        assert(is_valid(cache_entry));
+        assert(is_valid(directory_entry));
+        cache_entry.CacheState := State:M;
+        directory_entry.DirectoryState := State:P;
+      }
+    }
+    else {
+      assert(is_valid(tbe));
       tbe.TBEState := state;
-    }
-    if (state == State:NP_S) {
-      directory_entry.DirectoryState := State:DS;
-    }
-    if (state == State:NP_P) {
-      directory_entry.DirectoryState := State:P;
-    }
-    if (state == State:S_NC) {
-      cache_entry.CacheState := State:S;
-    }
-    if (state == State:S_S) {
-      cache_entry.CacheState := State:S;
-      directory_entry.DirectoryState := State:DS;
-    }
-    if (state == State:S_P) {
-      cache_entry.CacheState := State:S;
-      directory_entry.DirectoryState := State:P;
-    }
-    if (state == State:M_NC) {
-      cache_entry.CacheState := State:M;
-    }
-    if (state == State:M_S) {
-      cache_entry.CacheState := State:M;
-      directory_entry.DirectoryState := State:DS;
-    }
-    if (state == State:M_P) {
-      cache_entry.CacheState := State:M;
-      directory_entry.DirectoryState := State:P;
     }
   }
 
@@ -364,7 +395,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
     }
   }
 
-  Event L1Cache_request_type_to_event(CoherenceRequestType type, Addr addr,
+  Event L1Cache_request_type_to_event(CoherenceRequestType type, MessageSizeType size, Addr addr,
                                       MachineID requestor, DirectoryEntry directory_entry) {
     if(type == CoherenceRequestType:GETS) {
       return Event:L1_GETS;
@@ -380,7 +411,11 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
       }
     } else if (type == CoherenceRequestType:PUTX) {
       if (isSharer(addr, requestor, directory_entry)) {
-        return Event:L1_PUTX;
+        if (size == MessageSizeType:Writeback_Data) {
+          return Event:L1_PUTX;
+        } else if (size == MessageSizeType:Writeback_Control) {
+          return Event:L1_PUTX_clean;
+        } 
       } else {
         return Event:L1_PUTX_old;
       }
@@ -487,13 +522,13 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
 
         if (is_valid(cache_entry)) {
           // The L2 contains the block, so proceeded with handling the request
-          trigger(L1Cache_request_type_to_event(in_msg.Type, in_msg.addr,
+          trigger(L1Cache_request_type_to_event(in_msg.Type, in_msg.MessageSize, in_msg.addr,
                                                 in_msg.Requestor, directory_entry),
                   in_msg.addr, cache_entry, tbe, directory_entry);
         } else {
           if (L2cache.cacheAvail(in_msg.addr)) {
             // L2 does't have the line, but we have space for it in the L2
-            trigger(L1Cache_request_type_to_event(in_msg.Type, in_msg.addr,
+            trigger(L1Cache_request_type_to_event(in_msg.Type, in_msg.MessageSize, in_msg.addr,
                                                   in_msg.Requestor, directory_entry),
                     in_msg.addr, cache_entry, tbe, directory_entry);
           } else {
@@ -591,6 +626,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
         out_msg.Sender := machineID;
         out_msg.Destination.add(in_msg.Requestor);
         out_msg.DataBlk := cache_entry.DataBlk;
+        out_msg.Dirty := cache_entry.Dirty;
         out_msg.MessageSize := MessageSizeType:Response_Data;
 
         out_msg.AckCount := 0 - directory_entry.Sharers.count();
@@ -612,6 +648,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
         out_msg.Sender := machineID;
         out_msg.Destination.add(in_msg.Requestor);
         out_msg.DataBlk := cache_entry.DataBlk;
+        out_msg.Dirty := cache_entry.Dirty;
         out_msg.MessageSize := MessageSizeType:Response_Data;
 
         out_msg.AckCount := 0 -directory_entry.Sharers.count();
@@ -1012,14 +1049,14 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
   // BASE STATE - NP_NC
 
   
-  transition({NP_NC, NPS, NPSS, NPM, S_S, M_NC, NC_NP_NC, S_NP_S, P_NP_P, M_P_IB, M_P_SB}, L1_PUTX) {
+  transition({NP_NC, NPS, NPSS, NPM, S_S, M_NC, NC_NP_NC, S_NP_S, P_NP_P, M_P_IB, M_P_SB}, {L1_PUTX, L1_PUTX_clean}) {
     t_sendWBAck;
     uu_profileMiss;
     uu_profileReadMiss;
     jj_popL1RequestQueue;
   }
 
-  transition({NP_NC, NPS, NPSS, NPM, S_S, M_NC, M_P, NC_NP_NC, S_NP_S, P_NP_P, M_P_IB, M_P_SB}, L1_PUTX_old) {
+  transition({NP_NC, NPS, NPSS, NPM, S_S, M_NC, M_S, M_P, NC_NP_NC, S_NP_S, P_NP_P, M_P_IB, M_P_SB}, L1_PUTX_old) {
     t_sendWBAck;
     uu_profileMiss;
     uu_profileReadMiss;
@@ -1034,7 +1071,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
     zn_recycleResponseNetwork;
   }
 
-  transition({NC_NP_NC, S_NP_S, P_NP_P, NP_S_I, S_S_I, M_S_I, NP_P_I, S_P_I, M_P_I}, MEM_Inv) {
+  transition({NP_NC, NP_S, NP_P, NC_NP_NC, S_NP_S, P_NP_P, NP_S_I, S_S_I, M_S_I, NP_P_I, S_P_I, M_P_I}, MEM_Inv) {
     uu_profileMiss;
     uu_profileWriteMiss;
     o_popIncomingResponseQueue;
@@ -1046,7 +1083,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
   }
 
   // Transitions from NP_NC
-  transition(NP_NC, L1_GETS,  NPSS) {
+  transition(NP_NC, L1_GETS, NPSS) {
     qq_allocateDirectoryCacheBlock;
     ll_clearSharers;
     nn_addSharer;
@@ -1059,8 +1096,8 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
     jj_popL1RequestQueue;
   }
 
-  transition(NP_NC, L1_GET_INSTR,  NPS) {
-    oo_allocateCacheBlock;
+  transition(NP_NC, L1_GET_INSTR, NPS) {
+    qq_allocateL2CacheBlock;
     qq_allocateDirectoryCacheBlock;
     ll_clearSharers;
     nn_addSharer;
@@ -1073,7 +1110,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
     jj_popL1RequestQueue;
   }
 
-  transition(NP_NC, L1_GETX,  NPM) {
+  transition(NP_NC, L1_GETX, NPM) {
     qq_allocateDirectoryCacheBlock;
     ll_clearSharers;
     i_allocateTBEMiss;
@@ -1086,7 +1123,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
   }
 
   // Transitions from NP_S
-  transition(NP_S, L1_GETS,  NPS) {
+  transition(NP_S, L1_GETS, NPS) {
     qq_allocateL2CacheBlock;
     nn_addSharer;
     i_allocateTBEMiss;
@@ -1098,7 +1135,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
     jj_popL1RequestQueue;
   }
 
-    transition(NP_S, L1_GET_INSTR,  NPS) {
+    transition(NP_S, L1_GET_INSTR, NPS) {
     qq_allocateL2CacheBlock;
     nn_addSharer;
     i_allocateTBEMiss;
@@ -1110,7 +1147,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
     jj_popL1RequestQueue;
   }
 
-  transition(NP_S, L1_GETX,  NPM) {
+  transition(NP_S, L1_GETX, NPM) {
     i_allocateTBEMiss;
     xx_recordGetXL1ID;
     a_issueFetchToMemory;
@@ -1121,7 +1158,8 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
     jj_popL1RequestQueue;
   }
 
-  transition(NP_S, L1_UPGRADE,  NP_S_MB) {
+  transition(NP_S, L1_UPGRADE, NP_S_MB) {
+    i_allocateTBEDir;
     fwm_sendFwdInvToSharersMinusRequestor;
     ts_sendInvAckToUpgrader;
     uu_profileMiss;
@@ -1130,7 +1168,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
     jj_popL1RequestQueue;
   }
 
-  transition(NP_S, Directory_Replacement,  NP_S_I) {
+  transition(NP_S, Directory_Replacement, NP_S_I) {
     i_allocateTBEDir;
     f_sendInvToSharers;
     uu_profileConflict;
@@ -1138,8 +1176,9 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
   }
 
   // Transitions from NP_P
-  transition(NP_P, {L1_GETS, L1_GET_INSTR},  NP_P_IIB) {
+  transition(NP_P, {L1_GETS, L1_GET_INSTR}, NP_P_IIB) {
     qq_allocateL2CacheBlock;
+    i_allocateTBEL2;
     b_forwardRequestToExclusive;
     uu_profileMiss;
     uu_profileReadMiss;
@@ -1147,7 +1186,8 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
     jj_popL1RequestQueue;
   }
 
-  transition(NP_P, L1_GETX,  NP_P_MB) {
+  transition(NP_P, L1_GETX, NP_P_MB) {
+    i_allocateTBEDir;
     b_forwardRequestToExclusive;
     uu_profileMiss;
     uu_profileReadMiss;
@@ -1160,6 +1200,18 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
     ll_clearSharers;
     mr_writeDataToCacheFromRequest;
     t_sendWBAck;
+    rr_deallocateDirectoryEntry;
+    uu_profileHit;
+    uu_profileReadHit;
+    jj_popL1RequestQueue;
+  }
+
+  transition(NP_P, L1_PUTX_clean, NC_NP_NC) {
+    i_allocateTBEDir;
+    ll_clearSharers;
+    t_sendWBAck;
+    c_exclusiveCleanReplacement;
+    rr_deallocateDirectoryEntry;
     uu_profileHit;
     uu_profileReadHit;
     jj_popL1RequestQueue;
@@ -1176,7 +1228,6 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
   // Transitions from NPSS/NPS/NPM
   transition(NPSS, Mem_Data, NP_P_MB) {
     ex_sendExclusiveDataToGetSRequestors;
-    s_deallocateTBE;
     uu_profileHit;
     uu_profileWriteHit;
     o_popIncomingResponseQueue;
@@ -1194,13 +1245,22 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
 
   transition(NPM, Mem_Data, NP_P_MB) {
     ee_sendDataToGetXRequestor;
-    s_deallocateTBE;
     uu_profileHit;
     uu_profileWriteHit;
     o_popIncomingResponseQueue;
   }
 
-  transition({NPSS, NPS}, {L1_GETS, L1_GET_INSTR}, NPS) {
+  transition(NPSS, {L1_GETS, L1_GET_INSTR}, NPS) {
+    qq_allocateL2CacheBlock;
+    nn_addSharer;
+    ss_recordGetSL1ID;
+    uu_profileMiss;
+    uu_profileReadMiss;
+    uu_profileLoadMiss;
+    jj_popL1RequestQueue;
+  }
+  
+  transition(NPS, {L1_GETS, L1_GET_INSTR}) {
     nn_addSharer;
     ss_recordGetSL1ID;
     uu_profileMiss;
@@ -1221,6 +1281,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
   transition(S_NC, L1_GETS, S_NC_MB) {
     qq_allocateDirectoryCacheBlock;
     ll_clearSharers;
+    i_allocateTBEL2;
     dd_sendExclusiveDataToRequestor;
     set_setMRU;
     uu_profileHit;
@@ -1245,7 +1306,8 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
     qq_allocateDirectoryCacheBlock;
     ll_clearSharers;
     nn_addSharer;
-    dd_sendExclusiveDataToRequestor;
+    i_allocateTBEL2;
+    d_sendDataToRequestor;
     rr_deallocateL2CacheBlock;
     uu_profileHit;
     uu_profileReadHit;
@@ -1255,13 +1317,14 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
 
   transition(S_NC, L2_Replacement, NC_NP_NC) {
     i_allocateTBEL2;
+    c_exclusiveCleanReplacement;
     uu_profileConflict;
     rr_deallocateL2CacheBlock;
-    c_exclusiveCleanReplacement;
   }
 
   transition(S_NC, MEM_Inv, NC_NP_NC) {
     i_allocateTBEL2;
+    c_exclusiveCleanReplacement;
     uu_profileHit;
     uu_profileWriteHit;
     rr_deallocateL2CacheBlock;
@@ -1279,6 +1342,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
   }
 
   transition(S_S, L1_GETX, S_S_MB) {
+    i_allocateTBEDir;
     d_sendDataToRequestor;
     fwm_sendFwdInvToSharersMinusRequestor;
     rr_deallocateL2CacheBlock;
@@ -1289,6 +1353,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
   }
 
   transition(S_S, L1_UPGRADE, S_S_MB) {
+    i_allocateTBEDir;
     fwm_sendFwdInvToSharersMinusRequestor;
     ts_sendInvAckToUpgrader;
     rr_deallocateL2CacheBlock;
@@ -1299,13 +1364,14 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
 
   transition(S_S, L2_Replacement, S_NP_S) {
     i_allocateTBEL2;
+    c_exclusiveCleanReplacement;
     uu_profileConflict;
     rr_deallocateL2CacheBlock;
-    c_exclusiveCleanReplacement;
   }
 
   transition(S_S, MEM_Inv, S_NP_S) {
     i_allocateTBEL2;
+    c_exclusiveCleanReplacement;
     uu_profileHit;
     uu_profileWriteHit;
     rr_deallocateL2CacheBlock;
@@ -1320,6 +1386,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
 
   // Transitions from S_P
   transition(S_P, {L1_GETS, L1_GET_INSTR}, S_P_IIB) {
+    i_allocateTBEL2;
     b_forwardRequestToExclusive;
     set_setMRU;
     uu_profileMiss;
@@ -1329,6 +1396,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
   }
 
   transition(S_P, L1_GETX, S_S_MB) {
+    i_allocateTBEDir;
     b_forwardRequestToExclusive;
     rr_deallocateL2CacheBlock;
     uu_profileMiss;
@@ -1337,28 +1405,54 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
     jj_popL1RequestQueue;
   }
 
-  transition(S_P, L1_PUTX, M_NC) {
+  transition(S_P, L1_PUTX_clean, S_NC) {
     ll_clearSharers;
-    mr_writeDataToCacheFromRequest;
     t_sendWBAck;
+    rr_deallocateDirectoryEntry;
     uu_profileHit;
     uu_profileReadHit;
     jj_popL1RequestQueue;
   }
 
-  transition(S_P, L2_Replacement, P_NP_P) {
+  transition(S_P, L1_PUTX, M_NC) {
+    ll_clearSharers;
+    mr_writeDataToCacheFromRequest;
+    t_sendWBAck;
+    rr_deallocateDirectoryEntry;
+    uu_profileHit;
+    uu_profileReadHit;
+    jj_popL1RequestQueue;
+  }
+
+  /*transition(S_P, L2_Replacement, P_NP_P) {
     i_allocateTBEL2;
+    c_exclusiveCleanReplacement;
     uu_profileConflict;
     rr_deallocateL2CacheBlock;
-    c_exclusiveCleanReplacement;
   }
 
   transition(S_P, MEM_Inv, P_NP_P) {
     i_allocateTBEL2;
+    c_exclusiveCleanReplacement;
     uu_profileHit;
     uu_profileWriteHit;
     rr_deallocateL2CacheBlock;
-    c_exclusiveCleanReplacement;
+  }*/
+
+  transition(S_P, L2_Replacement, NP_P) {
+    uu_profileConflict;
+    rr_deallocateL2CacheBlock;
+    // o_popIncomingResponseQueue;
+    kd_wakeUpDependents;
+
+  }
+
+  transition(S_P, MEM_Inv, NP_P) {
+    uu_profileHit;
+    uu_profileWriteHit;
+    rr_deallocateL2CacheBlock;
+    //o_popIncomingResponseQueue;
+    kd_wakeUpDependents;
   }
 
   transition(S_P, Directory_Replacement, S_P_I) {
@@ -1372,6 +1466,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
   transition(M_NC, L1_GETS, M_NC_MB) {
     qq_allocateDirectoryCacheBlock;
     ll_clearSharers;
+    i_allocateTBEL2;
     dd_sendExclusiveDataToRequestor;
     set_setMRU;
     uu_profileHit;
@@ -1395,7 +1490,8 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
   transition(M_NC, L1_GETX, M_P_MB) {
     qq_allocateDirectoryCacheBlock;
     ll_clearSharers;
-    dd_sendExclusiveDataToRequestor;
+    i_allocateTBEDir;
+    d_sendDataToRequestor;
     rr_deallocateL2CacheBlock;
     uu_profileHit;
     uu_profileReadHit;
@@ -1405,18 +1501,18 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
 
   transition(M_NC, L2_Replacement, NC_NP_NC) {
     i_allocateTBEL2;
+    c_exclusiveReplacement;
     uu_profileConflict;
     rr_deallocateL2CacheBlock;
-    c_exclusiveReplacement;
   }
 
   transition(M_NC, MEM_Inv, NC_NP_NC) {
     i_allocateTBEL2;
+    c_exclusiveReplacement;
     uu_profileConflict;
     rr_deallocateL2CacheBlock;
-    c_exclusiveReplacement;
-    uu_profileHit;
-    uu_profileWriteHit;
+    //uu_profileHit;
+    //uu_profileWriteHit;
   }
 
   // Transitions from M_S
@@ -1431,6 +1527,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
   }
 
   transition(M_S, L1_GETX, M_P_MB) {
+    i_allocateTBEDir;
     d_sendDataToRequestor;
     fwm_sendFwdInvToSharersMinusRequestor;
     rr_deallocateL2CacheBlock;
@@ -1441,6 +1538,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
   }
 
   transition(M_S, L1_UPGRADE, M_P_MB) {
+    i_allocateTBEDir;
     fwm_sendFwdInvToSharersMinusRequestor;
     ts_sendInvAckToUpgrader;
     rr_deallocateL2CacheBlock;
@@ -1451,18 +1549,18 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
 
   transition(M_S, L2_Replacement, S_NP_S) {
     i_allocateTBEL2;
+    c_exclusiveReplacement;
     uu_profileConflict;
     rr_deallocateL2CacheBlock;
-    c_exclusiveCleanReplacement;
   }
 
   transition(M_S, MEM_Inv, S_NP_S) {
     i_allocateTBEL2;
+    c_exclusiveReplacement;
     uu_profileConflict;
     rr_deallocateL2CacheBlock;
-    c_exclusiveReplacement;
-    uu_profileHit;
-    uu_profileWriteHit;
+    //uu_profileHit;
+    //uu_profileWriteHit;
   }
 
   transition(M_S, Directory_Replacement, M_S_I) {
@@ -1474,6 +1572,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
 
   // Transitions from M_P
   transition(M_P, {L1_GETS, L1_GET_INSTR}, M_P_IIB) {
+    i_allocateTBEL2;
     b_forwardRequestToExclusive;
     set_setMRU;
     uu_profileMiss;
@@ -1483,6 +1582,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
   }
 
   transition(M_P, L1_GETX, M_P_MB) {
+    i_allocateTBEDir;
     b_forwardRequestToExclusive;
     rr_deallocateL2CacheBlock;
     uu_profileMiss;
@@ -1491,28 +1591,31 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
     jj_popL1RequestQueue;
   }
 
-  transition(M_P, L1_PUTX, M_NC) {
+  transition(M_P, {L1_PUTX, L1_PUTX_clean}, M_NC) {
     ll_clearSharers;
     mr_writeDataToCacheFromRequest;
     t_sendWBAck;
+    rr_deallocateDirectoryEntry;
     uu_profileHit;
     uu_profileReadHit;
     jj_popL1RequestQueue;
   }
 
-  transition(M_P, L2_Replacement, P_NP_P) {
-    i_allocateTBEL2;
+  transition(M_P, L2_Replacement, NP_P) {
+    //i_allocateTBEL2;
     uu_profileConflict;
     rr_deallocateL2CacheBlock;
-    c_exclusiveReplacement;
+    // o_popIncomingResponseQueue;
+    kd_wakeUpDependents;
   }
 
-  transition(M_P, MEM_Inv, P_NP_P) {
-    i_allocateTBEL2;
+  transition(M_P, MEM_Inv, NP_P) {
+    //i_allocateTBEL2;
     uu_profileHit;
     uu_profileWriteHit;
     rr_deallocateL2CacheBlock;
-    c_exclusiveReplacement;
+    //o_popIncomingResponseQueue;
+    kd_wakeUpDependents;
   }
 
   transition(M_P, Directory_Replacement, M_P_I) {
@@ -1526,6 +1629,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
   transition({S_S_MB, M_P_MB, NP_S_MB, NP_P_MB}, Exclusive_Unblock, NP_P) {
     mmu_markExclusiveFromUnblock;
     k_popUnblockQueue;
+    s_deallocateTBE;
     uu_profileHit;
     uu_profileWriteHit;
     kd_wakeUpDependents;
@@ -1534,6 +1638,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
   transition(S_NC_MB, Exclusive_Unblock, S_P) {
     mmu_markExclusiveFromUnblock;
     k_popUnblockQueue;
+    s_deallocateTBE;
     uu_profileHit;
     uu_profileWriteHit;
     kd_wakeUpDependents;
@@ -1542,12 +1647,13 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
   transition(M_NC_MB, Exclusive_Unblock, M_P) {
     mmu_markExclusiveFromUnblock;
     k_popUnblockQueue;
+    s_deallocateTBE;
     uu_profileHit;
     uu_profileWriteHit;
     kd_wakeUpDependents;
   }
 
-  transition({S_S_MB, M_P_MB, NP_S_MB, NP_P_MB, S_NC_MB, M_NC_MB}, {L1_PUTX, L1_PUTX_old}) {
+  transition({S_S_MB, M_P_MB, NP_S_MB, NP_P_MB, S_NC_MB, M_NC_MB}, {L1_PUTX, L1_PUTX_clean, L1_PUTX_old}) {
     zz_stallAndWaitL1RequestQueue;
   }
 
@@ -1575,31 +1681,36 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
   }
 
   // Transitions from Directory_Replacement
-  transition({NP_S_I, S_S_I, M_S_I}, Ack) {
+  transition({NP_S_I, S_S_I, M_S_I, NP_P_I, S_P_I, M_P_I}, Ack) {
     q_updateAck;
     o_popIncomingResponseQueue;
   }
 
-  transition(NP_S_I, Ack_all, NP_NC) {
+  transition({NP_S_I, NP_P_I}, Ack_all, NC_NP_NC) {
+    c_exclusiveCleanReplacement;
     o_popIncomingResponseQueue;
   }
 
-  transition(S_S_I, Ack_all, S_NC) {
+  transition({S_S_I, S_P_I}, Ack_all, S_NC) {
+    s_deallocateTBE;
     o_popIncomingResponseQueue;
   }
 
-  transition(M_S_I, Ack_all, M_NC) {
+  transition({M_P_I, M_S_I}, Ack_all, M_NC) {
+    s_deallocateTBE;
     o_popIncomingResponseQueue;
   }
 
   transition(NP_P_I, WB_Data, M_NC) {
     m_writeDataToCache;
+    s_deallocateTBE;
     uu_profileMiss;
     uu_profileWriteMiss;
     o_popIncomingResponseQueue;
   }
 
-  transition(NP_P_I, WB_Data_clean, NP_NC) {
+  transition(NP_P_I, WB_Data_clean, NC_NP_NC) {
+    c_exclusiveCleanReplacement;
     uu_profileMiss;
     uu_profileWriteMiss;
     o_popIncomingResponseQueue;
@@ -1607,12 +1718,14 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
 
   transition(S_P_I, WB_Data, M_NC) {
     m_writeDataToCache;
+    s_deallocateTBE;
     uu_profileMiss;
     uu_profileWriteMiss;
     o_popIncomingResponseQueue;
   }
 
   transition(S_P_I, WB_Data_clean, S_NC) {
+    s_deallocateTBE;
     uu_profileMiss;
     uu_profileWriteMiss;
     o_popIncomingResponseQueue;
@@ -1620,23 +1733,25 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
 
   transition(M_P_I, WB_Data, M_NC) {
     m_writeDataToCache;
+    s_deallocateTBE;
     uu_profileMiss;
     uu_profileWriteMiss;
     o_popIncomingResponseQueue;
   }
 
   transition(M_P_I, WB_Data_clean, M_NC) {
+    s_deallocateTBE;
     uu_profileMiss;
     uu_profileWriteMiss;
     o_popIncomingResponseQueue;
   }
 
-  transition({S_P_I, M_P_I}, {L1_PUTX, L1_PUTX_old}){
+  transition({S_P_I, M_P_I}, {L1_PUTX, L1_PUTX_clean, L1_PUTX_old}){
     zz_stallAndWaitL1RequestQueue;
   }
 
   // Transitions from forwarding
-  transition({NP_P_IIB, S_P_IIB, M_P_IIB}, {L1_PUTX, L1_PUTX_old}){
+  transition({NP_P_IIB, S_P_IIB, M_P_IIB}, {L1_PUTX, L1_PUTX_clean, L1_PUTX_old}){
     zz_stallAndWaitL1RequestQueue;
   }
 
@@ -1663,6 +1778,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
 
   transition(NP_P_IB, WB_Data, M_S) {
     m_writeDataToCache;
+    s_deallocateTBE;
     uu_profileHit;
     uu_profileWriteHit;
     o_popIncomingResponseQueue;
@@ -1671,6 +1787,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
 
   transition(NP_P_IB, WB_Data_clean, S_S) {
     m_writeDataToCache;
+    s_deallocateTBE;
     uu_profileHit;
     uu_profileWriteHit;
     o_popIncomingResponseQueue;
@@ -1700,6 +1817,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
 
   transition(S_P_IB, WB_Data, M_S) {
     m_writeDataToCache;
+    s_deallocateTBE;
     uu_profileHit;
     uu_profileWriteHit;
     o_popIncomingResponseQueue;
@@ -1708,6 +1826,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
 
   transition(S_P_IB, WB_Data_clean, S_S) {
     m_writeDataToCache;
+    s_deallocateTBE;
     uu_profileHit;
     uu_profileWriteHit;
     o_popIncomingResponseQueue;
@@ -1716,9 +1835,11 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
 
   transition(S_P_SB, Unblock, S_S) {
     nnu_addSharerFromUnblock;
+    s_deallocateTBE;
     uu_profileHit;
     uu_profileWriteHit;
     k_popUnblockQueue;
+    kd_wakeUpDependents;
   }
 
   transition(M_P_IIB, Unblock, M_P_IB) {
@@ -1737,6 +1858,7 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
 
   transition(M_P_IB, {WB_Data, WB_Data_clean}, M_S) {
     m_writeDataToCache;
+    s_deallocateTBE;
     uu_profileHit;
     uu_profileWriteHit;
     o_popIncomingResponseQueue;
@@ -1745,8 +1867,10 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
 
   transition(M_P_SB, Unblock, M_S) {
     nnu_addSharerFromUnblock;
+    s_deallocateTBE;
     uu_profileHit;
     uu_profileWriteHit;
     k_popUnblockQueue;
+    kd_wakeUpDependents;
   }
 }

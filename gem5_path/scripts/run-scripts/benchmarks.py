@@ -182,7 +182,7 @@ for (name, size, subdir, args, input) in [
 for (name, subdir, exe_name, args, input) in [       
     ("barnes",         "apps/barnes",                          "BARNES",         "", "inputs/n16384-p${num_cpus}"),
     ("cholesky",       "kernels/cholesky",                     "CHOLESKY",       "-p${num_cpus}", "inputs/tk15.O"),
-    ("fft",            "kernels/fft",                          "FFT",            "-p${num_cpus} -m16", None),
+    ("fft",            "kernels/fft",                          "FFT",            "-p${num_cpus} -m24", None), #-m16
     ("fmm",            "apps/fmm",                             "FMM",            "", "inputs/input.${num_cpus}.16384"),
     ("lu_cb",          "kernels/lu/contiguous_blocks",         "LU",             "-p${num_cpus} -n512", None),
     ("lu_ncb",         "kernels/lu/non_contiguous_blocks",     "LU",             "-p${num_cpus} -n512", None),
@@ -205,7 +205,7 @@ for (name, subdir, exe_name, args, input) in [
         input_filename_template = input)
 
 # Other
-for size_k in [2**i for i in range(0,18)]:
+for size_k in [2**i for i in range(0,20)]:
     if size_k > 512:
         args = f"{int(size_k / 1024)} M"
     else:
@@ -226,6 +226,25 @@ for size_k in [2**i for i in range(0,18)]:
         subdir_template = f"other-benchmarks/kernels/MemoryLatency",
         binary_filename_template = f"build/${{arch}}/MemoryLatency",
         input_filename_template = None)
+    
+# Manually added 48Kb test sizes for Alderlake L0 sizes.
+Benchmark(
+        suite = "other",
+        name = "cache-latency",
+        size = f"sim{48:06d}",
+        args_string = f"{48} K",
+        subdir_template = f"other-benchmarks/kernels/cache-latency",
+        binary_filename_template = f"build/${{arch}}/CACHE-LATENCY", 
+        input_filename_template = None)
+
+Benchmark(
+        suite = "other",
+        name = "MemoryLatency",
+        size = f"sim{48:06d}",
+        args_string = f"-test asm -sizekb {48}",
+        subdir_template = f"other-benchmarks/kernels/MemoryLatency",
+        binary_filename_template = f"build/${{arch}}/MemoryLatency",
+        input_filename_template = None)
 
 Benchmark(
     suite = "other",
@@ -234,4 +253,13 @@ Benchmark(
     args_string = "",
     subdir_template = f"other-benchmarks/kernels/CoherencyLatency",
     binary_filename_template = f"build/${{arch}}/CoherencyLatency",
+    input_filename_template = None)
+
+Benchmark(
+    suite = "other",
+    name = "ContentionTest",
+    size = f"default",
+    args_string = "",
+    subdir_template = f"other-benchmarks/kernels/ContentionTest",
+    binary_filename_template = f"build/${{arch}}/ContentionTest",
     input_filename_template = None)

@@ -88,6 +88,10 @@ CacheMemory::CacheMemory(const Params &p)
     m_use_occupancy = dynamic_cast<replacement_policy::WeightedLRU*>(
                                     m_replacementPolicy_ptr) ? true : false;
     m_xact_mgr = NULL;
+    m_load_access_latency = p.loadAccessLatency;
+    m_access_latency = p.accessLatency;
+    m_store_hit_latency = p.storeHitLatency;
+    m_store_miss_latency = p.storeMissLatency;
 }
 
 void

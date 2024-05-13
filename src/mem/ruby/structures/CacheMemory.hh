@@ -133,6 +133,10 @@ class CacheMemory : public SimObject
 
     Cycles getTagLatency() const { return tagArray.getLatency(); }
     Cycles getDataLatency() const { return dataArray.getLatency(); }
+    Cycles getLoadAccessLatency() const { return m_load_access_latency; }
+    Cycles getAccessLatency() const { return m_access_latency; }
+    Cycles getStoreHitLatency() const { return m_store_hit_latency; }
+    Cycles getStoreMissLatency() const { return m_store_miss_latency; }
 
     bool isBlockInvalid(int64_t cache_set, int64_t loc);
     bool isBlockNotBusy(int64_t cache_set, int64_t loc);
@@ -276,6 +280,10 @@ class CacheMemory : public SimObject
     int m_start_index_bit;
     bool m_resource_stalls;
     int m_block_size;
+    Cycles m_load_access_latency;
+    Cycles m_access_latency;
+    Cycles m_store_hit_latency;
+    Cycles m_store_miss_latency;
 
     /**
      * We store all the ReplacementData in a 2-dimensional array. By doing

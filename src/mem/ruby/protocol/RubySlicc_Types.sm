@@ -128,27 +128,6 @@ structure (NetDest, external = "yes", non_obj="yes") {
   NetDest AND(NetDest);
 }
 
-/*structure (SharersSet, external = "yes", non_obj="yes") {
-  void add(MachineID);
-  void remove(MachineID);
-  void clear();
-  NetDest getSharers();
-}
-
-structure (SharersSetCBV, external = "yes", non_obj="yes") {
-  void add(MachineID);
-  void remove(MachineID);
-  void clear();
-  NetDest getSharers();
-}
-
-structure (SharersDash, external = "yes", non_obj="yes") {
-  void add(MachineID);
-  void remove(MachineID);
-  void clear();
-  NetDest getSharers();
-}*/
-
 structure (SharersImprecise, external = "yes", non_obj="yes") {
   void add(MachineID);
   void remove(MachineID);
@@ -271,6 +250,10 @@ structure (CacheMemory, external = "yes") {
   bool isTagPresent(Addr);
   Cycles getTagLatency();
   Cycles getDataLatency();
+  Cycles getLoadAccessLatency();
+  Cycles getAccessLatency();
+  Cycles getStoreHitLatency();
+  Cycles getStoreMissLatency();
   void setMRU(Addr);
   void setMRU(Addr, int);
   void setMRU(AbstractCacheEntry);
@@ -390,9 +373,5 @@ structure (CPUContainer, external = "yes") {
     void anyNoMissesPending();
     bool hasL3();
 
-    Cycles getStoreHitLatency();
-    Cycles getStoreMissLatency();
-    Cycles getLoadAccessLatency();
-    Cycles getIcacheAccessLatency();
     bool pipelineStores();
 }

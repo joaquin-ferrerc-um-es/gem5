@@ -220,15 +220,15 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache")
   Cycles mandatoryQueueLatency(RubyRequestType type, Addr address) {
     Cycles final_latency;
 
-    final_latency := cpu.getLoadAccessLatency();
+    final_latency := Dcache.getLoadAccessLatency();
     if (type == RubyRequestType:IFETCH) {
-      final_latency := cpu.getIcacheAccessLatency();
+      final_latency := Icache.getAccessLatency();
     }
     if (type == RubyRequestType:ST || (type == RubyRequestType:ATOMIC) || (type == RubyRequestType:Store_Conditional)) {
       if (cpu.pipelineStores()) {
-        final_latency := cpu.getStoreHitLatency();
+        final_latency := Dcache.getStoreHitLatency();
         if (last_store_missed) {
-          final_latency := final_latency + cpu.getStoreMissLatency();
+          final_latency := final_latency + Dcache.getStoreMissLatency();
         }
         // Check to see if it is in L0
         Entry Dcache_entry := getDCacheEntry(address);

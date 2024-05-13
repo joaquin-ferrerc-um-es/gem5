@@ -27,11 +27,6 @@ public :
   BaseCPU *m_cpu;
   bool has_l3;
 
-  Cycles _store_hit_latency;
-  Cycles _store_miss_latency;
-  Cycles _load_access_latency;
-  Cycles _icache_access_latency;
-
   inline void l1MissesPending() { m_cpu->l1MissesPending(); };
   inline void l1NoMissesPending() { m_cpu->l1NoMissesPending(); };
   inline void l2MissesPending() { m_cpu->l2MissesPending(); };
@@ -46,11 +41,6 @@ public :
   inline void anyMissesPending() { m_cpu->anyMissesPending(); };
   inline void anyNoMissesPending() { m_cpu->anyNoMissesPending(); };
   inline bool hasL3() { return has_l3; }
-
-  inline Cycles getStoreHitLatency() { return _store_hit_latency; };
-  inline Cycles getStoreMissLatency() { return _store_miss_latency; };
-  inline Cycles getLoadAccessLatency() { return _load_access_latency; };
-  inline Cycles getIcacheAccessLatency() { return _icache_access_latency; };
 
   inline bool pipelineStores() { return m_cpu->system->pipelineStores(); }
 

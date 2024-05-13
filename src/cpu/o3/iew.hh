@@ -427,6 +427,10 @@ class IEW
     /** Maximum size of the skid buffer. */
     unsigned skidBufferMax;
 
+    uint32_t cycles_without_execute = 0;
+    Tick last_execute_cycle = 0;
+    uint32_t livelock_count = 0;
+
 
     struct IEWStats : public statistics::Group
     {

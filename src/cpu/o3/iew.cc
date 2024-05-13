@@ -1457,12 +1457,24 @@ IEW::executeInsts()
 
         cpu->activityThisCycle();
 
+        cycles_without_execute = 0;
+        last_execute_cycle = curTick();
+        livelock_count = 0;
+
         if (inst_num > 1)
 	    iewStats.iewExecuteGE1++; // TODO: This is supposed to be per thread (SMT)
         if (inst_num > 2)
 	    iewStats.iewExecuteGE2++; // TODO: This is supposed to be per thread (SMT)
     } else {
         iewStats.iewExecuteStallCycles++;
+
+        // Detect posible livelocks on coherence protocol
+        cycles_without_execute++;
+        if (cycles_without_execute && ((cycles_without_execute % 100000) == 0)) {
+        std::cerr << "Possible livelock, execute stalled since tick: " << last_execute_cycle << std::endl;
+        if (livelock_count == 20)
+            panic("Possible livelock!\n");
+        }
 
         DPRINTF(IEW, "Execute Stalled (0 instructions executed from %u\n",insts_to_execute);
 

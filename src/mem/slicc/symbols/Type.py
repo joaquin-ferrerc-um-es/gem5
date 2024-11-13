@@ -84,9 +84,6 @@ class Type(Symbol):
         if self.ident in ("CacheMemory"):
             self["cache"] = "yes"
 
-        if self.ident in ("DirectoryCacheMemory"):
-            self["cache"] = "yes"
-
         if self.ident in ("TBETable"):
             self["tbe"] = "yes"
 
@@ -351,6 +348,19 @@ void
 set${{dm.ident}}(const ${{dm.real_c_type}}& local_${{dm.ident}})
 {
     m_${{dm.ident}} = local_${{dm.ident}};
+}
+''')
+
+        # BIG HACK to define getNumSharers() methon on L2 cache entries
+        if self.c_ident == "L2Cache_Entry" or self.c_ident == "L2Cache_DirectoryEntry":
+            for dm in self.data_members.values():
+                if dm.ident == "Sharers":
+                    code('''
+/** \\brief Get method for ${{dm.ident}} count */
+int
+getNum${{dm.ident}}()
+{
+    return m_${{dm.ident}}.count();
 }
 ''')
 

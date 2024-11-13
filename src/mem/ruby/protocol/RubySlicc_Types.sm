@@ -128,11 +128,40 @@ structure (NetDest, external = "yes", non_obj="yes") {
   NetDest AND(NetDest);
 }
 
+structure (LPBroadcast, external = "yes", non_obj="yes") {
+  void add(MachineID);
+  void remove(MachineID);
+  void clear();
+  NetDest getSharers();
+  bool isElement(MachineID);
+  int count();
+}
+
+structure (LPCBV, external = "yes", non_obj="yes") {
+  void add(MachineID);
+  void remove(MachineID);
+  void clear();
+  NetDest getSharers();
+  bool isElement(MachineID);
+  int count();
+}
+
+structure (DASC, external = "yes", non_obj="yes") {
+  void add(MachineID);
+  void remove(MachineID);
+  void clear();
+  NetDest getSharers();
+  bool isElement(MachineID);
+  int count();
+}
+
 structure (SharersImprecise, external = "yes", non_obj="yes") {
   void add(MachineID);
   void remove(MachineID);
   void clear();
   NetDest getSharers();
+  bool isElement(MachineID);
+  int count();
 }
 
 structure (Sequencer, external = "yes") {
@@ -223,10 +252,6 @@ structure(RubyRequest, desc="...", interface="Message", external="yes") {
 
 structure(AbstractCacheEntry, primitive="yes", external = "yes") {
   void changePermission(AccessPermission);
-  void addSharerImprecise(MachineID);
-  void removeSharerImprecise(MachineID);
-  void clearSharersImprecise();
-  NetDest getSharersImprecise();
 }
 
 structure (DirectoryMemory, external = "yes") {
@@ -289,47 +314,6 @@ structure (CacheMemory, external = "yes") {
   void profilePrefetchMiss();
   void profileWritePrefetchesRequests();
   void profileReadPrefetchesRequests();
-}
-
-structure (DirectoryCacheMemory, external = "yes") {
-  bool cacheAvail(Addr);
-  Addr cacheProbe(Addr);
-  AbstractCacheEntry getNullEntry();
-  AbstractCacheEntry allocate(Addr, AbstractCacheEntry);
-  AbstractCacheEntry allocate(Addr, AbstractCacheEntry, bool);
-  void allocateVoid(Addr, AbstractCacheEntry);
-  void deallocate(Addr);
-  AbstractCacheEntry lookup(Addr);
-  bool isTagPresent(Addr);
-  Cycles getTagLatency();
-  Cycles getDataLatency();
-  void setMRU(Addr);
-  void setMRU(Addr, int);
-  void setMRU(AbstractCacheEntry);
-  void recordRequestType(CacheRequestType, Addr);
-  bool checkResourceAvailable(CacheResourceType, Addr);
-
-  // hardware transactional memory
-  void htmCommitTransaction();
-  void htmAbortTransaction();
-
-  int getCacheSize();
-  int getNumBlocks();
-  Addr getAddressAtIdx(int);
-
-  void profileDemandHit();
-  void profileDemandMiss();
-  void profileReadHits();
-  void profileReadMisses();
-  void profileWriteHits();
-  void profileWriteMisses();
-  void profileLoadHits();
-  void profileLoadMisses();
-  void profileStoreHits();
-  void profileStoreMisses();
-  void profileConflicts();
-  void profilePrefetchHit();
-  void profilePrefetchMiss();
 }
 
 structure (WireBuffer, inport="yes", outport="yes", external = "yes") {

@@ -82,6 +82,8 @@ object Gem5Properties {
     ("cache_l2_assoc", _.parseLong),
     ("cache_l2_lp", _.parseLong),
     ("imprecise_representation", _.parseString),
+    ("directory_cache_num_entries", _.parseLong),
+    ("directory_cache_assoc", _.parseLong),
 
     ("disable_transparent_hugepages", _.parseBoolean),
 
@@ -142,7 +144,7 @@ object Gem5Properties {
   // directory profiler
   def getDirectorySharersPerLine(s:RawGEM5Simulation) = {
     val num_cpus = s.configuration("SimulationInfo", "num_cpus").parseLong
-    (s.stats / "system" / "ruby" /+- "impreciseSharersPerLine::(.+)".r).view
+    (s.stats / "system" / "ruby" /+- "SharersPerLine::(.+)".r).view
       .filter(_._1 match {
         case "samples" | "mean" | "gmean" | "stdev" | "total" => false
         case _ => true
@@ -169,7 +171,7 @@ object Gem5Properties {
   Prop(Result, "directory_sharers_per_line", { s => sumByNumCpus(getDirectorySharersPerLine(s), s).filterKeys(_ != "0") }, mixers.mapMixer(mixers.samples), optional = true)
 
   Prop(Result, "directory_sharers_per_line_all_average", {
-    _.stats("system", "ruby", "impreciseSharersPerLine::mean").splitWords.head.parseDouble
+    _.stats("system", "ruby", "SharersPerLine::mean").splitWords.head.parseDouble
   }, mixers.samples, optional = true)
 
   Prop(Result, "directory_sharers_per_line_average", { s =>
@@ -178,7 +180,7 @@ object Gem5Properties {
   }, mixers.samples, optional = true)
 
   Prop(Result, "directory_used_entries_percent_average", { s =>
-    s.stats("system", "ruby", "impreciseDirectoryUsage::mean").parseDouble
+    s.stats("system", "ruby", "DirectoryUsage::mean").parseDouble
   }, mixers.samples, optional = true)
 
   // network

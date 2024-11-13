@@ -90,6 +90,8 @@ class CacheMemory : public SimObject
 
     void init();
 
+    void getPrecisionStats(statistics::Histogram& SPL, statistics::Histogram& PO);
+
     // Public Methods
     // perform a cache access and see if we hit or not.  Return true on a hit.
     bool tryCacheAccess(Addr address, RubyRequestType type,
@@ -280,6 +282,7 @@ class CacheMemory : public SimObject
     int m_start_index_bit;
     bool m_resource_stalls;
     int m_block_size;
+    bool m_is_directory;
     Cycles m_load_access_latency;
     Cycles m_access_latency;
     Cycles m_store_hit_latency;

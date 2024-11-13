@@ -58,7 +58,6 @@ AbstractCacheEntry::AbstractCacheEntry() : ReplaceableEntry()
     m_htmInReadSet = false;
     m_htmInWriteSet = false;
     m_htmLogPending = false;
-    Sharers_Imprecise = new SharersImprecise();
 }
 
 AbstractCacheEntry::~AbstractCacheEntry()

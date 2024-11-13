@@ -52,6 +52,8 @@ class RubyCache(SimObject):
     resourceStalls = Param.Bool(False, "stall if there is a resource failure")
     ruby_system = Param.RubySystem(Parent.any, "")
 
+    isDirectory = Param.Bool(False, "cache is directory")
+
     # Mandatory Queue Latency
     loadAccessLatency = Param.Cycles(4, "Default hit latency for load requests")
     accessLatency = Param.Cycles(1, "Default hit latency for ifetch requests")

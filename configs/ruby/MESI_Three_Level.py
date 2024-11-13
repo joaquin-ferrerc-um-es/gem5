@@ -212,6 +212,7 @@ def create_system(options, full_system, system, dma_ports, bootmem,
             l2_cache = L2Cache(size = options.l2_size,
                                assoc = options.l2_assoc,
                                start_index_bit = l2_index_start,
+                               isDirectory = True,
                                replacement_policy = getattr(m5.objects, options.l2_replacement_policy)())
 
             l2_cntrl = L2Cache_Controller(

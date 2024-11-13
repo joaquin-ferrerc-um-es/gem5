@@ -92,6 +92,7 @@ CacheMemory::CacheMemory(const Params &p)
     m_access_latency = p.accessLatency;
     m_store_hit_latency = p.storeHitLatency;
     m_store_miss_latency = p.storeMissLatency;
+    m_is_directory = p.isDirectory;
 }
 
 void
@@ -116,6 +117,28 @@ CacheMemory::init()
                                 m_replacementPolicy_ptr->instantiateEntry();
         }
     }
+
+    if (m_is_directory) {
+        g_system_ptr->addCacheToDirectoryProfiler(this);
+    }
+}
+
+void
+CacheMemory::getPrecisionStats(statistics::Histogram& SPL, statistics::Histogram& PO)
+{
+    int numLineasOcupadas = 0;
+
+    for (int i = 0; i < m_cache_num_sets; i++){
+        for (int j = 0; j < m_cache_assoc; j++) {
+            if ((m_cache[i][j] != nullptr && m_cache[i][j]->getPermission() != AccessPermission_NotPresent)
+                 && (m_cache[i][j]->getPermission() != AccessPermission_Invalid)) {
+                    numLineasOcupadas++;
+                    SPL.sample(m_cache[i][j]->getNumSharers());
+                 }
+        }
+    }
+
+    PO.sample((double)numLineasOcupadas/(double)(m_cache_num_sets*m_cache_assoc));
 }
 
 CacheMemory::~CacheMemory()

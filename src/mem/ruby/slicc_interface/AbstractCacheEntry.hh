@@ -51,7 +51,6 @@
 #include "mem/cache/replacement_policies/replaceable_entry.hh"
 #include "mem/ruby/common/Address.hh"
 #include "mem/ruby/common/DataBlock.hh"
-#include "mem/ruby/common/SharersImprecise.hh"
 #include "mem/ruby/protocol/AccessPermission.hh"
 
 namespace gem5
@@ -95,6 +94,12 @@ class AbstractCacheEntry : public ReplaceableEntry
         return validBlocks;
     }
 
+    int numSharers;
+    virtual int getNumSharers()
+    {
+      return numSharers;
+    }
+
     // Functions for locking and unlocking the cache entry.  These are required
     // for supporting atomic memory accesses.
     void setLocked(int context);
@@ -109,14 +114,6 @@ class AbstractCacheEntry : public ReplaceableEntry
 
     AccessPermission m_Permission; // Access permission for this
                                    // block, required by CacheMemory
-
-    // Imprecise Representation.
-    SharersImprecise* Sharers_Imprecise;
-    void addSharerImprecise(MachineID newSharer) {Sharers_Imprecise->add(newSharer); }
-    void removeSharerImprecise(MachineID newSharer)
-      {Sharers_Imprecise->remove(newSharer); }
-    void clearSharersImprecise() {Sharers_Imprecise->clear(); }
-    NetDest getSharersImprecise() { return Sharers_Imprecise->getSharers(); }
 
     // Get the last access Tick.
     Tick getLastAccess() { return m_last_touch_tick; }

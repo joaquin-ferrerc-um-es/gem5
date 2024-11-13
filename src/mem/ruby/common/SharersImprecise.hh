@@ -2,6 +2,7 @@
 #define __MEM_RUBY_COMMON_SHARERSIMPRECISE_HH__
 
 #include "mem/ruby/common/NetDest.hh"
+#include "mem/ruby/system/RubySystem.hh"
 
 namespace gem5
 {
@@ -9,78 +10,51 @@ namespace gem5
 namespace ruby
 {
 
-
 #define MACHINETYPE MachineType_L1Cache
 #define NUMNODES MachineType_base_count(MACHINETYPE)
-#define IMPRECISEREPRESENTATION RubySystem::getImpreciseRepresentation()
 
 // Sharers Set
 #define MAXPOINTERS RubySystem::getLP()
 
-// Sharers CBV
-#define BITSPERPOINTER 8
-#define NODESPERGROUP (NUMNODES / (BITSPERPOINTER*MAXPOINTERS))
-
-// Sharers Dasc
-#define NUMROWS RubySystem::getNetworkRows()
-#define NUMCOLUMNS (NUMNODES/NUMROWS)
-#define MAXDISTANCE ((NUMROWS - 1) + (NUMCOLUMNS - 1))
-
-enum Direction
-{
-  UP, DOWN, LEFT, RIGHT
-};
-
-enum ImpreciseRepresentation
-{
-  LP, CBV, DASC
-};
-
 enum TypeRepresentation
 {
     Representation_Pointers,
-    Representation_Broadcast
+    Representation_Broadcast,
+    Representation_CoarseBitVector
 };
 
-enum TypeRepresentationCBV
+class AbstractSharersImprecise
 {
-    Representation_PointersCBV,
-    Representation_CoarseBitVector
+  public:
+    AbstractSharersImprecise() {};
+    ~AbstractSharersImprecise() {};
+    virtual void add(MachineID newSharer) {};
+    virtual void remove(MachineID oldSharer) {};
+    virtual void clear() {};
+    virtual bool isBroadcast() { return false; };
+    NetDest n;
+    virtual NetDest getSharers() { return n; };
+    bool isElement(MachineID id) { return getSharers().isElement(id); }
+    int count() { return getSharers().count(); }
+    virtual void print(std::ostream& out) const = 0;
 };
 
 class SharersImprecise
 {
   public:
     SharersImprecise();
+    SharersImprecise(bool create) {};
     ~SharersImprecise() {};
-    void add(MachineID newSharer);
-    void remove(MachineID oldSharer);
-    void clear();
-    bool isBroadcast();
-    NetDest getSharers();
-    void resize();
-    void print(std::ostream& out) const;
+    void add(MachineID newSharer) { s->add(newSharer); }
+    void remove(MachineID oldSharer) { s->remove(oldSharer); }
+    void clear() { s->clear(); }
+    bool isBroadcast() { return s->isBroadcast(); }
+    NetDest getSharers() { return s->getSharers(); }
+    bool isElement(MachineID id) { return s->getSharers().isElement(id); }
+    int count() { return s->getSharers().count(); }
+    void print(std::ostream& out) const { s->print(out); }
   private:
-    ImpreciseRepresentation ImpreciseRep;
-
-    // Sharers Set
-    Set sharers;
-    TypeRepresentation type;
-
-    // Sharers CBV
-    // Set sharers;           Also in Sharers Set
-    std::vector<Set> pointers;
-    TypeRepresentationCBV typeCBV;
-    void addToCBV(NodeID newSharer);
-    void representationToCBV();
-    Set getSetSharersCBV();
-
-    // Sharers Dasc
-    int getDistanceToHome(MachineID newSharer);
-    void addSharers(int node, int distance, Direction direction, Set *sh);
-    Set getSetSharersDasc();
-    MachineID home;
-    int maxDistance;
+    AbstractSharersImprecise *s;
 };
 
 inline std::ostream&

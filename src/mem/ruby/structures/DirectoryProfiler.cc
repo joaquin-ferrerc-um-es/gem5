@@ -20,21 +20,16 @@ DirectoryProfiler::DirectoryProfiler(RubySystem* rs)
 DirectoryProfiler::
 DirectoryProfilerStats::DirectoryProfilerStats(statistics::Group *parent)
   : statistics::Group(parent), Named("DirectoryProfilerStats"),
-      ADD_STAT(impreciseSharersPerLine, "Number of sharers per cache line"),
-      ADD_STAT(impreciseDirectoryUsage, "Percentage of directory usage"),
-      ADD_STAT(impreciseNumIterations, "Number of iterations if Imprecise stats")
+      ADD_STAT(SharersPerLine, "Number of sharers per cache line"),
+      ADD_STAT(DirectoryUsage, "Percentage of directory usage")
 {
     DPRINTF(DirectoryProfiler, "DirectoryProfilerStats created\n");
 
-    impreciseNumIterations
-        .flags(statistics::nozero);
-
-    impreciseSharersPerLine
+    /*SharersPerLine
         .init(MachineType_base_count(MachineType_L1Cache) ? MachineType_base_count(MachineType_L1Cache)+1 : 257)
-        //.init(65)
-        .flags(statistics::pdf | statistics::dist | statistics::nonan);
+        .flags(statistics::pdf | statistics::dist | statistics::nonan);*/
 
-    impreciseDirectoryUsage
+    DirectoryUsage
         .init(10)
         .flags(statistics::pdf | statistics::dist | statistics::nonan);
 }
@@ -52,22 +47,25 @@ DirectoryProfiler::addCacheMemory(SimObject* cacheMemory)
     caches.resize(MachineType_base_count(MachineType_L2Cache));
     caches[numCaches] = cacheMemory;
     numCaches++;
+    if (numCaches == MachineType_base_count(MachineType_L2Cache)) {
+        directoryProfilerStats.SharersPerLine
+        .init(MachineType_base_count(MachineType_L1Cache)+1)
+        .flags(statistics::pdf | statistics::dist | statistics::nonan);
+    }
 }
 
 void
 DirectoryProfiler::startup()
 {
     DPRINTF(DirectoryProfiler, "DirectoryProfiler startup called\n");
-    // assert(numCaches == MachineType_base_count(MachineType_L2Cache));
 }
 
 void
 DirectoryProfiler::profilePrecision()
 {
     DPRINTF(DirectoryProfiler, "DirectoryProfiler profilePrecision called\n");
-    directoryProfilerStats.impreciseNumIterations++;
     for (int i = 0; i < numCaches; i++) {
-        caches[i]->getPrecisionStats(directoryProfilerStats.impreciseSharersPerLine, directoryProfilerStats.impreciseDirectoryUsage);
+        caches[i]->getPrecisionStats(directoryProfilerStats.SharersPerLine, directoryProfilerStats.DirectoryUsage);
     }
 }
 

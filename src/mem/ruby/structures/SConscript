@@ -32,14 +32,12 @@ if env['PROTOCOL'] == 'None':
     Return()
 
 SimObject('RubyCache.py')
-SimObject('RubyDirectoryCache.py')
 SimObject('DirectoryMemory.py')
 SimObject('RubyPrefetcher.py')
 SimObject('WireBuffer.py')
 
 Source('DirectoryMemory.cc')
 Source('CacheMemory.cc')
-Source('DirectoryCacheMemory.cc')
 Source('DirectoryProfiler.cc')
 Source('WireBuffer.cc')
 Source('PersistentTable.cc')

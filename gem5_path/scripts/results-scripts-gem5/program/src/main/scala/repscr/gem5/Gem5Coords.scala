@@ -28,6 +28,7 @@ object Gem5Coords extends PlotCoordinates[Gem5DataPoint] {
   Coord("cache_l1i", s => s"${s("cache_l1i_size")}-${s("cache_l1i_assoc")}w", isConfig = true)
   Coord("cache_l1d", s => s"${s("cache_l1d_size")}-${s("cache_l1d_assoc")}w", isConfig = true)
   Coord("cache_l2", s => s"${s("cache_l2_num_caches")}×${s("cache_l2_size_per_cache")}-${s("cache_l2_assoc")}w", isConfig = true)
+  Coord("directory_cache", s => s"${s("directory_cache_num_entries")}-${s("directory_cache_assoc")}w", isConfig = true)
 
   CoordFromProp("cache_l2_lp")
   CoordFromProp("imprecise_representation")

@@ -33,7 +33,7 @@ from m5.objects import *
 from m5.defines import buildEnv
 from .Ruby import create_topology, create_directories
 from .Ruby import send_evicts
-from common import FileSystemConfig
+from common import FileSystemConfig, ObjectList
 
 #
 # Declare caches used by the protocol
@@ -58,6 +58,9 @@ def define_options(parser):
     parser.add_argument(
         "--enable-prefetch", action="store_true", default=False,
         help="Enable Ruby hardware prefetcher")
+    parser.add_argument("--directory_cache_num_entries", type=int, default=16384)
+    parser.add_argument("--directory_cache_assoc", type=int, default=16)
+    parser.add_argument("--directory_cache_replacement_policy", choices=ObjectList.rp_list.get_names(), default="TreePLRURP")
     return
 
 def create_system(options, full_system, system, dma_ports, bootmem,
@@ -214,10 +217,12 @@ def create_system(options, full_system, system, dma_ports, bootmem,
                                start_index_bit = l2_index_start,
                                replacement_policy = getattr(m5.objects, options.l2_replacement_policy)())
 
-            l2_directory = DirectoryCache(size = options.l2_size,
-                               assoc = options.l2_assoc,
-                               start_index_bit = l2_index_start,
-                               replacement_policy = getattr(m5.objects, options.l2_replacement_policy)())
+            l2_directory = DirectoryCache(size = str(options.directory_cache_num_entries),
+                                assoc = options.directory_cache_assoc,
+                                start_index_bit = l2_index_start,
+                                block_size = str(1),
+                                isDirectory = True,
+                                replacement_policy = getattr(m5.objects, options.directory_cache_replacement_policy)())
 
             l2_cntrl = L2Cache_Controller(
                         version = i * num_l2caches_per_cluster + j,

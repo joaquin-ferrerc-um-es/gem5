@@ -82,6 +82,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
 
     // Transient States
     IS, AccessPermission:Busy, desc="L1 idle, issued GETS, have not seen response yet";
+    ISM, AccessPermission:Busy, desc="L1 idle, issued GETS, got all Acks, waiting for data";
     IM, AccessPermission:Busy, desc="L1 idle, issued GETX, have not seen response yet";
     SM, AccessPermission:Read_Only, desc="L1 idle, issued GETX, have not seen response yet";
     IS_I, AccessPermission:Busy, desc="L1 idle, issued GETS, saw Inv before data because directory doesn't block on GETS hit";
@@ -111,6 +112,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     L0_DataAck,      desc="L0 received INV message";
 
     Inv,           desc="Invalidate request from L2 bank";
+    Inv_Fwd,           desc="Invalidate request from L2 bank, send data";
 
     // internally generated requests:
     L0_Invalidate_Own,  desc="Invalidate line in L0, due to this cache's (L1) requirements";
@@ -123,13 +125,10 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
 
     Data,       desc="Data for processor";
     Data_Exclusive,       desc="Data for processor";
-    DataM_Exclusive,       desc="Modified ata for processor";
+    DataM_Exclusive,       desc="Modified data for processor";
     DataS_fromL1,       desc="data for GETS request, need to unblock directory";
-    DataM_fromL1,       desc="Modified data for GETS request, need to unblock directory";
     Data_all_Acks,       desc="Data for processor, all acks";
-    DataM_all_Acks,       desc="Modified data for processor, all acks";
     Data_all_Acks_fromL1,       desc="Data for processor, all acks";
-    DataM_all_Acks_fromL1,       desc="Modified data for processor, all acks";
 
     L0_Ack,        desc="Ack for processor";
     Ack,        desc="Ack for processor";
@@ -311,24 +310,12 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
           if ((getState(tbe, cache_entry, in_msg.addr) == State:IS ||
                getState(tbe, cache_entry, in_msg.addr) == State:IS_I) &&
               machineIDToMachineType(in_msg.Sender) == MachineType:L1Cache) {
-            if(in_msg.Dirty) {
-              trigger(Event:DataM_fromL1, in_msg.addr, cache_entry, tbe);
-            } else {
-              trigger(Event:DataS_fromL1, in_msg.addr, cache_entry, tbe);
-            }
+            trigger(Event:DataS_fromL1, in_msg.addr, cache_entry, tbe);
           } else if ( (getPendingAcks(tbe) - in_msg.AckCount) == 0 &&
                     machineIDToMachineType(in_msg.Sender) == MachineType:L1Cache) {
-              if(in_msg.Dirty) {
-                trigger(Event:DataM_all_Acks_fromL1, in_msg.addr, cache_entry, tbe);
-              } else {
-                trigger(Event:Data_all_Acks_fromL1, in_msg.addr, cache_entry, tbe);
-              }
+              trigger(Event:Data_all_Acks_fromL1, in_msg.addr, cache_entry, tbe);
           } else if ( (getPendingAcks(tbe) - in_msg.AckCount) == 0) {
-            if(in_msg.Dirty) {
-              trigger(Event:DataM_all_Acks, in_msg.addr, cache_entry, tbe);
-            } else {
-              trigger(Event:Data_all_Acks, in_msg.addr, cache_entry, tbe);
-            }
+            trigger(Event:Data_all_Acks, in_msg.addr, cache_entry, tbe);
           } else {
             trigger(Event:Data, in_msg.addr, cache_entry, tbe);
           }
@@ -361,6 +348,13 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
                         cache_entry, tbe);
             }  else {
                 trigger(Event:Inv, in_msg.addr, cache_entry, tbe);
+            }
+        } else if (in_msg.Type == CoherenceRequestType:INV_FWD) {
+            if (is_valid(cache_entry) && inL0Cache(cache_entry.CacheState)) {
+                trigger(Event:L0_Invalidate_Else, in_msg.addr,
+                        cache_entry, tbe);
+            }  else {
+                trigger(Event:Inv_Fwd, in_msg.addr, cache_entry, tbe);
             }
         } else if (in_msg.Type == CoherenceRequestType:GETX ||
                    in_msg.Type == CoherenceRequestType:UPGRADE) {
@@ -856,7 +850,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   //*****************************************************
 
   // Transitions for Load/Store/Replacement/WriteBack from transient states
-  transition({IS, IM, IS_I, M_I, SM, SINK_WB_ACK, S_IL0, M_IL0, E_IL0, MM_IL0},
+  transition({IS, IM, ISM, IS_I, M_I, SM, SINK_WB_ACK, S_IL0, M_IL0, E_IL0, MM_IL0},
              {Load, Store, L1_Replacement}) {
     z0_stallAndWaitL0Queue;
   }
@@ -946,6 +940,12 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     l_popL2RequestQueue;
   }
 
+  transition(EE, Inv_Fwd, I) {
+    f_sendDataToL2;
+    ff_deallocateCacheBlock;
+    l_popL2RequestQueue;
+  }
+
   transition(EE, Fwd_GETX, I) {
     d_sendDataToRequestor;
     ff_deallocateCacheBlock;
@@ -985,13 +985,13 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     kd_wakeUpDependents;
   }
 
-  transition(MM, Inv, I) {
+  transition(MM, {Inv, Inv_Fwd}, I) {
     f_sendDataToL2;
     ff_deallocateCacheBlock;
     l_popL2RequestQueue;
   }
 
-  transition(M_I, Inv, SINK_WB_ACK) {
+  transition(M_I, {Inv, Inv_Fwd}, SINK_WB_ACK) {
     ft_sendDataToL2_fromTBE;
     l_popL2RequestQueue;
   }
@@ -1041,14 +1041,6 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     kd_wakeUpDependents;
   }
 
-  transition(IS, DataM_all_Acks, M) {
-    u_writeDataFromL2Response;
-    h_data_to_l0;
-    s_deallocateTBE;
-    o_popL2ResponseQueue;
-    kd_wakeUpDependents;
-  }
-
   transition(IS, Data_all_Acks_fromL1, S) {
     u_writeDataFromL2Response;
     h_data_to_l0;
@@ -1058,16 +1050,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     kd_wakeUpDependents;
   }
 
-  transition(IS, DataM_all_Acks_fromL1, M) {
-    u_writeDataFromL2Response;
-    h_data_to_l0;
-    s_deallocateTBE;
-    td_decrementFwdGetX;
-    o_popL2ResponseQueue;
-    kd_wakeUpDependents;
-  }
-
-  transition(IS_I, {Data_all_Acks, DataM_all_Acks}, I) {
+  transition(IS_I, Data_all_Acks, I) {
     u_writeDataFromL2Response;
     h_stale_data_to_l0;
     s_deallocateTBE;
@@ -1076,7 +1059,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     kd_wakeUpDependents;
   }
 
-  transition(IS_I, {Data_all_Acks_fromL1, DataM_all_Acks_fromL1}, I) {
+  transition(IS_I, Data_all_Acks_fromL1, I) {
     u_writeDataFromL2Response;
     h_stale_data_to_l0;
     s_deallocateTBE;
@@ -1096,17 +1079,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     kd_wakeUpDependents;
   }
 
-  transition(IS, DataM_fromL1, M) {
-    u_writeDataFromL2Response;
-    j_sendUnblock;
-    h_data_to_l0;
-    s_deallocateTBE;
-    td_decrementFwdGetS;
-    o_popL2ResponseQueue;
-    kd_wakeUpDependents;
-  }
-
-  transition(IS_I, {DataS_fromL1, DataM_fromL1}, I) {
+  transition(IS_I, DataS_fromL1, I) {
     u_writeDataFromL2Response;
     j_sendUnblock;
     h_stale_data_to_l0;
@@ -1136,8 +1109,13 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     kd_wakeUpDependents;
   }
 
-  // Transitions from IM
+  // Transitions from IM/ISM
   transition(IM, Inv, IM) {
+    fi_sendInvAck;
+    l_popL2RequestQueue;
+  }
+
+  transition(ISM, Inv, ISM) {
     fi_sendInvAck;
     l_popL2RequestQueue;
   }
@@ -1146,9 +1124,10 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     u_writeDataFromL2Response;
     q_updateAckCount;
     o_popL2ResponseQueue;
+    kd_wakeUpDependents;
   }
 
-  transition(IM, {Data_all_Acks, DataM_all_Acks}, M) {
+  transition(ISM, {Data, Data_all_Acks}, M) {
     u_writeDataFromL2Response;
     hh_xdata_to_l0;
     jj_sendExclusiveUnblock;
@@ -1157,7 +1136,20 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     kd_wakeUpDependents;
   }
 
-  transition(IM, {Data_all_Acks_fromL1, DataM_all_Acks_fromL1}, M) {
+  transition(IM, Data_all_Acks, M) {
+    u_writeDataFromL2Response;
+    hh_xdata_to_l0;
+    jj_sendExclusiveUnblock;
+    s_deallocateTBE;
+    o_popL2ResponseQueue;
+    kd_wakeUpDependents;
+  }
+
+  transition(IM, Ack_all, ISM) {
+    o_popL2ResponseQueue;
+  }
+
+  transition(IM, Data_all_Acks_fromL1, M) {
     u_writeDataFromL2Response;
     hh_xdata_to_l0;
     jj_sendExclusiveUnblock;
@@ -1184,7 +1176,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     forward_eviction_to_L0_else;
   }
 
-  transition(SINK_WB_ACK, Inv){
+  transition(SINK_WB_ACK, {Inv, Inv_Fwd}){
     fi_sendInvAck;
     l_popL2RequestQueue;
   }

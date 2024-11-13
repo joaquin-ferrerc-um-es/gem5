@@ -83,6 +83,11 @@ class NetworkInterface : public ClockedObject, public Consumer
 
     void scheduleFlit(flit *t_flit);
 
+    // Garnet network stats
+    const statistics::Vector & getMsgCount(unsigned int type) const
+    { return *(networkInterfaceStats.m_msg_counts[type]); }
+    void regStats();
+
     int get_router_id(int vnet)
     {
         OutputPort *oPort = getOutportForVnet(vnet);
@@ -279,6 +284,15 @@ class NetworkInterface : public ClockedObject, public Consumer
     std::vector<OutVcState> outVcState;
 
     std::vector<int> m_stall_count;
+
+    struct NetworkInterfaceStats : public statistics::Group
+    {
+        NetworkInterfaceStats(statistics::Group *parent);
+
+        // Garnet network statistics
+        statistics::Vector* m_msg_counts[MessageSizeType_NUM];
+        statistics::Formula* m_msg_bytes[MessageSizeType_NUM];
+    } networkInterfaceStats;
 
     // Input Flit Buffers
     // The flit buffers which will serve the Consumer

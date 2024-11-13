@@ -72,6 +72,7 @@ Topology::Topology(uint32_t num_nodes, uint32_t num_routers,
     // one for each direction.
     //
     // External Links
+    DPRINTF(RubyNetwork, "Number of nodes of the network: %d\n", m_nodes);
     for (std::vector<BasicExtLink*>::const_iterator i = ext_links.begin();
          i != ext_links.end(); ++i) {
         BasicExtLink *ext_link = (*i);
@@ -83,7 +84,8 @@ Topology::Topology(uint32_t num_nodes, uint32_t num_routers,
         int ext_idx2 = ext_idx1 + m_nodes;
         int int_idx = router->params().router_id + 2*m_nodes;
 
-        // create the internal uni-directional links in both directions
+        // create the external uni-directional links in both directions
+        DPRINTF(RubyNetwork, "Creating external link, ext_idx1: %d, ext_idx2: %d, int_idx: %d, machine_base_idx: %d\n", ext_idx1, ext_idx2, int_idx, machine_base_idx);
         // ext to int
         addLink(ext_idx1, int_idx, ext_link);
         // int to ext
@@ -106,6 +108,7 @@ Topology::Topology(uint32_t num_nodes, uint32_t num_routers,
         int src = router_src->params().router_id + 2*m_nodes;
         int dst = router_dst->params().router_id + 2*m_nodes;
 
+        DPRINTF(RubyNetwork, "Creating internal link, src: %d, dst: %d\n", src, dst);
         // create the internal uni-directional link from src to dst
         addLink(src, dst, int_link, src_outport, dst_inport);
     }
@@ -375,6 +378,7 @@ Topology::extend_shortest_path(Matrix &current_dist, Matrix &latencies,
                         }
                         previous_minimum = minimum;
                     }
+                    DPRINTF(RubyNetwork, "Shortest path from node %d to %d: %d through %d\n", i, j, minimum, intermediate_switch);
                     if (current_dist[v][i][j] != minimum) {
                         change = true;
                         current_dist[v][i][j] = minimum;

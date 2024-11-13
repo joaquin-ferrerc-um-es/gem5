@@ -62,7 +62,8 @@ namespace garnet
  */
 
 GarnetNetwork::GarnetNetwork(const Params &p)
-    : Network(p)
+    : Network(p),
+      garnetNetworkStats(this)
 {
     m_num_rows = p.num_rows;
     m_ni_flit_size = p.ni_flit_size;
@@ -536,6 +537,39 @@ GarnetNetwork::regStats()
             m_ctrl_traffic_distribution[source].push_back(ctrl_packets);
         }
     }
+
+    // Garnet network statistics
+    for (MessageSizeType type = MessageSizeType_FIRST;
+         type < MessageSizeType_NUM; ++type) {
+        garnetNetworkStats.m_msg_counts[(unsigned int) type] =
+            new statistics::Formula(&garnetNetworkStats,
+            csprintf("msg_count.%s", MessageSizeType_to_string(type)).c_str());
+        garnetNetworkStats.m_msg_counts[(unsigned int) type]
+            ->flags(statistics::nozero)
+            ;
+
+        garnetNetworkStats.m_msg_bytes[(unsigned int) type] =
+            new statistics::Formula(&garnetNetworkStats,
+            csprintf("msg_byte.%s", MessageSizeType_to_string(type)).c_str());
+        garnetNetworkStats.m_msg_bytes[(unsigned int) type]
+            ->flags(statistics::nozero)
+            ;
+
+        // Now state what the formula is.
+        for (int i = 0; i < m_nis.size(); i++) {
+            *(garnetNetworkStats.m_msg_counts[(unsigned int) type]) +=
+                statistics::sum(m_nis[i]->getMsgCount(type));
+        }
+
+        for (int i = 0; i < m_networklinks.size(); i++) {
+            *(garnetNetworkStats.m_msg_counts[(unsigned int) type]) +=
+                statistics::sum(m_networklinks[i]->getMsgCount(type));
+        }
+
+        *(garnetNetworkStats.m_msg_bytes[(unsigned int) type]) =
+            *(garnetNetworkStats.m_msg_counts[(unsigned int) type]) *
+                statistics::constant(Network::MessageSizeType_to_int(type));
+    }
 }
 
 void
@@ -621,6 +655,13 @@ GarnetNetwork::functionalWrite(Packet *pkt)
     }
 
     return num_functional_writes;
+}
+
+GarnetNetwork::
+GarnetNetworkStats::GarnetNetworkStats(statistics::Group *parent)
+    : statistics::Group(parent)
+{
+
 }
 
 } // namespace garnet

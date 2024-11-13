@@ -82,6 +82,10 @@ class NetworkLink : public ClockedObject, public Consumer
     inline flit* consumeLink() { return linkBuffer.getTopFlit(); }
 
     uint32_t functionalWrite(Packet *);
+    // Garnet network stats
+    const statistics::Vector & getMsgCount(unsigned int type) const
+    { return *(networkLinkStats.m_msg_counts[type]); }
+    void regStats();
     void resetStats();
 
     std::vector<int> mVnets;
@@ -97,6 +101,16 @@ class NetworkLink : public ClockedObject, public Consumer
     // Statistical variables
     unsigned int m_link_utilized;
     std::vector<unsigned int> m_vc_load;
+
+    // Garnet network statistics
+    struct NetworkLinkStats : public statistics::Group
+    {
+        NetworkLinkStats(statistics::Group *parent);
+
+        // Garnet network statistics
+        statistics::Vector* m_msg_counts[MessageSizeType_NUM];
+        statistics::Formula* m_msg_bytes[MessageSizeType_NUM];
+    } networkLinkStats;
 
   protected:
     uint32_t m_virt_nets;

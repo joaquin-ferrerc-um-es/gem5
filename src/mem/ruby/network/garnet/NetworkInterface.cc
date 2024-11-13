@@ -38,6 +38,7 @@
 #include "base/cast.hh"
 #include "debug/RubyNetwork.hh"
 #include "mem/ruby/network/MessageBuffer.hh"
+#include "mem/ruby/network/Network.hh"
 #include "mem/ruby/network/garnet/Credit.hh"
 #include "mem/ruby/network/garnet/flitBuffer.hh"
 #include "mem/ruby/slicc_interface/Message.hh"
@@ -56,7 +57,8 @@ NetworkInterface::NetworkInterface(const Params &p)
     m_virtual_networks(p.virt_nets), m_vc_per_vnet(0),
     m_vc_allocator(m_virtual_networks, 0),
     m_deadlock_threshold(p.garnet_deadlock_threshold),
-    vc_busy_counter(m_virtual_networks, 0)
+    vc_busy_counter(m_virtual_networks, 0),
+    networkInterfaceStats(this)
 {
     m_stall_count.resize(m_virtual_networks);
     niOutVcs.resize(0);
@@ -246,6 +248,9 @@ NetworkInterface::wakeup()
                     outNode_ptr[vnet]->enqueue(t_flit->get_msg_ptr(), curTime,
                                                cyclesToTicks(Cycles(1)));
 
+                    // Garnet network statistics
+                    // (*(networkInterfaceStats.m_msg_counts[t_flit->get_msg_ptr()->getMessageSize()]))[vnet]++;
+
                     // Simply send a credit back since we are not buffering
                     // this flit in the NI
                     Credit *cFlit = new Credit(t_flit->get_vc(),
@@ -333,6 +338,9 @@ NetworkInterface::checkStallQueue()
                     curTime)) {
                     outNode_ptr[vnet]->enqueue(stallFlit->get_msg_ptr(),
                         curTime, cyclesToTicks(Cycles(1)));
+
+                    // Garnet network statistics
+                    // (*(networkInterfaceStats.m_msg_counts[stallFlit->get_msg_ptr()->getMessageSize()]))[vnet]++;
 
                     // Send back a credit with free signal now that the
                     // VC is no longer stalled.
@@ -661,6 +669,34 @@ NetworkInterface::checkReschedule()
 }
 
 void
+NetworkInterface::regStats()
+{
+    ClockedObject::regStats();
+
+    for (MessageSizeType type = MessageSizeType_FIRST;
+         type < MessageSizeType_NUM; ++type) {
+        networkInterfaceStats.m_msg_counts[(unsigned int)type] =
+            new statistics::Vector(&networkInterfaceStats,
+            csprintf("msg_count.%s", MessageSizeType_to_string(type)).c_str());
+        networkInterfaceStats.m_msg_counts[(unsigned int)type]
+            ->init(Network::getNumberOfVirtualNetworks())
+            .flags(statistics::nozero)
+            ;
+
+        networkInterfaceStats.m_msg_bytes[(unsigned int) type] =
+            new statistics::Formula(&networkInterfaceStats,
+            csprintf("msg_bytes.%s", MessageSizeType_to_string(type)).c_str());
+        networkInterfaceStats.m_msg_bytes[(unsigned int) type]
+            ->flags(statistics::nozero)
+            ;
+
+        *(networkInterfaceStats.m_msg_bytes[(unsigned int) type]) =
+            *(networkInterfaceStats.m_msg_counts[type]) * statistics::constant(
+                Network::MessageSizeType_to_int(type));
+    }
+}
+
+void
 NetworkInterface::print(std::ostream& out) const
 {
     out << "[Network Interface]";
@@ -678,6 +714,13 @@ NetworkInterface::functionalWrite(Packet *pkt)
         num_functional_writes += oPort->outFlitQueue()->functionalWrite(pkt);
     }
     return num_functional_writes;
+}
+
+NetworkInterface::
+NetworkInterfaceStats::NetworkInterfaceStats(statistics::Group *parent)
+    : statistics::Group(parent)
+{
+
 }
 
 } // namespace garnet

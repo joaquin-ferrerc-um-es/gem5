@@ -209,6 +209,15 @@ class GarnetNetwork : public Network
     std::vector<NetworkLink *> m_networklinks; // All flit links in the network
     std::vector<CreditLink *> m_creditlinks; // All credit links in the network
     std::vector<NetworkInterface *> m_nis;   // All NI's in Network
+
+    struct GarnetNetworkStats : public statistics::Group
+    {
+        GarnetNetworkStats(statistics::Group *parent);
+
+        // Garnet network statistics
+        statistics::Formula* m_msg_counts[MessageSizeType_NUM];
+        statistics::Formula* m_msg_bytes[MessageSizeType_NUM];
+    } garnetNetworkStats;
 };
 
 inline std::ostream&

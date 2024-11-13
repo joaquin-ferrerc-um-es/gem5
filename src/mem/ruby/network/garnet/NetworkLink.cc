@@ -33,6 +33,7 @@
 #include "mem/ruby/network/garnet/NetworkLink.hh"
 
 #include "base/trace.hh"
+#include "mem/ruby/network/Network.hh"
 #include "debug/RubyNetwork.hh"
 #include "mem/ruby/network/garnet/CreditLink.hh"
 
@@ -50,7 +51,8 @@ NetworkLink::NetworkLink(const Params &p)
       m_type(NUM_LINK_TYPES_),
       m_latency(p.link_latency), m_link_utilized(0),
       m_virt_nets(p.virt_nets), linkBuffer(),
-      link_consumer(nullptr), link_srcQueue(nullptr)
+      link_consumer(nullptr), link_srcQueue(nullptr),
+      networkLinkStats(this)
 {
     int num_vnets = (p.supported_vnets).size();
     mVnets.resize(num_vnets);
@@ -99,6 +101,9 @@ NetworkLink::wakeup()
         }
         t_flit->set_time(clockEdge(m_latency));
         linkBuffer.insert(t_flit);
+        if (t_flit->get_type() == TAIL_ || t_flit->get_type() == HEAD_TAIL_) {
+            (*(networkLinkStats.m_msg_counts[t_flit->get_msg_ptr()->getMessageSize()]))[t_flit->get_vnet()]++;
+        }
         link_consumer->scheduleEventAbsolute(clockEdge(m_latency));
         m_link_utilized++;
         m_vc_load[t_flit->get_vc()]++;
@@ -106,6 +111,34 @@ NetworkLink::wakeup()
 
     if (!link_srcQueue->isEmpty()) {
         scheduleEvent(Cycles(1));
+    }
+}
+
+void
+NetworkLink::regStats()
+{
+    ClockedObject::regStats();
+
+    for (MessageSizeType type = MessageSizeType_FIRST;
+         type < MessageSizeType_NUM; ++type) {
+        networkLinkStats.m_msg_counts[(unsigned int)type] =
+            new statistics::Vector(&networkLinkStats,
+            csprintf("msg_count.%s", MessageSizeType_to_string(type)).c_str());
+        networkLinkStats.m_msg_counts[(unsigned int)type]
+            ->init(Network::getNumberOfVirtualNetworks())
+            .flags(statistics::nozero)
+            ;
+
+        networkLinkStats.m_msg_bytes[(unsigned int) type] =
+            new statistics::Formula(&networkLinkStats,
+            csprintf("msg_bytes.%s", MessageSizeType_to_string(type)).c_str());
+        networkLinkStats.m_msg_bytes[(unsigned int) type]
+            ->flags(statistics::nozero)
+            ;
+
+        *(networkLinkStats.m_msg_bytes[(unsigned int) type]) =
+            *(networkLinkStats.m_msg_counts[type]) * statistics::constant(
+                Network::MessageSizeType_to_int(type));
     }
 }
 
@@ -123,6 +156,13 @@ uint32_t
 NetworkLink::functionalWrite(Packet *pkt)
 {
     return linkBuffer.functionalWrite(pkt);
+}
+
+NetworkLink::
+NetworkLinkStats::NetworkLinkStats(statistics::Group *parent)
+    : statistics::Group(parent)
+{
+
 }
 
 } // namespace garnet

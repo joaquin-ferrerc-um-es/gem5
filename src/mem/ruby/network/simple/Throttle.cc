@@ -130,6 +130,8 @@ Throttle::operateVnet(int vnet, int &bw_remaining, bool &schedule_wakeup,
             // Count the message
             (*(throttleStats.
                 m_msg_counts[net_msg_ptr->getMessageSize()]))[vnet]++;
+            //(*(throttleStats.
+            //    m_msg_counts[net_msg_ptr->getMessageSize()]))[vnet] += net_msg_ptr->getDestination().count();
             DPRINTF(RubyNetwork, "%s\n", *out);
         }
 

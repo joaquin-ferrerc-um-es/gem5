@@ -66,7 +66,10 @@ class Ring_Bidirectional(SimpleTopology):
             int_links.append(IntLink(link_id=(link_count+i),
                                      src_node=routers[i],
                                      dst_node=routers[(i+1)%num_routers],
-                                     latency = link_latency))
+                                     src_outport="Left",
+                                     dst_inport="Right",
+                                     latency = link_latency,
+                                     weight=1))
 
         link_count += len(int_links)
         
@@ -74,6 +77,9 @@ class Ring_Bidirectional(SimpleTopology):
             int_links.append(IntLink(link_id=(link_count+i),
                                      src_node=routers[(i+1)%num_routers],
                                      dst_node=routers[i],
-                                     latency = link_latency))
+                                     src_outport="Right",
+                                     dst_inport="Left",
+                                     latency = link_latency,
+                                     weight=1))
 
         network.int_links = int_links

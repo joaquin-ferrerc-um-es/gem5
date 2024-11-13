@@ -633,9 +633,9 @@ class BaseCPU : public ClockedObject
 
     bool l1_miss_pending = false;
     bool l2_miss_pending = false;
-    int l2_fwd_get_s = 0;
-    int l2_fwd_get_x = 0;
-    int l3_miss_pending = 0;
+    int64_t l2_fwd_get_s = 0;
+    int64_t l2_fwd_get_x = 0;
+    int64_t l3_miss_pending = 0;
     bool any_miss_pending = false;
 
     void l1MissesPending()

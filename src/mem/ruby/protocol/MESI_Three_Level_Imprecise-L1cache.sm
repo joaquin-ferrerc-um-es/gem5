@@ -1044,29 +1044,10 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     kd_wakeUpDependents;
   }
 
-  transition(IS, Data_all_Acks_fromL1, S) {
-    u_writeDataFromL2Response;
-    h_data_to_l0;
-    s_deallocateTBE;
-    td_decrementFwdGetX;
-    o_popL2ResponseQueue;
-    kd_wakeUpDependents;
-  }
-
   transition(IS_I, Data_all_Acks, I) {
     u_writeDataFromL2Response;
     h_stale_data_to_l0;
     s_deallocateTBE;
-    ff_deallocateCacheBlock;
-    o_popL2ResponseQueue;
-    kd_wakeUpDependents;
-  }
-
-  transition(IS_I, Data_all_Acks_fromL1, I) {
-    u_writeDataFromL2Response;
-    h_stale_data_to_l0;
-    s_deallocateTBE;
-    td_decrementFwdGetX;
     ff_deallocateCacheBlock;
     o_popL2ResponseQueue;
     kd_wakeUpDependents;
@@ -1143,7 +1124,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     nack_to_l2;
     q_updateAckCount;
     o_popL2ResponseQueue;
-  } 
+  }
 
   // Transitions from ISM
   transition(ISM, Inv, ISM) {

@@ -1027,7 +1027,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     u_writeDataFromL2Response;
     h_data_to_l0;
     s_deallocateTBE;
-    td_decrementFwdGetX;
+    td_decrementFwdGetS;
     o_popL2ResponseQueue;
     kd_wakeUpDependents;
   }
@@ -1045,7 +1045,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     u_writeDataFromL2Response;
     h_stale_data_to_l0;
     s_deallocateTBE;
-    td_decrementFwdGetX;
+    td_decrementFwdGetS;
     ff_deallocateCacheBlock;
     o_popL2ResponseQueue;
     kd_wakeUpDependents;

@@ -58,4 +58,6 @@ class RubySystem(ClockedObject):
 
     limited_pointers = Param.Int("")
     network_mesh_rows = Param.Int("")
-    imprecise_representation = Param.String("lp", "Imprecise representation used");
+    imprecise_representation = Param.String("lp", "Imprecise representation used")
+    Paddress_filter = Param.Addr(0)
+    Vaddress_filter = Param.Addr(0)

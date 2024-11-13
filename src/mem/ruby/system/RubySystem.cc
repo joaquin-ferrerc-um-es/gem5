@@ -83,6 +83,9 @@ int RubySystem::n_limited_pointers;
 int RubySystem::n_network_mesh_rows;
 std::string RubySystem::n_imprecise_representation;
 bool RubySystem::m_l0_downgrade_on_l1_gets = false;
+Addr RubySystem::n_physical_address_filter;
+Addr RubySystem::n_virtual_address_filter;
+
 
 RubySystem::RubySystem(const Params &p)
     : ClockedObject(p), m_access_backing_store(p.access_backing_store),
@@ -122,6 +125,8 @@ RubySystem::RubySystem(const Params &p)
     n_limited_pointers = p.limited_pointers;
     n_network_mesh_rows = p.network_mesh_rows;
     n_imprecise_representation = p.imprecise_representation;
+    n_physical_address_filter = p.Paddress_filter;
+    n_virtual_address_filter = p.Vaddress_filter;
     if (m_htm != nullptr) {
         m_l0_downgrade_on_l1_gets  = m_htm->params().l0_downgrade_on_l1_gets;
         if (m_htm->params().value_checker) {

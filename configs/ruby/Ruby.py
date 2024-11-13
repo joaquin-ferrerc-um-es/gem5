@@ -59,7 +59,7 @@ def define_options(parser):
 
     parser.add_argument(
         "--ruby-clock", action="store", type=str,
-        default='2GHz',
+        default='1GHz',
         help="Clock for blocks running at Ruby system's speed")
 
     parser.add_argument(
@@ -209,12 +209,14 @@ def create_system(options, full_system, system, piobus = None, dma_ports = [],
     if cpus is None:
         cpus = system.cpu
 
+    ruby.Paddress_filter = options.Paddress_filter
+    ruby.Vaddress_filter = options.Vaddress_filter
     # LP: pass limited pointers to RubySystem
     ruby.limited_pointers = -1
-    if buildEnv['PROTOCOL'] == 'MESI_Three_Level_Imprecise':
+    if buildEnv['PROTOCOL'] == 'MESI_Three_Level_Imprecise' or buildEnv['PROTOCOL'] == 'MESI_Three_Level_Imprecise0':
         ruby.limited_pointers = options.l2_lp
 
-    if buildEnv['PROTOCOL'] == 'MESI_Three_Level_Imprecise':
+    if buildEnv['PROTOCOL'] == 'MESI_Three_Level_Imprecise' or buildEnv['PROTOCOL'] == 'MESI_Three_Level_Imprecise0':
         ruby.imprecise_representation = options.imprecise_representation
 
     protocol = buildEnv['PROTOCOL']

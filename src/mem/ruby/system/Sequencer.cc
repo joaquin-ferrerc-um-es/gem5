@@ -396,9 +396,12 @@ Sequencer::recordMissLatency(SequencerRequest* srequest, bool llscSuccess,
 
     if (/*config_supressIfetchProtocolTrace*/true &&
         type != RubyRequestType_IFETCH) {
-    DPRINTFR(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s %s %d cycles\n",
-             curTick(), m_version, "Seq", llscSuccess ? "Done" : "SC_Failed",
-             "", "", printAddress(srequest->pkt->getAddr()), total_lat);
+        if ((RubySystem::getPAddressFilter() == 0 && RubySystem::getVAddressFilter() == 0) ||
+            makeLineAddress(srequest->pkt->getAddr()) == RubySystem::getPAddressFilter()) {
+            DPRINTFR(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s %s %d cycles\n",
+                    curTick(), m_version, "Seq", llscSuccess ? "Done" : "SC_Failed",
+                    "", "", printAddress(srequest->pkt->getAddr()), total_lat);
+        }
     }
 
     m_latencyHist.sample(total_lat);
@@ -834,18 +837,25 @@ Sequencer::makeRequest(PacketPtr pkt)
     RequestStatus status = insertRequest(pkt, primary_type, secondary_type);
 
     if (status != RequestStatus_Ready) { // Will not be issued, so trace here
-        DPRINTFR(ProtocolTrace,
-                 "%15s %3s %10s%20s %6s>%-6s %#x %s %s %s %s %#x\n",
-                 curTick(), m_version, "Seq", status == RequestStatus_Aliased ?
-                 "Aliased" : "AliasedNotIssued",
-                 pkt->isAtLSQHead() ? "Head" : "", "",
-                 printAddress(pkt->getAddr()),
-                 RubyRequestType_to_string(secondary_type),
-                 pkt->isHtmTransactional() ? "Trans" :
-                 (pkt->isHtmStoreToLog() ? "Log" : ""),
-                 pkt->req->isPriv() ? "Priv" : "",
-                 pkt->req->hasVaddr() ? "Vaddr" : "PhysAddr",
-                 pkt->req->hasVaddr() ? pkt->req->getVaddr() : Addr(0));
+        if ((RubySystem::getPAddressFilter() == 0 && RubySystem::getVAddressFilter() == 0) ||
+            makeLineAddress(pkt->getAddr()) == RubySystem::getPAddressFilter() ||
+            (pkt->req->hasVaddr() && makeLineAddress(pkt->req->getVaddr()) == RubySystem::getVAddressFilter())) {
+            if (RubySystem::getPAddressFilter() == 0 && RubySystem::getVAddressFilter() != 0 && pkt->req->hasVaddr()) {
+                RubySystem::setPAddressFilter(makeLineAddress(pkt->getAddr()));
+            }
+            DPRINTFR(ProtocolTrace,
+                    "%15s %3s %10s%20s %6s>%-6s %#x %s %s %s %s %#x\n",
+                    curTick(), m_version, "Seq", status == RequestStatus_Aliased ?
+                    "Aliased" : "AliasedNotIssued",
+                    pkt->isAtLSQHead() ? "Head" : "", "",
+                    printAddress(pkt->getAddr()),
+                    RubyRequestType_to_string(secondary_type),
+                    pkt->isHtmTransactional() ? "Trans" :
+                    (pkt->isHtmStoreToLog() ? "Log" : ""),
+                    pkt->req->isPriv() ? "Priv" : "",
+                    pkt->req->hasVaddr() ? "Vaddr" : "PhysAddr",
+                    pkt->req->hasVaddr() ? pkt->req->getVaddr() : Addr(0));
+        }
         if (status == RequestStatus_AliasedNotIssued) {
             return status; // Do not return "issued": must retry
         } else {
@@ -892,16 +902,22 @@ Sequencer::issueRequest(PacketPtr pkt, RubyRequestType secondary_type)
 
     if (/*config_supressIfetchProtocolTrace*/true &&
         secondary_type != RubyRequestType_IFETCH) {
-
-    DPRINTFR(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s %#x %s %s %s %s %#x\n",
-             curTick(), m_version, "Seq", "Begin", "", "",
-             printAddress(msg->getPhysicalAddress()),
-             RubyRequestType_to_string(secondary_type),
-             pkt->isHtmTransactional() ? "Trans" :
-             (pkt->isHtmStoreToLog() ? "Log" : ""),
-             pkt->req->isPriv() ? "Priv" : "",
-             pkt->req->hasVaddr() ? "Vaddr" : "PhysAddr",
-             vaddr);
+        if ((RubySystem::getPAddressFilter() == 0 && RubySystem::getVAddressFilter() == 0) ||
+            makeLineAddress(pkt->getAddr()) == RubySystem::getPAddressFilter() ||
+            (pkt->req->hasVaddr() && makeLineAddress(pkt->req->getVaddr()) == RubySystem::getVAddressFilter())) {
+            if (RubySystem::getPAddressFilter() == 0 && RubySystem::getVAddressFilter() != 0 && pkt->req->hasVaddr()) {
+                RubySystem::setPAddressFilter(makeLineAddress(pkt->getAddr()));
+            }
+            DPRINTFR(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s %#x %s %s %s %s %#x\n",
+                    curTick(), m_version, "Seq", "Begin", "", "",
+                    printAddress(msg->getPhysicalAddress()),
+                    RubyRequestType_to_string(secondary_type),
+                    pkt->isHtmTransactional() ? "Trans" :
+                    (pkt->isHtmStoreToLog() ? "Log" : ""),
+                    pkt->req->isPriv() ? "Priv" : "",
+                    pkt->req->hasVaddr() ? "Vaddr" : "PhysAddr",
+                    vaddr);
+        }
     }
 
     Tick latency = cyclesToTicks(

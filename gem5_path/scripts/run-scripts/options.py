@@ -323,6 +323,23 @@ Option("cache_l2_lp", int,
 Option("imprecise_representation", str,
        gem5_option = "imprecise_representation",
        descr_dir = "{value}")
+Option("Paddress_filter", int,
+       gem5_option = "Paddress_filter")
+Option("Vaddress_filter", int,
+       gem5_option = "Vaddress_filter")
+Option("l0_transitions_per_cycle", int,
+       gem5_option = "l0_transitions_per_cycle")
+Option("l1_transitions_per_cycle", int,
+       gem5_option = "l1_transitions_per_cycle")
+Option("l2_transitions_per_cycle", int,
+       gem5_option = "l2_transitions_per_cycle")
+
+# Directory cache options
+Option("directory_cache_num_entries", int,
+       gem5_option="directory_cache_num_entries",
+       descr_dir = "dirEntries{value}")
+Option("directory_cache_assoc", int,
+       gem5_option="directory_cache_assoc")
 
 # Cache replacement policies options
 Option("l0d_rp", str,
@@ -333,6 +350,12 @@ Option("l1_rp", str,
        gem5_option="l1_replacement_policy")
 Option("l2_rp", str,
        gem5_option="l2_replacement_policy")
+Option("dc_rp", str,
+       gem5_option="directory_cache_replacement_policy")
+
+# TLB Size
+Option("tlb_size", int,
+       gem5_option="tlb_size")
 
 # HTM Options
 Option("htm_disable_speculation", bool,

@@ -52,7 +52,6 @@ python_class_map = {
                     "std::string": "String",
                     "bool": "Bool",
                     "CacheMemory": "RubyCache",
-                    "DirectoryCacheMemory": "RubyDirectoryCache",
                     "WireBuffer": "RubyWireBuffer",
                     "Sequencer": "RubySequencer",
                     "HTMSequencer": "RubyHTMSequencer",
@@ -1142,7 +1141,7 @@ $c_ident::recordCacheTrace(int cntrl, CacheRecorder* tr)
         #
         code.indent()
         for param in self.config_parameters:
-            if param.type_ast.type.ident == "CacheMemory" or param.type_ast.type.ident == "DirectoryCacheMemory":
+            if param.type_ast.type.ident == "CacheMemory":
                 assert(param.pointer)
                 code('m_${{param.ident}}_ptr->recordCacheContents(cntrl, tr);')
 
@@ -1605,12 +1604,15 @@ if (result == TransitionResult_Valid) {
             ${ident}_State_to_string(next_state));
     countTransition(state, event);
 
-    DPRINTFR(ProtocolTrace, "%15d %3s %10s%20s %6s>%-6s %#x %s\\n",
-             curTick(), m_version, "${ident}",
-             ${ident}_Event_to_string(event),
-             ${ident}_State_to_string(state),
-             ${ident}_State_to_string(next_state),
-             printAddress(addr), GET_TRANSITION_COMMENT());
+    if ((RubySystem::getPAddressFilter() == 0 && RubySystem::getVAddressFilter() == 0) ||
+        makeLineAddress(addr) == RubySystem::getPAddressFilter()) {
+        DPRINTFR(ProtocolTrace, "%15d %3s %10s%20s %6s>%-6s %#x %s\\n",
+                curTick(), m_version, "${ident}",
+                ${ident}_Event_to_string(event),
+                ${ident}_State_to_string(state),
+                ${ident}_State_to_string(next_state),
+                printAddress(addr), GET_TRANSITION_COMMENT());
+    }
 
     CLEAR_TRANSITION_COMMENT();
 ''')
@@ -1641,20 +1643,26 @@ if (result == TransitionResult_Valid) {
 
         code('''
 } else if (result == TransitionResult_ResourceStall) {
-    DPRINTFR(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s %#x %s\\n",
-             curTick(), m_version, "${ident}",
-             ${ident}_Event_to_string(event),
-             ${ident}_State_to_string(state),
-             ${ident}_State_to_string(next_state),
-             printAddress(addr), "Resource Stall");
+    if ((RubySystem::getPAddressFilter() == 0 && RubySystem::getVAddressFilter() == 0) ||
+        makeLineAddress(addr) == RubySystem::getPAddressFilter()) {
+        DPRINTFR(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s %#x %s\\n",
+                curTick(), m_version, "${ident}",
+                ${ident}_Event_to_string(event),
+                ${ident}_State_to_string(state),
+                ${ident}_State_to_string(next_state),
+                printAddress(addr), "Resource Stall");
+    }
 } else if (result == TransitionResult_ProtocolStall) {
     DPRINTF(RubyGenerated, "stalling\\n");
-    DPRINTFR(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s %#x %s\\n",
-             curTick(), m_version, "${ident}",
-             ${ident}_Event_to_string(event),
-             ${ident}_State_to_string(state),
-             ${ident}_State_to_string(next_state),
-             printAddress(addr), "Protocol Stall");
+    if ((RubySystem::getPAddressFilter() == 0 && RubySystem::getVAddressFilter() == 0) ||
+        makeLineAddress(addr) == RubySystem::getPAddressFilter()) {
+        DPRINTFR(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s %#x %s\\n",
+                curTick(), m_version, "${ident}",
+                ${ident}_Event_to_string(event),
+                ${ident}_State_to_string(state),
+                ${ident}_State_to_string(next_state),
+                printAddress(addr), "Protocol Stall");
+    }
 }
 
 return result;

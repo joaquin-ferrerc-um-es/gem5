@@ -83,6 +83,9 @@ class RubySystem : public ClockedObject
     static bool getCooldownEnabled() { return m_cooldown_enabled; }
     static std::string getProtocol() { return m_protocol; }
     static int getLP(){ return n_limited_pointers; }
+    static Addr getPAddressFilter() { return n_physical_address_filter; }
+    static void setPAddressFilter(Addr pa) { n_physical_address_filter = pa; }
+    static Addr getVAddressFilter() { return n_virtual_address_filter; }
     static int getNetworkRows() { return n_network_mesh_rows; }
     static std::string getImpreciseRepresentation() { return n_imprecise_representation; }
     // HTM-related performance bug
@@ -186,6 +189,9 @@ class RubySystem : public ClockedObject
     static bool m_l0_downgrade_on_l1_gets;
     memory::SimpleMemory *m_phys_mem;
     const bool m_access_backing_store;
+    // Address to filter debug messages (ProtocolTrace)
+    static Addr n_physical_address_filter;
+    static Addr n_virtual_address_filter;
 
     //std::vector<Network *> m_networks;
     std::vector<std::unique_ptr<Network>> m_networks;

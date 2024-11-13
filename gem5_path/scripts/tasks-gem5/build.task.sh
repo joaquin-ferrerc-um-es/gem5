@@ -42,9 +42,14 @@ build_gem5() {
     local protocol="$2"
     local build_type="$3"
 
+    # pushd "$GEM5_ROOT" > /dev/null
+    # echo /usr/bin/env python3 $(which scons) -j $(get_num_threads_for_building) $(get_gem5_binary "$arch" "$protocol" "$build_type") "${ADDITIONAL_BUILD_OPTIONS[@]}"
+    # /usr/bin/env python3 $(which scons) -j $(get_num_threads_for_building) $(get_gem5_binary "$arch" "$protocol" "$build_type") "${ADDITIONAL_BUILD_OPTIONS[@]}"
+    # popd > /dev/null
+
     pushd "$GEM5_ROOT" > /dev/null
-    echo /usr/bin/env python3 $(which scons) -j $(get_num_threads_for_building) $(get_gem5_binary "$arch" "$protocol" "$build_type") "${ADDITIONAL_BUILD_OPTIONS[@]}"
-    /usr/bin/env python3 $(which scons) -j $(get_num_threads_for_building) $(get_gem5_binary "$arch" "$protocol" "$build_type") "${ADDITIONAL_BUILD_OPTIONS[@]}"
+    echo /usr/bin/env python3 $(which scons) -j 16 $(get_gem5_binary "$arch" "$protocol" "$build_type") "${ADDITIONAL_BUILD_OPTIONS[@]}"
+    /usr/bin/env python3 $(which scons) -j 8 $(get_gem5_binary "$arch" "$protocol" "$build_type") "${ADDITIONAL_BUILD_OPTIONS[@]}"
     popd > /dev/null
 }
 

@@ -47,9 +47,11 @@ BENCHMARKS_SPLASH3_SELECTED=(
 )
 
 BENCHMARKS_OTHER_SELECTED=(
-    "kernels/cache-latency"
+    "kernels/CacheLatency"
     "kernels/MemoryLatency"
     "kernels/CoherencyLatency"
+    "kernels/ContentionTest"
+    "kernels/HelloWorld"
 )
 
 task_build-benchmarks() {

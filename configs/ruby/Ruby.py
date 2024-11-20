@@ -59,7 +59,7 @@ def define_options(parser):
 
     parser.add_argument(
         "--ruby-clock", action="store", type=str,
-        default='1GHz',
+        default='2GHz',
         help="Clock for blocks running at Ruby system's speed")
 
     parser.add_argument(

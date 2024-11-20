@@ -155,11 +155,13 @@ class Alderlake_CPU(DerivO3CPU):
     branchPred.BTBTagSize = 64
     branchPred.RASSize = 64
     branchPred.instShiftAmt = 0
+    '''
     # Indirect BP
     branchPred.indirectBranchPred.indirectSets = 256*1024
     branchPred.indirectBranchPred.indirectWays = 8
     branchPred.indirectBranchPred.indirectTagSize = 64
     branchPred.indirectBranchPred.instShiftAmt = 0
+    '''
 
 # TLB Cache
 #Use a cache as a L2 TLB

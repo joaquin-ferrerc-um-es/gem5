@@ -174,9 +174,6 @@ def addNoISAOptions(parser):
     parser.add_argument("--l1_replacement_policy", choices=ObjectList.rp_list.get_names(), default="TreePLRURP")
     parser.add_argument("--l2_replacement_policy", choices=ObjectList.rp_list.get_names(), default="TreePLRURP")
 
-    # TLB Size
-    parser.add_argument("--tlb_size", type=int, default=2048)
-
     # Enable Ruby
     parser.add_argument("--ruby", action="store_true")
 

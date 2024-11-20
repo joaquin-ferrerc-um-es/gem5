@@ -353,10 +353,6 @@ Option("l2_rp", str,
 Option("dc_rp", str,
        gem5_option="directory_cache_replacement_policy")
 
-# TLB Size
-Option("tlb_size", int,
-       gem5_option="tlb_size")
-
 # HTM Options
 Option("htm_disable_speculation", bool,
        descr_abbrev = "NoSpec")

@@ -37,7 +37,7 @@ base = {
                                     "aarch64": "aarch64-linux", # TODO: CHECK
                                     "riscv": "riscv-linux" # TODO: CHECK
                                     }[arch(c)]),
-    
+
     # Benchmark options
     benchmark: Vary(*get_benchmarks()),
     benchmark_name: Derived(lambda c: benchmark(c).name),

@@ -1130,14 +1130,14 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
   // BASE STATE - NP_NC
 
   
-  transition({NP_NC, NP_S, NPS, NPSS, NPM, S_NC, S_S, M_NC, M_S, NC_NP_NC, S_NP_S, S_M_I, M_P_IB, M_P_SB}, {L1_PUTX, L1_PUTX_clean}) {
+  transition({NP_NC, NP_S, NPS, NPSS, NPM, S_NC, S_S, M_NC, M_S, NC_NP_NC, S_NP_S, S_M_I, M_P_IB, M_P_SB, P_IB}, {L1_PUTX, L1_PUTX_clean}) {
     t_sendWBAck;
     uu_profileMiss;
     uu_profileReadMiss;
     jj_popL1RequestQueue;
   }
 
-  transition({NP_NC, NP_S, NP_P, NPS, NPSS, NPM, S_NC, S_S, S_P, M_NC, M_S, M_P, NC_NP_NC, S_NP_S, S_M_I, M_P_IB, M_P_SB, NP_P_DR}, L1_PUTX_old) {
+  transition({NP_NC, NP_S, NP_P, NPS, NPSS, NPM, S_NC, S_S, S_P, M_NC, M_S, M_P, NC_NP_NC, S_NP_S, S_M_I, M_P_IB, M_P_SB, NP_P_DR, P_IB}, L1_PUTX_old) {
     t_sendWBAck;
     uu_profileMiss;
     uu_profileReadMiss;

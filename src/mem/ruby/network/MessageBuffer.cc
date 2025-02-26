@@ -70,9 +70,26 @@ MessageBuffer::MessageBuffer(const Params &p)
     ADD_STAT(m_stall_time, "Average number of cycles messages are stalled in "
                            "this MB"),
     ADD_STAT(m_stall_count, "Number of times messages were stalled"),
-    ADD_STAT(m_occupancy, "Average occupancy of buffer capacity")
+    ADD_STAT(m_occupancy, "Average occupancy of buffer capacity"),
+    ADD_STAT(m_max_msgs, "Highest number of messages in buffer"),
+    ADD_STAT(m_num_msgs, "Number of messages on the queue"),
+    ADD_STAT(m_different_addresses, "Number of different addresses with messages on the queue"),
+    ADD_STAT(m_max_msgs_same_address, "Highest number of messages refering to the same address"),
+    ADD_STAT(m_reenqueued_same_addr, "Number of re-enqueued messages from the same address"),
+    ADD_STAT(m_ready_requests, "Number of requests ready in this cycle"),
+    ADD_STAT(m_batch_size_all, "Size of messages taken from a peek statement (can be more than 1 if a batch)"),
+    ADD_STAT(m_batch_size_get_s, "Size of GetS taken from a peek statement (can be more than 1 if a batch)"),
+    ADD_STAT(m_batch_size_get_x, "Size of GetX taken from a peek statement (can be more than 1 if a batch)"),
+    ADD_STAT(m_batch_size_upgrade, "Size of upgrade taken from a peek statement (can be more than 1 if a batch)"),
+    ADD_STAT(m_batch_size_mix, "Size of mix batch"),
+    ADD_STAT(m_batch_size_mix_writers, "Number of writers in a mix batch"),
+    ADD_STAT(m_batch_size_mix_readers, "Number of readers in a mix batch"),
+    ADD_STAT(m_request_type, "Distribution of requests processed depending on its type"),
+    ADD_STAT(numRequestsSameAddress, "Number of requests for the same address of the request in the head of the queue")
+    // ADD_STAT(numRequestsSameAddressByAddress, "Number of requests for the same address of the request in the head of the queue, distributed by address")
 {
     m_msg_counter = 0;
+    m_highest_msgs = 0;
     m_consumer = NULL;
     m_size_last_time_size_checked = 0;
     m_size_at_cycle_start = 0;
@@ -86,6 +103,7 @@ MessageBuffer::MessageBuffer(const Params &p)
 
     m_buf_msgs = 0;
     m_stall_time = 0;
+    m_max_msgs = 0;
 
     m_dequeue_callback = nullptr;
 
@@ -104,6 +122,67 @@ MessageBuffer::MessageBuffer(const Params &p)
 
     m_stall_time
         .flags(statistics::nozero);
+
+    m_max_msgs
+        .flags(statistics::nozero);
+
+    m_num_msgs
+         .init(50)
+         .flags(statistics::pdf | statistics::dist | statistics::nonan | statistics::nozero);
+    
+    m_different_addresses
+        .init(50)
+        .flags(statistics::pdf | statistics::dist | statistics::nonan | statistics::nozero);
+
+    m_max_msgs_same_address
+        .init(50)
+        .flags(statistics::pdf | statistics::dist | statistics::nonan | statistics::nozero);
+
+    m_reenqueued_same_addr
+        .init(50)
+        .flags(statistics::pdf | statistics::dist | statistics::nonan | statistics::nozero);
+    m_ready_requests
+        .init(50)
+        .flags(statistics::pdf | statistics::dist | statistics::nonan | statistics::nozero);
+
+    m_batch_size_all
+        .init(100)
+        .flags(statistics::pdf | statistics::dist | statistics::nonan | statistics::nozero);
+
+    m_batch_size_get_s
+        .init(100)
+        .flags(statistics::pdf | statistics::dist | statistics::nonan | statistics::nozero);
+
+    m_batch_size_get_x
+        .init(100)
+        .flags(statistics::pdf | statistics::dist | statistics::nonan | statistics::nozero);
+
+    m_batch_size_upgrade
+        .init(100)
+        .flags(statistics::pdf | statistics::dist | statistics::nonan | statistics::nozero);
+    m_batch_size_mix
+        .init(100)
+        .flags(statistics::pdf | statistics::dist | statistics::nonan | statistics::nozero);
+    m_batch_size_mix_writers
+        .init(100)
+        .flags(statistics::pdf | statistics::dist | statistics::nonan | statistics::nozero);
+    m_batch_size_mix_readers
+        .init(100)
+        .flags(statistics::pdf | statistics::dist | statistics::nonan | statistics::nozero);
+    numRequestsSameAddress
+        .init(100)
+        .flags(statistics::pdf | statistics::dist | statistics::nonan | statistics::nozero);
+    // numRequestsSameAddressByAddress
+    //     .init(50331648, 20)
+    //     .flags(statistics::nozero);
+    m_request_type
+        .init((unsigned int) CoherenceRequestType_NUM)
+        .flags(statistics::nozero);
+    
+    for (CoherenceRequestType type = CoherenceRequestType_FIRST; type < CoherenceRequestType_NUM; ++type) {
+        m_request_type
+            .subname((unsigned int) type, CoherenceRequestType_to_string(type));
+    }
 
     if (m_max_size > 0) {
         m_occupancy = m_buf_msgs / m_max_size;
@@ -196,6 +275,7 @@ random_time()
 void
 MessageBuffer::enqueue(MsgPtr message, Tick current_time, Tick delta)
 {
+    DPRINTF(RubyQueue, "Enqueueing\n");
     // record current time incase we have a pop that also adjusts my size
     if (m_time_last_time_enqueue < current_time) {
         m_msgs_this_cycle = 0;  // first msg this cycle
@@ -259,9 +339,24 @@ MessageBuffer::enqueue(MsgPtr message, Tick current_time, Tick delta)
 
     // Insert the message into the priority heap
     m_prio_heap.push_back(message);
+    int last = 0;
+    for (auto &msg: m_prio_heap) {
+        if (msg->getLastEnqueueTime() <= current_time) {
+            last++;
+        }
+        else {
+            break;
+        }
+    }
+    m_ready_requests.sample(last);
     push_heap(m_prio_heap.begin(), m_prio_heap.end(), std::greater<MsgPtr>());
     // Increment the number of messages statistic
     m_buf_msgs++;
+    if ((m_prio_heap.size() + m_stall_map_size) > m_highest_msgs) {
+        m_max_msgs = m_prio_heap.size() + m_stall_map_size;
+        m_highest_msgs = m_prio_heap.size() + m_stall_map_size;
+    }
+    m_num_msgs.sample(m_prio_heap.size() + m_stall_map_size);
 
     assert((m_max_size == 0) ||
            ((m_prio_heap.size() + m_stall_map_size) <= m_max_size));
@@ -273,6 +368,28 @@ MessageBuffer::enqueue(MsgPtr message, Tick current_time, Tick delta)
     assert(m_consumer != NULL);
     m_consumer->scheduleEventAbsolute(arrival_time);
     m_consumer->storeEventInfo(m_vnet_id);
+}
+
+void
+MessageBuffer::registerAddressesStats(std::map<Addr, int> addresses)
+{
+    int max = 0;
+    for (std::map<Addr, int>::iterator addr_iter = addresses.begin();
+         addr_iter != addresses.end(); ++addr_iter) {
+            if (addresses[addr_iter->first] > max) {
+                max = addresses[addr_iter->first];
+            }
+         }
+
+    for (StallMsgMapType::iterator map_iter = m_stall_msg_map.begin();
+         map_iter != m_stall_msg_map.end(); ++map_iter) {
+            addresses[map_iter->first] += map_iter->second.size();
+            if (addresses[map_iter->first] > max) {
+                max = addresses[map_iter->first];
+            }
+         }
+    m_different_addresses.sample(addresses.size());
+    m_max_msgs_same_address.sample(max);
 }
 
 Tick
@@ -356,8 +473,12 @@ MessageBuffer::recycle(Tick current_time, Tick recycle_latency)
 }
 
 void
-MessageBuffer::reanalyzeList(std::list<MsgPtr> &lt, Tick schdTick)
+MessageBuffer::reanalyzeList(std::list<MsgPtr> &lt, Tick schdTick, Addr addr)
 {
+    if(lt.size() > 1) {
+        // DPRINTF(Batches, "Re-enqueueing %d messages from address %#x, tick %lld\n", lt.size(), addr, schdTick);
+        m_reenqueued_same_addr.sample(lt.size());
+    }
     while (!lt.empty()) {
         MsgPtr m = lt.front();
         assert(m->getLastEnqueueTime() <= schdTick);
@@ -389,7 +510,7 @@ MessageBuffer::reanalyzeMessages(Addr addr, Tick current_time)
     //
     m_stall_map_size -= m_stall_msg_map[addr].size();
     assert(m_stall_map_size >= 0);
-    reanalyzeList(m_stall_msg_map[addr], current_time);
+    reanalyzeList(m_stall_msg_map[addr], current_time, addr);
     m_stall_msg_map.erase(addr);
 }
 
@@ -408,7 +529,7 @@ MessageBuffer::reanalyzeAllMessages(Tick current_time)
          map_iter != m_stall_msg_map.end(); ++map_iter) {
         m_stall_map_size -= map_iter->second.size();
         assert(m_stall_map_size >= 0);
-        reanalyzeList(map_iter->second, current_time);
+        reanalyzeList(map_iter->second, current_time, map_iter->first);
     }
     m_stall_msg_map.clear();
 }
@@ -531,6 +652,35 @@ MessageBuffer::functionalAccess(Packet *pkt, bool is_read, WriteMask *mask)
     }
 
     return num_functional_accesses;
+}
+
+void
+MessageBuffer::batchStats(int writers, int readers, CoherenceRequestType type) {
+    //m_batch_size_all.sample(batchSize);
+    m_request_type[type]++;
+    switch(type) {
+        case CoherenceRequestType_GETS:
+        case CoherenceRequestType_GET_INSTR:
+        case CoherenceRequestType_GETS_BATCH:
+            m_batch_size_get_s.sample(readers);
+            break;
+        case CoherenceRequestType_GETX:
+        case CoherenceRequestType_GETX_BATCH:
+            m_batch_size_get_x.sample(writers);
+            break;
+        case CoherenceRequestType_UPGRADE:
+        case CoherenceRequestType_UPGRADE_BATCH:
+            m_batch_size_upgrade.sample(writers);
+            break;
+        case CoherenceRequestType_GETX_S_BATCH:
+        case CoherenceRequestType_UPGRADE_S_BATCH:
+            m_batch_size_mix.sample(writers+readers);
+            m_batch_size_mix_writers.sample(writers);
+            m_batch_size_mix_readers.sample(readers);
+            break;
+        default:
+            break;
+    }
 }
 
 } // namespace ruby

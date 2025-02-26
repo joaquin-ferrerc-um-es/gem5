@@ -74,6 +74,8 @@ structure(RequestMsg, desc="...", interface="Message") {
   CoherenceRequestType Type,    desc="Type of request (GetS, GetX, PutX, etc)";
   RubyAccessMode AccessMode,    desc="user/supervisor access type";
   MachineID Requestor      ,    desc="What component request";
+  NetDest Writers      ,     desc="What components request";
+  NetDest Readers      ,     desc="What components request";
   NetDest Destination,          desc="What components receive the request, includes MachineType and num";
   MessageSizeType MessageSize,  desc="size category of the message";
   DataBlock DataBlk,            desc="Data for the cache line (if PUTX)";
@@ -106,6 +108,8 @@ structure(ResponseMsg, desc="...", interface="Message") {
   MachineID Sender,             desc="What component sent the data";
   MachineID OriginalRequestor,  desc="What component request";
   NetDest Destination,          desc="Node to whom the data is sent";
+  NetDest Writers,           desc="Other requestors of the data";
+  NetDest Readers,           desc="Other requestors of the data";
   DataBlock DataBlk,            desc="Data for the cache line";
   bool Dirty, default="false",  desc="Dirty bit";
   int AckCount, default="0",  desc="number of acks in this message";

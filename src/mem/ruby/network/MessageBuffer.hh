@@ -56,12 +56,14 @@
 
 #include "base/trace.hh"
 #include "debug/RubyQueue.hh"
+#include "debug/Batches.hh"
 #include "mem/packet.hh"
 #include "mem/port.hh"
 #include "mem/ruby/common/Address.hh"
 #include "mem/ruby/common/Consumer.hh"
 #include "mem/ruby/network/dummy_port.hh"
 #include "mem/ruby/slicc_interface/Message.hh"
+#include "mem/ruby/protocol/CoherenceRequestType.hh"
 #include "params/MessageBuffer.hh"
 #include "sim/sim_object.hh"
 
@@ -117,6 +119,33 @@ class MessageBuffer : public SimObject
     //! Function for extracting the message at the head of the
     //! message queue.  The function assumes that the queue is nonempty.
     const Message* peek() const;
+
+    Message* getMessageAt(int i, Tick current_time) {
+        if (i < m_prio_heap.size()) {
+            if (m_prio_heap[i]->getLastEnqueueTime() <= current_time) {
+                return m_prio_heap[i].get();
+            }
+        }
+        return NULL;
+    }
+
+    void registerAddressesStats(std::map<Addr, int> addresses);
+
+    void erase(int position) {
+        assert(position < m_prio_heap.size());
+        std::vector<MsgPtr>::iterator it = m_prio_heap.begin()+position;
+        m_prio_heap.erase(it);
+    }
+
+    void batchStats(int writers, int readers, CoherenceRequestType type);
+
+    void registerNumRequestsSameAddress(int numRequestsSameAddr, Addr addr) {
+        numRequestsSameAddress.sample(numRequestsSameAddr);
+        // numRequestsSameAddressByAddress[addr][numRequestsSameAddr]++;
+        if (numRequestsSameAddr > 0) {
+            DPRINTF(Batches, "There are  %d more requests for address %#x\n", numRequestsSameAddr, addr);
+        }
+    }
 
     const MsgPtr &peekMsgPtr() const { return m_prio_heap.front(); }
 
@@ -185,7 +214,7 @@ class MessageBuffer : public SimObject
     }
 
   private:
-    void reanalyzeList(std::list<MsgPtr> &, Tick);
+    void reanalyzeList(std::list<MsgPtr> &, Tick, Addr);
 
     uint32_t functionalAccess(Packet *pkt, bool is_read, WriteMask *mask);
 
@@ -240,6 +269,9 @@ class MessageBuffer : public SimObject
      */
     const unsigned int m_max_size;
 
+    // Highest number of messages in the MessageBuffer
+    int m_highest_msgs;
+
     Tick m_time_last_time_size_checked;
     unsigned int m_size_last_time_size_checked;
 
@@ -268,6 +300,24 @@ class MessageBuffer : public SimObject
     statistics::Average m_stall_time;
     statistics::Scalar m_stall_count;
     statistics::Formula m_occupancy;
+    statistics::Scalar m_max_msgs;
+    statistics::Histogram m_num_msgs;
+    statistics::Histogram m_different_addresses;
+    statistics::Histogram m_max_msgs_same_address;
+    statistics::Histogram m_reenqueued_same_addr;
+    statistics::Histogram m_ready_requests;
+    statistics::Histogram m_batch_size_all;
+    statistics::Histogram m_batch_size_get_s;
+    statistics::Histogram m_batch_size_get_x;
+    statistics::Histogram m_batch_size_upgrade;
+    statistics::Histogram m_batch_size_mix;
+    statistics::Histogram m_batch_size_mix_writers;
+    statistics::Histogram m_batch_size_mix_readers;
+    statistics::Vector m_request_type;
+
+    // NEW STATS
+    statistics::Histogram numRequestsSameAddress;
+    // statistics::Vector2d numRequestsSameAddressByAddress;
 };
 
 Tick random_time();

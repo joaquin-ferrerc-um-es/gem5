@@ -213,10 +213,14 @@ def create_system(options, full_system, system, piobus = None, dma_ports = [],
     ruby.Vaddress_filter = options.Vaddress_filter
     # LP: pass limited pointers to RubySystem
     ruby.limited_pointers = -1
-    if buildEnv['PROTOCOL'] == 'MESI_Three_Level_Imprecise' or buildEnv['PROTOCOL'] == 'MESI_Three_Level_Imprecise0':
+    if buildEnv['PROTOCOL'] == 'MESI_Three_Level_Imprecise' or buildEnv['PROTOCOL'] == 'MESI_Three_Level_Imprecise0' or \
+       buildEnv['PROTOCOL'] == 'MESI_Three_Level_Sparse_Imprecise' or buildEnv['PROTOCOL'] == 'MESI_Three_Level_Sparse_Imprecise0' or \
+       buildEnv['PROTOCOL'] == 'MESI_Three_Level_Imprecise_Batch' or buildEnv['PROTOCOL'] == 'MESI_Three_Level_Imprecise0_Batch':
         ruby.limited_pointers = options.l2_lp
 
-    if buildEnv['PROTOCOL'] == 'MESI_Three_Level_Imprecise' or buildEnv['PROTOCOL'] == 'MESI_Three_Level_Imprecise0':
+    if buildEnv['PROTOCOL'] == 'MESI_Three_Level_Imprecise' or buildEnv['PROTOCOL'] == 'MESI_Three_Level_Imprecise0' or\
+       buildEnv['PROTOCOL'] == 'MESI_Three_Level_Sparse_Imprecise' or buildEnv['PROTOCOL'] == 'MESI_Three_Level_Sparse_Imprecise0' or \
+       buildEnv['PROTOCOL'] == 'MESI_Three_Level_Imprecise_Batch' or buildEnv['PROTOCOL'] == 'MESI_Three_Level_Imprecise0_Batch':
         ruby.imprecise_representation = options.imprecise_representation
 
     protocol = buildEnv['PROTOCOL']

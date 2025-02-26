@@ -169,6 +169,32 @@ NetDest::smallestElement(MachineType machine) const
     panic("No smallest element of given MachineType.");
 }
 
+MachineID
+NetDest::getRandomElement(MachineType machine) const
+{
+    std::vector<MachineID> candidates;
+    int size = m_bits[MachineType_base_level(machine)].getSize();
+    for (NodeID j = 0; j < size; j++) {
+        if (m_bits[MachineType_base_level(machine)].isElement(j)) {
+            candidates.push_back({machine, j});
+        }
+    }
+
+    if (candidates.empty()) {
+        panic("No elements of given MachineType.");
+    }
+
+    int numCandidates = candidates.size();
+    if (numCandidates > 1) {
+        static std::random_device rd;  // Non-deterministic random source
+        static std::mt19937 gen(rd()); // Seeded Mersenne Twister RNG
+        std::uniform_int_distribution<int> dist(0, numCandidates-1);
+        return candidates[dist(gen)];
+    } else {
+        return candidates[0];
+    }
+}
+
 // Returns true iff all bits are set
 bool
 NetDest::isBroadcast() const

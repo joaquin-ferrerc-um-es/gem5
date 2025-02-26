@@ -619,24 +619,6 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
       }
   }
 
-  action(g_issuePUTX, "g", desc="send data to the L2 cache") {
-    enqueue(requestNetwork_out, RequestMsg, cache.getDataLatency()) {
-      assert(is_valid(cache_entry));
-      out_msg.addr := address;
-      out_msg.Type := CoherenceRequestType:PUTX;
-      out_msg.Dirty := cache_entry.Dirty;
-      out_msg.Requestor:= machineID;
-      out_msg.Destination.add(mapAddressToRange(address, MachineType:L2Cache,
-                          l2_select_low_bit, l2_select_num_bits, clusterID));
-      if (cache_entry.Dirty) {
-        out_msg.MessageSize := MessageSizeType:Writeback_Data;
-        out_msg.DataBlk := cache_entry.DataBlk;
-      } else {
-        out_msg.MessageSize := MessageSizeType:Writeback_Control;
-      }
-    }
-  }
-
   action(g_issuePUTXPetition, "gp", desc="send PutX petition to the L2 cache") {
     enqueue(requestNetwork_out, RequestMsg, cache.getDataLatency()) {
       assert(is_valid(cache_entry));

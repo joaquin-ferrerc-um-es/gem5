@@ -32,10 +32,16 @@ public :
   inline void l2MissesPending() { m_cpu->l2MissesPending(); };
   inline void l2NoMissesPending() { m_cpu->l2NoMissesPending(); };
   inline void l2FwdGetSMissesPending(int cpu) { m_cpu->l2FwdGetSMissesPending(cpu); };
+  inline void l2FwdGetSMissesPending(ruby::NetDest cpus) { m_cpu->l2FwdGetSMissesPending(cpus); };
   inline void l2NoFwdGetSMissesPending() { m_cpu->l2NoFwdGetSMissesPending(); };
   inline void l2FwdGetXMissesPending(int cpu) { m_cpu->l2FwdGetXMissesPending(cpu); };
+  inline void l2FwdGetXMissesPending(ruby::NetDest cpus) { m_cpu->l2FwdGetXMissesPending(cpus); };
   inline void l2NoFwdGetXMissesPending() { m_cpu->l2NoFwdGetXMissesPending(); };
+  inline void l2FwdInvMissesPending(int cpu) { m_cpu->l2FwdInvMissesPending(cpu); };
+  inline void l2NoFwdInvMissesPending(int cpu) { m_cpu->l2NoFwdInvMissesPending(cpu); };
   inline void l3MissesPending(int cpu) { m_cpu->l3MissesPending(cpu); };
+  inline void l3MissesPending(ruby::NetDest cpus) { m_cpu->l3MissesPending(cpus); }
+  inline void l3MissesPending(ruby::NetDest old, ruby::NetDest news) { m_cpu->l3MissesPending(old, news); };
   inline void l3NoMissesPending(int cpu) { m_cpu->l3NoMissesPending(cpu); };
   inline void l3NoMissesPending(ruby::NetDest cpus) { m_cpu->l3NoMissesPendingCPUs(cpus); };
   inline void anyMissesPending() { m_cpu->anyMissesPending(); };

@@ -191,6 +191,8 @@ IEW::IEWStats::IEWStats(CPU *cpu)
              "Number of cycles execute is not stalled and there is at least one L2 miss (GetS) pending"),
     ADD_STAT(iewExecuteL2FwdGetXPendingCycles, statistics::units::Count::get(),
              "Number of cycles execute is not stalled and there is at least one L2 miss (GetX) pending"),
+    ADD_STAT(iewExecuteL2FwdInvPendingCycles, statistics::units::Count::get(),
+             "Number of cycles execute is not stalled and there is at least one L2 miss (FwdInv) pending"),
     ADD_STAT(iewExecuteL2OtherPendingCycles, statistics::units::Count::get(),
              "Number of cycles execute is not stalled and there is at least one L2 miss (other) pending"),
     ADD_STAT(iewExecuteL3PendingCycles, statistics::units::Count::get(),
@@ -209,6 +211,8 @@ IEW::IEWStats::IEWStats(CPU *cpu)
              "Number of cycles execute is stalled and there is at least one L2 miss (GetS) pending"),
     ADD_STAT(iewExecuteStallL2FwdGetXPendingCycles, statistics::units::Count::get(),
              "Number of cycles execute is stalled and there is at least one L2 miss (GetX) pending"),
+    ADD_STAT(iewExecuteStallL2FwdInvPendingCycles, statistics::units::Count::get(),
+             "Number of cycles execute is stalled and there is at least one L2 miss (FwdInv) pending"),
     ADD_STAT(iewExecuteStallL2OtherPendingCycles, statistics::units::Count::get(),
              "Number of cycles execute is stalled and there is at least one L2 miss (other) pending"),
     ADD_STAT(iewExecuteStallL3PendingCycles, statistics::units::Count::get(),
@@ -1432,7 +1436,10 @@ IEW::executeInsts()
         if (cpu->l2_miss_pending == true) {
 	        iewStats.iewExecuteL2PendingCycles++;
             if (cpu->l3_miss_pending == 0) {
-                if (cpu->l2_fwd_get_x > 0) {
+                if (cpu->l2_fwd_inv > 0) {
+                    iewStats.iewExecuteL2FwdInvPendingCycles++;
+                }
+                else if (cpu->l2_fwd_get_x > 0) {
                     iewStats.iewExecuteL2FwdGetXPendingCycles++;
                 }
                 else if (cpu->l2_fwd_get_s > 0) {
@@ -1489,7 +1496,10 @@ IEW::executeInsts()
         if (cpu->l2_miss_pending == true) {
 	        iewStats.iewExecuteStallL2PendingCycles++;
             if (cpu->l3_miss_pending == 0) {
-                if (cpu->l2_fwd_get_x > 0) {
+                if (cpu->l2_fwd_inv > 0) {
+                    iewStats.iewExecuteStallL2FwdInvPendingCycles++;
+                }
+                else if (cpu->l2_fwd_get_x > 0) {
                     iewStats.iewExecuteStallL2FwdGetXPendingCycles++;
                 }
                 else if (cpu->l2_fwd_get_s > 0) {

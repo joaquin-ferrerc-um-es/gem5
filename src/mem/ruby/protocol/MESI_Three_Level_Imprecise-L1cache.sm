@@ -316,7 +316,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
           } else if ( (getPendingAcks(tbe) - in_msg.AckCount) == 0 &&
                     machineIDToMachineType(in_msg.Sender) == MachineType:L1Cache) {
             trigger(Event:Data_all_Acks_fromL1, in_msg.addr, cache_entry, tbe);
-          } else if ( (getPendingAcks(tbe) - in_msg.AckCount) == 0 ) {
+          } else if ( (getPendingAcks(tbe) - in_msg.AckCount) == 0) {
             trigger(Event:Data_all_Acks, in_msg.addr, cache_entry, tbe);
           } else {
             trigger(Event:Data, in_msg.addr, cache_entry, tbe);

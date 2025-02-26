@@ -93,6 +93,8 @@ enumeration(AccessPermission, desc="...", default="AccessPermission_NotPresent")
   // Valid data
   Read_Only,  desc="block is Read Only (modulo functional writes)";
   Read_Write, desc="block is Read/Write";
+  D_Read_Only, desc="block is Read Only in directory";
+  D_Read_Write, desc="block is Read/Write in directory";
 
   // Possibly Invalid data
   // The maybe stale permission indicates that accordingly to the protocol,

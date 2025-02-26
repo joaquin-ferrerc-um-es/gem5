@@ -81,8 +81,8 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
 
     // Controller states
     NP_NC, AccessPermission:Invalid, desc="Not present in either cache (no directory entry)";
-    NP_S, AccessPermission:Invalid, desc="Not present in L2, but shared in one or more L1s (has a directory entry)";
-    NP_P, AccessPermission:Invalid, desc="Not present in L2, but one L1 has private acces (has a directory entry)";
+    NP_S, AccessPermission:D_Read_Only, desc="Not present in L2, but shared in one or more L1s (has a directory entry)";
+    NP_P, AccessPermission:D_Read_Write, desc="Not present in L2, but one L1 has private acces (has a directory entry)";
     S_NC, AccessPermission:Read_Only, desc="L2 cache entry Shared, not present in any L1s (no directory entry)";
     S_S, AccessPermission:Read_Only, desc="L2 cache entry Shared, also present in one or more L1s (has a directory entry)";
     S_P, AccessPermission:Maybe_Stale, desc="L2 cache entry Shared, one L1 has private access (has a directory entry)";
@@ -395,6 +395,9 @@ machine(MachineType:L2Cache, "MESI Sparse Directory L2 Cache CMP")
   void setAccessPermission(Entry cache_entry, DirectoryEntry directory_entry, Addr addr, State state) {
     if (is_valid(cache_entry)) {
       cache_entry.changePermission(L2Cache_State_to_permission(state));
+    }
+    if (is_valid(directory_entry)) {
+      directory_entry.changePermission(L2Cache_State_to_permission(state));
     }
   }
 

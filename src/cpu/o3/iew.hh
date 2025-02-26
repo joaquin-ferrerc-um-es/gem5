@@ -482,6 +482,8 @@ class IEW
         statistics::Scalar iewExecuteL2FwdGetSPendingCycles;
         /** Stat for number of cycles execute is not stalled and there is at least one L2 miss (GetX) pending */
         statistics::Scalar iewExecuteL2FwdGetXPendingCycles;
+        /** Stat for number of cycles execute is not stalled and there is at least one L2 miss (FwdInv) pending */
+        statistics::Scalar iewExecuteL2FwdInvPendingCycles;
         /** Stat for number of cycles execute is not stalled and there is at least one L2 miss (other) pending */
         statistics::Scalar iewExecuteL2OtherPendingCycles;
         /** Stat for number of cycles execute is not stalled and there is at least one L3 miss pending */
@@ -500,6 +502,8 @@ class IEW
         statistics::Scalar iewExecuteStallL2FwdGetSPendingCycles;
         /** Stat for number of cycles execute is stalled and there is at least one L2 miss (GetX) pending */
         statistics::Scalar iewExecuteStallL2FwdGetXPendingCycles;
+        /** Stat for number of cycles execute is stalled and there is at least one L2 miss (FwdInv) pending */
+        statistics::Scalar iewExecuteStallL2FwdInvPendingCycles;
         /** Stat for number of cycles execute is stalled and there is at least one L2 miss (Other) pending */
         statistics::Scalar iewExecuteStallL2OtherPendingCycles;
         /** Stat for number of cycles execute is stalled and there is at least one L3 miss pending */

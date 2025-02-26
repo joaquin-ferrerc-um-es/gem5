@@ -138,7 +138,7 @@ CacheMemory::getPrecisionStats(statistics::Histogram& SPL, statistics::Histogram
         }
     }
 
-    PO.sample((double)numLineasOcupadas/(double)(m_cache_num_sets*m_cache_assoc));
+    PO.sample(((double)numLineasOcupadas/(double)(m_cache_num_sets*m_cache_assoc))*100.0);
 }
 
 CacheMemory::~CacheMemory()
@@ -210,6 +210,11 @@ CacheMemory::getAddressAtIdx(int idx) const
         entry->m_Permission == AccessPermission_NotPresent) {
         return tmp;
     }
+    if ((entry->m_Permission == AccessPermission_D_Read_Only ||
+         entry->m_Permission == AccessPermission_D_Read_Write) &&
+         !m_is_directory) {
+            return tmp;
+         }
     return entry->m_Address;
 }
 
@@ -230,7 +235,14 @@ CacheMemory::tryCacheAccess(Addr address, RubyRequestType type,
         if (entry->m_Permission == AccessPermission_Read_Write) {
             return true;
         }
+        if ((entry->m_Permission == AccessPermission_D_Read_Write) && m_is_directory) {
+            return true;
+        }
         if ((entry->m_Permission == AccessPermission_Read_Only) &&
+            (type == RubyRequestType_LD || type == RubyRequestType_IFETCH)) {
+            return true;
+        }
+        if ((entry->m_Permission == AccessPermission_D_Read_Only) && m_is_directory &&
             (type == RubyRequestType_LD || type == RubyRequestType_IFETCH)) {
             return true;
         }

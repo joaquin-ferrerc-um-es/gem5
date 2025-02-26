@@ -610,6 +610,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
         out_msg.Destination.remove(in_msg.Requestor);
         out_msg.MessageSize := MessageSizeType:Request_Control;
       }
+      cpu.l2FwdInvMissesPending(in_msg.Requestor.getNum());
     }
   }
 
@@ -866,6 +867,12 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
 
   action(kd_wakeUpDependents, "kd", desc="wake-up dependents") {
     wakeUpBuffers(address);
+  }
+
+  action(td_decrementFwdInv, "tdni", desc="Decrement the number of pending FwdInv") {
+    peek(L1unblockNetwork_in, ResponseMsg) {
+      cpu.l2NoFwdInvMissesPending(in_msg.Sender.getNum());
+    }
   }
 
   //*****************************************************
@@ -1155,7 +1162,17 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
     jj_popL1RequestQueue;
   }
 
-  transition({SS_MB,MT_MB}, Exclusive_Unblock, MT) {
+  transition(SS_MB, Exclusive_Unblock, MT) {
+    // update actual directory
+    td_decrementFwdInv;
+    mmu_markExclusiveFromUnblock;
+    k_popUnblockQueue;
+    uu_profileHit;
+    uu_profileWriteHit;
+    kd_wakeUpDependents;
+  }
+
+  transition(MT_MB, Exclusive_Unblock, MT) {
     // update actual directory
     mmu_markExclusiveFromUnblock;
     k_popUnblockQueue;

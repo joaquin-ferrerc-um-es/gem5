@@ -30,7 +30,7 @@ DirectoryProfilerStats::DirectoryProfilerStats(statistics::Group *parent)
         .flags(statistics::pdf | statistics::dist | statistics::nonan);*/
 
     DirectoryUsage
-        .init(10)
+        .init(100)
         .flags(statistics::pdf | statistics::dist | statistics::nonan);
 }
 

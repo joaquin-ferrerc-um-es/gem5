@@ -635,6 +635,7 @@ class BaseCPU : public ClockedObject
     bool l2_miss_pending = false;
     int64_t l2_fwd_get_s = 0;
     int64_t l2_fwd_get_x = 0;
+    int64_t l2_fwd_inv = 0;
     int64_t l3_miss_pending = 0;
     bool any_miss_pending = false;
 
@@ -666,6 +667,13 @@ class BaseCPU : public ClockedObject
         cpuList[cpu]->l2_fwd_get_s++;
         assert(cpuList[cpu]->l2_fwd_get_s < 500);
     };
+    void l2FwdGetSMissesPending(ruby::NetDest cpus) {
+        for (int i = 0; i < numSimulatedCPUs(); i++) {
+            if (cpus.isElement(ruby::getL1CacheMachineID(i))) {
+                l2FwdGetSMissesPending(i);
+            }
+        }
+    };
     void l2NoFwdGetSMissesPending() {
         l2_fwd_get_s--;
         assert(l2_fwd_get_s >= 0);
@@ -677,10 +685,31 @@ class BaseCPU : public ClockedObject
         cpuList[cpu]->l2_fwd_get_x++;
         assert(cpuList[cpu]->l2_fwd_get_x < 500);
     };
+    void l2FwdGetXMissesPending(ruby::NetDest cpus) {
+        for (int i = 0; i < numSimulatedCPUs(); i++) {
+            if (cpus.isElement(ruby::getL1CacheMachineID(i))) {
+                l2FwdGetXMissesPending(i);
+            }
+        }
+    };
     void l2NoFwdGetXMissesPending() {
         l2_fwd_get_x--;
         assert(l2_fwd_get_x >= 0);
     };
+
+    void l2FwdInvMissesPending(int cpu) {
+        assert(cpu >= 0);
+        assert(cpu < numSimulatedCPUs());
+        cpuList[cpu]->l2_fwd_inv++;
+        assert(cpuList[cpu]->l2_fwd_inv < 500);
+    }
+    
+    void l2NoFwdInvMissesPending(int cpu) {
+        assert(cpu >= 0);
+        assert(cpu < numSimulatedCPUs());
+        cpuList[cpu]->l2_fwd_inv--;
+        assert(cpuList[cpu]->l2_fwd_inv >= 0);
+    }
 
     void l3MissesPending(int cpu) {
         assert(cpu >= 0);
@@ -688,6 +717,20 @@ class BaseCPU : public ClockedObject
         cpuList[cpu]->l3_miss_pending++;
         assert(cpuList[cpu]->l3_miss_pending < 500);
         cpuList[cpu]->any_miss_pending = true;
+    };
+    void l3MissesPending(ruby::NetDest cpus) {
+        for (int i = 0; i < numSimulatedCPUs(); i++) {
+          if (cpus.isElement(ruby::getL1CacheMachineID(i))) {
+            l3MissesPending(i);
+          }
+        }
+    };
+    void l3MissesPending(ruby::NetDest old, ruby::NetDest news) {
+        for (int i = 0; i < numSimulatedCPUs(); i++) {
+          if (news.isElement(ruby::getL1CacheMachineID(i)) && !old.isElement(ruby::getL1CacheMachineID(i))) {
+            l3MissesPending(i);
+          }
+        }
     };
     void l3NoMissesPending(int cpu)
     {

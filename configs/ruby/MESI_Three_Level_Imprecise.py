@@ -189,7 +189,7 @@ def create_system(options, full_system, system, dma_ports, bootmem,
 
             # Connect the L0 and L1 controllers
             l0_cntrl.prefetchQueue = MessageBuffer()
-            l0_cntrl.mandatoryQueue = MessageBuffer()
+            l0_cntrl.mandatoryQueue = MessageBuffer(buffer_size = 0)
             l0_cntrl.bufferToL1 = MessageBuffer() # ordered = True)
             l1_cntrl.bufferFromL0 = l0_cntrl.bufferToL1
             l0_cntrl.bufferFromL1 = MessageBuffer() # ordered = True)
@@ -267,7 +267,7 @@ def create_system(options, full_system, system, dma_ports, bootmem,
         dir_cntrl.responseFromDir = MessageBuffer()
         dir_cntrl.responseFromDir.master = ruby_system.network.slave
         dir_cntrl.requestToMemory = MessageBuffer()
-        dir_cntrl.responseFromMemory = MessageBuffer()
+        dir_cntrl.responseFromMemory = MessageBuffer(buffer_size = 0)
 
     for i, dma_port in enumerate(dma_ports):
         #
@@ -285,7 +285,7 @@ def create_system(options, full_system, system, dma_ports, bootmem,
         dma_cntrl_nodes.append(dma_cntrl)
 
         # Connect the dma controller to the network
-        dma_cntrl.mandatoryQueue = MessageBuffer()
+        dma_cntrl.mandatoryQueue = MessageBuffer(buffer_size = 0)
         dma_cntrl.responseFromDir = MessageBuffer(ordered = True)
         dma_cntrl.responseFromDir.slave = ruby_system.network.master
         dma_cntrl.requestToDir = MessageBuffer()

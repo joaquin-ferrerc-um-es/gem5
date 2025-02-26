@@ -31,6 +31,7 @@ help() {
      - Link to the PARSEC repository in '${GEM5_ROOT}/gem5_path/benchmarks/parsec' (or disable PARSEC, see BENCHMARKS_PARSEC_ENABLED).
      - Link to the HTMBench repository in '${GEM5_ROOT}/gem5_path/benchmarks/benchmarks-htm/HTMBench' (or disable HTMBench, see BENCHMARKS_HTMBENCH_ENABLED).
      - Link to the Splash-3 repository in '${GEM5_ROOT}/gem5_path/benchmarks/Splash-3' (or disable Splash-3, see BENCHMARKS_SPLASH3_ENABLED).
+     - Link to the Splash-4 repository in '${GEM5_ROOT}/gem5_path/benchmarks/Splash-4' (or disable Splash-4, see BENCHMARKS_SPLASH4_ENABLED).
      - Link to the other benchmarks repository in '${GEM5_ROOT}/gem5_path/benchmarks/other-benchmarks' (or disable Other Benchmarks, see BENCHMARKS_OTHER_ENABLED).
 "
 }

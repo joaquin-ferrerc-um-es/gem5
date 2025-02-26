@@ -83,7 +83,7 @@ def gen_scripts(c):
         enqueue_script_file.write(
             f"exec sbatch \\\n" +
             f"    --parsable \\\n" +
-            f"    -c 4 \\\n" +
+            f"    -c 3 \\\n" +
             f"    -J '{options.config_description(c)}' \\\n" +
             f"    -e '{os.path.join(output_directory, 'stderr')}' \\\n" +
             f"    -o '{os.path.join(output_directory, 'stdout')}' \\\n" +

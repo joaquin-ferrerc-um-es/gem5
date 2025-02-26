@@ -32,8 +32,8 @@ BENCHMARKS_HTMBENCH_SELECTED=(
 BENCHMARKS_SPLASH3_SELECTED=(
     "apps/barnes"
     "apps/fmm"
-    "apps/ocean/contiguous_partitions"
-    "apps/ocean/non_contiguous_partitions"
+    # "apps/ocean/contiguous_partitions"
+    # "apps/ocean/non_contiguous_partitions"
     "apps/radiosity"
     "apps/raytrace"
     "apps/volrend"
@@ -46,12 +46,47 @@ BENCHMARKS_SPLASH3_SELECTED=(
     "kernels/radix"
 )
 
+BENCHMARKS_SPLASH4_SELECTED=(
+    "barnes"
+    "fmm"
+    "ocean-contiguous_partitions"
+    "ocean-non_contiguous_partitions"
+    # "radiosity"
+    "raytrace"
+    "volrend"
+    "water-nsquared"
+    "water-spatial"
+    "cholesky"
+    "fft"
+    "lu-contiguous_blocks"
+    "lu-non_contiguous_blocks"
+    "radix"
+)
+
 BENCHMARKS_OTHER_SELECTED=(
     "kernels/CacheLatency"
     "kernels/MemoryLatency"
     "kernels/CoherencyLatency"
     "kernels/ContentionTest"
     "kernels/HelloWorld"
+    "microbenchs/array_swap_cpp"
+    "microbenchs/bakery"
+    "microbenchs/barriers"
+    "microbenchs/concurrent_queue_cpp"
+    "microbenchs/dclocking"
+    "microbenchs/dekker"
+    "microbenchs/locks"
+    "microbenchs/locks2"
+    "microbenchs/locks3"
+    "microbenchs/locks4"
+    "microbenchs/mcsqueuelock"
+    "microbenchs/persistent_cache_cpp"
+    "microbenchs/postgresql"
+    "microbenchs/red_black_tree_cpp"
+    "microbenchs/TATP"
+    "microbenchs/TPCC"
+    "microbenchs/reference_count"
+    "microbenchs/histogram"
 )
 
 task_build-benchmarks() {
@@ -112,6 +147,16 @@ build_benchmarks() {
         echo "$(color green "SPLASH3 benchmarks disabled for $arch.")"
     else
         error_and_exit "Invalid value for BENCHMARKS_SPLASH3_ENABLED[$arch] (${BENCHMARKS_SPLASH3_ENABLED[$arch]})"
+    fi
+
+    if [[ "${BENCHMARKS_SPLASH4_ENABLED[$arch]}" = "yes-native" ]] ; then
+        build_benchmarks_splash4 "$arch"
+    elif [[ "${BENCHMARKS_SPLASH4_ENABLED[$arch]}" = "yes-virtual" ]] ; then
+        echo "$(color green "SPLASH4 benchmarks will not be built because they are built directly in the image for $arch.")"
+    elif [[ "${BENCHMARKS_SPLASH4_ENABLED[$arch]}" = "no" ]] ; then
+        echo "$(color green "SPLASH4 benchmarks disabled for $arch.")"
+    else
+        error_and_exit "Invalid value for BENCHMARKS_SPLASH4_ENABLED[$arch] (${BENCHMARKS_SPLASH4_ENABLED[$arch]})"
     fi
 
     if [[ "${BENCHMARKS_PARSEC_ENABLED[$arch]}" = "yes-native" ]] ; then
@@ -252,6 +297,30 @@ build_benchmarks_splash3() {
     done
 }
 
+build_benchmarks_splash4() {
+    local arch="$1"
+
+    echo "$(color green "Building Splash4 benchmarks for $arch")"
+
+    if [[ "$arch" = "x86_64" ]] ; then
+        export X86_CROSS_GCC_PREFIX="${BENCHMARKS_ARCH_COMPILER_PREFIX[$arch]}"
+    elif [[ "$arch" = "aarch64" ]] ; then
+        export AARCH64_CROSS_GCC_PREFIX="${BENCHMARKS_ARCH_COMPILER_PREFIX[$arch]}"
+    else
+        error_and_exit "Architecture $arch not supported for splash4"
+    fi
+
+    check_splash4_gem5_directory_links
+
+    for b in "${BENCHMARKS_SPLASH4_SELECTED[@]}" ; do
+        (
+            echo "$(color green "Build $b ARCH=$a")"
+            cd "$(absolute_path "$BENCHMARKS_SPLASH4_DIR/Splash-4/$b")"
+            make -j $(get_num_threads_for_building) "bindThreads" "ARCH=$arch"
+        )
+    done
+}
+
 check_splash3_gem5_directory_links() {
     if [[ ! -d "$(absolute_path "$BENCHMARKS_SPLASH3_DIR")" || ! -L "${GEM5_ROOT}/${BENCHMARKS_SPLASH3_DIR}" ]] ; then
         error_and_exit "Splash3 directory symlink '$(absolute_path "$BENCHMARKS_SPLASH3_DIR")' not found. Clone the repository in a directory out of ${GEM5_ROOT} and create a symbolic link to it in '$(dirname "$(absolute_path "$BENCHMARKS_SPLASH3_DIR")")', or disable these benchmarks (BENCHMARKS_SPLASH3_ENABLED[*]=no)."
@@ -260,6 +329,17 @@ check_splash3_gem5_directory_links() {
     if [[ ! -d "$(absolute_path "$BENCHMARKS_SPLASH3_DIR")/codes/gem5-libs" ]] ; then
         local GEM5_LIBS_DIR="${GEM5_ROOT}/gem5_path/benchmarks/libs/"
         ln -s "$(realpath --relative-to="$(absolute_path "${BENCHMARKS_SPLASH3_DIR}/codes")" "$GEM5_LIBS_DIR")" "$(absolute_path "${BENCHMARKS_SPLASH3_DIR}")/codes/gem5-libs"
+    fi
+}
+
+check_splash4_gem5_directory_links() {
+    if [[ ! -d "$(absolute_path "$BENCHMARKS_SPLASH4_DIR")" || ! -L "${GEM5_ROOT}/${BENCHMARKS_SPLASH4_DIR}" ]] ; then
+        error_and_exit "Splash4 directory symlink '$(absolute_path "$BENCHMARKS_SPLASH4_DIR")' not found. Clone the repository in a directory out of ${GEM5_ROOT} and create a symbolic link to it in '$(dirname "$(absolute_path "$BENCHMARKS_SPLASH4_DIR")")', or disable these benchmarks (BENCHMARKS_4_ENABLED[*]=no)."
+    fi
+
+    if [[ ! -d "$(absolute_path "$BENCHMARKS_SPLASH4_DIR")/gem5-libs" ]] ; then
+        local GEM5_LIBS_DIR="${GEM5_ROOT}/gem5_path/benchmarks/libs/"
+        ln -s "$(realpath --relative-to="$(absolute_path "${BENCHMARKS_SPLASH4_DIR}")" "$GEM5_LIBS_DIR")" "$(absolute_path "${BENCHMARKS_SPLASH4_DIR}")/gem5-libs"
     fi
 }
 
@@ -281,7 +361,7 @@ build_benchmarks_other() {
     for b in "${BENCHMARKS_OTHER_SELECTED[@]}" ; do
         (
             echo "$(color green "Build $b ARCH=$a")"
-            cd "$(absolute_path "$BENCHMARKS_OTHER_DIR/$b")"
+            cd "$(absolute_path "$BENCHMARKS_OTHER_DIR/codes/$b")"
             make -j $(get_num_threads_for_building) "ARCH=$arch"
         )
     done

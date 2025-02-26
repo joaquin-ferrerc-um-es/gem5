@@ -204,6 +204,32 @@ for (name, subdir, exe_name, args, input) in [
         binary_filename_template = f"build/${{arch}}/{exe_name}", 
         input_filename_template = input)
 
+# Splash-4
+for (name, subdir, exe_name, args, input) in [       
+    ("barnes",         "barnes",                          "BARNES",         "", "inputs/n16384-p${num_cpus}"),
+    ("cholesky",       "cholesky",                        "CHOLESKY",       "-p${num_cpus}", "inputs/tk15.O"),
+    ("fft",            "fft",                             "FFT",            "-p${num_cpus} -m20", None), #-m16
+    ("fmm",            "fmm",                             "FMM",            "", "inputs/input.${num_cpus}.16384"),
+    ("lu_cb",          "lu-contiguous_blocks",            "LU-CONT",             "-p${num_cpus} -n512", None),
+    ("lu_ncb",         "lu-non_contiguous_blocks",        "LU-NOCONT",             "-p${num_cpus} -n512", None),
+    ("ocean_cp",       "ocean-contiguous_partitions",     "OCEAN-CONT",          "-p${num_cpus} -n514", None),
+    ("ocean_ncp",      "ocean-non_contiguous_partitions", "OCEAN-NOCONT",          "-p${num_cpus} -n258", None),
+    # ("radiosity",      "radiosity",                       "RADIOSITY",      "-p ${num_cpus} -ae 5000 -bf 0.1 -en 0.05 -room -batch", None),
+    ("radix",          "radix",                           "RADIX",          "-p${num_cpus} -n1048576", None),
+    ("raytrace",       "raytrace",                        "RAYTRACE",       "-p${num_cpus} -m64 inputs/car.env", None),
+    ("volrend",        "volrend",                         "VOLREND",        "${num_cpus} inputs/head 8", None),
+    ("water_nsquared", "water-nsquared",                  "WATER-NSQUARED", "${num_cpus}", "inputs/n512-p${num_cpus}"),
+    ("water_spatial",  "water-spatial",                   "WATER-SPATIAL",  "${num_cpus}", "inputs/n512-p${num_cpus}"),
+]:
+    Benchmark(
+        suite = "splash4",
+        name = name,
+        size = "recommended",
+        args_string = args,
+        subdir_template = f"Splash-4/Splash-4/{subdir}",
+        binary_filename_template = f"{exe_name}", 
+        input_filename_template = input)
+
 # Other
 for size_k in [2**i for i in range(0,20)]:
     if size_k > 512:
@@ -215,7 +241,7 @@ for size_k in [2**i for i in range(0,20)]:
         name = "CacheLatency",
         size = f"sim{size_k:06d}",
         args_string = args,
-        subdir_template = f"other-benchmarks/kernels/CacheLatency",
+        subdir_template = f"other-benchmarks/codes/kernels/CacheLatency",
         binary_filename_template = f"build/${{arch}}/CacheLatency",
         input_filename_template = None)
     Benchmark(
@@ -223,7 +249,7 @@ for size_k in [2**i for i in range(0,20)]:
         name = "MemoryLatency",
         size = f"sim{size_k:06d}",
         args_string = f"-test asm -sizekb {size_k}",
-        subdir_template = f"other-benchmarks/kernels/MemoryLatency",
+        subdir_template = f"other-benchmarks/codes/kernels/MemoryLatency",
         binary_filename_template = f"build/${{arch}}/MemoryLatency",
         input_filename_template = None)
     
@@ -233,7 +259,7 @@ Benchmark(
         name = "CacheLatency",
         size = f"sim{48:06d}",
         args_string = f"{48} K",
-        subdir_template = f"other-benchmarks/kernels/CacheLatency",
+        subdir_template = f"other-benchmarks/codes/kernels/CacheLatency",
         binary_filename_template = f"build/${{arch}}/CacheLatency",
         input_filename_template = None)
 
@@ -242,7 +268,7 @@ Benchmark(
         name = "MemoryLatency",
         size = f"sim{48:06d}",
         args_string = f"-test asm -sizekb {48}",
-        subdir_template = f"other-benchmarks/kernels/MemoryLatency",
+        subdir_template = f"other-benchmarks/codes/kernels/MemoryLatency",
         binary_filename_template = f"build/${{arch}}/MemoryLatency",
         input_filename_template = None)
 
@@ -251,7 +277,7 @@ Benchmark(
     name = "CoherencyLatency",
     size = f"default",
     args_string = "",
-    subdir_template = f"other-benchmarks/kernels/CoherencyLatency",
+    subdir_template = f"other-benchmarks/codes/kernels/CoherencyLatency",
     binary_filename_template = f"build/${{arch}}/CoherencyLatency",
     input_filename_template = None)
 
@@ -261,7 +287,7 @@ for sh in range(0,128):
         name = "ContentionTest",
         size = f"sim{sh}",
         args_string = "-n ${num_cpus} " + f"-s {sh}",
-        subdir_template = f"other-benchmarks/kernels/ContentionTest",
+        subdir_template = f"other-benchmarks/codes/kernels/ContentionTest",
         binary_filename_template = f"build/${{arch}}/ContentionTest",
         input_filename_template = None)
 
@@ -270,7 +296,7 @@ Benchmark(
     name = "HelloWorld",
     size = f"default",
     args_string = "",
-    subdir_template = f"other-benchmarks/kernels/HelloWorld",
+    subdir_template = f"other-benchmarks/codes/kernels/HelloWorld",
     binary_filename_template = f"build/${{arch}}/HelloWorld",
     input_filename_template = None)
 
@@ -280,6 +306,36 @@ for core in range(64):
         name = "CoherencyLatency",
         size = f"core{core:02d}",
         args_string = f"-core {core}",
-        subdir_template = f"other-benchmarks/kernels/CoherencyLatency",
+        subdir_template = f"other-benchmarks/codes/kernels/CoherencyLatency",
         binary_filename_template = f"build/${{arch}}/CoherencyLatency",
         input_filename_template = None)
+
+# Microbenchmarks
+for (name, subdir, exe_name, args, input) in [       
+    ("array_swap",       "microbenchs/array_swap_cpp",       "SPS_NVM",         "-p${num_cpus}", None),
+    ("bakery",           "microbenchs/bakery",               "BAKERY",          "-p${num_cpus} -n512", None),
+    ("barriers",         "microbenchs/barriers",             "BARRIERS",        "-p${num_cpus} -n512", None),
+    ("concurrent_queue", "microbenchs/concurrent_queue_cpp", "CQ_NVM",          "-p${num_cpus}", None),
+    ("dclocking",        "microbenchs/dclocking",            "DCL_SINGLETON",   "-p${num_cpus} -n512", None),
+    ("dekker",           "microbenchs/dekker",               "DEKKER",          "-p${num_cpus} -n512", None),
+    ("locks",            "microbenchs/locks",                "LOCKS",           "-p${num_cpus} -n512", None),
+    ("locks2",           "microbenchs/locks2",               "LOCKS",           "-p${num_cpus} -n512", None),
+    ("locks3",           "microbenchs/locks3",               "LOCKS",           "-p${num_cpus} -n512", None),
+    ("locks4",           "microbenchs/locks4",               "LOCKS",           "-p${num_cpus} -n512", None),
+    ("mcsqueuelock",     "microbenchs/mcsqueuelock",         "MCSQUEUELOCK",    "-p${num_cpus} -n512", None),
+    ("persistent_cache", "microbenchs/persistent_cache_cpp", "PC_NVM",          "-p${num_cpus}", None),
+    ("postgresql",       "microbenchs/postgresql",           "POSTGRESQL",      "-p${num_cpus} -n512", None),
+    ("red_black_tree",   "microbenchs/red_black_tree_cpp",   "RB_NVM",          "-p${num_cpus}", None),
+    ("TATP",             "microbenchs/TATP",                 "TATP_NVM",        "-p${num_cpus}", None),
+    ("TPCC",             "microbenchs/TPCC",                 "TPCC_NVM",        "-p${num_cpus}", None),
+    ("ref_count",        "microbenchs/reference_count",      "REFERENCE_COUNT", "-p${num_cpus}", None),
+    ("histogram",        "microbenchs/histogram",            "HISTOGRAM",       "-p${num_cpus} -finputs/small.bmp", None),
+]:
+    Benchmark(
+        suite = "other",
+        name = name,
+        size = "recommended",
+        args_string = args,
+        subdir_template = f"other-benchmarks/codes/{subdir}",
+        binary_filename_template = f"build/${{arch}}/{exe_name}", 
+        input_filename_template = input)

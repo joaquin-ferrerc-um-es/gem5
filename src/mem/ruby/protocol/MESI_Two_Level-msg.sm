@@ -31,13 +31,8 @@
 // CoherenceRequestType
 enumeration(CoherenceRequestType, desc="...") {
   GETX,      desc="Get eXclusive";
-  GETX_BATCH,desc="Get eXclusive, more than 1";
-  GETX_S_BATCH,desc="Get eXclusive, Get Shared, more than 1";
   UPGRADE,   desc="UPGRADE to exclusive";
-  UPGRADE_BATCH,desc="UPGRADE to exclusive, more than 1";
-  UPGRADE_S_BATCH,desc="UPGRADE to exclusive, Get Shared, more than 1";
   GETS,      desc="Get Shared";
-  GETS_BATCH,desc="Get Shared,more than 1";
   GET_INSTR, desc="Get Instruction";
   INV,       desc="INValidate";
   PUTX,      desc="Replacement message";

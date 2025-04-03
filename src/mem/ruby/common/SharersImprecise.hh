@@ -29,17 +29,6 @@ class AbstractSharersImprecise
     AbstractSharersImprecise() {};
     ~AbstractSharersImprecise() {};
     virtual void add(MachineID newSharer) {};
-
-    void
-    addNetDest(NetDest newSharers)
-    {
-      for (int i = 0; i < NUMNODES; i++) {
-        if (newSharers.isElement(ruby::getL1CacheMachineID(i))) {
-          add(ruby::getL1CacheMachineID(i));
-        }
-      }
-    }
-    
     virtual void remove(MachineID oldSharer) {};
     virtual void clear() {};
     virtual bool isBroadcast() { return false; };
@@ -57,7 +46,6 @@ class SharersImprecise
     SharersImprecise(bool create) {};
     ~SharersImprecise() {};
     void add(MachineID newSharer) { s->add(newSharer); }
-    void addNetDest(NetDest newSharers) { s->addNetDest(newSharers); }
     void remove(MachineID oldSharer) { s->remove(oldSharer); }
     void clear() { s->clear(); }
     bool isBroadcast() { return s->isBroadcast(); }

@@ -124,14 +124,12 @@ structure (NetDest, external = "yes", non_obj="yes") {
   bool intersectionIsEmpty(NetDest);
   MachineID smallestElement();
   MachineID smallestElement(MachineType);
-  MachineID getRandomElement(MachineType);
   NetDest OR(NetDest);
   NetDest AND(NetDest);
 }
 
 structure (LPBroadcast, external = "yes", non_obj="yes") {
   void add(MachineID);
-  void addNetDest(NetDest);
   void remove(MachineID);
   void clear();
   NetDest getSharers();
@@ -141,7 +139,6 @@ structure (LPBroadcast, external = "yes", non_obj="yes") {
 
 structure (LPCBV, external = "yes", non_obj="yes") {
   void add(MachineID);
-  void addNetDest(NetDest);
   void remove(MachineID);
   void clear();
   NetDest getSharers();
@@ -151,7 +148,6 @@ structure (LPCBV, external = "yes", non_obj="yes") {
 
 structure (DASC, external = "yes", non_obj="yes") {
   void add(MachineID);
-  void addNetDest(NetDest);
   void remove(MachineID);
   void clear();
   NetDest getSharers();
@@ -161,7 +157,6 @@ structure (DASC, external = "yes", non_obj="yes") {
 
 structure (SharersImprecise, external = "yes", non_obj="yes") {
   void add(MachineID);
-  void addNetDest(NetDest);
   void remove(MachineID);
   void clear();
   NetDest getSharers();
@@ -352,16 +347,10 @@ structure (CPUContainer, external = "yes") {
     void l2MissesPending();
     void l2NoMissesPending();
     void l2FwdGetSMissesPending(NodeID);
-    void l2FwdGetSMissesPending(NetDest);
     void l2NoFwdGetSMissesPending();
     void l2FwdGetXMissesPending(NodeID);
-    void l2FwdGetXMissesPending(NetDest);
     void l2NoFwdGetXMissesPending();
-    void l2FwdInvMissesPending(NodeID);
-    void l2NoFwdInvMissesPending(NodeID);
     void l3MissesPending(NodeID);
-    void l3MissesPending(NetDest);
-    void l3MissesPending(NetDest, NetDest);
     void l3NoMissesPending(NodeID);
     void l3NoMissesPending(NetDest);
     void anyMissesPending();

@@ -1,9 +1,0 @@
-protocol "MESI_Three_Level_Imprecise_Batch";
-include "RubySlicc_interfaces.slicc";
-include "MESI_Two_Level_Batch-msg.sm";
-include "MESI_Three_Level_Batch-msg.sm";
-include "MESI_Three_Level_Batch-L0cache.sm";
-include "MESI_Three_Level_Imprecise0_Batch-L1cache.sm";
-include "MESI_Two_Level_Imprecise0_Batch-L2cache.sm";
-include "MESI_Two_Level-dir.sm";
-include "MESI_Two_Level-dma.sm";

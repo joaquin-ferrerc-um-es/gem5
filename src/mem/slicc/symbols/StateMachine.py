@@ -112,7 +112,6 @@ class StateMachine(Symbol):
         self.debug_flags = set()
         self.debug_flags.add('RubyGenerated')
         self.debug_flags.add('RubySlicc')
-        self.debug_flags.add('Batches')
 
     def __repr__(self):
         return "[StateMachine: %s]" % self.ident
@@ -438,7 +437,7 @@ void unset_cache_entry(${{self.EntryType.c_ident}}*& m_cache_entry_ptr);
         if self.DirectoryEntryType != None:
             code('''
 
-// Set and Reset for directory_cache_entry variable
+// Set and Reset for cache_entry variable
 void set_directory_entry(${{self.DirectoryEntryType.c_ident}}*& m_directory_entry_ptr, AbstractCacheEntry* m_new_directory_entry);
 void unset_directory_entry(${{self.DirectoryEntryType.c_ident}}*& m_directory_entry_ptr);
 ''')
@@ -1617,7 +1616,7 @@ if (result == TransitionResult_Valid) {
 
     CLEAR_TRANSITION_COMMENT();
 ''')
-        if self.TBEType != None and self.EntryType != None and self.DirectoryEntryType != None:
+        if self.TBEType != None and self.EntryType != None and self.DirectoryEntryType:
             code('setState(m_tbe_ptr, m_cache_entry_ptr, m_directory_entry_ptr, addr, next_state);')
             code('setAccessPermission(m_cache_entry_ptr, m_directory_entry_ptr, addr, next_state);')
         elif self.TBEType != None and self.EntryType != None:

@@ -31,7 +31,6 @@
 
 #include <iostream>
 #include <vector>
-#include <random>
 
 #include "mem/ruby/common/Set.hh"
 #include "mem/ruby/common/MachineID.hh"
@@ -90,7 +89,6 @@ class NetDest
 
     MachineID smallestElement() const;
     MachineID smallestElement(MachineType machine) const;
-    MachineID getRandomElement(MachineType machine) const;
 
     void resize();
     int getSize() const { return m_bits.size(); }
